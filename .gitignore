@@ -1,0 +1,19 @@
+# Local / machine-specific
+.DS_Store
+Thumbs.db
+
+# Claude Code — local overrides (do not commit)
+.claude/settings.local.json
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Environment and secrets (if ever added)
+.env
+.env.*
+!.env.example
+
+# Optional tooling
+node_modules/
