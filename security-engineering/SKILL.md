@@ -41,3 +41,5 @@ When reviewing code, think like a senior security researcher: trace user input t
 - [web3-smart-contract-engineering](../web3-smart-contract-engineering/SKILL.md) — Solidity patterns, signature verification, replay protection (consult alongside `references/web3-smart-contracts.md` when auditing contracts)
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — VPC, IAM, Secrets Manager, encryption-at-rest implementation
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — pipeline hardening, OIDC, untrusted-input handling in CI
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — security incidents follow the same incident-response and postmortem process as reliability incidents
+- [ux-design](../ux-design/SKILL.md) — auth UX, consent flows, and dark patterns intersect with security and privacy

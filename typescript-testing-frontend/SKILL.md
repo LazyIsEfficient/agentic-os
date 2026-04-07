@@ -28,6 +28,7 @@ Mock Zustand stores via the selector pattern, services at the module boundary, a
 
 - [software-design](../software-design/SKILL.md) — testability is a design feedback signal; if a component is hard to test, refactor the component, not the test
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
+- [ux-design](../ux-design/SKILL.md) — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
 
 ## References
 

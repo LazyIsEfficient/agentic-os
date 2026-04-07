@@ -33,6 +33,7 @@ Copy or sync entire folders into a project:
 | `deployment-pipelines` | CI/CD pipelines (GitHub Actions, OIDC, caching, hardening) |
 | `documentation-writer` | Docs under `docs/`, Mermaid diagrams, incremental PR-scoped updates |
 | `security-engineering` | OWASP, auth, infra hardening, Web3 security, agentic AI security, CI review |
+| `site-reliability-engineering` | SLOs/error budgets, alerting, on-call, incident response, postmortems, runbooks, toil reduction, chaos |
 | `software-design` | SOLID, cohesion/coupling, separation of concerns, hexagonal architecture, DDD, code review, refactoring |
 | `system-architect` | System design, distributed patterns, fault tolerance, observability, RFCs |
 | `team-lead` | Linear/Jira ticket policing, ADRs (deviations), DADs (defaults) |
@@ -41,6 +42,8 @@ Copy or sync entire folders into a project:
 | `typescript-quality-engineering` | Umbrella QE: cross-layer test policy, E2E (Playwright), contract tests, CI |
 | `typescript-testing-backend` | Jest unit + Supertest integration tests for TypeScript backends |
 | `typescript-testing-frontend` | Jest + RTL tests for React components and hooks |
+| `ux-design` | UX/UI design: IA, interaction, visual fundamentals, design systems, accessibility, UX writing, critique, handoff |
+| `ux-research` | User research: methods, discovery, interviews, usability testing, synthesis, personas/JTBD, ethics |
 | `web3-smart-contract-engineering` | Solidity contracts with Hardhat + Foundry across EVM chains |
 
 ### Skill relationships
@@ -51,6 +54,13 @@ Skills cross-reference each other where their concerns overlap:
 - `system-architect` ↔ `team-lead` ↔ `documentation-writer` (design, decide, document)
 - `system-architect` ↔ `software-design` (macro service boundaries vs micro module structure inside a service)
 - `software-design` ↔ `team-lead` (significant module-design choices become ADRs; everyday defaults become DADs)
+- `system-architect` ↔ `site-reliability-engineering` (designs SLOs and fault tolerance vs operates them at runtime)
+- `site-reliability-engineering` ↔ `deployment-pipelines` (release safety nets, error-budget gating, rollback automation)
+- `site-reliability-engineering` ↔ `security-engineering` (security incidents follow the same incident-response process)
+- `ux-research` ↔ `ux-design` (research produces evidence; design consumes it; pair early and often)
+- `ux-design` ↔ `typescript-testing-frontend` (accessibility testing as a shared concern)
+- `ux-design` / `ux-research` ↔ `system-architect` (UX surfaces non-functional requirements that constrain architecture)
+- `ux-design` ↔ `software-design` (the design's vocabulary should match the domain model's ubiquitous language)
 - `typescript-quality-engineering` is the umbrella for QE; defers to `typescript-testing-backend` and `typescript-testing-frontend` for layer-specific unit/integration tests, and to `web3-smart-contract-engineering` for contract tests
 - `web3-smart-contract-engineering` ↔ `security-engineering` (authoring vs. adversarial review)
 

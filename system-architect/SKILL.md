@@ -45,6 +45,9 @@ Only escalate a tier when concrete requirements demand it. Document the trigger.
 ## Related skills
 
 - [software-design](../software-design/SKILL.md) — once the service boundaries are decided, this skill structures the code *inside* each service (SOLID, hexagonal, DDD)
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — designs the SLOs and fault tolerance; SRE *operates* them at runtime
 - [team-lead](../team-lead/SKILL.md) — capture significant architectural decisions as ADRs and team defaults as DADs
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — translate the design into provisioned cloud resources
 - [security-engineering](../security-engineering/SKILL.md) — fold security requirements into the design from the start
+- [ux-research](../ux-research/SKILL.md) — surfaces user-facing non-functional requirements (latency tolerance, offline behavior, freshness expectations) that constrain architecture
+- [ux-design](../ux-design/SKILL.md) — the user experience constrains and is constrained by the architecture; coordinate early

@@ -55,4 +55,7 @@ If you find yourself writing an ADR that says "we chose the obvious thing," it s
 
 - [system-architect](../system-architect/SKILL.md) — produce the design docs that ADRs reference
 - [software-design](../software-design/SKILL.md) — module-level design choices ("we use hexagonal here") become DADs; deviations become ADRs
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — postmortem action items become tickets; error-budget policy and on-call structure become DADs
+- [ux-research](../ux-research/SKILL.md) — research findings often become tickets; significant UX decisions ("we are not building feature X based on findings from study Y") become ADRs or DADs
+- [ux-design](../ux-design/SKILL.md) — significant design choices ("we use this design system," "we deviate from the convention here") become DADs and ADRs
 - [documentation-writer](../documentation-writer/SKILL.md) — keep ADR/DAD indexes in `docs/` consistent with code changes

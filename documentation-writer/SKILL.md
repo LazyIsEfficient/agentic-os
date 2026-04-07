@@ -31,3 +31,5 @@ Documentation lives under `docs/`. Diagrams use Mermaid. You may push a single d
 
 - [team-lead](../team-lead/SKILL.md) — ADRs and DADs are documentation too; coordinate ADR/DAD index updates with code changes
 - [system-architect](../system-architect/SKILL.md) — keep design docs in sync with the implementation they describe
+- [ux-design](../ux-design/SKILL.md) — UX writing and product documentation share craft; the same voice and tone discipline applies
+- [ux-research](../ux-research/SKILL.md) — research outputs (personas, JTBD, findings) often live in `docs/` and benefit from incremental-update discipline

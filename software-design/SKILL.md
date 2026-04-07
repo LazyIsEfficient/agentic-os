@@ -59,3 +59,5 @@ For macro decisions (which services exist, how they communicate, capacity planni
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md) / [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — testability is a design feedback signal
 - [security-engineering](../security-engineering/SKILL.md) — separation of concerns is a security property: auth lives at the boundary, not sprinkled into domain logic
 - [documentation-writer](../documentation-writer/SKILL.md) — domain modeling produces a ubiquitous language that belongs in the docs
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — chronically high-toil services usually point back to design problems; reliability work and module design reinforce each other
+- [ux-design](../ux-design/SKILL.md) — the design's vocabulary (labels, names, journeys) should match the domain model's ubiquitous language; coordinating prevents months of vocabulary drift
