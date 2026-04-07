@@ -1,6 +1,6 @@
 ---
 name: cloud-infrastructure
-description: Use when provisioning or modifying cloud resources with infrastructure-as-code — AWS (VPC, ECS, RDS, ElastiCache, Secrets Manager, IAM), Cloudflare Zero Trust, or GCP (BigQuery, GCS). Triggers on edits to IaC source files (Pulumi, Terraform, CDK), stack/state configuration, or mentions of "infrastructure", "IaC", "Pulumi", "Terraform", "AWS", "VPC", "RDS", "ECS", "Cloudflare", or "BigQuery". For build/deploy pipelines see deployment-pipelines. For infrastructure security hardening see security-engineering.
+description: Use when provisioning or modifying cloud resources with infrastructure-as-code — AWS (VPC, ECS, RDS, ElastiCache, SQS/SNS, MQ, MSK, Secrets Manager, IAM), Cloudflare Zero Trust, or GCP (BigQuery, GCS, Pub/Sub). Triggers on edits to IaC source files (Pulumi, Terraform, CDK), stack/state configuration, or mentions of "infrastructure", "IaC", "Pulumi", "Terraform", "AWS", "VPC", "RDS", "ECS", "SQS", "MSK", "RabbitMQ", "Pub/Sub", "Cloudflare", or "BigQuery". For build/deploy pipelines see deployment-pipelines. For infrastructure security hardening see security-engineering.
 ---
 
 # Cloud Infrastructure
@@ -46,5 +46,6 @@ Every resource should be environment-aware: dev can rely on local Docker for sta
 - [references/iam-oidc.md](references/iam-oidc.md) — GitHub Actions OIDC role, developer access policies
 - [references/cloudflare-zero-trust.md](references/cloudflare-zero-trust.md) — tunnels, DNS, Access apps and policies, ingress config
 - [references/gcp-bigquery-gcs.md](references/gcp-bigquery-gcs.md) — GCS buckets, BigQuery datasets/tables, Cloud Build migrations
+- [references/messaging.md](references/messaging.md) — provisioning SQS, SNS fan-out, Amazon MQ (RabbitMQ), MSK (Kafka), and Google Pub/Sub with DLQs, encryption, and HA
 
 For CI/CD pipeline authoring (GitHub Actions workflows, OIDC, caching, security hardening) see the [deployment-pipelines](../deployment-pipelines/SKILL.md) skill.

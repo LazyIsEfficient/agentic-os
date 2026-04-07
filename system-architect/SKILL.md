@@ -34,11 +34,12 @@ Only escalate a tier when concrete requirements demand it. Document the trigger.
 ## References
 
 - [references/complexity-triage.md](references/complexity-triage.md) — detailed sizing heuristics, when to split a monolith, anti-patterns
-- [references/distributed-patterns.md](references/distributed-patterns.md) — service decomposition, saga, CQRS, event sourcing, API gateway, service mesh — and when NOT to use each
+- [references/distributed-patterns.md](references/distributed-patterns.md) — service decomposition, sync/async communication, broker selection, delivery semantics, ordering, saga, CQRS, event sourcing, API gateway, service mesh — and when NOT to use each
 - [references/fault-tolerance.md](references/fault-tolerance.md) — timeouts, retries, circuit breakers, bulkheads, backpressure, idempotency, graceful degradation, chaos testing
 - [references/observability.md](references/observability.md) — three pillars, SLI/SLO/error budgets, RED/USE methods, structured logging, distributed tracing, alert design
 - [references/data-architecture.md](references/data-architecture.md) — single-writer rule, consistency models, CDC, outbox pattern, polyglot persistence trade-offs
 - [references/capacity-planning.md](references/capacity-planning.md) — back-of-envelope math, load testing, headroom rules, cost modeling
+- [references/caching-strategy.md](references/caching-strategy.md) — when to cache, strategy patterns, TTL/invalidation, stampede protection, multi-tier caching
 - [assets/design-doc-template.md](assets/design-doc-template.md) — standard RFC structure: context, requirements, options, decision, risks, rollout
 
 ## Related skills

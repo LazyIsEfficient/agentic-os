@@ -34,6 +34,55 @@ Each pattern lists **when to use** and **when NOT to use**. Distributed patterns
 - **Use when**: many consumers per event, audit/replay needed, eventual consistency acceptable.
 - **Avoid when**: small system — broker ops cost > benefit.
 
+## Broker Selection
+
+Pick the broker by the **delivery semantics and access pattern** the workload needs, not by familiarity.
+
+| Broker | Model | Ordering | Retention | Best for |
+|---|---|---|---|---|
+| **RabbitMQ** | Queue + exchange (push) | Per-queue FIFO | Until ack | Work queues, RPC-over-broker, complex routing topologies |
+| **Kafka / Redpanda** | Distributed log (pull) | Per-partition | Days–forever | Event streaming, replay, fan-out to many consumer groups, CDC |
+| **AWS SQS** | Queue (pull) | FIFO queues only | Up to 14d | Decoupled background work, AWS-native, near-zero ops |
+| **AWS SNS → SQS** | Pub/sub fan-out | Per-queue | Up to 14d | Fan-out to multiple SQS subscribers |
+| **Google Pub/Sub** | Pub/sub (pull or push) | Per-key (ordering keys) | 7d default | GCP-native, large fan-out, low ops |
+| **NATS / NATS JetStream** | Subject-based pub/sub | Per-stream | Configurable | Low-latency edge messaging, microservices mesh |
+| **Redis Streams / BullMQ** | Stream / job queue | Per-stream | Bounded | In-process job queues piggybacking on existing Redis |
+| **DB-as-queue (outbox)** | Polled rows | Per-row | DB lifetime | When you already have a transactional DB and don't want broker ops |
+
+**Decision shortcuts**:
+
+- Need replay or many independent consumers reading the same events? → **Kafka**.
+- Need flexible routing (topic exchanges, headers, RPC)? → **RabbitMQ**.
+- On AWS and want zero ops? → **SQS** (+ SNS for fan-out).
+- Already have Postgres + low scale? → **outbox + a polling worker** before introducing a broker.
+- "We use Redis already" → **BullMQ** for jobs, but treat it as a job queue, not an event bus.
+
+## Delivery Semantics
+
+| Guarantee | What it means | Cost | When acceptable |
+|---|---|---|---|
+| **At-most-once** | Fire and forget. May lose messages. | Cheapest | Telemetry, metrics, non-critical signals |
+| **At-least-once** | Will be delivered ≥1 time. **Consumers must be idempotent.** | Default for most brokers | Almost everything — pair with idempotency |
+| **Exactly-once** | Delivered and processed exactly once. | Expensive, often a marketing claim | Rare. Usually achieved as "at-least-once + idempotent consumer" |
+
+**Rules of thumb**:
+
+- Default to **at-least-once + idempotent consumer**. "Exactly-once" claims usually mean "exactly-once write within one broker boundary"; once you cross to your DB or a third party, you own idempotency.
+- Make every consumer **idempotent on a stable key** (event ID, business key). Use an inbox table or a deduping cache.
+- Pair every producer with the **outbox pattern** when the producing write must atomically commit with the message.
+
+## Ordering Guarantees
+
+- **Global ordering is rare and expensive.** Don't ask for it unless the business requires it.
+- **Per-key ordering** (Kafka partitions, SQS FIFO group ID, Pub/Sub ordering keys) is usually sufficient: order events for one user/order/account, not across all of them.
+- Choose the partition key by the entity whose causality you must preserve. Wrong partition key → ordering bugs that only show up under load.
+
+## DLQs and Poison Messages
+
+- **Always configure a DLQ** before going to production. Without one, a poison message blocks the queue indefinitely.
+- **Bound retries** (e.g. 5 attempts with exponential backoff + jitter), then route to DLQ.
+- DLQs need their own **alerting and replay tooling** — a DLQ no one watches is data loss with extra steps.
+
 ## Coordination Patterns
 
 ### Saga (Orchestration vs Choreography)

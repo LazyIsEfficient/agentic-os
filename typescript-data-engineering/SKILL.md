@@ -1,6 +1,6 @@
 ---
 name: typescript-data-engineering
-description: Use when building data pipelines, ETL jobs, event processors, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", or "data migration". For provisioning the underlying data stores see cloud-infrastructure.
+description: Use when building data pipelines, ETL jobs, event processors, message-broker producers/consumers, application caching layers, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, RabbitMQ/Kafka/SQS/BullMQ producer or consumer code, Redis cache wrappers, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", "data migration", "message queue", "RabbitMQ", "Kafka", "SQS", "BullMQ", "Redis cache", or "caching". For provisioning the underlying data stores and brokers see cloud-infrastructure. For caching strategy and broker-selection trade-offs see system-architect.
 ---
 
 # Data Engineering (TypeScript)
@@ -34,3 +34,5 @@ Services may share a database through a generated client package but stay decoup
 - [references/validation-and-cron.md](references/validation-and-cron.md) — Zod validation rules, cron config, persistent cron manager, idempotency
 - [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations, local Docker, GCP/AWS/Cloudflare/Pulumi, monorepo structure
 - [references/data-models.md](references/data-models.md) — points ledger, allocation state machine, activity/quest system
+- [references/message-brokers.md](references/message-brokers.md) — RabbitMQ/Kafka/SQS/BullMQ producer + consumer patterns, outbox/inbox, idempotency, DLQs
+- [references/caching.md](references/caching.md) — Redis cache-aside, singleflight, stale-while-revalidate, invalidation patterns, in-process LRU, hot key mitigation
