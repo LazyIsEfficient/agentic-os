@@ -6,7 +6,7 @@ Use `renderHook()` with an explicit wrapper providing the required context:
 import { renderHook, act, waitFor } from '@/test-utils/render'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ChakraProvider } from '@chakra-ui/react'
-import { YggTheme } from '@repo/ui/Themes'
+import { AppTheme } from '@repo/ui/Themes'
 
 const wrapper = ({ children }: { children: React.ReactNode }) => {
   const queryClient = new QueryClient({
@@ -14,7 +14,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => {
   })
   return (
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={YggTheme}>{children}</ChakraProvider>
+      <ChakraProvider value={AppTheme}>{children}</ChakraProvider>
     </QueryClientProvider>
   )
 }

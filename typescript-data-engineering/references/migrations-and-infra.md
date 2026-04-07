@@ -51,7 +51,7 @@ services:
 - **GCP**: Google Cloud Storage (merkle buckets), BigQuery (warehouse)
 - **AWS**: Secrets Manager (via Pulumi), infrastructure provisioning
 - **Cloudflare**: DNS/CDN
-- **IaC**: Pulumi (TypeScript) in `pulumi-ygg-play/`
+- **IaC**: Pulumi (TypeScript) in `pulumi-platform/`
 - **CI/CD**: CircleCI, Google Cloud Build for migrations
 
 ### Monorepo Structure

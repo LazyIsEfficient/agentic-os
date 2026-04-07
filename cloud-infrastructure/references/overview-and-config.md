@@ -27,7 +27,7 @@ npm run destroy:production
 ## Project Structure
 
 ```
-pulumi-ygg-play/
+pulumi-platform/
 ├── Pulumi.yaml                 ← Project definition
 ├── Pulumi.dev.yaml             ← Dev stack config
 ├── Pulumi.staging.yaml         ← Staging stack config
@@ -88,7 +88,7 @@ export function getResourceName(resourceType: string): string {
   return `${appConfig[resourceType]}-${environment}`
 }
 
-// Examples: ygg-ecs-cluster-staging, ygg-postgres-production
+// Examples: app-ecs-cluster-staging, app-postgres-production
 ```
 
 ### Tagging Strategy
@@ -98,7 +98,7 @@ Every resource must be tagged:
 ```typescript
 export function getTags(additionalTags: Record<string, string> = {}): Record<string, string> {
   return {
-    Project: 'YGG',
+    Project: 'platform',
     ManagedBy: 'Pulumi',
     Environment: environment,
     ...additionalTags,

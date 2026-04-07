@@ -10,7 +10,7 @@ import * as cloudflare from '@pulumi/cloudflare'
 // One tunnel per developer
 export const devTunnels = developerNames.map(
   (name) => new cloudflare.ZeroTrustTunnelCloudflared(`tunnel-${name}`, {
-    name: `ygg-indexer-dev-database-tunnel-${name}`,
+    name: `app-dev-database-tunnel-${name}`,
     accountId: cloudflareConfig.accountId,
     configSrc: 'cloudflare',
   })
@@ -24,7 +24,7 @@ export const devTunnels = developerNames.map(
 export const devDnsRecords = developerNames.map(
   (name, i) => new cloudflare.DnsRecord(`dns-${name}`, {
     zoneId: cloudflareConfig.zoneId,
-    name: `dev-db-${name}`,           // dev-db-glenn.yggplay.fun
+    name: `dev-db-${name}`,           // dev-db-alice.example.com
     content: pulumi.interpolate`${devTunnels[i].id}.cfargotunnel.com`,
     type: 'CNAME',
     ttl: 1,
@@ -38,8 +38,8 @@ export const devDnsRecords = developerNames.map(
 ```typescript
 export const devAccessApps = developerNames.map(
   (name) => new cloudflare.ZeroTrustAccessApplication(`access-${name}`, {
-    name: `ygg-indexer-dev-database-access-${name}`,
-    domain: `dev-db-${name}.yggplay.fun`,
+    name: `app-dev-database-access-${name}`,
+    domain: `dev-db-${name}.example.com`,
     type: 'self_hosted',
     sessionDuration: '24h',
   })
@@ -55,7 +55,7 @@ export const devTeamPolicies = developerNames.map(
     applicationId: devAccessApps[name].id,
     decision: 'allow',
     includes: [{
-      emailDomain: { domain: 'yieldguild.games' },
+      emailDomain: { domain: 'example.com' },
     }],
   })
 )
@@ -80,12 +80,12 @@ export const tunnelConfig = new cloudflare.ZeroTrustTunnelCloudflaredConfig('tun
   config: {
     ingresses: [
       {
-        hostname: 'ethereum-rpc.yggplay.fun',
+        hostname: 'ethereum-rpc.example.com',
         service: 'http://hardhat-node:8545',
         originRequest: { noTlsVerify: true },
       },
       {
-        hostname: 'ethereum-ws.yggplay.fun',
+        hostname: 'ethereum-ws.example.com',
         service: 'ws://hardhat-node:8545',
         originRequest: { noTlsVerify: true },
       },

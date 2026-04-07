@@ -1,8 +1,8 @@
 # ElastiCache Redis
 
 ```typescript
-export const elasticacheCluster = new aws.elasticache.ReplicationGroup('ygg-redis', {
-  replicationGroupDescription: 'YGG Redis cluster',
+export const elasticacheCluster = new aws.elasticache.ReplicationGroup('app-redis', {
+  replicationGroupDescription: 'Application Redis cluster',
   nodeType: getInstanceSizing('redis').nodeType,
   port: 6379,
   parameterGroupName: 'default.redis7',
@@ -13,7 +13,7 @@ export const elasticacheCluster = new aws.elasticache.ReplicationGroup('ygg-redi
   transitEncryptionEnabled: true,
   subnetGroupName: redisSubnetGroup.name,
   securityGroupIds: [redisSecurityGroup.id],
-  tags: getTags({ Name: 'ygg-redis' }),
+  tags: getTags({ Name: 'app-redis' }),
 })
 ```
 

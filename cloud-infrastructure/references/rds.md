@@ -1,7 +1,7 @@
 # RDS PostgreSQL
 
 ```typescript
-export const rdsInstance = new aws.rds.Instance('ygg-postgres', {
+export const rdsInstance = new aws.rds.Instance('app-postgres', {
   engine: 'postgres',
   engineVersion: '15.4',
   instanceClass: getInstanceSizing('rds').instanceClass,
@@ -16,17 +16,17 @@ export const rdsInstance = new aws.rds.Instance('ygg-postgres', {
   skipFinalSnapshot: !isProduction,
   vpcSecurityGroupIds: [rdsSecurityGroup.id],
   dbSubnetGroupName: dbSubnetGroup.name,
-  tags: getTags({ Name: 'ygg-postgres' }),
+  tags: getTags({ Name: 'app-postgres' }),
 })
 
 // Production: read replicas for horizontal scaling
 if (isProduction) {
   for (let i = 0; i < 2; i++) {
-    new aws.rds.Instance(`ygg-postgres-replica-${i}`, {
+    new aws.rds.Instance(`app-postgres-replica-${i}`, {
       replicateSourceDb: rdsInstance.identifier,
       instanceClass: getInstanceSizing('rds').instanceClass,
       storageEncrypted: true,
-      tags: getTags({ Name: `ygg-postgres-replica-${i}` }),
+      tags: getTags({ Name: `app-postgres-replica-${i}` }),
     })
   }
 }

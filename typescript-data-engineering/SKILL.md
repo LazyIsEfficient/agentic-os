@@ -1,23 +1,25 @@
 ---
 name: typescript-data-engineering
-description: Use when building data pipelines, ETL jobs, event processors, database migrations, BigQuery queries, or event-sourcing handlers in the YGG platform. Triggers on edits to evm-indexer/**, points-service/**, packages/prisma/**, drizzle migrations, BigQuery integration code, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", or "data migration".
+description: Use when building data pipelines, ETL jobs, event processors, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", or "data migration". For provisioning the underlying data stores see cloud-infrastructure.
 ---
 
 # Data Engineering (TypeScript)
 
-The YGG platform runs a microservices architecture with PostgreSQL 17 (Prisma + Drizzle), Redis 7, Google BigQuery as the analytics warehouse, and an event-sourcing pipeline that ingests blockchain events through an inbox/outbox pattern with exactly-once semantics.
+You are operating as a data engineer. Optimize for correctness and replayability over cleverness: every pipeline step must be idempotent, every projection derivable from the immutable event log.
 
-Services share a database via `@repo/prisma` but stay decoupled through events. Cron jobs handle scheduled ETL (points distribution, quest resets) and merkle tree generation publishes to GCS.
+Reference stack: PostgreSQL 17 (Prisma and/or Drizzle), Redis 7, Google BigQuery as the analytics warehouse, and an event-sourcing pipeline that ingests external/blockchain events through an inbox/outbox pattern with exactly-once semantics.
+
+Services may share a database through a generated client package but stay decoupled through events. Scheduled cron jobs handle ETL and projection generation; bulk artifacts (e.g. merkle trees) publish to object storage. For provisioning the underlying stores see [cloud-infrastructure](../cloud-infrastructure/SKILL.md).
 
 ## Universal Rules
 
 1. **Idempotency everywhere** — every pipeline step must be safe to re-run.
-2. **Single source of truth** — `InfraIngestEvent` is the immutable event log; downstream tables are projections.
+2. **Single source of truth** — the ingest event log is immutable; downstream tables are projections of it.
 3. **Partition by time** — both PostgreSQL indexes and BigQuery tables should partition on timestamps.
 4. **Fail loudly** — invalid data goes to DLQ, not silently dropped.
 5. **Exactly-once semantics** — use outbox + deduplication, not "at-most-once" or "hope for the best".
 6. **Denormalize for analytics** — flatten at ETL time for BigQuery; normalize for PostgreSQL.
-7. **Backfill-ready** — every projection must support replay from the event log via `ReplayJob`.
+7. **Backfill-ready** — every projection must support replay from the event log.
 8. **Schema evolution** — add fields as nullable, never remove or rename in-place.
 9. **Validate at boundaries** with Zod — not between internal modules.
 10. **Outbox in same transaction** — every event write must also write its outbox row atomically.

@@ -26,3 +26,8 @@ Documentation lives under `docs/`. Diagrams use Mermaid. You may push a single d
 - [references/mermaid-diagrams.md](references/mermaid-diagrams.md) — Mermaid syntax examples and rules
 - [references/commit-rules.md](references/commit-rules.md) — commit message format, idempotency, staging
 - [references/ci-workflow.md](references/ci-workflow.md) — companion GitHub Actions workflow snippet
+
+## Related skills
+
+- [team-lead](../team-lead/SKILL.md) — ADRs and DADs are documentation too; coordinate ADR/DAD index updates with code changes
+- [system-architect](../system-architect/SKILL.md) — keep design docs in sync with the implementation they describe

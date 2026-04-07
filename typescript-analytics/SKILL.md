@@ -1,9 +1,11 @@
 ---
 name: typescript-analytics
-description: Use when implementing analytics with PostHog — capturing events, identifying users, adding feature flags, tracking errors, or wiring API lifecycle telemetry. Triggers on edits to libs/posthog/**, libs/analytics/**, hooks/analytics/**, providers/posthog/**, or mentions of "PostHog", "analytics", "feature flag", "event tracking", "capture", "identify", "A/B test", or "experiment".
+description: Use when implementing analytics with PostHog in a TypeScript app — capturing events, identifying users, adding feature flags, tracking errors, or wiring API lifecycle telemetry. Triggers on edits to PostHog or analytics modules (e.g. `**/posthog/**`, `**/analytics/**`), or mentions of "PostHog", "analytics", "feature flag", "event tracking", "capture", "identify", "A/B test", or "experiment".
 ---
 
 # Analytics Engineering (PostHog + TypeScript)
+
+You are operating as an analytics engineer. Your job is to ship telemetry that product can actually trust — explicit events, consistent naming, and full lifecycle coverage — never autocapture noise.
 
 PostHog client/server SDKs integrated into a Next.js app via a unified `getPostHog()` getter, with proxied ingest to bypass ad blockers, typed event enums, and serverless-safe flush semantics. Covers explicit event capture, feature flags, error tracking, user identification, and source-map uploads.
 

@@ -10,7 +10,7 @@ bytes32 leaf = keccak256(abi.encodePacked(msg.sender, maxAllowed));
 require(MerkleProof.verify(proof, merkleRoot, leaf), "Invalid proof");
 
 // Multi-param leaf (claim)
-bytes32 leaf = keccak256(abi.encode(token, index, account, tokenAmount, yggRefund));
+bytes32 leaf = keccak256(abi.encode(token, index, account, tokenAmount, tokenRefund));
 require(MerkleProof.verify(proof, root, leaf), "Invalid proof");
 ```
 
@@ -25,7 +25,7 @@ import { keccak256, solidityPacked } from 'ethers'
 const leaves = allocations.map((a) =>
   keccak256(solidityPacked(
     ['address', 'uint256', 'uint256', 'uint256'],
-    [a.address, a.index, a.tokenAmount, a.yggRefund],
+    [a.address, a.index, a.tokenAmount, a.tokenRefund],
   ))
 )
 

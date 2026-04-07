@@ -24,7 +24,7 @@ Per-developer tunnels with access policies scoped by email domain:
 ```typescript
 // Access policy — team members
 decision: 'allow'
-includes: [{ emailDomain: { domain: 'yieldguild.games' } }]
+includes: [{ emailDomain: { domain: 'example.com' } }]
 
 // Access policy — external tools (IP-restricted)
 decision: 'allow'

@@ -35,7 +35,7 @@ export const ANALYTICS_EVENTS = {
 export interface RedeemEventProperties extends BaseEventProperties {
   game?: string
   option_id?: string
-  ygg_amount?: number
+  token_amount?: number
   points_required?: number
   points_spent?: number
   tx_hash?: string
@@ -85,7 +85,7 @@ const { track, events } = useAnalytics()
 track(events.REDEEM.TRANSACTION_INITIATED, {
   game,
   option_id,
-  ygg_amount,
+  token_amount,
   points_spent,
   status: EVENT_STATUS.IN_PROGRESS,
 })

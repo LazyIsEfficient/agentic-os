@@ -15,6 +15,6 @@ The platform uses a microservices architecture with:
 | `evm-indexer` | Blockchain event ingestion pipeline | 3000 | Shared PostgreSQL (writes events, allocations) |
 | `points-service` | Scheduled points distribution + quest resets | 3001 | Shared PostgreSQL (reads/writes points, activities) |
 | `platform-app` | Next.js web frontend + API routes | 3000 | Shared PostgreSQL (reads all, writes user data) |
-| `ygg-redeem` API | Token redemption platform | 4000 | Separate PostgreSQL (Drizzle migrations) |
+| `redeem-api` | Token redemption platform | 4000 | Separate PostgreSQL (Drizzle migrations) |
 
 Services share a PostgreSQL database via `@repo/prisma` but are decoupled through the event sourcing inbox/outbox pattern.

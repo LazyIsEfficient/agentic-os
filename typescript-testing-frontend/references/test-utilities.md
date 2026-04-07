@@ -6,7 +6,7 @@ All component and hook tests import from `@/test-utils/render` instead of `@test
 // test-utils/render.tsx
 import { render, RenderOptions } from '@testing-library/react'
 import { ChakraProvider } from '@chakra-ui/react'
-import { YggTheme } from '@repo/ui/Themes'
+import { AppTheme } from '@repo/ui/Themes'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const AllProviders = ({ children }: { children: React.ReactNode }) => {
@@ -18,7 +18,7 @@ const AllProviders = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={YggTheme}>{children}</ChakraProvider>
+      <ChakraProvider value={AppTheme}>{children}</ChakraProvider>
     </QueryClientProvider>
   )
 }

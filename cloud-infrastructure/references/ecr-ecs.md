@@ -3,7 +3,7 @@
 ## ECR Container Registry
 
 ```typescript
-export const ecrRepository = new aws.ecr.Repository('ygg-evm-indexer-repo', {
+export const ecrRepository = new aws.ecr.Repository('app-repo', {
   name: appConfig.ecs.repositoryName,
   imageScanningConfiguration: { scanOnPush: true },
   encryptionConfiguration: { encryptionType: 'AES256' },
@@ -26,7 +26,7 @@ new aws.ecr.LifecyclePolicy('ecr-lifecycle', {
 
 ```typescript
 // Cluster with Container Insights
-export const ecsCluster = new aws.ecs.Cluster('ygg-ecs-cluster', {
+export const ecsCluster = new aws.ecs.Cluster('app-ecs-cluster', {
   name: getResourceName('clusterName'),
   settings: [{ name: 'containerInsights', value: 'enabled' }],
   tags: getTags({ Name: getResourceName('clusterName') }),

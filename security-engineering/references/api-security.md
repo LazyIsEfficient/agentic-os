@@ -13,7 +13,7 @@
 // 5. Cache in RequestAuthContext for handler access
 ```
 
-**JWT auth** (ygg-redeem):
+**JWT auth**:
 
 - `JWT_SECRET` and `JWT_EXPIRES_IN_SECONDS` validated via Zod at startup
 - `JwtAuthGuard extends AuthGuard('jwt')`
@@ -48,7 +48,7 @@ DATABASE_MAX_CONNECTIONS: z.coerce.number().default(20)
 
 ## Rate Limiting
 
-**Redis-backed throttler** (ygg-redeem):
+**Redis-backed throttler**:
 
 ```typescript
 // rate-limit/guards/redis-throttler.guard.ts

@@ -29,7 +29,7 @@ import { prisma } from '@repo/prisma'
 
 ## Drizzle ORM (Secondary)
 
-Used in `ygg-redeem` and event sourcing POCs for services with independent schemas:
+Used in event sourcing POCs and standalone services with independent schemas:
 
 ```typescript
 import { pgTable, uuid, varchar, jsonb, bigserial, timestamp } from 'drizzle-orm/pg-core'

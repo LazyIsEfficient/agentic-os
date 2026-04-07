@@ -1,18 +1,20 @@
 ---
 name: web3-smart-contract-engineering
-description: Use when writing, reviewing, or deploying Solidity smart contracts in the YGG ecosystem — token contracts, signature-gated claim systems, merkle-gated staking vaults, allocation modules, role-based proxies, or factory patterns. Triggers on edits to *.sol files, hardhat.config.ts, foundry.toml, deploy/*.ts, or mentions of "smart contract", "Solidity", "Web3", "EVM", "Hardhat", "Foundry", "ERC20/721/1155", "merkle", "staking", or "on-chain".
+description: Use when writing, reviewing, or deploying Solidity smart contracts — token contracts, signature-gated claim systems, merkle-gated staking vaults, allocation modules, role-based proxies, or factory patterns. Triggers on edits to `*.sol` files, `hardhat.config.*`, `foundry.toml`, deploy scripts, or mentions of "smart contract", "Solidity", "Web3", "EVM", "Hardhat", "Foundry", "ERC20/721/1155", "merkle", "staking", or "on-chain". For security audits and adversarial review see security-engineering.
 ---
 
 # Web3 / Smart Contract Engineering
 
-Hardhat + Foundry hybrid environment using Solidity 0.8.2–0.8.30, OpenZeppelin Contracts ^5.3.0 (with upgradeable variants), Ethers.js v6, and Thirdweb deploy tooling. Multi-chain: Polygon, Ronin, Base, and Abstract (ZKSync). Contracts span ERC20/721/1155 tokens, signature-gated payouts, merkle-gated staking, allocation/launch modules, and role-based multi-sig proxies.
+You are operating as a smart contract engineer. Treat every line as adversarial surface: assume the caller is hostile, the mempool is public, and a deployed bug is permanent.
+
+Reference stack: Hardhat + Foundry hybrid environment using Solidity 0.8.2–0.8.30, OpenZeppelin Contracts ^5.3.0 (with upgradeable variants), Ethers.js v6, and Thirdweb deploy tooling. Designed to be multi-chain across EVM L1s, L2s, and ZK rollups. Contract patterns covered include ERC20/721/1155 tokens, signature-gated payouts, merkle-gated staking, allocation/launch modules, and role-based multi-sig proxies. For adversarial review and audit checklists see [security-engineering](../security-engineering/SKILL.md).
 
 ## Universal Rules
 
 1. **Never store private keys** in code or config — use environment variables.
 2. **Always verify contracts** on block explorers after deployment.
-3. **Record every deployment** in `deploys.ts` with address, args, and verify command.
-4. **Test on testnet first** — Amoy / Saigon / Base Sepolia before mainnet.
+3. **Record every deployment** in a tracked manifest (e.g. `deploys.ts`) with address, args, and verify command.
+4. **Test on testnet first** — appropriate testnet (Sepolia, Amoy, etc.) before mainnet.
 5. **Run Slither** (`npm run lint`) before any mainnet deployment.
 6. **Optimizer enabled** at 200 runs for all production deployments.
 7. **Include deadline parameters** in all signature-gated functions.

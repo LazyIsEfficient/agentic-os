@@ -39,33 +39,23 @@ jest-canvas-mock                   # Canvas polyfill for jsdom
 
 ## Directory Structure and Naming
 
-Tests live in co-located `__tests__/` folders:
+Tests live in co-located `__tests__/` folders. Typical layout:
 
 ```
-apps/platform-app/
-├── app/api/v1/
-│   ├── activities/
-│   │   ├── controllers/activities.controller.ts
-│   │   ├── services/activities.service.ts
-│   │   └── __tests__/
-│   │       ├── get-activities.integration.test.ts
-│   │       ├── get-activity-by-slug.integration.test.ts
-│   │       ├── enroll-activity.integration.test.ts
-│   │       └── shared-test-setup.ts
-│   └── shared/test-utils/
-│       ├── test-database.ts
-│       ├── server-mock.ts
-│       └── mocks/
-│           ├── authentication-mock.ts
-│           ├── network-config-mock.ts
-│           └── thirdweb-mock.ts
-├── domains/
-│   ├── quests/
-│   │   ├── components/quest-tasks/__tests__/TaskItem.test.tsx
-│   │   └── hooks/__tests__/useQuestFilterGroup.test.tsx
-│   └── profile/
-│       ├── components/__tests__/ProfileStats.test.tsx
-│       └── hooks/__tests__/useProfileData.test.ts
+apps/<app>/
+├── app/api/v1/<resource>/
+│   ├── controllers/<resource>.controller.ts
+│   ├── services/<resource>.service.ts
+│   └── __tests__/
+│       ├── <action>.integration.test.ts
+│       └── shared-test-setup.ts
+├── shared/test-utils/
+│   ├── test-database.ts
+│   ├── server-mock.ts
+│   └── mocks/
+├── domains/<domain>/
+│   ├── components/__tests__/<Component>.test.tsx
+│   └── hooks/__tests__/use<Hook>.test.tsx
 ├── e2e/playwright/__tests__/*.spec.ts
 ├── test-utils/render.tsx
 └── config/jest/
@@ -74,12 +64,12 @@ apps/platform-app/
     └── env.setup.js
 ```
 
-| Type | Pattern | Example |
-|---|---|---|
-| Component unit | `{ComponentName}.test.tsx` | `TaskItem.test.tsx` |
-| Hook unit | `use{HookName}.test.ts/tsx` | `useProfileData.test.ts` |
-| Service unit | `{module}.service.test.ts` | `faq.service.test.ts` |
-| Controller unit | `{module}.controller.test.ts` | `faq.controller.test.ts` |
-| API integration | `{action}.integration.test.ts` | `get-activities.integration.test.ts` |
-| E2E | `{feature}.spec.ts` | `landing.spec.ts` |
-| Smart contract | `{contract}.test.ts` | `payment_code.test.ts` |
+| Type | Pattern |
+|---|---|
+| Component unit | `{ComponentName}.test.tsx` |
+| Hook unit | `use{HookName}.test.ts/tsx` |
+| Service unit | `{module}.service.test.ts` |
+| Controller unit | `{module}.controller.test.ts` |
+| API integration | `{action}.integration.test.ts` |
+| E2E | `{feature}.spec.ts` |
+| Smart contract | `{contract}.test.ts` |

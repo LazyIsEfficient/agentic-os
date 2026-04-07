@@ -8,11 +8,11 @@ Used for merkle tree and token list publishing:
 import * as gcp from '@pulumi/gcp'
 
 const bucket = new gcp.storage.Bucket('merkle-bucket', {
-  name: isProduction ? 'ygg_play_merkle_bucket_prod' : 'ygg_play_merkle_bucket',
+  name: isProduction ? 'app_merkle_bucket_prod' : 'app_merkle_bucket',
   location: 'US',
   uniformBucketLevelAccess: true,
   versioning: { enabled: true },
-  labels: { project: 'ygg', environment: environment },
+  labels: { project: 'platform', environment: environment },
 })
 ```
 
@@ -22,8 +22,8 @@ const bucket = new gcp.storage.Bucket('merkle-bucket', {
 const dataset = new gcp.bigquery.Dataset('platform-analytics', {
   datasetId: 'platform',
   location: 'US',
-  description: 'YGG platform analytics warehouse',
-  labels: { project: 'ygg', environment: environment },
+  description: 'Platform analytics warehouse',
+  labels: { project: 'platform', environment: environment },
 })
 
 // Partitioned + clustered table
@@ -43,7 +43,7 @@ const pointTransactions = new gcp.bigquery.Table('point-transactions', {
     { name: 'activity_slug', type: 'STRING', mode: 'NULLABLE' },
     { name: 'distributed_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
   ]),
-  labels: { project: 'ygg' },
+  labels: { project: 'platform' },
 })
 ```
 

@@ -46,11 +46,9 @@ apps/platform-app/
 
 | Type | Pattern | Example |
 |---|---|---|
-| Service tests | `{module}.service.test.ts` | `faq.service.test.ts` |
-| Controller tests | `{module}.controller.test.ts` | `faq.controller.test.ts` |
-| Integration tests | `{feature}.integration.test.ts` | `get-points.integration.test.ts` |
-| Component tests | `{ComponentName}.test.tsx` | `ProfileStats.test.tsx` |
-| Hook tests | `use{HookName}.test.ts/tsx` | `useProfileData.test.ts` |
+| Service tests | `{module}.service.test.ts` |
+| Controller tests | `{module}.controller.test.ts` |
+| Integration tests | `{feature}.integration.test.ts` |
 
 ## Coverage Configuration
 

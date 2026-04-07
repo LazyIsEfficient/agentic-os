@@ -66,9 +66,9 @@ async function resetActivities(frequency: 'daily' | 'weekly') {
 Processes allocation data and publishes to GCS:
 
 ```
-Input:  Allocation records (address, points, ygg, tokensCommitted)
+Input:  Allocation records (address, points, baseToken, tokensCommitted)
 Rules:  1% per-wallet cap with proportional redistribution
 Output: Merkle root + per-wallet proofs (JSON → GCS bucket)
 ```
 
-Buckets: `ygg_play_merkle_bucket` (staging), `ygg_play_merkle_bucket_prod` (production)
+Buckets: `app_merkle_bucket` (staging), `app_merkle_bucket_prod` (production)

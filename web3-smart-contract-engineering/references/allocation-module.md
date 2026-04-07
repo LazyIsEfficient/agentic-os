@@ -9,7 +9,7 @@ struct AllocData {
     AllocState state;
     uint160 sqrtPriceX96;        // Uniswap V3 initial price
     uint24 uniV3Fee;             // Pool fee tier (500, 3000, 10000)
-    uint256 targetYGG;
+    uint256 targetRaise;         // Target amount in base token
     uint256 perWalletCap;
     uint256 totalCommitted;
     uint256 minCommit;           // Minimum to succeed
@@ -25,9 +25,9 @@ struct AllocData {
 ## Lifecycle
 
 1. Owner creates allocation with parameters
-2. Users commit YGG during `commitStartTime..commitEndTime` (signed quota)
+2. Users commit the base token during `commitStartTime..commitEndTime` (signed quota)
 3. Admin sets merkle root → state transitions to `CLAIMABLE`
-4. Users claim new tokens + YGG refunds via merkle proof
+4. Users claim new tokens + base-token refunds via merkle proof
 5. If admin misses deadline → auto-transitions to `REFUNDED`
 
 ## Advanced Features

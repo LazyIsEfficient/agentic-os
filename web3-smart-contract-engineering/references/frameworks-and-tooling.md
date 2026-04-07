@@ -37,7 +37,7 @@ npm run deploy           # Thirdweb deploy (npx thirdweb@latest deploy)
 ## Project Structure
 
 ```
-ygg-contracts/
+contracts-monorepo/
 ├── hhf_sol-0_8_2/                ← Hardhat+Foundry workspace (Solidity 0.8.2)
 │   ├── src/                      ← Contract source
 │   │   ├── MintableERC721.sol
@@ -60,7 +60,7 @@ ygg-contracts/
 │       └── Token.sol
 └── deploys.ts                    ← Deployment records
 
-ygg-play-platform-contracts/      ← Allocation + staking modules
+platform-contracts/               ← Allocation + staking modules
 ├── contracts/
 │   ├── AllocationModule.sol      ← Token launch + commitment system
 │   ├── RewardMultiplier.sol
@@ -68,7 +68,7 @@ ygg-play-platform-contracts/      ← Allocation + staking modules
 ├── deploy/                       ← hardhat-deploy scripts
 └── test/
 
-ygg-redeem/apps/smart-contract/   ← Reward payout system
+redeem-app/apps/smart-contract/   ← Reward payout system
 ├── contracts/
 │   ├── RewardPayout.sol          ← Signature-gated claims
 │   ├── RewardPayoutFactory.sol   ← Multi-vault factory

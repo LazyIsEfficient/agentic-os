@@ -15,7 +15,7 @@
 |---|---|
 | `slug`, `name`, `frequency`, `projectId` | Quest events |
 | `tokenSlug`, `pointsPledged`, `tokenStatus` | Token events |
-| `game`, `option_id`, `ygg_amount`, `points_spent` | Redeem events |
+| `game`, `option_id`, `token_amount`, `points_spent` | Redeem events |
 | `tx_hash`, `attempt_id` | Transaction events |
 | `error_code`, `error_message` | Error events |
 | `wallet_address_masked`, `wallet_provider` | Wallet events |

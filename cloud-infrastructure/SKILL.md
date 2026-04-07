@@ -1,13 +1,15 @@
 ---
-name: pulumi-infrastructure
-description: Use when writing or modifying Pulumi TypeScript infrastructure-as-code for the YGG platform — provisioning AWS (VPC/ECS/RDS/ElastiCache/Secrets Manager/IAM), Cloudflare Zero Trust, or GCP (BigQuery/GCS). Triggers on edits to pulumi-*/src/**/*.ts, Pulumi.yaml/*.yaml stack files, or mentions of these resources.
+name: cloud-infrastructure
+description: Use when provisioning or modifying cloud resources with infrastructure-as-code — AWS (VPC, ECS, RDS, ElastiCache, Secrets Manager, IAM), Cloudflare Zero Trust, or GCP (BigQuery, GCS). Triggers on edits to IaC source files (Pulumi, Terraform, CDK), stack/state configuration, or mentions of "infrastructure", "IaC", "Pulumi", "Terraform", "AWS", "VPC", "RDS", "ECS", "Cloudflare", or "BigQuery". For build/deploy pipelines see deployment-pipelines. For infrastructure security hardening see security-engineering.
 ---
 
-# Pulumi Infrastructure (TypeScript)
+# Cloud Infrastructure
 
-Pulumi 3.x with TypeScript on Node 22+. Multi-stack environments (`dev` / `staging` / `production`) provision AWS, Cloudflare, and GCP resources for the YGG platform. CI/CD uses GitHub Actions with OIDC role assumption — no long-lived credentials.
+You are operating as an infrastructure engineer responsible for the cloud footprint. Treat every change as production-bound: prefer least privilege, reproducibility, and explicit environment parity over convenience.
 
-Every resource is environment-aware: dev relies on local Docker for stateful services, staging/production provision real RDS, ElastiCache, ECS, and Secrets Manager.
+The reference implementation uses Pulumi 3.x with TypeScript, but the rules apply to any IaC tool (Terraform, CDK, Pulumi). Multi-stack environments (`dev` / `staging` / `production`) provision AWS, Cloudflare, and GCP resources. Pipelines that consume these resources live in [deployment-pipelines](../deployment-pipelines/SKILL.md); security hardening guidance lives in [security-engineering](../security-engineering/SKILL.md).
+
+Every resource should be environment-aware: dev can rely on local Docker for stateful services, while staging/production provision real RDS, ElastiCache, ECS, and Secrets Manager.
 
 ## Universal Rules
 
@@ -44,4 +46,5 @@ Every resource is environment-aware: dev relies on local Docker for stateful ser
 - [references/iam-oidc.md](references/iam-oidc.md) — GitHub Actions OIDC role, developer access policies
 - [references/cloudflare-zero-trust.md](references/cloudflare-zero-trust.md) — tunnels, DNS, Access apps and policies, ingress config
 - [references/gcp-bigquery-gcs.md](references/gcp-bigquery-gcs.md) — GCS buckets, BigQuery datasets/tables, Cloud Build migrations
-- [references/ci-cd.md](references/ci-cd.md) — GitHub Actions pipeline, deployment scripts
+
+For CI/CD pipeline authoring (GitHub Actions workflows, OIDC, caching, security hardening) see the [deployment-pipelines](../deployment-pipelines/SKILL.md) skill.

@@ -35,3 +35,9 @@ When reviewing code, think like a senior security researcher: trace user input t
 - [references/agentic-ai-security.md](references/agentic-ai-security.md) — OWASP 2026 ASI01-10 + agent security checklist
 - [references/asvs-5.md](references/asvs-5.md) — L1/L2/L3 requirements
 - [references/language-specific.md](references/language-specific.md) — JS/TS, Solidity, Python, Go, Bash risks + deep analysis mindset
+
+## Related skills
+
+- [web3-smart-contract-engineering](../web3-smart-contract-engineering/SKILL.md) — Solidity patterns, signature verification, replay protection (consult alongside `references/web3-smart-contracts.md` when auditing contracts)
+- [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — VPC, IAM, Secrets Manager, encryption-at-rest implementation
+- [deployment-pipelines](../deployment-pipelines/SKILL.md) — pipeline hardening, OIDC, untrusted-input handling in CI

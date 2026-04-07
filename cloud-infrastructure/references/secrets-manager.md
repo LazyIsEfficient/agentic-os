@@ -6,14 +6,14 @@
 // Application config secret
 export const appConfigSecret = new aws.secretsmanager.Secret('app-config', {
   name: getResourceName('secrets.appConfigName'),
-  description: `Application configuration for YGG ${environment} environment`,
+  description: `Application configuration for ${environment} environment`,
   tags: getTags({}),
 })
 
 // Auto-sync .env variables to Secrets Manager
 for (const [key, value] of Object.entries(envVars)) {
   const secret = new aws.secretsmanager.Secret(`${key}-secret`, {
-    name: `ygg-indexer-${environment}-${sanitize(key)}`,
+    name: `app-${environment}-${sanitize(key)}`,
     description: `Environment variable ${key} for ${environment}`,
     tags: getTags({}),
   })

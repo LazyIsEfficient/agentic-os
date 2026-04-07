@@ -60,7 +60,7 @@ Runs alongside security review but covers broader quality — max 10 inline comm
 
 ## Smart Contract Review
 
-`ygg-play-platform-contracts` uses a dedicated Cursor review with `composer-1.5` model and `.cursorrules` enforcing:
+Smart contract repos use a dedicated Cursor review with `composer-1.5` model and `.cursorrules` enforcing:
 
 1. **SECURITY FIRST** — flag vulnerabilities immediately
 2. Reentrancy attacks, access control, integer overflow/underflow

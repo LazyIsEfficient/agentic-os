@@ -25,7 +25,7 @@ export const githubActionsRole = new aws.iam.Role('github-actions-role', {
 ## Developer Access
 
 ```typescript
-export const devTeamUser = new aws.iam.User('ygg-dev-team', {
+export const devTeamUser = new aws.iam.User('dev-team', {
   path: '/dev/',
   tags: getTags({ Purpose: 'LocalDev secrets access' }),
 })
@@ -38,8 +38,8 @@ export const localDevSecretsPolicy = new aws.iam.Policy('local-dev-secrets', {
       Effect: 'Allow',
       Action: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
       Resource: [
-        'arn:aws:secretsmanager:*:*:secret:ygg-indexer-dev/ygg-local-dev-*',
-        'arn:aws:secretsmanager:*:*:secret:ygg-indexer-dev-env-*',
+        'arn:aws:secretsmanager:*:*:secret:app-dev/local-dev-*',
+        'arn:aws:secretsmanager:*:*:secret:app-dev-env-*',
       ],
     }],
   }),

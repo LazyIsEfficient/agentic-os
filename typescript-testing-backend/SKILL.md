@@ -1,13 +1,15 @@
 ---
 name: typescript-testing-backend
-description: Use when writing or reviewing backend tests in the YGG platform — Jest unit tests for services/controllers (mocked Prisma) or Supertest integration tests against a real isolated PostgreSQL via `TestDatabase` and `TestServer`. Triggers on edits to `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts`, files under `app/api/v1/**/__tests__/`, or mentions of "backend test", "service test", "API test", "database test".
+description: Use when writing or reviewing TypeScript backend tests — Jest unit tests for services/controllers (mocked Prisma) or Supertest integration tests against a real isolated PostgreSQL test database. Triggers on edits to `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts`, files under `**/__tests__/`, or mentions of "backend test", "service test", "API test", "database test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
 ---
 
 # TypeScript Testing — Backend
 
-Backend test stack: Jest 29 with `@swc/jest`, Supertest for HTTP, custom `TestServer` simulating Next.js route handlers, and `TestDatabase` provisioning isolated PostgreSQL instances per run with migrations + seed. Tests live co-located in `__tests__/` folders.
+You are operating as a backend test engineer. Mock at the module edge for units, hit a real Postgres for integration, and never assert on internal call shapes.
 
-Unit tests mock `@repo/prisma` at the module boundary; integration tests use the real DB and `authTestHelpers` for auth state.
+Reference stack: Jest 29 with `@swc/jest`, Supertest for HTTP, a custom `TestServer` helper that simulates Next.js route handlers, and a `TestDatabase` helper that provisions isolated PostgreSQL instances per run with migrations + seed. Tests live co-located in `__tests__/` folders.
+
+Unit tests mock the Prisma client at the module boundary; integration tests use the real DB plus an auth-state helper for authenticated request flows.
 
 ## Universal Rules
 
@@ -17,7 +19,7 @@ Unit tests mock `@repo/prisma` at the module boundary; integration tests use the
 4. **Literal expected values** — `expect(total).toBe(70)`, never expressions.
 5. **Every `it()` asserts** observable behavior with at least one `expect()`.
 6. **`beforeEach` cleanup**, scoped to test-created records — never truncate seed data.
-7. **`authTestHelpers.clearMocks()`** between tests.
+7. **Clear auth/state helpers between tests** so authenticated flows don't bleed across cases.
 8. **Never `test.skip()`** — fix or delete.
 9. **Real DB for integration tests**, mocked Prisma for unit tests.
 10. **Internal utils stay real** — only mock external boundaries.
