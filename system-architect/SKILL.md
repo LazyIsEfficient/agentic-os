@@ -44,6 +44,7 @@ Only escalate a tier when concrete requirements demand it. Document the trigger.
 
 ## Related skills
 
+- [software-design](../software-design/SKILL.md) — once the service boundaries are decided, this skill structures the code *inside* each service (SOLID, hexagonal, DDD)
 - [team-lead](../team-lead/SKILL.md) — capture significant architectural decisions as ADRs and team defaults as DADs
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — translate the design into provisioned cloud resources
 - [security-engineering](../security-engineering/SKILL.md) — fold security requirements into the design from the start

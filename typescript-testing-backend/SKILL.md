@@ -24,6 +24,11 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 9. **Real DB for integration tests**, mocked Prisma for unit tests.
 10. **Internal utils stay real** — only mock external boundaries.
 
+## Related skills
+
+- [software-design](../software-design/SKILL.md) — if a unit is hard to test without elaborate mocking, the production design is the real problem; refactor before adding mocks
+- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
+
 ## References
 
 - [references/framework-and-structure.md](references/framework-and-structure.md) — Jest config, test scripts, directory layout, file naming conventions, coverage

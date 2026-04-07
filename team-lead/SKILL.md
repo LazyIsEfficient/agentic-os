@@ -54,4 +54,5 @@ If you find yourself writing an ADR that says "we chose the obvious thing," it s
 ## Related skills
 
 - [system-architect](../system-architect/SKILL.md) — produce the design docs that ADRs reference
+- [software-design](../software-design/SKILL.md) — module-level design choices ("we use hexagonal here") become DADs; deviations become ADRs
 - [documentation-writer](../documentation-writer/SKILL.md) — keep ADR/DAD indexes in `docs/` consistent with code changes

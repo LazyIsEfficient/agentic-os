@@ -33,6 +33,7 @@ Copy or sync entire folders into a project:
 | `deployment-pipelines` | CI/CD pipelines (GitHub Actions, OIDC, caching, hardening) |
 | `documentation-writer` | Docs under `docs/`, Mermaid diagrams, incremental PR-scoped updates |
 | `security-engineering` | OWASP, auth, infra hardening, Web3 security, agentic AI security, CI review |
+| `software-design` | SOLID, cohesion/coupling, separation of concerns, hexagonal architecture, DDD, code review, refactoring |
 | `system-architect` | System design, distributed patterns, fault tolerance, observability, RFCs |
 | `team-lead` | Linear/Jira ticket policing, ADRs (deviations), DADs (defaults) |
 | `typescript-analytics` | PostHog events, feature flags, client/server analytics in TypeScript |
@@ -48,6 +49,8 @@ Skills cross-reference each other where their concerns overlap:
 
 - `cloud-infrastructure` ↔ `deployment-pipelines` ↔ `security-engineering` (provision, deploy, harden)
 - `system-architect` ↔ `team-lead` ↔ `documentation-writer` (design, decide, document)
+- `system-architect` ↔ `software-design` (macro service boundaries vs micro module structure inside a service)
+- `software-design` ↔ `team-lead` (significant module-design choices become ADRs; everyday defaults become DADs)
 - `typescript-quality-engineering` is the umbrella for QE; defers to `typescript-testing-backend` and `typescript-testing-frontend` for layer-specific unit/integration tests, and to `web3-smart-contract-engineering` for contract tests
 - `web3-smart-contract-engineering` ↔ `security-engineering` (authoring vs. adversarial review)
 

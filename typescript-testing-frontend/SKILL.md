@@ -24,6 +24,11 @@ Mock Zustand stores via the selector pattern, services at the module boundary, a
 9. **Never `test.skip()`** — fix or delete.
 10. **Every `it()` asserts** at least one observable behavior.
 
+## Related skills
+
+- [software-design](../software-design/SKILL.md) — testability is a design feedback signal; if a component is hard to test, refactor the component, not the test
+- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
+
 ## References
 
 - [references/framework-and-setup.md](references/framework-and-setup.md) — Jest/SWC/RTL versions, setup files, test scripts, key dependencies
