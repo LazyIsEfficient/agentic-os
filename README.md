@@ -108,17 +108,47 @@ Skills cross-reference each other where their concerns overlap:
 
 **Skip it when** the request is already well-scoped (one file, obvious change, clear done criteria). Going straight to the work is faster.
 
+### The recommended workflow
+
+The point of `prompt-shaper` is to **separate thinking from doing**. The shaping conversation is messy and exploratory; the execution should start from a clean, well-scoped brief. Don't conflate the two.
+
+**1. Shape in one session, execute in another.**
+The shaping conversation accumulates back-and-forth, half-answers, abandoned tangents, and your own rethinking. None of that helps the executing agent — in fact it confuses skill selection and dilutes attention on the final brief. Run `/shape` in one session, copy the emitted brief, then paste it into a *fresh* session as the very first message. The new session has zero baggage and the brief is the entire context.
+
+**2. Answer the questions concretely.**
+The questions are not a quiz — they're the gaps the agent will otherwise fill with assumptions. If you don't know an answer, say so explicitly ("don't know yet — investigate") rather than guessing. The brief will mark it as `<unknown>` and the executor will treat it as the first thing to figure out, instead of silently inventing a value.
+
+**3. Read the brief before you act on it.**
+Treat the emitted brief like a PR description you're reviewing. If a section is wrong, vague, or missing the constraint you care most about, **edit it directly** before pasting it into the next session. The brief is a markdown document, not a contract — five seconds of editing here saves a wrong implementation later.
+
+**4. Use the right template for the shape of the work.**
+The shaper picks one automatically, but if you know the work doesn't fit (e.g. "this is really an investigation, not a feature"), say so in your initial message. The four templates exist because they prompt for different things:
+- **Investigation** asks for the *one question* and the *decision it unblocks* — forces you to commit to a falsifiable goal instead of "look into X".
+- **Bugfix** asks for repro steps and explicit out-of-scope — the #1 cause of bugfix sprawl is "while we're in there".
+- **Single-repo feature** keeps scope narrow and assumes one PR.
+- **Multi-repo feature** assumes a per-repo Explore phase and a stop-for-approval gate before any edits.
+
+**5. Honor the approval gate for multi-repo work.**
+The multi-repo template explicitly tells the executor to *stop after producing an integrated plan and wait for your approval* before touching any code. Don't override this. Cross-repo edits are the most expensive thing to undo — the gate is the cheapest place to catch a wrong assumption.
+
+**6. Don't pre-pick skills.**
+You may be tempted to write "use the security-engineering skill for the auth review". Don't. Skills auto-load on description matching, and naming them in the brief actively suppresses better matches. Instead, describe the *concern* in plain language ("the auth flow needs a security review before merge") — the right skills will load themselves when the executor reaches that part.
+
+**7. When to skip the shaper entirely.**
+If the task is one file, one obvious change, and you can describe done criteria in a sentence — just do it. Shaping a trivial task is overhead. The shaper earns its keep on work that spans more than one file, more than one repo, or more than one session.
+
 **Example session:**
 
 ```
 You: /shape add rate limiting across our API gateway and the two services behind it
 prompt-shaper: <asks 4 questions: which repos, per-user vs per-IP, limit values, deadline>
-You: <answers>
-prompt-shaper: <emits the filled feature-rollout brief>
-You: go
+You: <answers — including "don't know the limit values yet, investigate current traffic first">
+prompt-shaper: <emits a filled feature-rollout brief with the limit-values section as <unknown>>
+You: <copies the brief, opens a new Claude Code session, pastes it as message 1>
+new session: <Explore subagents map each repo, integrated plan emitted, waits for approval>
+You: <reviews plan, approves>
+new session: <implements repo-by-repo, one PR each>
 ```
-
-For a fresh, uncontaminated execution context, prefer copying the brief into a new session over saying `go` in the same one.
 
 ## Frontmatter conventions
 
