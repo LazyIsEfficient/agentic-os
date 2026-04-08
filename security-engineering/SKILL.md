@@ -43,3 +43,10 @@ When reviewing code, think like a senior security researcher: trace user input t
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — pipeline hardening, OIDC, untrusted-input handling in CI
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — security incidents follow the same incident-response and postmortem process as reliability incidents
 - [ux-design](../ux-design/SKILL.md) — auth UX, consent flows, and dark patterns intersect with security and privacy
+- [godot-engineer](../godot-engineer/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
+- [technical-strategist](../technical-strategist/SKILL.md) — security posture is a strategic choice; the strategist names the bar; this skill provides the rules.
+- [standards-enforcer](../standards-enforcer/SKILL.md) — applies the security baseline at every gate, citing this skill as the non-negotiable source of truth.
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

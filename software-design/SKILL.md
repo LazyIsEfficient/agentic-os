@@ -61,3 +61,10 @@ For macro decisions (which services exist, how they communicate, capacity planni
 - [documentation-writer](../documentation-writer/SKILL.md) — domain modeling produces a ubiquitous language that belongs in the docs
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — chronically high-toil services usually point back to design problems; reliability work and module design reinforce each other
 - [ux-design](../ux-design/SKILL.md) — the design's vocabulary (labels, names, journeys) should match the domain model's ubiquitous language; coordinating prevents months of vocabulary drift
+- [godot-engineer](../godot-engineer/SKILL.md) — software design principles (composition over inheritance, separation of concerns, cohesion/coupling) apply to Godot scene/node design; the most common Godot anti-pattern (god scenes) is the same anti-pattern as god classes in a different language
+- [technical-strategist](../technical-strategist/SKILL.md) — module-level design choices that follow from the strategy ("we use hexagonal architecture for service X") become DADs maintained by team-lead and tracked by the strategist
+- [standards-enforcer](../standards-enforcer/SKILL.md) — code design quality is one of the categories the enforcer checks at the pre-merge gate, citing this skill as the source of truth
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

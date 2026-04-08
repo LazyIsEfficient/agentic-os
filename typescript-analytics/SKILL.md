@@ -31,3 +31,7 @@ PostHog client/server SDKs integrated into a Next.js app via a unified `getPostH
 - [references/feature-flags.md](references/feature-flags.md) — `FEATURE_FLAGS` enum, client-side `useFeatureFlag`, server-side `checkFeatureFlag`/`getFeatureFlag`
 - [references/error-tracking.md](references/error-tracking.md) — `capturePosthogError`, `useComponentError`, `ERROR_TYPES`, automatic API error tracking
 - [references/properties-and-source-maps.md](references/properties-and-source-maps.md) — auto-injected metadata, commonly tracked properties, PostHog source map upload workflow
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

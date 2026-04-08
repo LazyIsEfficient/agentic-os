@@ -56,3 +56,7 @@ Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP 
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the cloud resources these pipelines deploy to
 - [security-engineering](../security-engineering/SKILL.md) — pipeline security review, supply-chain hardening, secret-handling rules
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — runtime safety nets (canaries, error-budget gating, rollback automation) that consume what pipelines produce
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

@@ -35,3 +35,7 @@ What lives here: E2E (Playwright), cross-layer test policy, the test pyramid, Ha
 - [references/e2e-playwright.md](references/e2e-playwright.md) — `playwright.config.ts`, example spec, retries/artifacts/reporters, auto web server
 - [references/smart-contract-testing.md](references/smart-contract-testing.md) — Hardhat fixtures, time manipulation helpers, event assertions
 - [references/ci-cd.md](references/ci-cd.md) — GitHub Actions workflow with Postgres service, coverage outputs, Foundry contract CI
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

@@ -69,5 +69,12 @@ For **design-time** decisions about fault tolerance, observability instrumentati
 - [security-engineering](../security-engineering/SKILL.md) — security incidents follow the same incident-response process; cross-reference for incident communication and postmortem practice
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the infrastructure SRE operates; infra changes that affect production behavior should consult both
 - [team-lead](../team-lead/SKILL.md) — postmortem action items become tickets; significant SRE policy decisions (e.g. error-budget policy per service) become DADs
+- [technical-product-management](../technical-product-management/SKILL.md) — TPM is the other half of the error-budget policy negotiation: when the budget is exhausted, the conversation about pausing feature work happens between SRE and TPM.
 - [software-design](../software-design/SKILL.md) — chronically high-toil services are usually a design smell; refactor the production code, not the runbook
 - [typescript-data-engineering](../typescript-data-engineering/SKILL.md) — pipelines, brokers, and caches each have their own runtime failure modes that this skill triages
+- [technical-strategist](../technical-strategist/SKILL.md) — operational direction (SLO targets, error-budget policies) is part of the technical strategy.
+- [standards-enforcer](../standards-enforcer/SKILL.md) — applies the operational readiness baseline at the pre-release gate, citing this skill as the source of truth for runbooks, alerts, rollback plans, etc.
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

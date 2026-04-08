@@ -49,3 +49,7 @@ Every resource should be environment-aware: dev can rely on local Docker for sta
 - [references/messaging.md](references/messaging.md) — provisioning SQS, SNS fan-out, Amazon MQ (RabbitMQ), MSK (Kafka), and Google Pub/Sub with DLQs, encryption, and HA
 
 For CI/CD pipeline authoring (GitHub Actions workflows, OIDC, caching, security hardening) see the [deployment-pipelines](../deployment-pipelines/SKILL.md) skill.
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

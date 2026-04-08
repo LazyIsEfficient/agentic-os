@@ -33,3 +33,8 @@ Documentation lives under `docs/`. Diagrams use Mermaid. You may push a single d
 - [system-architect](../system-architect/SKILL.md) — keep design docs in sync with the implementation they describe
 - [ux-design](../ux-design/SKILL.md) — UX writing and product documentation share craft; the same voice and tone discipline applies
 - [ux-research](../ux-research/SKILL.md) — research outputs (personas, JTBD, findings) often live in `docs/` and benefit from incremental-update discipline
+- [technical-product-management](../technical-product-management/SKILL.md) — PRDs, roadmaps, and launch plans live in `docs/` and benefit from the same incremental-update discipline; coordinate when product docs change
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

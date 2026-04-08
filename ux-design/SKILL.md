@@ -67,9 +67,15 @@ For *generative research* that informs what to design (interviews, discovery, JT
 ## Related skills
 
 - [ux-research](../ux-research/SKILL.md) — the practice that produces the evidence you design from; pair early and often
+- [technical-product-management](../technical-product-management/SKILL.md) — TPM picks the problems; design solves them. Pair on which experience problems to take on, and on launch readiness for design work.
+- [godot-engineer](../godot-engineer/SKILL.md) — game UI is UX. Accessibility, microcopy, hierarchy, feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
 - [system-architect](../system-architect/SKILL.md) — UX surfaces non-functional requirements (latency, offline, data freshness) that constrain architecture; the architect surfaces constraints that constrain UX
 - [software-design](../software-design/SKILL.md) — the ubiquitous language the design uses should match the domain model; coordination here prevents months of vocabulary drift
 - [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — accessibility testing (jest-axe, axe-core) is a shared concern; design provides the criteria, tests enforce them
 - [documentation-writer](../documentation-writer/SKILL.md) — UX writing and documentation share craft; design contributes to docs and vice versa
 - [security-engineering](../security-engineering/SKILL.md) — auth UX, consent flows, dark patterns intersect with security and privacy
 - [team-lead](../team-lead/SKILL.md) — significant design choices ("we use this design system," "we deviate from the convention here") become DADs and ADRs
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

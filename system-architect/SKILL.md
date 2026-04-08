@@ -44,6 +44,9 @@ Only escalate a tier when concrete requirements demand it. Document the trigger.
 
 ## Related skills
 
+- [technical-product-management](../technical-product-management/SKILL.md) — TPM owns the product framing the architecture serves; both write design docs from different angles. Pair on big technical decisions with product implications.
+- [technical-strategist](../technical-strategist/SKILL.md) — sets the macro technical direction the architecture implements; the architect designs specific systems within the strategy's constraints.
+- [standards-enforcer](../standards-enforcer/SKILL.md) — reviews architectural decisions for fit with the strategy and the load-bearing DADs at design-review gates.
 - [software-design](../software-design/SKILL.md) — once the service boundaries are decided, this skill structures the code *inside* each service (SOLID, hexagonal, DDD)
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — designs the SLOs and fault tolerance; SRE *operates* them at runtime
 - [team-lead](../team-lead/SKILL.md) — capture significant architectural decisions as ADRs and team defaults as DADs
@@ -51,3 +54,7 @@ Only escalate a tier when concrete requirements demand it. Document the trigger.
 - [security-engineering](../security-engineering/SKILL.md) — fold security requirements into the design from the start
 - [ux-research](../ux-research/SKILL.md) — surfaces user-facing non-functional requirements (latency tolerance, offline behavior, freshness expectations) that constrain architecture
 - [ux-design](../ux-design/SKILL.md) — the user experience constrains and is constrained by the architecture; coordinate early
+
+## Enforcement
+
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
