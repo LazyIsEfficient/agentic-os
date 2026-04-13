@@ -31,28 +31,48 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 
 | Skill | Focus | Tags |
 |---|---|---|
+| `api-and-interface-design` | Design stable, hard-to-misuse APIs and interfaces with consistent contracts | `api-design` `interfaces` `rest` `graphql` `contracts` `validation` |
 | `autoresearch` | Multi-round content optimization with expert panel scoring | `content-optimization` `conversion-testing` `copywriting` `a-b-testing` |
+| `browser-testing-with-devtools` | Inspect and test browser-based code using Chrome DevTools MCP | `browser-testing` `devtools` `debugging` `ui-testing` `dom-inspection` `network-analysis` |
+| `ci-cd-and-automation` | Developer-focused quality gates, GitHub Actions, feature flags, staged rollouts | `ci-cd` `automation` `github-actions` `quality-gates` `feature-flags` `deployment` |
 | `cloud-infrastructure` | Cloud resources via IaC (AWS, GCP, Cloudflare); reference impl Pulumi/TypeScript | `infrastructure` `provisioning` `iac` `pulumi` `terraform` `aws` `gcp` `cloudflare` `vpc` `rds` `ecs` `messaging` |
+| `code-review-and-quality` | Multi-axis code review: correctness, readability, architecture, security, performance | `code-review` `quality` `correctness` `readability` `review-process` |
+| `code-simplification` | Reduce complexity and improve readability without changing behavior | `refactoring` `code-quality` `readability` `simplification` `clarity` |
 | `content-ops` | Expert panel scoring and iterative improvement for any content | `content-evaluation` `quality-gates` `expert-review` `scoring` `copywriting` |
+| `context-engineering` | Structure and deliver relevant context to maximize agent output quality | `context-engineering` `prompting` `agent-optimization` `knowledge-structure` |
 | `conversion-ops` | Landing page audits, CRO scoring, survey segmentation, lead magnet generation | `conversion-optimization` `cro-analysis` `lead-magnets` `landing-pages` |
+| `debugging-and-error-recovery` | Systematically diagnose and fix root causes instead of guessing | `debugging` `error-recovery` `troubleshooting` `triage` `root-cause-analysis` |
 | `deck-generator` | AI-generated presentation slides in consistent visual styles | `presentation-design` `slide-generation` `visualization` `pitch-decks` |
-| `deployment-pipelines` | CI/CD pipelines (GitHub Actions, OIDC, caching, hardening) | `cicd` `devops` `github-actions` `oidc` `release` `deploy` `caching` `pipeline-security` |
+| `deployment-pipelines` | Infrastructure-grade CI/CD: OIDC, supply-chain hardening, caching, deploy patterns | `cicd` `devops` `github-actions` `oidc` `release` `deploy` `caching` `pipeline-security` |
+| `deprecation-and-migration` | Phased deprecation, migration strategy, and zombie code removal | `deprecation` `migration` `code-removal` `technical-debt` `system-lifecycle` |
+| `documentation-and-adrs` | Record architectural decisions (ADRs), API docs, inline comments, changelogs | `documentation` `adr` `architecture-decision-record` `api-docs` `knowledge-management` |
 | `documentation-writer` | Docs under `docs/`, Mermaid diagrams, incremental PR-scoped updates | `documentation` `technical-writing` `markdown` `mermaid` `docs-as-code` `pr-scoped` |
 | `eval` | AI output evaluation: test scenarios, scoring, regression detection | `ai-evaluation` `quality-testing` `prompt-testing` `regression-detection` |
 | `finance-ops` | CFO briefings from QuickBooks exports with scenario modeling | `financial-analysis` `burn-rate` `cost-estimation` `scenario-modeling` |
+| `frontend-ui-engineering` | Production-quality UIs: components, state, accessibility, responsive design | `frontend` `ui-engineering` `accessibility` `react` `design-system` `responsive-design` |
+| `git-workflow-and-versioning` | Trunk-based development, atomic commits, branching strategy, worktrees | `git` `version-control` `workflow` `branching-strategy` `commit-discipline` `trunk-based-development` |
 | `godot-engineer` | Godot 4 + C# game development: scenes, nodes, physics, animation, UI, save, performance, WebSocket multiplayer, exporting | `game-development` `godot` `godot4` `csharp` `dotnet` `game-engine` `2d` `3d` `physics` `animation` `tween` `shader` `gameplay` `multiplayer` `websocket` `gamedev` |
 | `growth-engine` | Multivariate experiment framework with statistical analysis and auto-playbook | `experimentation` `a-b-testing` `growth-metrics` `statistical-analysis` |
+| `idea-refine` | Refine raw ideas through divergent ideation, convergent evaluation, structured output | `ideation` `product-thinking` `idea-validation` `design-thinking` `frameworks` |
+| `incremental-implementation` | Implement features in thin vertical slices with testing at each increment | `implementation` `vertical-slices` `incremental-development` `scope-discipline` |
+| `marketing-shaper` | Interactive intake for marketing work: turns vague requests into scoped briefs (campaign, content, optimization, research, or pipeline). Invoke as `/mshape`. | `intake` `marketing-planning` `task-scoping` `briefing` `slash-command` |
 | `outbound-engine` | Cold email sequence design with expert panel optimization | `cold-email` `sales-sequences` `outbound-strategy` `icp-definition` |
+| `performance-optimization` | Measurement-first performance: Core Web Vitals, profiling, anti-pattern fixes | `performance` `optimization` `web-vitals` `profiling` `monitoring` |
+| `planning-and-task-breakdown` | Decompose work into small, ordered, verifiable, implementable tasks | `planning` `task-breakdown` `scope-estimation` `work-decomposition` `parallelization` |
 | `podcast-ops` | Multi-platform content repurposing from podcast episodes | `content-repurposing` `podcast-clips` `social-distribution` `viral-scoring` |
 | `prompt-shaper` | Interactive intake: turns vague requests into a structured task brief (multi-repo feature, single-repo change, investigation, or bugfix). Invoke as `/shape`. | `intake` `prompt-engineering` `task-scoping` `planning` `briefing` `slash-command` |
 | `revenue-intelligence` | Sales call insight extraction and content-to-revenue attribution | `sales-analytics` `call-intelligence` `revenue-attribution` `client-reporting` |
 | `sales-pipeline` | Lead scoring, suppression, campaign routing, and dead deal resurrection | `lead-automation` `pipeline-management` `intent-scoring` `deal-resurrection` |
 | `sales-playbook` | Value-based pricing framework with pre-call briefings and pattern library | `pricing-strategy` `deal-structure` `sales-training` `value-pricing` |
 | `security` | PII detection and sanitization for files and repositories; pre-commit hook | `data-protection` `compliance` `sanitization` `pii-detection` |
-| `security-engineering` | OWASP, auth, infra hardening, Web3 security, agentic AI security, CI review | `security` `owasp` `asvs` `auth` `appsec` `infra-security` `web3-security` `agentic-ai-security` `code-review` |
+| `security-and-hardening` | Developer-focused web app security: OWASP Top 10 with code examples, input validation, auth | `security` `owasp` `input-validation` `authentication` `injection-prevention` `hardening` |
+| `security-engineering` | Cross-stack security review: OWASP, ASVS, Web3, agentic AI, CI/CD supply chain | `security` `owasp` `asvs` `auth` `appsec` `infra-security` `web3-security` `agentic-ai-security` `code-review` |
 | `seo-ops` | Keyword research, competitor gap analysis, GSC optimization, trend detection | `seo-intelligence` `keyword-research` `competitive-analysis` `gsc` |
+| `shipping-and-launch` | Pre-launch checklists, feature flags, staged rollouts, rollback plans | `shipping` `deployment` `launch` `feature-flags` `rollout` `monitoring` `rollback` |
 | `site-reliability-engineering` | SLOs/error budgets, alerting, on-call, incident response, postmortems, runbooks, toil reduction, chaos | `sre` `operate` `slo` `error-budget` `alerting` `on-call` `incident-response` `postmortem` `runbook` `chaos` `observability` |
 | `software-design` | SOLID, cohesion/coupling, separation of concerns, hexagonal architecture, DDD, code review, refactoring | `code-quality` `code-review` `refactoring` `solid` `ddd` `hexagonal` `clean-architecture` `domain-modeling` `cohesion` `coupling` |
+| `source-driven-development` | Verify implementation against official docs, cite sources, avoid outdated patterns | `documentation` `source-verification` `frameworks` `best-practices` `citation` |
+| `spec-driven-development` | Establish clear specifications with acceptance criteria before coding | `specification` `requirements` `acceptance-criteria` `gated-workflow` `design-before-code` |
 | `standards-enforcer` | Engineering standards enforcement at gates: kickoff, pre-merge, pre-release, post-release; security/quality/operational baselines; strategic alignment; exceptions and waivers | `enforcement` `review` `code-review` `pr-review` `compliance` `gate` `quality-gate` `security-baseline` `exceptions` `waivers` `dad-compliance` `adr-compliance` |
 | `system-architect` | System design, distributed patterns, fault tolerance, observability, RFCs, capacity planning | `architecture` `system-design` `distributed-systems` `fault-tolerance` `observability` `capacity-planning` `caching-strategy` `rfc` `design-doc` |
 | `team-lead` | Linear/Jira ticket policing, ADRs (deviations), DADs (defaults) | `leadership` `process` `tickets` `linear` `jira` `adr` `dad` `decisions` `grooming` `triage` |
@@ -60,11 +80,13 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `technical-product-management` | Product strategy, prioritization, roadmaps, PRDs, stakeholder management, launches, metrics, saying no | `product` `tpm` `pm` `product-strategy` `prioritization` `roadmap` `prd` `okrs` `north-star-metric` `mvp` `stakeholders` `launch` `rollout` `discovery-to-delivery` `build-vs-buy` |
 | `technical-strategist` | Technical strategy: diagnosis, guiding policy, actions, non-goals, kill criteria; load-bearing DADs; build/buy/adopt; platform-vs-product; tech bets; strategy evolution | `technical-strategy` `tech-strategy` `vision` `principles` `tech-bet` `build-vs-buy` `platform-investment` `load-bearing-dad` `north-star-architecture` `strategy-evolution` |
 | `telemetry` | Shared opt-in usage logging and version-checking library for skills | `analytics` `privacy` `version-tracking` `usage-metrics` |
+| `test-driven-development` | Red-green-refactor cycle, prove-it pattern for bugs, test pyramid guidance | `testing` `tdd` `unit-tests` `integration-tests` `e2e-tests` `red-green-refactor` |
 | `typescript-analytics` | PostHog events, feature flags, client/server analytics in TypeScript | `analytics` `telemetry` `posthog` `feature-flags` `event-tracking` `error-tracking` `typescript` |
 | `typescript-data-engineering` | PostgreSQL, BigQuery, ETL, event sourcing, message brokers, caching, in TypeScript | `data-engineering` `etl` `postgres` `bigquery` `prisma` `drizzle` `event-sourcing` `message-brokers` `rabbitmq` `kafka` `sqs` `bullmq` `caching` `redis` `typescript` |
 | `typescript-quality-engineering` | Umbrella QE: cross-layer test policy, E2E (Playwright), contract tests, CI | `qa` `testing` `test-strategy` `e2e` `playwright` `test-pyramid` `coverage-policy` `typescript` |
 | `typescript-testing-backend` | Jest unit + Supertest integration tests for TypeScript backends | `testing` `backend` `jest` `supertest` `unit-tests` `integration-tests` `typescript` |
 | `typescript-testing-frontend` | Jest + RTL tests for React components and hooks | `testing` `frontend` `react` `jest` `react-testing-library` `chakra` `nextjs` `typescript` |
+| `using-agent-skills` | Meta-skill: discovers and invokes the right workflow skill for any task | `meta-skill` `workflow` `skill-discovery` `process-framework` `agent-guidance` |
 | `ux-design` | UX/UI design: IA, interaction, visual fundamentals, design systems, accessibility, UX writing, critique, handoff | `ux` `ui` `design` `interaction-design` `information-architecture` `design-systems` `accessibility` `wcag` `ux-writing` `figma` `design-critique` `handoff` |
 | `ux-research` | User research: methods, discovery, interviews, usability testing, synthesis, personas/JTBD, ethics | `ux` `research` `discovery` `interviews` `usability-testing` `jtbd` `personas` `synthesis` `research-ethics` |
 | `web3-smart-contract-engineering` | Solidity contracts with Hardhat + Foundry across EVM chains | `web3` `smart-contracts` `solidity` `hardhat` `foundry` `evm` `erc20` `erc721` `erc1155` `merkle` `signature-verification` `staking` |
@@ -120,6 +142,61 @@ Skills cross-reference each other where their concerns overlap:
 - `team-ops` ↔ `finance-ops` (team performance data feeds financial team-cost analysis)
 - `telemetry` is a shared library imported by all marketing/sales skills via their preamble blocks
 - `deck-generator` ↔ `content-ops` (deck content quality can be scored by expert panels)
+- `security-and-hardening` ↔ `security-engineering` (**layered**: developer-focused hardening vs cross-stack security specialist review; load both for defense in depth)
+- `security-and-hardening` ↔ `code-review-and-quality` (security is one of five review axes)
+- `ci-cd-and-automation` ↔ `deployment-pipelines` (**complementary**: developer quality gates vs infrastructure-grade pipeline hardening)
+- `ci-cd-and-automation` ↔ `shipping-and-launch` (CI gates feed launch readiness; rollback strategies span both)
+- `documentation-and-adrs` ↔ `documentation-writer` ↔ `team-lead` (decision capture, docs maintenance, and team governance — three distinct functions)
+- `code-review-and-quality` ↔ `software-design` (review includes design axis; software-design goes deeper on structure)
+- `code-simplification` ↔ `software-design` (clarity refactor first, then structural refactor — sequential)
+- `code-simplification` ↔ `code-review-and-quality` (simplification opportunities surface during review)
+- `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation` (ideation → scoping → decomposition → execution pipeline)
+- `idea-refine` → `marketing-shaper` (for marketing ideas, the brief flows to marketing-shaper instead of prompt-shaper)
+- `spec-driven-development` ↔ `planning-and-task-breakdown` (spec defines *what*; planning decomposes *how*)
+- `test-driven-development` ↔ `debugging-and-error-recovery` (TDD's prove-it pattern is the first step in debugging)
+- `test-driven-development` ↔ `incremental-implementation` (each vertical slice gets tests before implementation)
+- `browser-testing-with-devtools` ↔ `frontend-ui-engineering` (DevTools verifies what frontend-ui builds)
+- `browser-testing-with-devtools` ↔ `test-driven-development` (browser testing is the E2E layer of the test pyramid)
+- `frontend-ui-engineering` ↔ `ux-design` (**complementary roles**: design defines *what*; frontend implements *how*)
+- `api-and-interface-design` ↔ `deprecation-and-migration` (API design includes versioning; deprecation manages the lifecycle)
+- `api-and-interface-design` ↔ `software-design` (API boundaries are the external face of internal module structure)
+- `source-driven-development` ↔ `debugging-and-error-recovery` (official docs are the first source of truth when diagnosing framework issues)
+- `performance-optimization` ↔ `frontend-ui-engineering` (Core Web Vitals and re-render prevention)
+- `performance-optimization` ↔ `site-reliability-engineering` (performance targets feed SLOs)
+- `shipping-and-launch` ↔ `site-reliability-engineering` (launch readiness, monitoring, rollback)
+- `git-workflow-and-versioning` ↔ `incremental-implementation` (atomic commits support vertical-slice delivery)
+- `context-engineering` ↔ `using-agent-skills` (context setup determines which skills load and how effectively)
+- `using-agent-skills` ↔ *all skills* (the meta-skill that governs skill discovery and invocation)
+- `marketing-shaper` ↔ `prompt-shaper` (**siblings**: marketing-shaper scopes marketing work; prompt-shaper scopes engineering work)
+- `marketing-shaper` → all marketing/sales skills (the shaper produces briefs that downstream marketing skills execute)
+
+## Using `marketing-shaper`
+
+`marketing-shaper` is the intake skill for marketing work — the marketing-specific sibling of `prompt-shaper`. Use it at the *start* of a session when you have a marketing goal but haven't fully scoped it.
+
+**Invoke it two ways:**
+
+- As a slash command: `/mshape <your rough description>`
+- By describing your intent in natural language — phrases like "plan this campaign", "scope this content", "marketing plan", "growth plan", "outbound plan" trigger it automatically.
+
+**What it does:**
+
+1. Picks a template based on the kind of marketing work — campaign, content, optimization, research, or pipeline.
+2. Asks **one batched round** of 3–6 focused questions (via `AskUserQuestion`) to fill the gaps.
+3. Outputs a filled marketing brief in a fenced markdown block, ready to copy into a fresh session.
+4. **Stops there.** Say `go` to execute immediately, or paste the brief into a clean session.
+
+**The five work types:**
+
+| Type | Use when... | Key sections |
+|---|---|---|
+| **Campaign** | Multi-channel initiative (3+ surfaces) | Channels, content calendar, attribution |
+| **Content** | Single deliverable (post, deck, sequence) | Format, voice, source material |
+| **Optimization** | Improving existing assets (CRO, A/B) | Current metrics, variants, experiment design |
+| **Research** | Answering a question, no deliverables | One question, decision it unblocks |
+| **Pipeline** | Building or tuning sales motion | Tools, ICP, bottleneck, compliance |
+
+**Skip it when** the request is already well-scoped (specific deliverable, clear audience, known metric). Going straight to the work is faster.
 
 ## Using `prompt-shaper`
 

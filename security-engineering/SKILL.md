@@ -1,6 +1,6 @@
 ---
 name: security-engineering
-description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths.
+description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths. For developer-focused web app hardening see security-and-hardening. For PII sanitization see security.
 ---
 
 # Security Engineering
