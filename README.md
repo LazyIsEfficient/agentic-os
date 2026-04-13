@@ -18,6 +18,25 @@ Each skill is a folder whose name matches the `name` field in the skill frontmat
 
 `SKILL.md` should stay concise (target <100 lines): frontmatter, role/context, universal rules, and a list of references. All long-form details belong in `references/` (progressive disclosure). Templates that the agent fills out belong in `assets/`, not `references/`.
 
+## Quick install
+
+Run this from the root of your project to download and install all skills:
+
+```bash
+# Install to .claude/skills/ (default)
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash
+
+# Install to .cursor/skills/ instead
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --cursor
+
+# Install to both .claude/skills/ and .cursor/skills/
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --both
+```
+
+Re-run the same command at any time to update — all skill files are overwritten with the latest version.
+
+### Manual install
+
 Copy or sync entire folders into a project:
 
 ```text
