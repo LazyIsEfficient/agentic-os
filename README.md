@@ -70,6 +70,8 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `finance-ops` | CFO briefings from QuickBooks exports with scenario modeling | `financial-analysis` `burn-rate` `cost-estimation` `scenario-modeling` |
 | `frontend-ui-engineering` | Production-quality UIs: components, state, accessibility, responsive design | `frontend` `ui-engineering` `accessibility` `react` `design-system` `responsive-design` |
 | `git-workflow-and-versioning` | Trunk-based development, atomic commits, branching strategy, worktrees | `git` `version-control` `workflow` `branching-strategy` `commit-discipline` `trunk-based-development` |
+| `prompt-shaper` | Interactive intake: turns vague requests into a structured task brief (multi-repo feature, single-repo change, investigation, or bugfix). Invoke as `/shape`. | `intake` `prompt-engineering` `task-scoping` `planning` `briefing` `slash-command` |
+| `release-manager` | Release train for play-platform monorepo: CHANGELOG, release assessment, branch/PR via gh, semver tags (vX.Y.Z), team comms | `release` `release-manager` `changelog` `release-assessment` `merge-conflicts` `monorepo` `play-platform` `coordination` `github-cli` `gh` |
 | `godot-engineer` | Godot 4 + C# game development: scenes, nodes, physics, animation, UI, save, performance, WebSocket multiplayer, exporting | `game-development` `godot` `godot4` `csharp` `dotnet` `game-engine` `2d` `3d` `physics` `animation` `tween` `shader` `gameplay` `multiplayer` `websocket` `gamedev` |
 | `growth-engine` | Multivariate experiment framework with statistical analysis and auto-playbook | `experimentation` `a-b-testing` `growth-metrics` `statistical-analysis` |
 | `idea-refine` | Refine raw ideas through divergent ideation, convergent evaluation, structured output | `ideation` `product-thinking` `idea-validation` `design-thinking` `frameworks` |
@@ -122,6 +124,9 @@ Skills cross-reference each other where their concerns overlap:
 - `software-design` ↔ `team-lead` (significant module-design choices become ADRs; everyday defaults become DADs)
 - `system-architect` ↔ `site-reliability-engineering` (designs SLOs and fault tolerance vs operates them at runtime)
 - `site-reliability-engineering` ↔ `deployment-pipelines` (release safety nets, error-budget gating, rollback automation)
+- `release-manager` ↔ `deployment-pipelines` (release mechanics vs. owning CHANGELOG/assessment and branch hygiene for the monorepo cut)
+- `release-manager` ↔ `technical-product-management` (scope and launch messaging vs. artifact updates and conflict resolution)
+- `release-manager` ↔ `team-lead` (release blockers become tickets; significant cut decisions may need ADRs)
 - `site-reliability-engineering` ↔ `security-engineering` (security incidents follow the same incident-response process)
 - `ux-research` ↔ `ux-design` (research produces evidence; design consumes it; pair early and often)
 - `ux-design` ↔ `typescript-testing-frontend` (accessibility testing as a shared concern)
