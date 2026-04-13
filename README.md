@@ -31,19 +31,35 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 
 | Skill | Focus | Tags |
 |---|---|---|
+| `autoresearch` | Multi-round content optimization with expert panel scoring | `content-optimization` `conversion-testing` `copywriting` `a-b-testing` |
 | `cloud-infrastructure` | Cloud resources via IaC (AWS, GCP, Cloudflare); reference impl Pulumi/TypeScript | `infrastructure` `provisioning` `iac` `pulumi` `terraform` `aws` `gcp` `cloudflare` `vpc` `rds` `ecs` `messaging` |
+| `content-ops` | Expert panel scoring and iterative improvement for any content | `content-evaluation` `quality-gates` `expert-review` `scoring` `copywriting` |
+| `conversion-ops` | Landing page audits, CRO scoring, survey segmentation, lead magnet generation | `conversion-optimization` `cro-analysis` `lead-magnets` `landing-pages` |
+| `deck-generator` | AI-generated presentation slides in consistent visual styles | `presentation-design` `slide-generation` `visualization` `pitch-decks` |
 | `deployment-pipelines` | CI/CD pipelines (GitHub Actions, OIDC, caching, hardening) | `cicd` `devops` `github-actions` `oidc` `release` `deploy` `caching` `pipeline-security` |
 | `documentation-writer` | Docs under `docs/`, Mermaid diagrams, incremental PR-scoped updates | `documentation` `technical-writing` `markdown` `mermaid` `docs-as-code` `pr-scoped` |
-| `prompt-shaper` | Interactive intake: turns vague requests into a structured task brief (multi-repo feature, single-repo change, investigation, or bugfix). Invoke as `/shape`. | `intake` `prompt-engineering` `task-scoping` `planning` `briefing` `slash-command` |
+| `eval` | AI output evaluation: test scenarios, scoring, regression detection | `ai-evaluation` `quality-testing` `prompt-testing` `regression-detection` |
+| `finance-ops` | CFO briefings from QuickBooks exports with scenario modeling | `financial-analysis` `burn-rate` `cost-estimation` `scenario-modeling` |
 | `godot-engineer` | Godot 4 + C# game development: scenes, nodes, physics, animation, UI, save, performance, WebSocket multiplayer, exporting | `game-development` `godot` `godot4` `csharp` `dotnet` `game-engine` `2d` `3d` `physics` `animation` `tween` `shader` `gameplay` `multiplayer` `websocket` `gamedev` |
+| `growth-engine` | Multivariate experiment framework with statistical analysis and auto-playbook | `experimentation` `a-b-testing` `growth-metrics` `statistical-analysis` |
+| `outbound-engine` | Cold email sequence design with expert panel optimization | `cold-email` `sales-sequences` `outbound-strategy` `icp-definition` |
+| `podcast-ops` | Multi-platform content repurposing from podcast episodes | `content-repurposing` `podcast-clips` `social-distribution` `viral-scoring` |
+| `prompt-shaper` | Interactive intake: turns vague requests into a structured task brief (multi-repo feature, single-repo change, investigation, or bugfix). Invoke as `/shape`. | `intake` `prompt-engineering` `task-scoping` `planning` `briefing` `slash-command` |
+| `revenue-intelligence` | Sales call insight extraction and content-to-revenue attribution | `sales-analytics` `call-intelligence` `revenue-attribution` `client-reporting` |
+| `sales-pipeline` | Lead scoring, suppression, campaign routing, and dead deal resurrection | `lead-automation` `pipeline-management` `intent-scoring` `deal-resurrection` |
+| `sales-playbook` | Value-based pricing framework with pre-call briefings and pattern library | `pricing-strategy` `deal-structure` `sales-training` `value-pricing` |
+| `security` | PII detection and sanitization for files and repositories; pre-commit hook | `data-protection` `compliance` `sanitization` `pii-detection` |
 | `security-engineering` | OWASP, auth, infra hardening, Web3 security, agentic AI security, CI review | `security` `owasp` `asvs` `auth` `appsec` `infra-security` `web3-security` `agentic-ai-security` `code-review` |
+| `seo-ops` | Keyword research, competitor gap analysis, GSC optimization, trend detection | `seo-intelligence` `keyword-research` `competitive-analysis` `gsc` |
 | `site-reliability-engineering` | SLOs/error budgets, alerting, on-call, incident response, postmortems, runbooks, toil reduction, chaos | `sre` `operate` `slo` `error-budget` `alerting` `on-call` `incident-response` `postmortem` `runbook` `chaos` `observability` |
 | `software-design` | SOLID, cohesion/coupling, separation of concerns, hexagonal architecture, DDD, code review, refactoring | `code-quality` `code-review` `refactoring` `solid` `ddd` `hexagonal` `clean-architecture` `domain-modeling` `cohesion` `coupling` |
 | `standards-enforcer` | Engineering standards enforcement at gates: kickoff, pre-merge, pre-release, post-release; security/quality/operational baselines; strategic alignment; exceptions and waivers | `enforcement` `review` `code-review` `pr-review` `compliance` `gate` `quality-gate` `security-baseline` `exceptions` `waivers` `dad-compliance` `adr-compliance` |
 | `system-architect` | System design, distributed patterns, fault tolerance, observability, RFCs, capacity planning | `architecture` `system-design` `distributed-systems` `fault-tolerance` `observability` `capacity-planning` `caching-strategy` `rfc` `design-doc` |
 | `team-lead` | Linear/Jira ticket policing, ADRs (deviations), DADs (defaults) | `leadership` `process` `tickets` `linear` `jira` `adr` `dad` `decisions` `grooming` `triage` |
+| `team-ops` | Performance audits (Elon Algorithm), stack ranking, meeting intelligence | `team-analysis` `performance-evaluation` `meeting-extraction` `stack-ranking` |
 | `technical-product-management` | Product strategy, prioritization, roadmaps, PRDs, stakeholder management, launches, metrics, saying no | `product` `tpm` `pm` `product-strategy` `prioritization` `roadmap` `prd` `okrs` `north-star-metric` `mvp` `stakeholders` `launch` `rollout` `discovery-to-delivery` `build-vs-buy` |
 | `technical-strategist` | Technical strategy: diagnosis, guiding policy, actions, non-goals, kill criteria; load-bearing DADs; build/buy/adopt; platform-vs-product; tech bets; strategy evolution | `technical-strategy` `tech-strategy` `vision` `principles` `tech-bet` `build-vs-buy` `platform-investment` `load-bearing-dad` `north-star-architecture` `strategy-evolution` |
+| `telemetry` | Shared opt-in usage logging and version-checking library for skills | `analytics` `privacy` `version-tracking` `usage-metrics` |
 | `typescript-analytics` | PostHog events, feature flags, client/server analytics in TypeScript | `analytics` `telemetry` `posthog` `feature-flags` `event-tracking` `error-tracking` `typescript` |
 | `typescript-data-engineering` | PostgreSQL, BigQuery, ETL, event sourcing, message brokers, caching, in TypeScript | `data-engineering` `etl` `postgres` `bigquery` `prisma` `drizzle` `event-sourcing` `message-brokers` `rabbitmq` `kafka` `sqs` `bullmq` `caching` `redis` `typescript` |
 | `typescript-quality-engineering` | Umbrella QE: cross-layer test policy, E2E (Playwright), contract tests, CI | `qa` `testing` `test-strategy` `e2e` `playwright` `test-pyramid` `coverage-policy` `typescript` |
@@ -52,6 +68,8 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `ux-design` | UX/UI design: IA, interaction, visual fundamentals, design systems, accessibility, UX writing, critique, handoff | `ux` `ui` `design` `interaction-design` `information-architecture` `design-systems` `accessibility` `wcag` `ux-writing` `figma` `design-critique` `handoff` |
 | `ux-research` | User research: methods, discovery, interviews, usability testing, synthesis, personas/JTBD, ethics | `ux` `research` `discovery` `interviews` `usability-testing` `jtbd` `personas` `synthesis` `research-ethics` |
 | `web3-smart-contract-engineering` | Solidity contracts with Hardhat + Foundry across EVM chains | `web3` `smart-contracts` `solidity` `hardhat` `foundry` `evm` `erc20` `erc721` `erc1155` `merkle` `signature-verification` `staking` |
+| `x-longform-post` | Long-form X posts with founder voice and AI humanizer validation | `social-content` `thought-leadership` `viral-writing` `x-twitter` |
+| `yt-competitive-analysis` | YouTube outlier detection and packaging pattern analysis | `video-analysis` `competitive-intelligence` `viral-patterns` `youtube` |
 
 ### Skill relationships
 
@@ -84,6 +102,24 @@ Skills cross-reference each other where their concerns overlap:
 - `standards-enforcer` ↔ *all skills* (the enforcer cites every other skill at the relevant gates; every skill has an Enforcement note routing to it)
 - `typescript-quality-engineering` is the umbrella for QE; defers to `typescript-testing-backend` and `typescript-testing-frontend` for layer-specific unit/integration tests, and to `web3-smart-contract-engineering` for contract tests
 - `web3-smart-contract-engineering` ↔ `security-engineering` (authoring vs. adversarial review)
+- `autoresearch` ↔ `content-ops` (autoresearch optimizes content; content-ops scores and iterates it via expert panels)
+- `autoresearch` ↔ `growth-engine` (autoresearch generates variants; growth-engine runs the experiments)
+- `content-ops` ↔ `outbound-engine` (content-ops scores copy quality; outbound-engine uses scores for cold email sequences)
+- `content-ops` ↔ `eval` (content-ops scores human-facing content; eval scores AI system output)
+- `conversion-ops` ↔ `content-ops` (CRO audits surface copy issues; content-ops iterates the fixes)
+- `conversion-ops` ↔ `sales-pipeline` (conversion-ops optimizes landing pages that feed the sales pipeline)
+- `growth-engine` ↔ `seo-ops` (SEO experiments are a subset of growth experiments)
+- `outbound-engine` ↔ `sales-pipeline` (outbound sequences feed leads into the pipeline)
+- `revenue-intelligence` ↔ `sales-pipeline` (revenue attribution closes the loop on pipeline performance)
+- `revenue-intelligence` ↔ `sales-playbook` (call analysis feeds pricing pattern insights)
+- `sales-pipeline` ↔ `sales-playbook` (pipeline automates lead flow; playbook handles deal pricing)
+- `podcast-ops` ↔ `content-ops` ↔ `x-longform-post` (podcast content repurposed through content-ops scoring into long-form posts)
+- `seo-ops` ↔ `yt-competitive-analysis` (SEO keyword research and YouTube packaging patterns inform each other)
+- `security` ↔ `security-engineering` (PII sanitization tool vs. application security practices)
+- `team-ops` ↔ `team-lead` (team-ops provides data-driven analysis; team-lead owns process and decisions)
+- `team-ops` ↔ `finance-ops` (team performance data feeds financial team-cost analysis)
+- `telemetry` is a shared library imported by all marketing/sales skills via their preamble blocks
+- `deck-generator` ↔ `content-ops` (deck content quality can be scored by expert panels)
 
 ## Using `prompt-shaper`
 
