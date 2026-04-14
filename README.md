@@ -60,6 +60,9 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `content-ops` | Expert panel scoring and iterative improvement for any content | `content-evaluation` `quality-gates` `expert-review` `scoring` `copywriting` |
 | `context-engineering` | Structure and deliver relevant context to maximize agent output quality | `context-engineering` `prompting` `agent-optimization` `knowledge-structure` |
 | `conversion-ops` | Landing page audits, CRO scoring, survey segmentation, lead magnet generation | `conversion-optimization` `cro-analysis` `lead-magnets` `landing-pages` |
+| `course-author` | Write lesson content from a filled lesson spec — hook, explanation, worked example, code snippets, exercises, misconception callouts, formative check | `education` `course-content` `lesson-writing` `worked-examples` `code-snippets` `exercises` `teaching` |
+| `course-design` | Turn a course brief into an outline: modules, lessons, learning objectives, sequencing, assessment map — backwards design from outcomes | `education` `curriculum-design` `learning-objectives` `backwards-design` `bloom` `sequencing` `cognitive-load` `assessment` |
+| `course-shaper` | Interactive intake for course work: turns vague teaching ideas into a scoped brief (full course, single module, or workshop). Invoke as `/course-shape`. | `intake` `course-planning` `task-scoping` `briefing` `slash-command` `education` |
 | `debugging-and-error-recovery` | Systematically diagnose and fix root causes instead of guessing | `debugging` `error-recovery` `troubleshooting` `triage` `root-cause-analysis` |
 | `deck-generator` | AI-generated presentation slides in consistent visual styles | `presentation-design` `slide-generation` `visualization` `pitch-decks` |
 | `deployment-pipelines` | Infrastructure-grade CI/CD: OIDC, supply-chain hardening, caching, deploy patterns | `cicd` `devops` `github-actions` `oidc` `release` `deploy` `caching` `pipeline-security` |
@@ -188,6 +191,14 @@ Skills cross-reference each other where their concerns overlap:
 - `using-agent-skills` ↔ *all skills* (the meta-skill that governs skill discovery and invocation)
 - `marketing-shaper` ↔ `prompt-shaper` (**siblings**: marketing-shaper scopes marketing work; prompt-shaper scopes engineering work)
 - `marketing-shaper` → all marketing/sales skills (the shaper produces briefs that downstream marketing skills execute)
+- `course-shaper` → `course-design` → `course-author` (intake → outline → lesson content; the education pipeline, sibling of prompt-shaper and marketing-shaper)
+- `course-shaper` ↔ `prompt-shaper` ↔ `marketing-shaper` (**three sibling shapers**: engineering, marketing, and course/teaching intake)
+- `course-design` ↔ `documentation-writer` (both produce `docs/`-shaped artifacts; share Mermaid and incremental-update discipline)
+- `course-author` ↔ `source-driven-development` (technical claims in lessons must cite authoritative sources)
+- `course-author` ↔ `content-ops` (expert panel scoring of drafted lessons before publishing)
+- `course-author` ↔ `deck-generator` (when a lesson is also delivered as slides, author once and split)
+- `course-design` ↔ `spec-driven-development` (lesson specs are the teaching analog of acceptance criteria)
+- `idea-refine` → `course-shaper` (when the teaching idea itself is still fuzzy, refine before shaping)
 
 ## Using `marketing-shaper`
 
