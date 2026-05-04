@@ -1,43 +1,39 @@
 # skills-db
 
-Central repository of agent skills (compatible with Claude Code, Claude Agent SDK, and Cursor): markdown playbooks with YAML frontmatter that teach an AI agent how to follow your stack, tests, security bar, and infrastructure conventions.
-
-Each skill is a directory containing a `SKILL.md` file plus optional `references/`, `assets/`, and `scripts/` subdirectories.
+Central repository of agent skills and agents (compatible with Claude Code, Claude Agent SDK, and Cursor): markdown playbooks with YAML frontmatter that teach an AI agent how to follow your stack, tests, security bar, and infrastructure conventions.
 
 ## Layout
 
-Each skill is a folder whose name matches the `name` field in the skill frontmatter:
+Skills are directories; agents are single files. Folder/file names must match the `name` field in frontmatter.
 
 ```
-<skill-name>/
-├── SKILL.md          # required — entry point with frontmatter + universal rules
-├── references/       # optional — deep-dive docs the agent loads on demand
-├── assets/           # optional — fill-in templates the agent copies (ADRs, RFCs, etc.)
-└── scripts/          # optional — runnable helper scripts
+.claude/
+├── skills/<skill-name>/
+│   ├── SKILL.md          # required — frontmatter, universal rules, references list (target <100 lines)
+│   ├── references/       # deep-dive docs loaded on demand
+│   ├── assets/           # fill-in templates (ADRs, RFCs, briefs)
+│   └── scripts/          # runnable helpers
+└── agents/<agent-name>.md   # frontmatter, role definition, optional tools allowlist
 ```
 
-`SKILL.md` should stay concise (target <100 lines): frontmatter, role/context, universal rules, and a list of references. All long-form details belong in `references/` (progressive disclosure). Templates that the agent fills out belong in `assets/`, not `references/`.
+Long-form content lives in `references/`, not `SKILL.md` (progressive disclosure). Templates the agent fills out belong in `assets/`.
 
-## Quick install
-
-Run this from the root of your project to download and install all skills:
+## Install
 
 ```bash
-# Install to .claude/skills/ (default)
+# .claude/skills/ (default)
 curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash
 
-# Install to .cursor/skills/ instead
+# .cursor/skills/
 curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --cursor
 
-# Install to both .claude/skills/ and .cursor/skills/
+# Both
 curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --both
 ```
 
-Re-run the same command at any time to update — all skill files are overwritten with the latest version.
+Re-run to update — files are overwritten with the latest version.
 
 ### Manual install
-
-Copy or sync entire folders into a project:
 
 ```text
 <your-project>/.claude/skills/<skill-name>/        # Claude Code
@@ -46,7 +42,7 @@ Copy or sync entire folders into a project:
 
 ## Skills in this repo
 
-Folder name = `name` field in frontmatter. Tags help with discovery and routing — they describe the *domain*, the *phase of work*, and the *technologies or concepts* the skill covers.
+Folder name = `name` field in frontmatter. Tags help with discovery and routing — domain, phase of work, and technologies covered.
 
 | Skill | Focus | Tags |
 |---|---|---|
@@ -116,225 +112,114 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `x-longform-post` | Long-form X posts with founder voice and AI humanizer validation | `social-content` `thought-leadership` `viral-writing` `x-twitter` |
 | `yt-competitive-analysis` | YouTube outlier detection and packaging pattern analysis | `video-analysis` `competitive-intelligence` `viral-patterns` `youtube` |
 
-### Skill relationships
+## Agents in this repo
 
-Skills cross-reference each other where their concerns overlap:
+Agents are focused roles the parent agent delegates work to. Each pulls relevant skills on demand and returns a single response.
 
-- `cloud-infrastructure` ↔ `deployment-pipelines` ↔ `security-engineering` (provision, deploy, harden)
-- `system-architect` ↔ `team-lead` ↔ `documentation-writer` (design, decide, document)
-- `system-architect` ↔ `software-design` (macro service boundaries vs micro module structure inside a service)
-- `software-design` ↔ `team-lead` (significant module-design choices become ADRs; everyday defaults become DADs)
-- `system-architect` ↔ `site-reliability-engineering` (designs SLOs and fault tolerance vs operates them at runtime)
-- `site-reliability-engineering` ↔ `deployment-pipelines` (release safety nets, error-budget gating, rollback automation)
-- `site-reliability-engineering` ↔ `security-engineering` (security incidents follow the same incident-response process)
-- `ux-research` ↔ `ux-design` (research produces evidence; design consumes it; pair early and often)
-- `ux-design` ↔ `typescript-testing-frontend` (accessibility testing as a shared concern)
-- `ux-design` / `ux-research` ↔ `system-architect` (UX surfaces non-functional requirements that constrain architecture)
-- `ux-design` ↔ `software-design` (the design's vocabulary should match the domain model's ubiquitous language)
-- `technical-product-management` ↔ `team-lead` (**tightly paired**: TPM owns *what and why*; team-lead owns *how to track and document*)
-- `technical-product-management` ↔ `ux-research` (research feeds prioritization; close handoff)
-- `technical-product-management` ↔ `ux-design` (TPM picks problems; design solves them)
-- `technical-product-management` ↔ `system-architect` (product framing and technical design serve each other; pair on big bets)
-- `technical-product-management` ↔ `site-reliability-engineering` (the two halves of the error-budget-policy negotiation)
-- `godot-engineer` ↔ `software-design` (Godot scenes are software too; SOLID and cohesion principles apply)
-- `godot-engineer` ↔ `ux-research` / `ux-design` (game UX overlaps with web/app UX; playtesting is usability testing)
-- `godot-engineer` ↔ `security-engineering` (multiplayer games need server-side validation, anti-cheat, save tamper resistance)
-- `godot-engineer` ↔ `cloud-infrastructure` / `deployment-pipelines` / `site-reliability-engineering` (only when running multiplayer game servers)
-- `technical-strategist` ↔ `standards-enforcer` (**tightly paired**: the strategist writes the constraints; the enforcer applies them at gates)
-- `technical-strategist` ↔ `team-lead` (load-bearing DADs are the strategy in everyday clothing; team-lead maintains the DAD/ADR machinery)
-- `technical-strategist` ↔ `technical-product-management` (technical strategy serves the product strategy; pair on quarterly planning)
-- `technical-strategist` ↔ `system-architect` (the strategy sets direction; the architect implements specific systems within it)
-- `standards-enforcer` ↔ *all skills* (the enforcer cites every other skill at the relevant gates; every skill has an Enforcement note routing to it)
-- `typescript-quality-engineering` is the umbrella for QE; defers to `typescript-testing-backend` and `typescript-testing-frontend` for layer-specific unit/integration tests, and to `web3-smart-contract-engineering` for contract tests
-- `web3-smart-contract-engineering` ↔ `security-engineering` (authoring vs. adversarial review)
-- `autoresearch` ↔ `content-ops` (autoresearch optimizes content; content-ops scores and iterates it via expert panels)
-- `autoresearch` ↔ `growth-engine` (autoresearch generates variants; growth-engine runs the experiments)
-- `content-ops` ↔ `outbound-engine` (content-ops scores copy quality; outbound-engine uses scores for cold email sequences)
-- `content-ops` ↔ `eval` (content-ops scores human-facing content; eval scores AI system output)
-- `conversion-ops` ↔ `content-ops` (CRO audits surface copy issues; content-ops iterates the fixes)
-- `conversion-ops` ↔ `sales-pipeline` (conversion-ops optimizes landing pages that feed the sales pipeline)
-- `growth-engine` ↔ `seo-ops` (SEO experiments are a subset of growth experiments)
-- `outbound-engine` ↔ `sales-pipeline` (outbound sequences feed leads into the pipeline)
-- `revenue-intelligence` ↔ `sales-pipeline` (revenue attribution closes the loop on pipeline performance)
-- `revenue-intelligence` ↔ `sales-playbook` (call analysis feeds pricing pattern insights)
-- `sales-pipeline` ↔ `sales-playbook` (pipeline automates lead flow; playbook handles deal pricing)
-- `podcast-ops` ↔ `content-ops` ↔ `x-longform-post` (podcast content repurposed through content-ops scoring into long-form posts)
-- `seo-ops` ↔ `yt-competitive-analysis` (SEO keyword research and YouTube packaging patterns inform each other)
-- `security` ↔ `security-engineering` (PII sanitization tool vs. application security practices)
-- `team-ops` ↔ `team-lead` (team-ops provides data-driven analysis; team-lead owns process and decisions)
-- `team-ops` ↔ `finance-ops` (team performance data feeds financial team-cost analysis)
-- `telemetry` is a shared library imported by all marketing/sales skills via their preamble blocks
-- `deck-generator` ↔ `content-ops` (deck content quality can be scored by expert panels)
-- `security-and-hardening` ↔ `security-engineering` (**layered**: developer-focused hardening vs cross-stack security specialist review; load both for defense in depth)
-- `security-and-hardening` ↔ `code-review-and-quality` (security is one of five review axes)
-- `ci-cd-and-automation` ↔ `deployment-pipelines` (**complementary**: developer quality gates vs infrastructure-grade pipeline hardening)
-- `ci-cd-and-automation` ↔ `shipping-and-launch` (CI gates feed launch readiness; rollback strategies span both)
-- `documentation-and-adrs` ↔ `documentation-writer` ↔ `team-lead` (decision capture, docs maintenance, and team governance — three distinct functions)
-- `code-review-and-quality` ↔ `software-design` (review includes design axis; software-design goes deeper on structure)
-- `code-simplification` ↔ `software-design` (clarity refactor first, then structural refactor — sequential)
-- `code-simplification` ↔ `code-review-and-quality` (simplification opportunities surface during review)
-- `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation` (ideation → scoping → decomposition → execution pipeline)
-- `idea-refine` → `marketing-shaper` (for marketing ideas, the brief flows to marketing-shaper instead of prompt-shaper)
-- `spec-driven-development` ↔ `planning-and-task-breakdown` (spec defines *what*; planning decomposes *how*)
-- `test-driven-development` ↔ `debugging-and-error-recovery` (TDD's prove-it pattern is the first step in debugging)
-- `test-driven-development` ↔ `incremental-implementation` (each vertical slice gets tests before implementation)
-- `browser-testing-with-devtools` ↔ `frontend-ui-engineering` (DevTools verifies what frontend-ui builds)
-- `browser-testing-with-devtools` ↔ `test-driven-development` (browser testing is the E2E layer of the test pyramid)
-- `frontend-ui-engineering` ↔ `ux-design` (**complementary roles**: design defines *what*; frontend implements *how*)
-- `api-and-interface-design` ↔ `deprecation-and-migration` (API design includes versioning; deprecation manages the lifecycle)
-- `api-and-interface-design` ↔ `software-design` (API boundaries are the external face of internal module structure)
-- `source-driven-development` ↔ `debugging-and-error-recovery` (official docs are the first source of truth when diagnosing framework issues)
-- `performance-optimization` ↔ `frontend-ui-engineering` (Core Web Vitals and re-render prevention)
-- `performance-optimization` ↔ `site-reliability-engineering` (performance targets feed SLOs)
-- `shipping-and-launch` ↔ `site-reliability-engineering` (launch readiness, monitoring, rollback)
-- `git-workflow-and-versioning` ↔ `incremental-implementation` (atomic commits support vertical-slice delivery)
-- `context-engineering` ↔ `using-agent-skills` (context setup determines which skills load and how effectively)
-- `using-agent-skills` ↔ *all skills* (the meta-skill that governs skill discovery and invocation)
-- `skill-library-review` ↔ `using-agent-skills` (the review skill keeps the meta-skill's discovery machinery healthy by catching routing-quality regressions in the library)
-- `skill-library-review` ↔ `code-review-and-quality` (same review discipline — verdict-first, severity-tagged, file:line citations — applied to agent definitions instead of source code)
-- `skill-library-review` ↔ `standards-enforcer` (skill-library-review is the source-of-truth for the agent-library standard; standards-enforcer applies it at gates)
-- `marketing-shaper` ↔ `prompt-shaper` (**siblings**: marketing-shaper scopes marketing work; prompt-shaper scopes engineering work)
-- `marketing-shaper` → all marketing/sales skills (the shaper produces briefs that downstream marketing skills execute)
-- `course-shaper` → `course-design` → `course-author` (intake → outline → lesson content; the education pipeline, sibling of prompt-shaper and marketing-shaper)
-- `course-shaper` ↔ `prompt-shaper` ↔ `marketing-shaper` (**three sibling shapers**: engineering, marketing, and course/teaching intake)
-- `course-design` ↔ `documentation-writer` (both produce `docs/`-shaped artifacts; share Mermaid and incremental-update discipline)
-- `course-author` ↔ `source-driven-development` (technical claims in lessons must cite authoritative sources)
-- `course-author` ↔ `content-ops` (expert panel scoring of drafted lessons before publishing)
-- `course-author` ↔ `deck-generator` (when a lesson is also delivered as slides, author once and split)
-- `course-design` ↔ `spec-driven-development` (lesson specs are the teaching analog of acceptance criteria)
-- `idea-refine` → `course-shaper` (when the teaching idea itself is still fuzzy, refine before shaping)
-
-## Using `marketing-shaper`
-
-`marketing-shaper` is the intake skill for marketing work — the marketing-specific sibling of `prompt-shaper`. Use it at the *start* of a session when you have a marketing goal but haven't fully scoped it.
-
-**Invoke it two ways:**
-
-- As a slash command: `/mshape <your rough description>`
-- By describing your intent in natural language — phrases like "plan this campaign", "scope this content", "marketing plan", "growth plan", "outbound plan" trigger it automatically.
-
-**What it does:**
-
-1. Picks a template based on the kind of marketing work — campaign, content, optimization, research, or pipeline.
-2. Asks **one batched round** of 3–6 focused questions (via `AskUserQuestion`) to fill the gaps.
-3. Outputs a filled marketing brief in a fenced markdown block, ready to copy into a fresh session.
-4. **Stops there.** Say `go` to execute immediately, or paste the brief into a clean session.
-
-**The five work types:**
-
-| Type | Use when... | Key sections |
+| Agent | Scope | Tools |
 |---|---|---|
-| **Campaign** | Multi-channel initiative (3+ surfaces) | Channels, content calendar, attribution |
-| **Content** | Single deliverable (post, deck, sequence) | Format, voice, source material |
-| **Optimization** | Improving existing assets (CRO, A/B) | Current metrics, variants, experiment design |
-| **Research** | Answering a question, no deliverables | One question, decision it unblocks |
-| **Pipeline** | Building or tuning sales motion | Tools, ICP, bottleneck, compliance |
+| `engineer` | Full-stack implementation: architecture, frontend, backend, infra, SRE, perf, shipping, testing | inherit |
+| `web3-engineer` | Solidity smart contracts on EVM | inherit |
+| `godot-engineer` | Godot 4 + C# game development | inherit |
+| `code-reviewer` | Multi-axis code review with verdict + severity-tagged findings (proactive) | read-only |
+| `security-reviewer` | Cross-stack security audit: app, infra, contracts, agentic AI, CI/CD, PII (proactive) | read-only |
+| `library-reviewer` | Audit of skill/agent library — frontmatter, routing, allowlists, cross-refs (proactive) | read-only |
+| `prompt-shaper` | Engineering intake → scoped task brief (`/shape`) | intake-only |
+| `marketing-shaper` | Marketing intake → scoped brief (`/mshape`) | intake-only |
+| `course-shaper` | Education pipeline: intake → outline → lesson content (`/course-shape`) | authoring |
+| `technical-pm` | Product strategy, tech strategy, leadership, ADRs, DADs, roadmaps | inherit |
+| `marketer` | Content, growth, sales, SEO, outbound, pipeline, attribution | inherit |
+| `ux-specialist` | UX design + research as one tightly-coupled practice | inherit |
+| `ops-analyst` | Finance and team operations — CFO briefings, performance audits | inherit |
 
-**Skip it when** the request is already well-scoped (specific deliverable, clear audience, known metric). Going straight to the work is faster.
+**Tool conventions**
 
-## Using `prompt-shaper`
+- **inherit** — full tool access from the parent agent
+- **read-only** — `Read, Grep, Glob, Bash, WebFetch, WebSearch` (no Edit/Write/NotebookEdit/Agent)
+- **intake-only** — read-only set + `AskUserQuestion`, no Edit/Write/Agent
+- **authoring** — read-only set + `AskUserQuestion, Edit, Write`, no Agent
 
-`prompt-shaper` is the intake skill for turning a half-formed idea into a task brief that downstream skills and subagents can act on. Use it at the *start* of a session, before any code is touched.
+**Skill vs agent.** Skills carry domain rules; agents are the roles that apply them. The same name often appears in both (e.g., `prompt-shaper`, `code-reviewer`) — the skill is *how* the work is done; the agent is *who* does it.
 
-**Invoke it two ways:**
+## Skill clusters
 
-- As a slash command: `/shape <your rough description>`
-- By describing your intent in natural language — phrases like "help me plan", "shape this", "scope this out", "I want to build…", "new initiative" trigger it automatically.
+Each `SKILL.md` lists its own related skills; the high-level map:
 
-**What it does:**
+- **Intake → execution**: `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation`. Three sibling shapers (`prompt-shaper`, `marketing-shaper`, `course-shaper`) handle engineering, marketing, and teaching intake.
+- **Engineering core**: `system-architect` ↔ `software-design` ↔ `api-and-interface-design` — service boundaries, module structure, external contracts.
+- **Code quality**: `code-review-and-quality` ↔ `code-simplification` ↔ `software-design` — review surfaces simplification; clarity refactor before structural refactor.
+- **Process discipline**: `spec-driven-development` ↔ `planning-and-task-breakdown` ↔ `test-driven-development` ↔ `incremental-implementation` — spec defines what; planning decomposes how; TDD proves each slice.
+- **Ops & reliability**: `cloud-infrastructure` ↔ `deployment-pipelines` ↔ `site-reliability-engineering` — provision, deploy, operate. `shipping-and-launch` and `performance-optimization` feed SLOs.
+- **Security stack** (load all three for defense in depth): `security-and-hardening` (developer-focused) + `security-engineering` (cross-stack specialist) + `security` (PII sanitization).
+- **Governance**: `technical-strategist` writes constraints → `standards-enforcer` applies at gates → `team-lead` maintains DAD/ADR machinery → `technical-product-management` owns *what and why*.
+- **UX**: `ux-research` produces evidence → `ux-design` consumes it; both pair with `frontend-ui-engineering` and `software-design` (vocabulary alignment).
+- **Marketing/sales pipeline**: `marketing-shaper` → `content-ops` → `outbound-engine` → `sales-pipeline` → `revenue-intelligence`. `growth-engine` runs experiments across them.
+- **Education**: `course-shaper` (intake) → `course-design` (outline) → `course-author` (lessons).
+- **Testing layers**: `typescript-quality-engineering` (umbrella) defers to `typescript-testing-backend` / `typescript-testing-frontend` / `web3-smart-contract-engineering`.
+- **Library meta**: `using-agent-skills` governs skill discovery; `skill-library-review` keeps the library healthy; `context-engineering` shapes how skills load.
+- **Game dev specialty**: `godot-engineer` ↔ `software-design`, `ux-research`/`ux-design`, `security-engineering` (multiplayer), and ops skills (only when running game servers).
 
-1. Picks a template based on the kind of work — multi-repo feature, single-repo change, investigation, or bugfix.
-2. Asks **one batched round** of 3–6 focused questions (via `AskUserQuestion`) to fill the gaps in your description. It will not interrogate you one question at a time.
-3. Outputs a filled task brief in a fenced markdown block, ready to copy into a fresh session.
-4. **Stops there.** It does not start the work. Say `go` after seeing the brief if you want it to execute immediately, or paste the brief into a clean session for best results.
+## Using the shapers
 
-**What it deliberately does *not* do:**
+Three intake skills convert vague requests into scoped briefs:
 
-- It does not assign skills to subtasks. Skill auto-selection works on description matching — naming skills explicitly suppresses better matches. The brief describes *concerns* ("schema design", "security review"), and the right skills load themselves when the work begins.
-- It does not invent constraints. Sections you didn't supply and weren't asked about are left as `<unknown — to investigate>`.
+- `/shape` — engineering work (multi-repo feature, single-repo, investigation, bugfix)
+- `/mshape` — marketing work (campaign, content, optimization, research, pipeline)
+- `/course-shape` — teaching work (full course, module, workshop)
 
-**Skip it when** the request is already well-scoped (one file, obvious change, clear done criteria). Going straight to the work is faster.
+Each picks a template by the *shape* of work, asks one batched round of 3–6 questions via `AskUserQuestion`, outputs a filled brief in a fenced markdown block, and stops there. Say `go` to execute, or paste the brief into a fresh session.
 
-### The recommended workflow
+**Workflow tips that pay off:**
 
-The point of `prompt-shaper` is to **separate thinking from doing**. The shaping conversation is messy and exploratory; the execution should start from a clean, well-scoped brief. Don't conflate the two.
+- **Shape in one session, execute in another.** The shaping conversation accumulates baggage that confuses execution. Paste the brief into a fresh session as message 1.
+- **Answer concretely, or admit unknown.** Don't guess — say "don't know yet" and the brief marks it `<unknown — to investigate>`.
+- **Edit the brief before acting on it.** Treat it like a PR description; five seconds of edits now saves a wrong implementation later.
+- **Don't pre-pick skills.** Naming skills suppresses better matches. Describe the *concern* in plain language; the right skills load themselves.
+- **Honor the multi-repo approval gate.** Cross-repo edits are the most expensive to undo — let the executor pause for approval after the integrated plan.
 
-**1. Shape in one session, execute in another.**
-The shaping conversation accumulates back-and-forth, half-answers, abandoned tangents, and your own rethinking. None of that helps the executing agent — in fact it confuses skill selection and dilutes attention on the final brief. Run `/shape` in one session, copy the emitted brief, then paste it into a *fresh* session as the very first message. The new session has zero baggage and the brief is the entire context.
+**Skip the shaper when** the request is one file, one obvious change, with done criteria in one sentence. Shaping a trivial task is overhead.
 
-**2. Answer the questions concretely.**
-The questions are not a quiz — they're the gaps the agent will otherwise fill with assumptions. If you don't know an answer, say so explicitly ("don't know yet — investigate") rather than guessing. The brief will mark it as `<unknown>` and the executor will treat it as the first thing to figure out, instead of silently inventing a value.
+## Frontmatter and authoring
 
-**3. Read the brief before you act on it.**
-Treat the emitted brief like a PR description you're reviewing. If a section is wrong, vague, or missing the constraint you care most about, **edit it directly** before pasting it into the next session. The brief is a markdown document, not a contract — five seconds of editing here saves a wrong implementation later.
-
-**4. Use the right template for the shape of the work.**
-The shaper picks one automatically, but if you know the work doesn't fit (e.g. "this is really an investigation, not a feature"), say so in your initial message. The four templates exist because they prompt for different things:
-- **Investigation** asks for the *one question* and the *decision it unblocks* — forces you to commit to a falsifiable goal instead of "look into X".
-- **Bugfix** asks for repro steps and explicit out-of-scope — the #1 cause of bugfix sprawl is "while we're in there".
-- **Single-repo feature** keeps scope narrow and assumes one PR.
-- **Multi-repo feature** assumes a per-repo Explore phase and a stop-for-approval gate before any edits.
-
-**5. Honor the approval gate for multi-repo work.**
-The multi-repo template explicitly tells the executor to *stop after producing an integrated plan and wait for your approval* before touching any code. Don't override this. Cross-repo edits are the most expensive thing to undo — the gate is the cheapest place to catch a wrong assumption.
-
-**6. Don't pre-pick skills.**
-You may be tempted to write "use the security-engineering skill for the auth review". Don't. Skills auto-load on description matching, and naming them in the brief actively suppresses better matches. Instead, describe the *concern* in plain language ("the auth flow needs a security review before merge") — the right skills will load themselves when the executor reaches that part.
-
-**7. When to skip the shaper entirely.**
-If the task is one file, one obvious change, and you can describe done criteria in a sentence — just do it. Shaping a trivial task is overhead. The shaper earns its keep on work that spans more than one file, more than one repo, or more than one session.
-
-**Example session:**
-
-```
-You: /shape add rate limiting across our API gateway and the two services behind it
-prompt-shaper: <asks 4 questions: which repos, per-user vs per-IP, limit values, deadline>
-You: <answers — including "don't know the limit values yet, investigate current traffic first">
-prompt-shaper: <emits a filled feature-rollout brief with the limit-values section as <unknown>>
-You: <copies the brief, opens a new Claude Code session, pastes it as message 1>
-new session: <Explore subagents map each repo, integrated plan emitted, waits for approval>
-You: <reviews plan, approves>
-new session: <implements repo-by-repo, one PR each>
-```
-
-## Frontmatter conventions
-
-Every `SKILL.md` starts with:
+Every `SKILL.md` and agent file starts with:
 
 ```yaml
 ---
-name: lowercase-hyphenated-id          # must match the directory name
-description: Use when <situation>. Triggers on <file globs> or mentions of "<keyword>", "<keyword>", ... For <related concern> see <other-skill>.
+name: lowercase-hyphenated-id          # must match directory/file name
+description: Use when <situation>. Triggers on <globs/keywords>. For <related concern> see <other-skill>.
 ---
 ```
 
-Rules for the `description`:
+**Description rules:**
 
-- Third person, written for the agent's loader, not the human reader.
-- State **WHAT** the skill does and **WHEN** to load it (situation + trigger globs/keywords).
-- Use **portable globs** (`**/*.test.tsx`, `**/__tests__/`), not project-specific paths (`apps/foo/...`).
-- Cross-reference adjacent skills at the end ("For X see other-skill") so the loader can route correctly.
-- Keep it under ~1024 characters.
+- Third person, written for the loader (not the human reader)
+- States both **WHAT** the skill/agent does and **WHEN** to load it
+- Portable globs (`**/*.test.tsx`), not project-specific paths
+- Cross-references adjacent skills/agents so the loader can route correctly
+- Under ~1024 characters
 
-## Authoring rules
+**Authoring rules:**
 
-- **Keep `SKILL.md` short** — frontmatter, 1–2 paragraphs of context, a "Universal Rules" list, and a references list. Long-form content goes in `references/`.
-- **Progressive disclosure** — never inline a 200-line code example in `SKILL.md`; link to a reference file instead.
-- **No company-specific names in `SKILL.md`** — descriptions especially must be portable. Concrete code examples in `references/` may use realistic identifiers, but frame them as examples, not as the only valid pattern.
-- **Templates go in `assets/`** — anything the agent fills out and copies (ADRs, RFCs, design docs) lives in `assets/`, not `references/`.
-- **Cross-reference related skills** — when a topic spans skills, link both ways in a "Related skills" section.
+- Keep `SKILL.md` under ~100 lines: frontmatter, role/context, universal rules, references list. Long content goes in `references/`.
+- Progressive disclosure — never inline a 200-line code example.
+- No company-specific names in `SKILL.md`. Examples in `references/` may use realistic identifiers, framed as examples.
+- Templates the agent fills out (ADRs, RFCs, briefs) go in `assets/`, not `references/`.
+- Cross-reference related skills both ways.
+
+For agent definitions, use the `library-reviewer` agent or load the `skill-library-review` skill — the rubric covers frontmatter, routing quality, tool allowlists, single-responsibility, and cross-reference health.
 
 ## Syncing into projects
 
-Copy the skill directories you need into each repo (rsync, Taskfile, submodule, etc.):
+Copy directories/files into each repo (rsync, Taskfile, submodule, etc.):
 
 ```text
-<your-project>/.claude/skills/<skill-name>/        # Claude Code
-<your-project>/.cursor/skills/<skill-name>/        # Cursor
+<your-project>/.claude/skills/<skill-name>/
+<your-project>/.claude/agents/<agent-name>.md
+<your-project>/.cursor/skills/<skill-name>/
 ```
 
-Commit the synced skills in application repos if the whole team should share the same agent behavior.
+Commit synced skills/agents in application repos if the team should share the same agent behavior.
 
 ## Contributing
 
-Add or edit skills here, then redeploy copies to downstream repos. If a `SKILL.md` is approaching ~100 lines, split content into `references/` files and link them — the agent loads references on demand.
+Add or edit skills/agents here, then redeploy to downstream repos. If a `SKILL.md` approaches ~100 lines, split content into `references/`. Run `library-reviewer` after edits to catch routing-quality regressions before merge.
