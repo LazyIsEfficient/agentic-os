@@ -92,6 +92,7 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `seo-ops` | Keyword research, competitor gap analysis, GSC optimization, trend detection | `seo-intelligence` `keyword-research` `competitive-analysis` `gsc` |
 | `shipping-and-launch` | Pre-launch checklists, feature flags, staged rollouts, rollback plans | `shipping` `deployment` `launch` `feature-flags` `rollout` `monitoring` `rollback` |
 | `site-reliability-engineering` | SLOs/error budgets, alerting, on-call, incident response, postmortems, runbooks, toil reduction, chaos | `sre` `operate` `slo` `error-budget` `alerting` `on-call` `incident-response` `postmortem` `runbook` `chaos` `observability` |
+| `skill-library-review` | Audit a library of Claude Code skills and agents — frontmatter, routing quality, tool allowlists, cross-reference health, single-responsibility, anti-patterns | `meta-skill` `library-review` `agent-design` `skill-design` `frontmatter` `routing` `tool-allowlist` `cross-references` |
 | `software-design` | SOLID, cohesion/coupling, separation of concerns, hexagonal architecture, DDD, code review, refactoring | `code-quality` `code-review` `refactoring` `solid` `ddd` `hexagonal` `clean-architecture` `domain-modeling` `cohesion` `coupling` |
 | `source-driven-development` | Verify implementation against official docs, cite sources, avoid outdated patterns | `documentation` `source-verification` `frameworks` `best-practices` `citation` |
 | `spec-driven-development` | Establish clear specifications with acceptance criteria before coding | `specification` `requirements` `acceptance-criteria` `gated-workflow` `design-before-code` |
@@ -189,6 +190,9 @@ Skills cross-reference each other where their concerns overlap:
 - `git-workflow-and-versioning` ↔ `incremental-implementation` (atomic commits support vertical-slice delivery)
 - `context-engineering` ↔ `using-agent-skills` (context setup determines which skills load and how effectively)
 - `using-agent-skills` ↔ *all skills* (the meta-skill that governs skill discovery and invocation)
+- `skill-library-review` ↔ `using-agent-skills` (the review skill keeps the meta-skill's discovery machinery healthy by catching routing-quality regressions in the library)
+- `skill-library-review` ↔ `code-review-and-quality` (same review discipline — verdict-first, severity-tagged, file:line citations — applied to agent definitions instead of source code)
+- `skill-library-review` ↔ `standards-enforcer` (skill-library-review is the source-of-truth for the agent-library standard; standards-enforcer applies it at gates)
 - `marketing-shaper` ↔ `prompt-shaper` (**siblings**: marketing-shaper scopes marketing work; prompt-shaper scopes engineering work)
 - `marketing-shaper` → all marketing/sales skills (the shaper produces briefs that downstream marketing skills execute)
 - `course-shaper` → `course-design` → `course-author` (intake → outline → lesson content; the education pipeline, sibling of prompt-shaper and marketing-shaper)
