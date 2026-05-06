@@ -68,9 +68,16 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 | `eval` | AI output evaluation: test scenarios, scoring, regression detection | `ai-evaluation` `quality-testing` `prompt-testing` `regression-detection` |
 | `finance-ops` | CFO briefings from QuickBooks exports with scenario modeling | `financial-analysis` `burn-rate` `cost-estimation` `scenario-modeling` |
 | `frontend-ui-engineering` | Production-quality UIs: components, state, accessibility, responsive design | `frontend` `ui-engineering` `accessibility` `react` `design-system` `responsive-design` |
+| `game-balancer` | Number tuning for games: economy curves, progression rates, difficulty pacing, drop tables, currency velocities, simulation, live re-tunes | `game-design` `game-balance` `economy-design` `progression-curves` `difficulty-tuning` `drop-tables` `simulation` `playtest` `live-ops` |
+| `game-concept-creator` | Generate, evaluate, and refine pitch-quality game concepts as one-pagers (logline, fantasy, hook, verbs, comp titles, payment rails, risks) | `game-design` `concept-pitch` `ideation` `mda` `fantasy-design` `payment-rails` `pitch` |
+| `game-design-shaper` | Interactive intake for game design: turns vague game ideas into a scoped brief (full game, prototype, jam, live-game update). Always asks the payment-rails question. Invoke as `/game-shape`. | `intake` `game-design` `task-scoping` `briefing` `slash-command` `payment-rails` |
+| `game-marketer` | Game-specific marketing: store-page conversion, trailers, soft-launch CPI / ROAS, communities, influencers, launch comms, live-ops cadence, web3 mint comms | `marketing` `game-marketing` `store-page` `trailer` `soft-launch` `cpi` `roas` `community` `influencer` `live-ops-comms` `web3-mint` |
+| `game-monetization-strategist` | Pick and shape the monetization model (premium / F2P / sub / ads / hybrid / web3); set LTV / ARPDAU / ROAS targets, segment economics, KPI floors | `game-design` `monetization` `f2p` `premium` `subscription` `ads` `web3-monetization` `ltv` `arpdau` `roas` `soft-launch-kpis` `segment-economics` |
+| `game-systems-designer` | Turn a locked concept into a design doc + system specs: MDA-driven core/meta loops, player verbs, content systems, level structure, narrative integration, onboarding, failure design | `game-design` `gdd` `system-design` `core-loop` `meta-loop` `mda` `player-verbs` `level-design` `narrative-integration` `onboarding` `failure-design` |
 | `git-workflow-and-versioning` | Trunk-based development, atomic commits, branching strategy, worktrees | `git` `version-control` `workflow` `branching-strategy` `commit-discipline` `trunk-based-development` |
 | `godot-engineer` | Godot 4 + C# game development: scenes, nodes, physics, animation, UI, save, performance, WebSocket multiplayer, exporting | `game-development` `godot` `godot4` `csharp` `dotnet` `game-engine` `2d` `3d` `physics` `animation` `tween` `shader` `gameplay` `multiplayer` `websocket` `gamedev` |
 | `growth-engine` | Multivariate experiment framework with statistical analysis and auto-playbook | `experimentation` `a-b-testing` `growth-metrics` `statistical-analysis` |
+| `iap-manager` | In-app purchase catalog and store ops: SKU design, price-tier ladder, bundles, starter packs, battle pass tiering, A/B price tests, store config (App Store / Google Play / Steam / web / web3), localization | `monetization` `iap` `pricing` `bundles` `starter-pack` `battle-pass` `price-testing` `store-config` `app-store` `google-play` `steam` `web3-iap` `price-localization` |
 | `idea-refine` | Refine raw ideas through divergent ideation, convergent evaluation, structured output | `ideation` `product-thinking` `idea-validation` `design-thinking` `frameworks` |
 | `incremental-implementation` | Implement features in thin vertical slices with testing at each increment | `implementation` `vertical-slices` `incremental-development` `scope-discipline` |
 | `marketing-shaper` | Interactive intake for marketing work: turns vague requests into scoped briefs (campaign, content, optimization, research, or pipeline). Invoke as `/mshape`. | `intake` `marketing-planning` `task-scoping` `briefing` `slash-command` |
@@ -127,6 +134,7 @@ Agents are focused roles the parent agent delegates work to. Each pulls relevant
 | `prompt-shaper` | Engineering intake → scoped task brief (`/shape`) | intake-only |
 | `marketing-shaper` | Marketing intake → scoped brief (`/mshape`) | intake-only |
 | `course-shaper` | Education pipeline: intake → outline → lesson content (`/course-shape`) | authoring |
+| `game-design-shaper` | Game design pipeline: intake → concept → design → balance → monetization → catalog → marketing (`/game-shape`) | authoring |
 | `technical-pm` | Product strategy, tech strategy, leadership, ADRs, DADs, roadmaps | inherit |
 | `marketer` | Content, growth, sales, SEO, outbound, pipeline, attribution | inherit |
 | `ux-specialist` | UX design + research as one tightly-coupled practice | inherit |
@@ -145,7 +153,7 @@ Agents are focused roles the parent agent delegates work to. Each pulls relevant
 
 Each `SKILL.md` lists its own related skills; the high-level map:
 
-- **Intake → execution**: `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation`. Three sibling shapers (`prompt-shaper`, `marketing-shaper`, `course-shaper`) handle engineering, marketing, and teaching intake.
+- **Intake → execution**: `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation`. Four sibling shapers (`prompt-shaper`, `marketing-shaper`, `course-shaper`, `game-design-shaper`) handle engineering, marketing, teaching, and game-design intake.
 - **Engineering core**: `system-architect` ↔ `software-design` ↔ `api-and-interface-design` — service boundaries, module structure, external contracts.
 - **Code quality**: `code-review-and-quality` ↔ `code-simplification` ↔ `software-design` — review surfaces simplification; clarity refactor before structural refactor.
 - **Process discipline**: `spec-driven-development` ↔ `planning-and-task-breakdown` ↔ `test-driven-development` ↔ `incremental-implementation` — spec defines what; planning decomposes how; TDD proves each slice.
@@ -155,17 +163,19 @@ Each `SKILL.md` lists its own related skills; the high-level map:
 - **UX**: `ux-research` produces evidence → `ux-design` consumes it; both pair with `frontend-ui-engineering` and `software-design` (vocabulary alignment).
 - **Marketing/sales pipeline**: `marketing-shaper` → `content-ops` → `outbound-engine` → `sales-pipeline` → `revenue-intelligence`. `growth-engine` runs experiments across them.
 - **Education**: `course-shaper` (intake) → `course-design` (outline) → `course-author` (lessons).
+- **Game design pipeline**: `game-design-shaper` (intake, captures payment rails) → `game-concept-creator` (concept one-pager) → `game-systems-designer` (design doc + system specs) → `game-balancer` (number tuning) → `game-monetization-strategist` (model + KPI floors) → `iap-manager` (catalog + store config) → `game-marketer` (store pages, trailers, soft launch, comms). Engine implementation lives in `godot-engineer` (separate skill).
 - **Testing layers**: `typescript-quality-engineering` (umbrella) defers to `typescript-testing-backend` / `typescript-testing-frontend` / `web3-smart-contract-engineering`.
 - **Library meta**: `using-agent-skills` governs skill discovery; `skill-library-review` keeps the library healthy; `context-engineering` shapes how skills load.
-- **Game dev specialty**: `godot-engineer` ↔ `software-design`, `ux-research`/`ux-design`, `security-engineering` (multiplayer), and ops skills (only when running game servers).
+- **Game dev (engine specialty)**: `godot-engineer` ↔ `software-design`, `ux-research`/`ux-design`, `security-engineering` (multiplayer), and ops skills (only when running game servers). The game-design pipeline above feeds into the engine.
 
 ## Using the shapers
 
-Three intake skills convert vague requests into scoped briefs:
+Four intake skills convert vague requests into scoped briefs:
 
 - `/shape` — engineering work (multi-repo feature, single-repo, investigation, bugfix)
 - `/mshape` — marketing work (campaign, content, optimization, research, pipeline)
 - `/course-shape` — teaching work (full course, module, workshop)
+- `/game-shape` — game design work (full game, prototype, jam, live-game update; payment-rails decision captured in intake)
 
 Each picks a template by the *shape* of work, asks one batched round of 3–6 questions via `AskUserQuestion`, outputs a filled brief in a fenced markdown block, and stops there. Say `go` to execute, or paste the brief into a fresh session.
 
@@ -178,6 +188,8 @@ Each picks a template by the *shape* of work, asks one batched round of 3–6 qu
 - **Honor the multi-repo approval gate.** Cross-repo edits are the most expensive to undo — let the executor pause for approval after the integrated plan.
 
 **Skip the shaper when** the request is one file, one obvious change, with done criteria in one sentence. Shaping a trivial task is overhead.
+
+**Worked examples** of every shaper × template combination live in [`examples/`](examples/) — one per template variant, showing the user's request, the shaper's batched questions, the answers, and the final brief.
 
 ## Frontmatter and authoring
 

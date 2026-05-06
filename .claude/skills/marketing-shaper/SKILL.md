@@ -7,7 +7,8 @@ description: >-
   plan", or when invoked as the /mshape slash command. Produces a filled brief
   (campaign, content, optimization, research, or pipeline) that downstream
   marketing skills can act on. Do not use for work already well-defined — go
-  straight to execution. For engineering task shaping see prompt-shaper.
+  straight to execution. For engineering task shaping see prompt-shaper; for
+  course intake see course-shaper; for game-design intake see game-design-shaper.
 ---
 
 # Marketing Shaper

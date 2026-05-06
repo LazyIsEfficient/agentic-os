@@ -1,6 +1,6 @@
 ---
 name: prompt-shaper
-description: Use to structure a vague request into a well-scoped task brief before any real work begins. Triggers on "shape this", "help me plan", "scope this out", "frame this work", "new feature", "kick off", "I want to build", "new initiative", or when invoked as the /shape slash command. Produces a filled task template (multi-repo feature, single-repo change, investigation, or bugfix) that downstream skills and subagents can act on. Do not use for work already well-defined — go straight to execution in that case.
+description: Use to structure a vague engineering request into a well-scoped task brief before any real work begins. Triggers on "shape this", "help me plan", "scope this out", "frame this work", "new feature", "kick off", "I want to build", "new initiative", or when invoked as the /shape slash command. Produces a filled task template (multi-repo feature, single-repo change, investigation, or bugfix) that downstream skills and subagents can act on. Do not use for work already well-defined — go straight to execution in that case. For marketing intake see marketing-shaper; for course intake see course-shaper; for game-design intake see game-design-shaper.
 ---
 
 # Prompt Shaper
