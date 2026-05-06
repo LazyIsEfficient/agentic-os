@@ -1,5 +1,7 @@
 # Hook Testing
 
+Same convention as **Tests-only default and refactor callouts** in [SKILL.md](../SKILL.md): tests only unless the user asked for production changes; defer hook signature changes, new parameters, or consumer refactors to **Refactor opportunities (not in scope)** (bulleted). Flag awkward dependencies, missing seams, or mock depth there — do not implement refactors in the same turn unless instructed.
+
 Use `renderHook()` with an explicit wrapper providing the required context:
 
 ```typescript
