@@ -23,10 +23,21 @@ Mock Zustand stores via the selector pattern, services at the module boundary, a
 8. **No snapshot tests** — behavioral assertions only.
 9. **Never `test.skip()`** — fix or delete.
 10. **Every `it()` asserts** at least one observable behavior.
+11. **Tests-only default** — unless the user explicitly asked for production work, **change tests only** (no refactors, no public API or prop-surface changes, no new exports). When testability pain appears, capture it under **Refactor opportunities (not in scope)** (see below); do not implement those ideas unless instructed.
+
+## Tests-only default and refactor callouts
+
+When **writing or reviewing** tests, default scope is **tests only**. Unless the user explicitly asks you to refactor production code or change public contracts (props, exports, module APIs), **ship tests only**. Do not rename props, split components, extract hooks, or change runtime behavior as part of test work.
+
+Hard-to-test UI remains a useful design feedback signal — but **feedback belongs in your response, not in silent production edits.** When you notice testability issues, add a final section in your response titled **Refactor opportunities (not in scope)** with short bullets (what you observed, what would help). Omit the section if nothing is worth flagging.
+
+**Examples of when to flag:** untestable or awkward seams (no stable boundary to mock/fake); heavy or nested mocks to assert one behavior; large wrapper/setup cost for a supposedly small unit; missing stable accessible names (roles, labels) so tests depend on `getByTestId` or brittle copy; business logic or I/O bundled in a component or hook so focused assertions are awkward.
+
+Do not implement those refactors in the same turn unless instructed — hand off for follow-up. This aligns with [software-design](../software-design/SKILL.md): record the signal; acting on it is a separate, explicit scope.
 
 ## Related skills
 
-- [software-design](../software-design/SKILL.md) — testability is a design feedback signal; if a component is hard to test, refactor the component, not the test
+- [software-design](../software-design/SKILL.md) — testability is a design feedback signal; do not game tests to hide issues. When the mandate is **tests only**, capture component- or module-level improvements under **Refactor opportunities (not in scope)** instead of refactoring production code in the same turn unless the user asked.
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
 - [ux-design](../ux-design/SKILL.md) — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
 
