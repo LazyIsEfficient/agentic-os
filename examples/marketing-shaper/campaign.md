@@ -93,4 +93,4 @@ Product analytics that already lives in your warehouse — no custom ETL, no sec
 
 ---
 
-**Next step:** paste this into a fresh session, or say `go` and the executor maps the journey, drafts the calendar, and stops for approval before producing assets.
+**Next step:** this brief spans multiple channels (email + landing page + social + ads), so the natural follow-up is decomposition by channel — each becomes its own loop (asset draft → expert-panel score via `content-ops` → ship). Paste the brief into a fresh session and the loader picks up `content-ops` / `growth-engine` per channel. Or say `go` and the executor maps the journey, drafts the calendar, and stops for approval before producing assets.

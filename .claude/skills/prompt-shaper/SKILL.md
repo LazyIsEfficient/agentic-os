@@ -29,7 +29,11 @@ The user has a goal but their description is missing pieces a competent collabor
 
 5. **Fill the template** with the user's initial message + their answers. Where the user gave prose, distill it; do not pad.
 
-6. **Output the filled template** in a single fenced markdown code block so the user can copy it. Add one line above it: *"Here is your task brief. Paste it into a fresh session, or say 'go' and I'll execute it now."* Then stop.
+6. **Output the filled template** in a single fenced markdown code block so the user can copy it. Add one line above it. Pick the wording by brief type:
+   - **Multi-repo feature, single-repo feature, or any brief that spans more than one slice:** *"Here is your task brief. For multi-slice work, run task breakdown next to get a parallel-dispatchable plan. Paste the brief into a fresh session, or say 'go' and I'll hand it to task breakdown now."*
+   - **Investigation or single-slice bugfix:** *"Here is your task brief. Paste it into a fresh session, or say 'go' and I'll execute it now."*
+
+   Then stop.
 
 ## Hard rules
 
@@ -41,6 +45,18 @@ The user has a goal but their description is missing pieces a competent collabor
 
 ## Output shape
 
+For a multi-slice brief (multi-repo, single-repo feature, or anything that needs decomposition before execution):
+
+```
+Here is your task brief. For multi-slice work, run task breakdown next to get a parallel-dispatchable plan. Paste the brief into a fresh session, or say "go" and I'll hand it to task breakdown now.
+
+```markdown
+<filled template>
+```
+```
+
+For a single-slice brief (investigation or scoped bugfix):
+
 ```
 Here is your task brief. Paste it into a fresh session, or say "go" and I'll execute it now.
 
@@ -50,3 +66,8 @@ Here is your task brief. Paste it into a fresh session, or say "go" and I'll exe
 ```
 
 That's it. No commentary after the brief.
+
+## Related skills
+
+- `planning-and-task-breakdown` — consumes a multi-slice brief and decomposes it into ordered, parallel-dispatchable tasks with an execution DAG. The natural next step for `feature-rollout` and `single-repo-feature` briefs.
+- `incremental-implementation` — executes the resulting tasks in vertical slices with verification at each step.

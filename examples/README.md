@@ -9,6 +9,14 @@ Worked examples of each intake shaper turning a vague request into a filled brie
 
 The shapers always stop after producing the brief. Say `go` to execute, or paste the brief into a new session.
 
+**What comes after the brief depends on its shape:**
+
+- **Multi-slice briefs** (multi-repo or single-repo features in `/shape`; campaigns and pipelines in `/mshape`) point at a planner: `planning-and-task-breakdown` for engineering, per-channel decomposition (`content-ops` / `growth-engine` / `outbound-engine` / `sales-pipeline`) for marketing. The planner produces the executable units. Worked engineering examples live in [`planning-and-task-breakdown/`](planning-and-task-breakdown/) — same source briefs, decomposed into per-task YAML frontmatter and an Execution DAG ready for a dispatcher.
+- **Domain pipelines** (`/course-shape`, `/game-shape`) point at the next skill in their chain — `course-design`, `game-concept-creator`, `game-systems-designer`.
+- **Single-slice briefs** (investigations, scoped bugfixes, single content pieces, single optimizations, research questions) skip planning and go straight to execution.
+
+See [`SHAPERS.md`](../SHAPERS.md) for the full three-layer flow (Intake → Planning → Execution) and its limitations.
+
 ## Layout
 
 ```
@@ -28,11 +36,15 @@ examples/
 │   ├── full-course.md
 │   ├── single-module.md
 │   └── workshop.md
-└── game-design-shaper/   # game design work — /game-shape
-    ├── full-game.md
-    ├── prototype.md
-    ├── jam.md
-    └── live-game-update.md
+├── game-design-shaper/   # game design work — /game-shape
+│   ├── full-game.md
+│   ├── prototype.md
+│   ├── jam.md
+│   └── live-game-update.md
+└── planning-and-task-breakdown/  # multi-slice briefs decomposed into parallel-dispatchable tasks
+    ├── README.md
+    ├── feature-rollout-okta-sso.md
+    └── single-repo-feature-csv-export.md
 ```
 
 ## How to read these

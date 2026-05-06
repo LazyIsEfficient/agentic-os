@@ -191,6 +191,8 @@ Each picks a template by the *shape* of work, asks one batched round of 3–6 qu
 
 **Worked examples** of every shaper × template combination live in [`examples/`](examples/) — one per template variant, showing the user's request, the shaper's batched questions, the answers, and the final brief.
 
+**Full guide** — [`SHAPERS.md`](SHAPERS.md) covers the shaper pattern in depth: layering, lifecycle, routing, when to skip, and explicit limitations. Read this before authoring a brief by hand.
+
 ## Frontmatter and authoring
 
 Every `SKILL.md` and agent file starts with:

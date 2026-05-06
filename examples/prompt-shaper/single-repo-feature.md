@@ -63,4 +63,4 @@ Users can export their last 90 days of events as a CSV. The job runs async becau
 
 ---
 
-**Next step:** paste this into a fresh session, or say `go` and the executor reads the relevant code, proposes a plan, and waits for approval before implementing.
+**Next step:** even single-repo features are usually multi-slice — paste the brief into a fresh session and run task breakdown to slice the feature into ordered, verifiable tasks (DB → API → UI vertical slices, each with acceptance and verification). Or say `go` and the shaper hands off to task breakdown, then the executor implements slice-by-slice with verification at each step.
