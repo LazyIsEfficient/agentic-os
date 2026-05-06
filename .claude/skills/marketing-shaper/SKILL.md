@@ -38,7 +38,11 @@ The user has a marketing goal but their description is missing pieces a competen
 
 5. **Fill the template** with the user's initial message + their answers. Where the user gave prose, distill it; do not pad.
 
-6. **Output the filled template** in a single fenced markdown code block so the user can copy it. Add one line above it: *"Here is your marketing brief. Paste it into a fresh session, or say 'go' and I'll execute it now."* Then stop.
+6. **Output the filled template** in a single fenced markdown code block so the user can copy it. Add one line above it. Pick the wording by brief type:
+   - **Campaign or pipeline brief (multi-channel, multi-deliverable):** *"Here is your marketing brief. Decompose it by channel/deliverable next, then run each one as its own loop. Paste it into a fresh session, or say 'go' and I'll hand it off now."*
+   - **Single-deliverable brief (content, optimization, research):** *"Here is your marketing brief. Paste it into a fresh session, or say 'go' and I'll execute it now."*
+
+   Then stop.
 
 ## Hard rules
 
@@ -51,6 +55,18 @@ The user has a marketing goal but their description is missing pieces a competen
 
 ## Output shape
 
+For a multi-channel campaign or pipeline brief:
+
+```
+Here is your marketing brief. Decompose it by channel/deliverable next, then run each one as its own loop. Paste it into a fresh session, or say "go" and I'll hand it off now.
+
+```markdown
+<filled template>
+```
+```
+
+For a single-deliverable brief (content, optimization, research):
+
 ```
 Here is your marketing brief. Paste it into a fresh session, or say "go" and I'll execute it now.
 
@@ -60,3 +76,9 @@ Here is your marketing brief. Paste it into a fresh session, or say "go" and I'l
 ```
 
 That's it. No commentary after the brief.
+
+## Related skills
+
+- `content-ops` — expert-panel scoring on each per-channel deliverable; the natural quality gate after decomposition.
+- `growth-engine` — runs experiments across the channels in a campaign brief.
+- `outbound-engine`, `sales-pipeline` — consume pipeline briefs directly.
