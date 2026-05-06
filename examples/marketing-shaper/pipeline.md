@@ -93,4 +93,4 @@ Rebuild the cold outbound motion from "1% reply, 2 meetings/week, two domains in
 
 ---
 
-**Next step:** this brief is multi-deliverable (audit → suppression rules → scoring → routing → resurrection sequences), so the natural follow-up is decomposition by stage — each becomes its own loop. Paste the brief into a fresh session and the loader picks up `outbound-engine` and `sales-pipeline` per stage. Or say `go` and the executor runs the audit before changing any sequences or domains.
+**Next step:** paste this into a fresh session, or say `go` and the executor runs the audit before changing any sequences or domains.

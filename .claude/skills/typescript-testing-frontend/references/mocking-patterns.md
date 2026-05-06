@@ -1,5 +1,7 @@
 # Mocking Patterns
 
+Follow **Tests-only default and refactor callouts** in [SKILL.md](../SKILL.md). When mocks feel excessive, deeply nested, or tied to internal implementation, treat that as a testability signal: describe it under **Refactor opportunities (not in scope)** (bulleted). Do not widen production APIs or refactor modules in the same turn unless the user asked.
+
 ## Zustand Store Mocking
 
 Mock the store module and use the selector pattern:

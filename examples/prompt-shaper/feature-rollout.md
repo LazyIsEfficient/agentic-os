@@ -65,4 +65,4 @@ Customers can sign in to the dashboard via Okta SSO with MFA enforced by Okta. E
 
 ---
 
-**Next step:** this brief spans three repos, so the natural follow-up is task breakdown — paste it into a fresh session and the loader picks up `planning-and-task-breakdown`, which decomposes the rollout into per-repo, parallel-dispatchable tasks (each with `files_write`, `branch_suffix`, and conflict edges so a runner like Cursor Background Agents can fan out per repo). Or say `go` and the shaper hands the brief to task breakdown directly, then the executor spawns the per-repo Explore subagents from the resulting task list.
+**Next step:** paste this into a fresh session, or say `go` and the executor spawns the per-repo Explore subagents.
