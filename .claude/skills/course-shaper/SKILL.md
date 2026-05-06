@@ -1,6 +1,6 @@
 ---
 name: course-shaper
-description: Use to structure a vague course idea into a well-scoped course brief before any outlining or writing begins. Triggers on "design a course", "course on X", "teach X", "curriculum for", "workshop on", "training material", "learning path", or when invoked as the /course-shape slash command. Produces a filled course brief (full-course, single-module, or workshop) that course-design and course-author consume. Do not use for briefs that are already well-scoped. For engineering task shaping see prompt-shaper; for marketing briefs see marketing-shaper.
+description: Use to structure a vague course idea into a well-scoped course brief before any outlining or writing begins. Triggers on "design a course", "course on X", "teach X", "curriculum for", "workshop on", "training material", "learning path", or when invoked as the /course-shape slash command. Produces a filled course brief (full-course, single-module, or workshop) that course-design and course-author consume. Do not use for briefs that are already well-scoped. For engineering task shaping see prompt-shaper; for marketing briefs see marketing-shaper; for game-design intake see game-design-shaper.
 ---
 
 # Course Shaper

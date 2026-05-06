@@ -1,6 +1,6 @@
 ---
 name: godot-engineer
-description: Use when building games or interactive software in Godot 4 with C# — designing scenes and nodes, writing gameplay code, handling input, physics, animation, UI, rendering, save systems, performance work, WebSocket-based multiplayer, or exporting to platforms. Triggers on mentions of "Godot", "GDScript", "C# Godot", "scene tree", "Node2D", "Node3D", "Control", "AnimationPlayer", "AnimationTree", "Tween", "PhysicsBody", "CharacterBody", "RigidBody", "Area", "_Process", "_PhysicsProcess", "signal", "autoload", "RPC", "high-level multiplayer", "WebSocketMultiplayerPeer", "shader", "viewport", "export preset", or any work inside a `.tscn`, `.tres`, `.gd`, or `.cs` file in a Godot project. For game design (mechanics, balance, narrative, monetization) see the game-designer skill (separate). For broader software design principles see software-design.
+description: Use when building games or interactive software in Godot 4 with C# — designing scenes and nodes, writing gameplay code, handling input, physics, animation, UI, rendering, save systems, performance work, WebSocket-based multiplayer, or exporting to platforms. Triggers on mentions of "Godot", "GDScript", "C# Godot", "scene tree", "Node2D", "Node3D", "Control", "AnimationPlayer", "AnimationTree", "Tween", "PhysicsBody", "CharacterBody", "RigidBody", "Area", "_Process", "_PhysicsProcess", "signal", "autoload", "RPC", "high-level multiplayer", "WebSocketMultiplayerPeer", "shader", "viewport", "export preset", or any work inside a `.tscn`, `.tres`, `.gd`, or `.cs` file in a Godot project. For game design see game-systems-designer; for balance see game-balancer; for monetization see game-monetization-strategist; for marketing see game-marketer; for game-specific intake see game-design-shaper. For broader software design principles see software-design.
 ---
 
 # Godot Engineer
@@ -48,7 +48,7 @@ This skill targets **Godot 4.x** with **C# (.NET 8+)** as the primary language. 
 - Configuring export presets and shipping to desktop, mobile, web, or console.
 - Reviewing a Godot project for anti-patterns and structural problems.
 
-For **game design** (mechanics, narrative, balance, monetization, level design), defer to the game-designer skill (separate). For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Godot context, see [software-design](../software-design/SKILL.md). For **game UI as user experience** (accessibility, microcopy, game feel as it relates to UX), see [ux-design](../ux-design/SKILL.md).
+For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for **monetization** see [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md); for **game marketing** see [game-marketer](../game-marketer/SKILL.md). For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Godot context, see [software-design](../software-design/SKILL.md). For **game UI as user experience** (accessibility, microcopy, game feel as it relates to UX), see [ux-design](../ux-design/SKILL.md).
 
 ## References
 
@@ -75,6 +75,11 @@ For **game design** (mechanics, narrative, balance, monetization, level design),
 
 ## Related skills
 
+- [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
+- [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
+- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
+- [game-marketer](../game-marketer/SKILL.md) — coordinates on capture sessions for trailer / store-page footage.
+- [game-design-shaper](../game-design-shaper/SKILL.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [software-design](../software-design/SKILL.md) — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Godot anti-pattern (god scenes, tight coupling via direct paths) is the same anti-pattern as god classes, just in a different language.
 - [ux-design](../ux-design/SKILL.md) — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
 - [ux-research](../ux-research/SKILL.md) — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
