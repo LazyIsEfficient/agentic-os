@@ -48,6 +48,8 @@ Folder name = `name` field in frontmatter. Tags help with discovery and routing 
 |---|---|---|
 | `api-and-interface-design` | Design stable, hard-to-misuse APIs and interfaces with consistent contracts | `api-design` `interfaces` `rest` `graphql` `contracts` `validation` |
 | `autoresearch` | Multi-round content optimization with expert panel scoring | `content-optimization` `conversion-testing` `copywriting` `a-b-testing` |
+| `blog-post-author` | Drafts a blog post from a filled blog-post-shaper brief and emits a planning-and-task-breakdown DAG for the asset bundle (hero, OG, social, diagrams, code samples, internal links, newsletter excerpt) | `content` `blog` `long-form` `authoring` `asset-bundle` `task-dag` |
+| `blog-post-shaper` | Interactive intake for blog publishing: turns vague blog ideas into a scoped brief (opinion, case study, deep dive), always asking about the asset bundle and SEO surface. Invoke as `/blog-shape`. | `intake` `blog-planning` `task-scoping` `briefing` `slash-command` `content` `seo` |
 | `browser-testing-with-devtools` | Inspect and test browser-based code using Chrome DevTools MCP | `browser-testing` `devtools` `debugging` `ui-testing` `dom-inspection` `network-analysis` |
 | `ci-cd-and-automation` | Developer-focused quality gates, GitHub Actions, feature flags, staged rollouts | `ci-cd` `automation` `github-actions` `quality-gates` `feature-flags` `deployment` |
 | `cloud-infrastructure` | Cloud resources via IaC (AWS, GCP, Cloudflare); reference impl Pulumi/TypeScript | `infrastructure` `provisioning` `iac` `pulumi` `terraform` `aws` `gcp` `cloudflare` `vpc` `rds` `ecs` `messaging` |
@@ -200,6 +202,13 @@ Skills cross-reference each other where their concerns overlap:
 - `using-agent-skills` ↔ *all skills* (the meta-skill that governs skill discovery and invocation)
 - `marketing-shaper` ↔ `prompt-shaper` (**siblings**: marketing-shaper scopes marketing work; prompt-shaper scopes engineering work)
 - `marketing-shaper` → all marketing/sales skills (the shaper produces briefs that downstream marketing skills execute)
+- `blog-post-shaper` → `blog-post-author` → `planning-and-task-breakdown` (intake → draft → asset-bundle DAG; the author is the only skill in the library that emits a task DAG as a *side output* alongside its primary deliverable)
+- `blog-post-shaper` ↔ `marketing-shaper` (**siblings, overlapping**: blog-post-shaper handles blog-shaped posts with associated asset bundles; marketing-shaper's content brief handles short-form non-blog content like X threads, LinkedIn posts, newsletters, decks)
+- `blog-post-author` ↔ `content-ops` (expert-panel scoring of the drafted post is the typical final task in the asset DAG)
+- `blog-post-author` ↔ `seo-ops` (keyword input upstream; SEO meta validation downstream)
+- `blog-post-author` ↔ `source-driven-development` (deep-dive technical claims must cite primary sources)
+- `blog-post-author` ↔ `course-author` (sibling content authoring skill; borrows code-snippet-discipline.md for technical posts)
+- `blog-post-shaper` ↔ `x-longform-post` / `course-shaper` (route X long-form to x-longform-post; route tutorials to course-shaper)
 
 ## Using `marketing-shaper`
 
@@ -249,6 +258,7 @@ Agents are focused roles the parent agent delegates work to. Each pulls relevant
 | `marketing-shaper` | Marketing intake → scoped brief (`/mshape`) | intake-only |
 | `course-shaper` | Education pipeline: intake → outline → lesson content (`/course-shape`) | authoring |
 | `game-design-shaper` | Game design pipeline: intake → concept → design → balance → monetization → catalog → marketing (`/game-shape`) | authoring |
+| `blog-post-shaper` | Blog publishing pipeline: intake → post draft → asset-bundle task DAG (`/blog-shape`) | authoring |
 | `technical-pm` | Product strategy, tech strategy, leadership, ADRs, DADs, roadmaps | inherit |
 | `marketer` | Content, growth, sales, SEO, outbound, pipeline, attribution | inherit |
 | `ux-specialist` | UX design + research as one tightly-coupled practice | inherit |
@@ -267,7 +277,7 @@ Agents are focused roles the parent agent delegates work to. Each pulls relevant
 
 Each `SKILL.md` lists its own related skills; the high-level map:
 
-- **Intake → execution**: `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation`. Four sibling shapers (`prompt-shaper`, `marketing-shaper`, `course-shaper`, `game-design-shaper`) handle engineering, marketing, teaching, and game-design intake.
+- **Intake → execution**: `idea-refine` → `prompt-shaper` → `planning-and-task-breakdown` → `incremental-implementation`. Five sibling shapers (`prompt-shaper`, `marketing-shaper`, `course-shaper`, `game-design-shaper`, `blog-post-shaper`) handle engineering, marketing, teaching, game-design, and blog-publishing intake.
 - **Engineering core**: `system-architect` ↔ `software-design` ↔ `api-and-interface-design` — service boundaries, module structure, external contracts.
 - **Code quality**: `code-review-and-quality` ↔ `code-simplification` ↔ `software-design` — review surfaces simplification; clarity refactor before structural refactor.
 - **Process discipline**: `spec-driven-development` ↔ `planning-and-task-breakdown` ↔ `test-driven-development` ↔ `incremental-implementation` — spec defines what; planning decomposes how; TDD proves each slice.
@@ -277,6 +287,7 @@ Each `SKILL.md` lists its own related skills; the high-level map:
 - **UX**: `ux-research` produces evidence → `ux-design` consumes it; both pair with `frontend-ui-engineering` and `software-design` (vocabulary alignment).
 - **Marketing/sales pipeline**: `marketing-shaper` → `content-ops` → `outbound-engine` → `sales-pipeline` → `revenue-intelligence`. `growth-engine` runs experiments across them.
 - **Education**: `course-shaper` (intake) → `course-design` (outline) → `course-author` (lessons).
+- **Blog publishing**: `blog-post-shaper` (intake — opinion / case study / deep dive, captures asset bundle and SEO surface) → `blog-post-author` (drafts the post and emits a `planning-and-task-breakdown` DAG for the asset bundle: hero image, OG card, X/LinkedIn share posts, embedded diagrams, code samples, internal-link map, newsletter excerpt, expert-panel quality gate). Each asset task is independently dispatchable so they generate in parallel. `seo-ops` feeds keyword input upstream and validates meta downstream.
 - **Game design pipeline**: `game-design-shaper` (intake, captures payment rails) → `game-concept-creator` (concept one-pager) → `game-systems-designer` (design doc + system specs) → `game-balancer` (number tuning) → `game-monetization-strategist` (model + KPI floors) → `iap-manager` (catalog + store config) → `game-marketer` (store pages, trailers, soft launch, comms). Engine implementation lives in `godot-engineer` (separate skill).
 - **Testing layers**: `typescript-quality-engineering` (umbrella) defers to `typescript-testing-backend` / `typescript-testing-frontend` / `web3-smart-contract-engineering`.
 - **Library meta**: `using-agent-skills` governs skill discovery; `skill-library-review` keeps the library healthy; `context-engineering` shapes how skills load.
@@ -284,12 +295,13 @@ Each `SKILL.md` lists its own related skills; the high-level map:
 
 ## Using the shapers
 
-Four intake skills convert vague requests into scoped briefs:
+Five intake skills convert vague requests into scoped briefs:
 
 - `/shape` — engineering work (multi-repo feature, single-repo, investigation, bugfix)
 - `/mshape` — marketing work (campaign, content, optimization, research, pipeline)
 - `/course-shape` — teaching work (full course, module, workshop)
 - `/game-shape` — game design work (full game, prototype, jam, live-game update; payment-rails decision captured in intake)
+- `/blog-shape` — blog publishing (opinion, case study, deep dive; captures asset bundle and SEO surface; downstream `blog-post-author` drafts the post and emits a planning-and-task-breakdown DAG for the assets)
 
 Each picks a template by the *shape* of work, asks one batched round of 3–6 questions via `AskUserQuestion`, outputs a filled brief in a fenced markdown block, and stops there. Say `go` to execute, or paste the brief into a fresh session.
 

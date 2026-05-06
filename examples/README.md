@@ -28,11 +28,15 @@ examples/
 │   ├── full-course.md
 │   ├── single-module.md
 │   └── workshop.md
-└── game-design-shaper/   # game design work — /game-shape
-    ├── full-game.md
-    ├── prototype.md
-    ├── jam.md
-    └── live-game-update.md
+├── game-design-shaper/   # game design work — /game-shape
+│   ├── full-game.md
+│   ├── prototype.md
+│   ├── jam.md
+│   └── live-game-update.md
+└── blog-post-shaper/     # blog publishing — /blog-shape
+    ├── opinion.md
+    ├── case-study.md
+    └── deep-dive.md
 ```
 
 ## How to read these
