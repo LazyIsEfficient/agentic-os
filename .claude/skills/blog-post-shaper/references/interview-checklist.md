@@ -46,7 +46,7 @@ For each template, these are the questions to ask the user when the relevant sec
 - Never ask a question whose answer is obvious from the user's message or context.
 - Prefer concrete questions ("what's the takeaway sentence?") over open-ended ones ("tell me about your post").
 - If the user already volunteered something in prose, *distill it into the template* — don't ask them to repeat themselves.
-- **Always include the asset-bundle question.** This is the load-bearing input for the downstream task DAG; under-declaring at intake means missing assets at publish time.
+- **Always include the asset-bundle question.** This is the load-bearing input for the downstream task files; under-declaring at intake means missing assets at publish time.
 - **Always include the SEO-surface question**, even if just to capture "owned-audience only — no SEO target" explicitly.
 - Always include the quality-gate question unless the user has already specified expert-panel preference.
 - For opinion variants: push hard on the *takeaway sentence*. "Most AI agents fail because of context window management" is a topic. "Most AI agent failures are mislabeled — they're context engineering bugs, not model bugs" is a takeaway.

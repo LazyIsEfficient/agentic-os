@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(.claude/**)",
+      "Edit(examples/**)",
+      "Edit(README.md)",
+      "Edit(SHAPERS.md)"
+    ]
+  }
+}

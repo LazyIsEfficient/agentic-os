@@ -48,7 +48,7 @@ opinion / thought leadership
 - Meta description angle: <one sentence the SERP snippet should communicate>
 - URL slug suggestion: <short-and-keyword-bearing, or "auto">
 
-## Asset bundle (required — author emits task DAG from this list)
+## Asset bundle (required — author emits one task file per declared item)
 - [ ] Hero / featured image — <generated | designed | stock | none>; describe the visual angle
 - [ ] OG / social share image (1200×630) — <separate from hero | reuse hero>
 - [ ] X (Twitter) share post — <thread | single | none>
@@ -85,12 +85,12 @@ opinion / thought leadership
 2. Draft the post in the target length and tone. Stop for approval.
 3. Run through expert panel scoring (target 90+). Iterate until passing.
 4. Run AI humanizer pass (24-pattern check). Fix any flagged patterns.
-5. Emit the asset-bundle task DAG (planning-and-task-breakdown format) — one task per declared asset, with `files_write`, `depends_on`, and `parallel_safe` set so the user can dispatch agents to generate them.
+5. Write one self-contained task file under `tasks/T-<slug>.md` per declared asset (output paths, what to do, success criteria, verify). The calling agent fans these out to subagents.
 
 ## Deliverable
 - One publication-ready blog post in target length
 - Expert panel scorecard (if quality gate enabled)
-- Asset-bundle task DAG ready for agent dispatch
+- One dispatch-ready task file per declared asset under `tasks/`
 
 ## Open questions
 - <thing 1>

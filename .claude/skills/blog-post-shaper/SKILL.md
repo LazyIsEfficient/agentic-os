@@ -1,6 +1,6 @@
 ---
 name: blog-post-shaper
-description: Use to structure a vague blog-post idea into a well-scoped brief before any drafting begins. Triggers on "blog post on X", "write a blog about", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", or when invoked as the /blog-shape slash command. Produces a filled blog brief (opinion, case-study, or deep-dive) that blog-post-author consumes — the author then writes the post and emits a planning-and-task-breakdown DAG for the asset bundle (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map). Do not use for short social-format posts (X, LinkedIn) — go to marketing-shaper's content brief or x-longform-post. For engineering intake see prompt-shaper; for course intake see course-shaper; for game-design intake see game-design-shaper.
+description: Use to structure a vague blog-post idea into a well-scoped brief before any drafting begins. Triggers on "blog post on X", "write a blog about", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", or when invoked as the /blog-shape slash command. Produces a filled blog brief (opinion, case-study, or deep-dive) that blog-post-author consumes — the author then writes the post and emits one task file per declared asset (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map) that the parent agent dispatches to subagents. Do not use for short social-format posts (X, LinkedIn) — go to marketing-shaper's content brief or x-longform-post. For engineering intake see prompt-shaper; for course intake see course-shaper; for game-design intake see game-design-shaper.
 ---
 
 # Blog Post Shaper
@@ -30,11 +30,11 @@ If the deliverable is a tweet thread, X long-form post, LinkedIn post, newslette
 
 5. **Fill the template** with the user's initial message + their answers. Distill prose; do not pad. Where the user said "unknown", leave the section as `<unknown — to investigate>`.
 
-6. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit the asset task DAG, or say 'go' and I'll hand it off now."* Then stop.
+6. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit one task file per declared asset, or say 'go' and I'll hand it off now."* Then stop.
 
 ## Hard rules
 
-- **Always ask about the asset bundle.** Every brief must declare which assets the post needs (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map, newsletter excerpt). The downstream author emits a task DAG from this list — under-declaring here means missing assets at publish time. This is the blog equivalent of "should I write tests?"
+- **Always ask about the asset bundle.** Every brief must declare which assets the post needs (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map, newsletter excerpt). The downstream author emits one dispatch-ready task file per declared asset — under-declaring here means missing assets at publish time. This is the blog equivalent of "should I write tests?"
 - **Always ask about the SEO surface.** Blog posts compete in search. The brief must capture target keyword (or "no SEO target — owned-audience only"), search intent, and meta description angle, even if the user defers to "you decide."
 - **One single takeaway, stated as one sentence.** Push the user past topic ("AI agents") to claim ("Most AI agent failures are context-window failures, not model failures"). Briefs without a sharp takeaway produce mealy posts.
 - **Do not assign skills to sections.** Describe concerns ("hero image generation", "internal-link audit", "expert-panel scoring before publish"), never skill filenames.
@@ -45,7 +45,7 @@ If the deliverable is a tweet thread, X long-form post, LinkedIn post, newslette
 ## Output shape
 
 ```
-Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit the asset task DAG, or say "go" and I'll hand it off now.
+Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit one task file per declared asset, or say "go" and I'll hand it off now.
 
 ```markdown
 <filled template>
@@ -56,8 +56,7 @@ That's it. No commentary after the brief.
 
 ## Related skills
 
-- [blog-post-author](../blog-post-author/SKILL.md) — consumes this brief; drafts the post and emits the asset-bundle task DAG
-- [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) — the format the author uses for the asset DAG
+- [blog-post-author](../blog-post-author/SKILL.md) — consumes this brief; drafts the post and emits one dispatch-ready task file per declared asset
 - [marketing-shaper](../marketing-shaper/SKILL.md) — sibling shaper; use for non-blog content (threads, newsletters, decks, sequences)
 - [prompt-shaper](../prompt-shaper/SKILL.md), [course-shaper](../course-shaper/SKILL.md), [game-design-shaper](../game-design-shaper/SKILL.md) — sibling intake shapers for other domains
 - [seo-ops](../seo-ops/SKILL.md) — keyword research and search-intent input; can run upstream of this shaper

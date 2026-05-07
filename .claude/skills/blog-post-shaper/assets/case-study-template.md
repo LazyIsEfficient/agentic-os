@@ -50,7 +50,7 @@ case study
 - Meta description angle: <one sentence the SERP snippet should communicate>
 - URL slug suggestion: <short-and-keyword-bearing, or "auto">
 
-## Asset bundle (required — author emits task DAG from this list)
+## Asset bundle (required — author emits one task file per declared item)
 - [ ] Hero / featured image — <generated | designed | stock | none>; describe the visual angle (e.g. before/after chart, hero shot of subject)
 - [ ] OG / social share image (1200×630) — <separate from hero | reuse hero>
 - [ ] X (Twitter) share post — <thread with the numbers | single | none>
@@ -86,13 +86,13 @@ case study
 3. Run through expert panel scoring (target 90+). Iterate until passing.
 4. Run AI humanizer pass (24-pattern check). Fix any flagged patterns.
 5. (If named subject) Send to subject for approval. Apply edits.
-6. Emit the asset-bundle task DAG (planning-and-task-breakdown format) — one task per declared asset, with `files_write`, `depends_on`, and `parallel_safe` set so the user can dispatch agents to generate them.
+6. Write one self-contained task file under `tasks/T-<slug>.md` per declared asset (output paths, what to do, success criteria, verify). The calling agent fans these out to subagents.
 
 ## Deliverable
 - One publication-ready case study in target length
 - Expert panel scorecard (if quality gate enabled)
 - Subject approval record (if named)
-- Asset-bundle task DAG ready for agent dispatch
+- One dispatch-ready task file per declared asset under `tasks/`
 
 ## Open questions
 - <thing 1>
