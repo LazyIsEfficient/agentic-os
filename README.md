@@ -26,6 +26,20 @@ For private repositories, set a GitHub token with read access first:
 export agent_github_token="<github-token>"
 ```
 
+To create the token in GitHub:
+
+1. Open GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens**.
+2. Click **Generate new token**.
+3. Set **Resource owner** to the organization that owns this repository, not your personal user account.
+4. Set **Repository access** to this repository.
+5. Under **Repository permissions**, set **Contents** to **Read-only**.
+6. Generate the token and add it to your shell profile:
+
+```zsh
+echo 'export agent_github_token="<github-token>"' >> ~/.zshrc
+source ~/.zshrc
+```
+
 ```bash
 # .claude/skills/ (default, Claude Code)
 curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash
