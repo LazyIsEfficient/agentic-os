@@ -20,26 +20,34 @@ Long-form content lives in `references/`, not `SKILL.md` (progressive disclosure
 
 ## Install
 
+For private repositories, set a GitHub token with read access first:
+
+```zsh
+export agent_github_token="<github-token>"
+```
+
 ```bash
 # .claude/skills/ (default, Claude Code)
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash
+curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash
 
 # .cursor/skills/
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- cursor
+curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash -s -- cursor
 
 # Codex skills
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- codex
+curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash -s -- codex
 
 # Multiple targets
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- cursor codex
+curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash -s -- cursor codex
 
 # All targets: Claude Code, Cursor, and Codex
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- all
+curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash -s -- all
 ```
 
 Re-run to update — installed skills are overwritten with the latest version. The installer also writes the matching root instruction file when applicable: `CLAUDE.md` for Claude Code and `AGENTS.md` for Codex.
 
 `bash -s --` is only needed for the curl form: `-s` tells bash to read the script from standard input, and `--` separates bash options from installer arguments.
+
+The token is passed twice: first to download `install.sh` from the private repo, then into `bash` so the installer can download the repository archive.
 
 Supported targets are `claude` (or `cloud`), `cursor`, `codex`, and `all`. You can pass any number of targets in one command.
 

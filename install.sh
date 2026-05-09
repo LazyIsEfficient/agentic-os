@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_OWNER="${SKILLS_DIRECTORY_REPO_OWNER:-YieldGuildGames}"
 REPO_NAME="${SKILLS_DIRECTORY_REPO_NAME:-skills-directory}"
 REPO_REF="${SKILLS_DIRECTORY_REF:-main}"
+GITHUB_TOKEN="${agent_github_token:-${AGENT_GITHUB_TOKEN:-}}"
 
 usage() {
   cat <<'USAGE'
@@ -11,7 +12,7 @@ Install skills from YieldGuildGames/skills-directory.
 
 Usage:
   ./install.sh [target ...]
-  curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- [target ...]
+  curl -fsSL -H "Authorization: Bearer ${agent_github_token}" https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | agent_github_token="${agent_github_token}" bash -s -- [target ...]
 
 Targets:
   claude       Install to ./.claude/skills
@@ -30,6 +31,9 @@ Examples:
 
 Default target:
   claude
+
+Private repository authentication:
+  Set agent_github_token or AGENT_GITHUB_TOKEN to a GitHub token with read access.
 USAGE
 }
 
@@ -94,12 +98,40 @@ prepare_source() {
 
   tmp_dir="$(mktemp -d)"
   local archive="$tmp_dir/source.tar.gz"
-  local url="https://github.com/$REPO_OWNER/$REPO_NAME/archive/refs/heads/$REPO_REF.tar.gz"
+  local url
+
+  if [[ -n "$GITHUB_TOKEN" ]]; then
+    url="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/tarball/$REPO_REF"
+  else
+    url="https://github.com/$REPO_OWNER/$REPO_NAME/archive/refs/heads/$REPO_REF.tar.gz"
+  fi
 
   echo "downloading skills from $url"
-  curl -fsSL "$url" -o "$archive"
+  if [[ -n "$GITHUB_TOKEN" ]]; then
+    curl -fsSL \
+      -H "Authorization: Bearer $GITHUB_TOKEN" \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "$url" \
+      -o "$archive"
+  else
+    curl -fsSL "$url" -o "$archive"
+  fi
+
   tar -xzf "$archive" -C "$tmp_dir"
-  source_root="$tmp_dir/$REPO_NAME-$REPO_REF"
+
+  for extracted_path in "$tmp_dir"/*; do
+    if [[ -d "$extracted_path" ]]; then
+      source_root="$extracted_path"
+      break
+    fi
+  done
+
+  if [[ -z "$source_root" ]]; then
+    echo "error: downloaded archive did not extract a repository directory" >&2
+    exit 1
+  fi
+
   source_dir="$source_root/.claude/skills"
 
   if [[ ! -d "$source_dir" ]]; then
