@@ -1,6 +1,6 @@
 # skills-db
 
-Central repository of agent skills and agents (compatible with Claude Code, Claude Agent SDK, and Cursor): markdown playbooks with YAML frontmatter that teach an AI agent how to follow your stack, tests, security bar, and infrastructure conventions.
+Central repository of agent skills and agents (compatible with Claude Code, Claude Agent SDK, Cursor, and Codex): markdown playbooks with YAML frontmatter that teach an AI agent how to follow your stack, tests, security bar, and infrastructure conventions.
 
 ## Layout
 
@@ -21,23 +21,34 @@ Long-form content lives in `references/`, not `SKILL.md` (progressive disclosure
 ## Install
 
 ```bash
-# .claude/skills/ (default)
+# .claude/skills/ (default, Claude Code)
 curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash
 
 # .cursor/skills/
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --cursor
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- cursor
 
-# Both
-curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- --both
+# Codex skills
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- codex
+
+# Multiple targets
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- cursor codex
+
+# All targets: Claude Code, Cursor, and Codex
+curl -fsSL https://raw.githubusercontent.com/YieldGuildGames/skills-directory/main/install.sh | bash -s -- all
 ```
 
-Re-run to update — files are overwritten with the latest version.
+Re-run to update — installed skills are overwritten with the latest version. The installer also writes the matching root instruction file when applicable: `CLAUDE.md` for Claude Code and `AGENTS.md` for Codex.
+
+`bash -s --` is only needed for the curl form: `-s` tells bash to read the script from standard input, and `--` separates bash options from installer arguments.
+
+Supported targets are `claude` (or `cloud`), `cursor`, `codex`, and `all`. You can pass any number of targets in one command.
 
 ### Manual install
 
 ```text
 <your-project>/.claude/skills/<skill-name>/        # Claude Code
 <your-project>/.cursor/skills/<skill-name>/        # Cursor
+${CODEX_HOME:-$HOME/.codex}/skills/<skill-name>/   # Codex
 ```
 
 ## Skills in this repo
