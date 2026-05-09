@@ -5,6 +5,9 @@ Thumbs.db
 # Claude Code — local overrides (do not commit)
 .claude/settings.local.json
 
+# Claude Code — persistent memory (machine-local, contains personal context)
+.claude/memory/
+
 # Editor
 *.swp
 *.swo
@@ -18,5 +21,4 @@ Thumbs.db
 # Optional tooling
 node_modules/
 
-
-repos/
+pocs/

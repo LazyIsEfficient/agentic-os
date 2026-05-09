@@ -25,23 +25,60 @@ The user wants to make or update a game but their description is missing pieces 
 
 3. **Identify which sections the user already answered** in their initial message. Do not re-ask those.
 
-4. **Batch the missing questions into a single AskUserQuestion call.** Group related questions. Do not interrogate one at a time. Aim for 3–6 focused questions. **Always include the payment-rails question** (none / web2 IAP / web2 ads / web2 subscription / web3 tokens / web3 NFTs / hybrid) — this routes monetization, balance, and marketing decisions later.
+4. **Round 1 questions.** Batch the missing pieces into a single AskUserQuestion call. Aim for 3–6 focused questions covering load-bearing gaps first (see list below — payment rails is one), then high-value gaps. Group related questions. Skip questions whose answers are obvious from context.
 
-5. **Fill the template** with the user's initial message + their answers. Distill prose; do not pad.
+5. **Resolve each remaining gap into one of three states** as you fill the template:
+   - **Answered** — from the user's message or round 1 reply. Fill it.
+   - **Assumed** — a safe default exists. Fill it with the default and tag inline: `[Assumed: <value> — say if wrong]`.
+   - **Deferred** — genuinely fine to leave open. Mark `<TBD — to investigate>`.
 
-6. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your game brief. Paste it into a fresh session with `game-concept-creator` (if concept is open) or `game-systems-designer` (if concept is locked) available, or say 'go' and I'll hand it to the right skill now."* Then stop.
+   Distill prose; do not pad.
+
+6. **Round 2 (only if needed).** If any **load-bearing** item is still unresolved after step 5, ask 1–3 follow-up questions covering only those items. Do not re-open answered or deferred items. After round 2, if a load-bearing item is still missing, say so explicitly and stop — do not ship a broken brief.
+
+7. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your game brief. Paste it into a fresh session with `game-concept-creator` (if concept is open) or `game-systems-designer` (if concept is locked) available, or say 'go' and I'll hand it to the right skill now."* Then stop.
 
 ## Hard rules
 
+- **Never guess silently.** Every gap resolves to one of three states — **Answered**, **Assumed** (with an inline `[Assumed: <value> — say if wrong]` tag), or **Deferred** (`<TBD — to investigate>`). Hallucinated target audiences or invented business models are the failure mode this rule prevents.
+- **Load-bearing items must be answered, not assumed or deferred.** See list below. If a load-bearing item is still missing after round 2, stop and say so — do not ship the brief.
+- **Cap at two rounds of questions.** Round 1 covers all gaps (3–6 questions). Round 2 (1–3 questions) re-asks only load-bearing items round 1 didn't resolve. No round 3.
+- **Always ask about the success bar.** Every brief should clarify what "good enough to ship" looks like (D1/D7 retention floor, wishlist target, jam ranking, KPI floor).
 - **Player verbs, not feature lists.** Push the user to state what the player will *do* (verbs: dodge, build, deceive, collect, command), not a list of features. If the user gives features, ask what verb each one supports.
 - **Core fantasy is mandatory.** Every brief must name the fantasy the player is buying into ("be a space pirate captain", "live as a medieval villager", "command an army"). Without this, design has no compass.
 - **Payment-rails decision is mandatory.** Even if the answer is "premium, no IAP", capture it explicitly. This decision sets constraints for systems-designer, balancer, monetization-strategist, iap-manager, and marketer.
 - **Web2/web3 is a constraint, not a goal.** If the user says "web3", probe *why* (token incentive, asset ownership, secondary market, regulatory) — the answer changes downstream design more than the label does.
 - **Do not assign skills to subtasks.** Describe concerns ("monetization model selection", "level pacing", "store page conversion"), not skill filenames.
-- **Do not invent details.** If the user didn't say it and you didn't ask, leave the section as `<unknown — to investigate>`. A brief with honest gaps beats a brief that hallucinates target audiences or business models.
-- **One round of questions, not many.** After one batch, fill gaps with `<unknown>` rather than a second interrogation.
-- **Always ask about the success bar.** Every brief should clarify what "good enough to ship" looks like (D1/D7 retention floor, wishlist target, jam ranking, KPI floor).
 - **Do not start the work** unless the user says "go" / "execute" / "do it" after seeing the brief.
+
+## Load-bearing items
+
+These cannot be Assumed or Deferred — downstream work (`game-concept-creator`, `game-systems-designer`, and the rest of the game pipeline) blocks without them. Ask until answered.
+
+**Universal (any game variant):**
+- Target player — who plays this and what they currently play
+- Core fantasy — the fantasy the player is buying into, in one phrase
+- Primary loop verbs — the 3 verbs the player does most
+- Payment rails — none / web2 IAP / web2 ads / web2 subscription / web3 tokens / web3 NFTs / hybrid (capture explicitly even if "premium, no IAP")
+- Success bar — what "good enough to ship" looks like (retention floor, wishlist target, jam ranking, KPI floor)
+
+**Full game:**
+- Platform — mobile / PC / console / web / web3 / cross-platform
+- Scope — months of work, team size, budget tier
+
+**Prototype:**
+- The single core loop or pillar being validated
+- Validation criterion — the number or observation that says "build the rest" or "kill it"
+
+**Jam:**
+- Theme + timebox
+- Team makeup (solo / pair / team — and what disciplines are present)
+
+**Live game update:**
+- Game name + current KPIs (D1/D7 retention, ARPDAU, current pain point)
+- The metric the update is supposed to move
+
+Everything else (art style, audio direction, narrative depth, internal milestones, store metadata, marketing channels, etc.) is high-value but **Assumable** when the user defers — fill with a safe default and tag it.
 
 ## Output shape
 

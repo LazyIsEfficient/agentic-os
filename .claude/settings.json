@@ -1,10 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Edit(.claude/**)",
       "Edit(examples/**)",
       "Edit(README.md)",
-      "Edit(SHAPERS.md)"
+      "Edit(SHAPERS.md)",
+      "Edit(/.claude/skills/**)",
+      "Edit(/.claude/agents/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/pocs/**)"
     ]
   }
 }

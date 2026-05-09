@@ -20,6 +20,11 @@
 - Migration / rollout notes
 - Test plan
 
-## Open questions to investigate first
-- <thing 1>
-- <thing 2>
+## Assumptions
+<list each `[Assumed: <value>]` tag from the brief here so they are inspectable in one place. Reader can override any of them with one line.>
+- <e.g. "Rollout order: producer-then-consumer; schema-then-code — say if wrong">
+- <e.g. "Compatibility: backwards-compatible during rollout — say if wrong">
+
+## Open questions
+- <load-bearing items still unresolved after round 2 — block execution until answered>
+- <`<TBD — to investigate>` items the brief deferred — investigate before the integrated plan in step 2>

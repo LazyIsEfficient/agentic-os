@@ -20,5 +20,10 @@
 - One PR
 - Test plan
 
+## Assumptions
+<list each `[Assumed: <value>]` tag from the brief here so they are inspectable in one place. Reader can override any of them with one line.>
+- <e.g. "Tests: unit + integration on new code paths" — say if wrong>
+
 ## Open questions
-- <thing 1>
+- <load-bearing items still unresolved after round 2 — block execution until answered>
+- <`<TBD — to investigate>` items the brief deferred>

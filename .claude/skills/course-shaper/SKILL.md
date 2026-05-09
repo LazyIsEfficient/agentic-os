@@ -24,20 +24,51 @@ The user wants to teach something but their description is missing pieces a comp
 
 3. **Identify which sections the user already answered** in their initial message. Do not re-ask those.
 
-4. **Batch the missing questions into a single AskUserQuestion call.** Group related questions. Do not interrogate one at a time. Aim for 3–6 focused questions.
+4. **Round 1 questions.** Batch the missing pieces into a single AskUserQuestion call. Aim for 3–6 focused questions covering load-bearing gaps first, then high-value gaps. Group related questions. Skip questions whose answers are obvious from context.
 
-5. **Fill the template** with the user's initial message + their answers. Distill prose; do not pad.
+5. **Resolve each remaining gap into one of three states** as you fill the template:
+   - **Answered** — from the user's message or round 1 reply. Fill it.
+   - **Assumed** — a safe default exists. Fill it with the default and tag inline: `[Assumed: <value> — say if wrong]`.
+   - **Deferred** — genuinely fine to leave open. Mark `<TBD — to investigate>`.
 
-6. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your course brief. Paste it into a fresh session with `course-design` available, or say 'go' and I'll hand it to course-design now."* Then stop.
+   Distill prose; do not pad.
+
+6. **Round 2 (only if needed).** If any **load-bearing** item (see list below) is still unresolved after step 5, ask 1–3 follow-up questions covering only those items. Do not re-open answered or deferred items. After round 2, if a load-bearing item is still missing, say so explicitly and stop — do not ship a broken brief.
+
+7. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your course brief. Paste it into a fresh session with `course-design` available, or say 'go' and I'll hand it to course-design now."* Then stop.
 
 ## Hard rules
 
+- **Never guess silently.** Every gap resolves to one of three states — **Answered**, **Assumed** (with an inline `[Assumed: <value> — say if wrong]` tag), or **Deferred** (`<TBD — to investigate>`). Hallucinated learner profiles or fabricated outcomes are the failure mode this rule prevents.
+- **Load-bearing items must be answered, not assumed or deferred.** See list below. If a load-bearing item is still missing after round 2, stop and say so — do not ship the brief.
+- **Cap at two rounds of questions.** Round 1 covers all gaps (3–6 questions). Round 2 (1–3 questions) re-asks only load-bearing items round 1 didn't resolve. No round 3.
+- **Always ask about the assessment bar.** Every brief should clarify how learner understanding is verified (per-lesson checks, final project, portfolio, none). This is the learning equivalent of "should I write tests?"
 - **Outcomes, not topics.** Push the user to state what the learner will be *able to do*, not a list of topics to "cover". If the user gives topics, ask for the observable outcome each one supports.
 - **Do not assign skills to sections.** Describe concerns ("assessment design", "worked-example-heavy writing"), not skill filenames.
-- **Do not invent audiences or outcomes.** If the user didn't say it and you didn't ask, leave the section as `<unknown — to investigate>`.
-- **One round of questions, not many.** After one batch, fill gaps with `<unknown>` rather than a second interrogation.
-- **Always ask about the assessment bar.** Every brief should clarify how learner understanding is verified (per-lesson checks, final project, portfolio, none). This is the learning equivalent of "should I write tests?"
 - **Do not start the work** unless the user says "go" / "execute" / "do it" after seeing the brief.
+
+## Load-bearing items
+
+These cannot be Assumed or Deferred — downstream work (`course-design`, `course-author`) blocks without them. Ask until answered.
+
+**Universal (any course variant):**
+- Learner profile — role, level, what they currently know about the topic
+- Outcomes — what the learner will be *able to do* after, stated as observable verbs (not topics)
+- Assessment bar — how understanding is verified (per-lesson checks, final project, portfolio, none)
+
+**Full course:**
+- Total learner-hour budget
+- Module count or sequencing logic (linear / branching / project-driven)
+
+**Single module:**
+- Position within a larger curriculum (or "standalone")
+- Lesson count or total duration
+
+**Workshop:**
+- Format — live / semi-live / async
+- Session length and number of sessions
+
+Everything else (voice, tone, delivery platform, slides vs. interactive, recorded vs. cohort, etc.) is high-value but **Assumable** when the user defers — fill with a safe default and tag it.
 
 ## Output shape
 

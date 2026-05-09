@@ -26,21 +26,51 @@ If the deliverable is a tweet thread, X long-form post, LinkedIn post, newslette
 
 3. **Identify which sections the user already answered** in their initial message. Do not re-ask those.
 
-4. **Batch the missing questions into a single AskUserQuestion call.** Group related questions. Do not interrogate one at a time. Aim for 3–6 focused questions covering the genuinely unknown bits.
+4. **Round 1 questions.** Batch the missing pieces into a single AskUserQuestion call. Aim for 3–6 focused questions covering load-bearing gaps first, then high-value gaps. Group related questions. Skip questions whose answers are obvious from context.
 
-5. **Fill the template** with the user's initial message + their answers. Distill prose; do not pad. Where the user said "unknown", leave the section as `<unknown — to investigate>`.
+5. **Resolve each remaining gap into one of three states** as you fill the template:
+   - **Answered** — from the user's message or round 1 reply. Fill it.
+   - **Assumed** — a safe default exists. Fill it with the default and tag inline: `[Assumed: <value> — say if wrong]`.
+   - **Deferred** — genuinely fine to leave open. Mark `<TBD — to investigate>`.
 
-6. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit one task file per declared asset, or say 'go' and I'll hand it off now."* Then stop.
+   Distill prose; do not pad.
+
+6. **Round 2 (only if needed).** If any **load-bearing** item (see list below) is still unresolved after step 5, ask 1–3 follow-up questions covering only those items. Do not re-open answered or deferred items. After round 2, if a load-bearing item is still missing, say so explicitly and stop — do not ship a broken brief.
+
+7. **Output the filled template** in a single fenced markdown code block. Add one line above it: *"Here is your blog brief. Paste it into a fresh session and `blog-post-author` will draft the post and emit one task file per declared asset, or say 'go' and I'll hand it off now."* Then stop.
 
 ## Hard rules
 
-- **Always ask about the asset bundle.** Every brief must declare which assets the post needs (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map, newsletter excerpt). The downstream author emits one dispatch-ready task file per declared asset — under-declaring here means missing assets at publish time. This is the blog equivalent of "should I write tests?"
-- **Always ask about the SEO surface.** Blog posts compete in search. The brief must capture target keyword (or "no SEO target — owned-audience only"), search intent, and meta description angle, even if the user defers to "you decide."
+- **Never guess silently.** Every gap resolves to one of three states — **Answered**, **Assumed** (with an inline `[Assumed: <value> — say if wrong]` tag), or **Deferred** (`<TBD — to investigate>`). Hallucinated reader profiles or fabricated stats are the failure mode this rule prevents.
+- **Load-bearing items must be answered, not assumed or deferred.** See list below. If a load-bearing item is still missing after round 2, stop and say so — do not ship the brief.
+- **Cap at two rounds of questions.** Round 1 covers all gaps (3–6 questions). Round 2 (1–3 questions) re-asks only load-bearing items round 1 didn't resolve. No round 3.
 - **One single takeaway, stated as one sentence.** Push the user past topic ("AI agents") to claim ("Most AI agent failures are context-window failures, not model failures"). Briefs without a sharp takeaway produce mealy posts.
 - **Do not assign skills to sections.** Describe concerns ("hero image generation", "internal-link audit", "expert-panel scoring before publish"), never skill filenames.
-- **Do not invent audiences, metrics, or citations.** If the user didn't say it and you didn't ask, leave the section as `<unknown — to investigate>`. A brief with honest gaps is more useful than one that hallucinates a reader profile or fabricates a stat.
-- **One round of questions, not many.** After one batch, fill remaining gaps with `<unknown>` rather than starting a second interrogation.
 - **Do not start the work** unless the user says "go" / "execute" / "do it" after seeing the brief.
+
+## Load-bearing items
+
+These cannot be Assumed or Deferred — downstream work (the author + asset task fan-out) blocks without them. Ask until answered.
+
+**Universal (any blog variant):**
+- Single takeaway — one sentence, claim not topic
+- Target reader — role, level, what they currently believe about the topic
+- Asset bundle — yes/no on each asset (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map, newsletter excerpt). Under-declaring means missing assets at publish time.
+- SEO surface — target keyword + search intent, OR explicit "owned-audience only — no SEO target"
+
+**Opinion / thought leadership:**
+- Argument structure — the 2–4 claims that add up to the takeaway
+- Stakes — why the reader should care today, not next quarter
+
+**Case study:**
+- Subject + permission status (named-with-approval, anonymized, composite, first-hand)
+- The numbers — what metric moved, by how much, over what time. If unknown, the post is premature.
+
+**Deep dive / explainer:**
+- Concept under explanation (not topic — the specific *claim* being unpacked)
+- Worked example — the single concrete case the post lives or dies on
+
+Everything else (length, voice, publication context, CTA, diagram count, etc.) is high-value but **Assumable** when the user defers — fill with a safe default and tag it.
 
 ## Output shape
 
