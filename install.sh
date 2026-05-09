@@ -18,7 +18,7 @@ Targets:
   claude       Install to ./.claude/skills
   cloud        Alias for claude
   cursor       Install to ./.cursor/skills
-  codex        Install to ${CODEX_HOME:-$HOME/.codex}/skills
+  codex        Install to ./.codex/skills
   all          Install to claude, cursor, and codex
 
 Compatibility flags:
@@ -229,7 +229,7 @@ for target in $unique_targets; do
       install_to "cursor" "$project_dir/.cursor/skills"
       ;;
     codex)
-      install_to "codex" "${CODEX_HOME:-$HOME/.codex}/skills"
+      install_to "codex" "$project_dir/.codex/skills"
       install_instruction_file "$source_root/AGENTS.md" "$project_dir/AGENTS.md" "codex"
       ;;
   esac

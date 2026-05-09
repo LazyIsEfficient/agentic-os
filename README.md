@@ -56,7 +56,7 @@ Supported targets are `claude` (or `cloud`), `cursor`, `codex`, and `all`. You c
 ```text
 <your-project>/.claude/skills/<skill-name>/        # Claude Code
 <your-project>/.cursor/skills/<skill-name>/        # Cursor
-${CODEX_HOME:-$HOME/.codex}/skills/<skill-name>/   # Codex
+<your-project>/.codex/skills/<skill-name>/         # Codex
 ```
 
 ## Skills in this repo
