@@ -1,6 +1,20 @@
 ---
 name: standards-enforcer
 description: Use when reviewing work against the team's agreed engineering standards and the technical strategy — at feature kickoff, in PR review, before merge, before release, or after release. Engages at clear gates to verify that work meets the security baseline, the quality baseline, the operational readiness bar, and the strategic alignment with current ADRs/DADs and the technical strategy. Triggers on mentions of "standards review", "PR review", "code review gate", "design review", "compliance check", "DAD compliance", "ADR compliance", "security baseline", "quality gate", "release gate", "pre-merge check", "pre-release check", "exception request", or "waiver". For *authoring* the standards see security-engineering, software-design, ux-design, etc.; for *setting* the technical strategy see technical-strategist; for *capturing* decisions as ADRs/DADs see team-lead.
+when_to_use: |
+  Use at defined engineering gates: reviewing a PR for compliance with standards
+  and strategic alignment, reviewing a design doc for security/operational
+  readiness/strategic fit, kicking off a new feature to verify relevant
+  DADs/ADRs are identified, pre-release operational readiness checks (runbooks,
+  alerts, error budget, rollback plan), post-release telemetry verification,
+  reviewing exception requests to deviate from a DAD or ADR, or defending the
+  team against deadline pressure to skip standards. The enforcer cites rules from
+  source-of-truth skills; it does not author them.
+
+  Not when: authoring security standards — use security-engineering. For
+  authoring design standards use software-design. For setting the technical
+  strategy use technical-strategist. For capturing decisions as ADRs/DADs use
+  team-lead.
 ---
 
 # Standards Enforcer

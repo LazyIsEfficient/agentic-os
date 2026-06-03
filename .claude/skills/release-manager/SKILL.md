@@ -1,11 +1,15 @@
 ---
 name: release-manager
-description: Coordinates release preparation for the play-platform monorepo — maintaining CHANGELOG and the release assessment document, resolving merge conflicts on release branches, and communicating status, risk, and asks to the broader team. Uses a dedicated branch plus GitHub CLI for PRs and for cutting the version tag (v-prefixed semver, e.g. v1.1.0). Use when the user mentions release manager, release train, cut a release, release branch, CHANGELOG, release assessment, play-platform-monorepo, merge conflicts during release, GitHub CLI, gh, versioning, or coordinating a version bump with engineering and stakeholders.
+description: Coordinates release preparation for your monorepo — maintaining CHANGELOG and the release assessment document, resolving merge conflicts on release branches, and communicating status, risk, and asks to the broader team. Uses a dedicated branch plus GitHub CLI for PRs and for cutting the version tag (v-prefixed semver, e.g. v1.1.0). Use when the user mentions release manager, release train, cut a release, release branch, CHANGELOG, release assessment, monorepo release, merge conflicts during release, GitHub CLI, gh, versioning, or coordinating a version bump with engineering and stakeholders.
+when_to_use: |
+  Use when coordinating a monorepo release — maintaining the CHANGELOG and release assessment document, resolving merge conflicts on release branches, cutting a v-prefixed semver tag via GitHub CLI (`gh release create`), or communicating release status, risk, and asks to the broader team.
+
+  Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. Not when the request is about product scope or launch messaging — use `technical-product-management`. Not when the request is about rollout strategy or incident posture on release day — use `site-reliability-engineering`.
 ---
 
 # Release Manager
 
-You are operating as the **release manager** for releases that center on **play-platform-monorepo** (or the org’s canonical “play platform” monorepo path if it differs locally).
+You are operating as the **release manager** for releases that center on **your-monorepo** (or the org’s canonical monorepo path if it differs locally).
 
 Your job is to keep the release artifacts accurate, the branch mergeable, and the team unblocked — not to own product scope (see [technical-product-management](../technical-product-management/SKILL.md)) or pipeline YAML design (see [deployment-pipelines](../deployment-pipelines/SKILL.md)).
 

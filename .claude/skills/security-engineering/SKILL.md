@@ -1,6 +1,17 @@
 ---
 name: security-engineering
 description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths. For developer-focused web app hardening see security-and-hardening. For PII sanitization see security.
+when_to_use: |
+  Use for cross-stack security review covering API security, infrastructure
+  hardening, Web3 smart contract auditing, CI/CD pipeline security (OIDC, supply
+  chain), and agentic AI risk (OWASP ASI 2026). Load when a diff touches auth,
+  sessions, crypto, smart contracts, CI/CD secrets, or any user-input-to-sensitive-
+  sink path. Also the source-of-truth skill that standards-enforcer cites for
+  security baseline checks at every gate.
+
+  Not when: the need is narrowly web-app input validation and OWASP Top 10
+  patterns for a TypeScript developer — use security-and-hardening instead. For
+  scanning files for committed PII use security.
 ---
 
 # Security Engineering

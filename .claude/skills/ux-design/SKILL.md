@@ -1,6 +1,10 @@
 ---
 name: ux-design
 description: Use when designing or reviewing user interfaces — wireframes, flows, prototypes, information architecture, interaction patterns, visual hierarchy, accessibility, design system contributions, microcopy, design critiques, or developer handoff. Triggers on mentions of "UX design", "UI design", "wireframe", "prototype", "Figma", "interaction design", "IA", "information architecture", "design system", "accessibility", "WCAG", "a11y", "design critique", "design handoff", "microcopy", "UX writing", "empty state", "error state", or "design review". For research that informs the design (interviews, usability tests, JTBD) see ux-research.
+when_to_use: |
+  Use when translating research findings or PM requirements into wireframes and flows, designing or reviewing information architecture or navigation, designing interactions or state transitions, auditing for accessibility (WCAG, keyboard, screen readers), writing microcopy (button labels, error messages, empty states), facilitating or participating in design critique, or preparing developer handoff specs and design QA.
+
+  Not when: the task is generative user research (interviews, usability tests, JTBD discovery, survey design) — use ux-research. Not when the task is implementing the UI in code — use frontend-ui-engineering. Not when the task is writing frontend tests for accessibility — use typescript-testing-frontend.
 ---
 
 # UX Design

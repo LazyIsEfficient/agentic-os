@@ -1,6 +1,10 @@
 ---
 name: technical-product-management
 description: Use when making product decisions in a technical context — defining strategy, prioritizing work, building roadmaps, writing PRDs, validating ideas with research, planning launches, communicating with stakeholders, picking metrics, or making the call about what *not* to build. Triggers on mentions of "product strategy", "roadmap", "prioritization", "PRD", "product spec", "user story", "acceptance criteria", "RICE", "MoSCoW", "MVP", "launch plan", "rollout", "stakeholder", "OKRs", "north star metric", "product-led", "discovery to delivery", "build vs buy", or "TPM". For ticket grooming and ADR/DAD capture see team-lead; for the macro technical design see system-architect; for user research see ux-research.
+when_to_use: |
+  Use when making product decisions in a technical context: defining or revising product strategy or vision, prioritizing work, building or revising a roadmap, writing a PRD or one-pager, translating research findings into prioritization decisions, planning a phased launch or rollout, picking metrics for a feature or OKR, pushing back on stakeholder requests that don't fit strategy, or deciding what not to build.
+
+  Not when: the task is ticket grooming, backlog hygiene, or ADR/DAD capture — use team-lead. Not when the task is macro system design (services, fault tolerance, capacity) — use system-architect. Not when the task is running user interviews or usability studies — use ux-research. Not when the task is setting technical direction (frameworks, build vs buy, platform investments) — use technical-strategist.
 ---
 
 # Technical Product Management

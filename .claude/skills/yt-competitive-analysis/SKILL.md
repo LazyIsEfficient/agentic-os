@@ -4,6 +4,10 @@ description: >-
   Analyze YouTube channels for outlier videos and packaging patterns. Identifies
   what's working (2x+ average views) across any set of channels. Use when asked for
   YouTube competitive analysis, viral video patterns, or packaging/title inspiration.
+when_to_use: |
+  Use when asked to analyze YouTube channels for outlier videos, identify viral video patterns, find packaging or title inspiration from specific creators, or track competitor YouTube performance. Requires a YouTube Data API v3 key.
+
+  Not when: the task is scripting a YouTube Short — use yt-shorts-script. Not when the task is producing the full Short end-to-end (record + assemble) — use yt-shorts-pipeline. Not when the task is competitive analysis for non-YouTube platforms — use a general research approach.
 ---
 
 # YouTube Competitive Analysis

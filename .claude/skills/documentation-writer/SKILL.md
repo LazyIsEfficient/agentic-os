@@ -1,6 +1,15 @@
 ---
 name: documentation-writer
 description: Use when updating repository documentation under docs/ in response to code changes — typically inside a PR. Triggers on edits to docs/, README.md, *.mmd files, or when "docs", "documentation", "README", "guide", "Mermaid", or "doc update" are mentioned.
+when_to_use: |
+  Use when updating repository documentation under docs/ or root README.md in response to a
+  code diff — typically as part of a PR. Triggers on edits to docs/, README.md, *.mmd files,
+  or when "docs", "documentation", "README", "guide", "Mermaid", or "doc update" are mentioned.
+  The key signal is an existing code change that needs documentation brought into sync.
+
+  Not when: the task is writing a new architectural decision record or establishing documentation
+  from scratch — use `documentation-and-adrs` instead. Not when the task is product documentation
+  unrelated to a code diff (PRDs, roadmaps) — coordinate with `technical-product-management`.
 ---
 
 # Documentation Writer

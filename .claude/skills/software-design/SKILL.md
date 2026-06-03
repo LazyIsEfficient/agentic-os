@@ -1,6 +1,18 @@
 ---
 name: software-design
 description: Use when shaping the internal structure of code — designing modules and classes, modeling a domain, deciding where a piece of logic belongs, reviewing PRs for cohesion and coupling problems, or refactoring tangled code. Triggers on mentions of "SOLID", "DRY", "separation of concerns", "domain model", "DDD", "bounded context", "aggregate", "hexagonal", "ports and adapters", "clean architecture", "coupling", "cohesion", "feature envy", "god class", "refactor", "code smell", or "code review". For macro service-level design see system-architect; for capturing the resulting decisions as ADRs/DADs see team-lead.
+when_to_use: |
+  Use when reviewing a PR diff for design problems (not just bugs), designing a
+  new module or class hierarchy inside an existing service, modeling a domain
+  (entities, aggregates, value objects, bounded contexts), refactoring tangled
+  code toward a cleaner shape, deciding where a piece of logic belongs
+  (controller vs service vs domain vs repository), or spotting that a hard-to-
+  test unit is actually a design problem. Concern is the internal structure of
+  code within a service.
+
+  Not when: deciding which services exist, how they communicate, or planning
+  capacity — use system-architect instead. For capturing the resulting decisions
+  as ADRs or DADs use team-lead.
 ---
 
 # Software Design

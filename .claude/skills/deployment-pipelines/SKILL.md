@@ -1,6 +1,16 @@
 ---
 name: deployment-pipelines
 description: Use when authoring or reviewing CI/CD pipelines — GitHub Actions workflows, reusable workflows, composite actions, OIDC federation to AWS/GCP, caching, artifacts, and pipeline security hardening. Triggers on edits to .github/workflows/**, action.yml, composite action definitions, or mentions of "CI", "CD", "pipeline", "GitHub Actions", "workflow", "OIDC", "runner", "deploy script", "release", or "build pipeline". For provisioning the cloud resources these pipelines deploy to, see cloud-infrastructure.
+when_to_use: |
+  Use when authoring or reviewing GitHub Actions workflows, reusable workflows, composite actions,
+  OIDC federation to AWS/GCP, artifact handling, caching strategies, or pipeline security
+  hardening. Triggers on edits to .github/workflows/**, action.yml, or composite action
+  definitions, or when "CI", "CD", "pipeline", "GitHub Actions", "OIDC", "runner", "deploy
+  script", "release", or "build pipeline" are mentioned.
+
+  Not when: the task is provisioning or managing the cloud resources the pipeline deploys to —
+  use `cloud-infrastructure` instead. Not when the task is runtime reliability (SLOs, canaries,
+  rollback triggers) after the pipeline has run — use `site-reliability-engineering` instead.
 ---
 
 # Deployment Pipelines

@@ -1,6 +1,10 @@
 ---
 name: iap-manager
 description: Use when designing and operating the in-app purchase catalog of a game — SKU design, price-tier ladder, bundles, starter packs, battle pass tiering, A/B price tests, store config (App Store / Google Play / Steam DLC / web / web3), and per-region price localization. Triggers on "IAP catalog", "store SKUs", "pricing tiers", "starter pack", "bundle design", "battle pass tiering", "price test", "price localization", "App Store Connect", "Google Play Console", "Steam DLC", or when handed a monetization strategy with the catalog still open. Produces a catalog spec, per-region price tables, bundle compositions, and a price-test plan. For the macro model and KPI floors see game-monetization-strategist; for in-game economy curves see game-balancer; for store-page conversion and trailers see game-marketer.
+when_to_use: |
+  Use when a monetization strategy arrives with the catalog shape but not per-SKU detail, when the team needs to build or re-tune the App Store / Google Play / Steam / web catalog, when a new region requires price localization, when a platform policy change requires re-architecting the catalog, or when A/B price tests need to be designed and tracked.
+
+  Not when: the question is which monetization model to use — use `game-monetization-strategist` instead. Not when the question is about in-game economy rates — use `game-balancer`. Not when the focus is store-page conversion or trailers — use `game-marketer`.
 ---
 
 # IAP Manager

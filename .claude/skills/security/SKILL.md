@@ -6,6 +6,15 @@ description: >-
   Includes a pre-commit hook to block commits containing PII. Use when asked to
   audit code for sensitive data, sanitize files before publishing, or install PII
   detection hooks. For application security hardening see security-engineering.
+when_to_use: |
+  Use when auditing a repository for accidentally committed PII or secrets,
+  sanitizing files before open-sourcing or publishing, or installing a pre-commit
+  hook to block future PII commits. Focused exclusively on data-at-rest scanning
+  and redaction using regex pattern matching.
+
+  Not when: hardening application code against OWASP vulnerabilities, implementing
+  auth/sessions/input validation, or doing a cross-stack security review — use
+  security-and-hardening or security-engineering instead.
 ---
 
 # Security Sanitizer

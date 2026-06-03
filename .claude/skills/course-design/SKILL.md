@@ -1,6 +1,10 @@
 ---
 name: course-design
 description: Use to turn a course brief into a concrete outline — modules, lessons, learning objectives, sequencing, and assessment map — before any lesson content is written. Triggers on "design the course", "build the curriculum", "outline the course", "course outline", "module breakdown", "lesson plan", "learning objectives", or when handed a filled course brief from course-shaper. Produces a course outline + per-lesson specs that course-author consumes. For intake shaping see course-shaper; for writing the lessons themselves see course-author.
+when_to_use: |
+  Use when you have a course brief (from `course-shaper` or equivalent) and need to produce the module map, per-lesson specs, learning objectives, sequencing rationale, and assessment plan that `course-author` will implement. Triggers on "design the course", "build the curriculum", "outline the course", "lesson plan", or "learning objectives".
+
+  Not when: the course idea is still vague or missing audience and outcomes — use `course-shaper` first. Not when lesson specs already exist and you only need to write the prose — use `course-author`.
 ---
 
 # Course Design

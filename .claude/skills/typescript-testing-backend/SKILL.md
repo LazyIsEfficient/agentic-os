@@ -1,6 +1,10 @@
 ---
 name: typescript-testing-backend
 description: Use when writing or reviewing TypeScript backend tests — Jest unit tests for services/controllers (mocked Prisma) or Supertest integration tests against a real isolated PostgreSQL test database. Triggers on edits to `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts`, files under `**/__tests__/`, or mentions of "backend test", "service test", "API test", "database test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
+when_to_use: |
+  Use when writing or reviewing TypeScript backend tests: Jest unit tests for services and controllers (with mocked Prisma), or Supertest integration tests against a real isolated PostgreSQL test database. The key signals are `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts` files, or any request to test backend service logic or HTTP routes.
+
+  Not when: the task is writing tests for React components or hooks — use typescript-testing-frontend. Not when the task is E2E flows, smart contract tests, or cross-cutting test policy — use typescript-quality-engineering. Not when the task is writing the production service/controller code itself — use the appropriate implementation skill.
 ---
 
 # TypeScript Testing — Backend

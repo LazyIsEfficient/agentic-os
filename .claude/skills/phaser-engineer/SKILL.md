@@ -1,6 +1,10 @@
 ---
 name: phaser-engineer
 description: Use when building games or interactive software in Phaser 3 with TypeScript — designing scenes, writing gameplay code, handling input, Arcade or Matter physics, animations, audio, tweens, asset preloading, save systems, performance work, or scaffolding a Phaser project with Vite. Triggers on mentions of "Phaser", "Phaser 3", "Phaser.Scene", "Phaser.Game", "preload", "create" or "update" inside a Phaser scene, "Arcade physics", "Matter physics", "tilemap", "Tiled", "tweens", "BitmapText", "GameObject", "Container", "Group", "Vite + Phaser", or any work inside a `.ts` or `.js` file in a Phaser project. For game design see game-systems-designer; for balance see game-balancer; for monetization see game-monetization-strategist; for marketing see game-marketer; for game-specific intake see game-design-shaper. For broader frontend work outside the Phaser canvas see frontend-ui-engineering. For a Godot/C# project see godot-engineer.
+when_to_use: |
+  Use when scaffolding a Phaser 3 + TypeScript + Vite project, designing or restructuring scenes, writing gameplay code (controllers, state machines, AI, physics), handling input, working with Arcade or Matter physics, building animations or tweens, importing Tiled tilemaps, managing assets (atlases, audio sprites, dynamic loading), implementing save/load with versioning, profiling frame-budget issues, or reviewing a Phaser project for anti-patterns.
+
+  Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the work is on the non-canvas web app surrounding the game (landing page, login, store) — use `frontend-ui-engineering`. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`.
 ---
 
 # Phaser Engineer

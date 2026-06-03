@@ -1,6 +1,10 @@
 ---
 name: typescript-analytics
 description: Use when implementing analytics with PostHog in a TypeScript app — capturing events, identifying users, adding feature flags, tracking errors, or wiring API lifecycle telemetry. Triggers on edits to PostHog or analytics modules (e.g. `**/posthog/**`, `**/analytics/**`), or mentions of "PostHog", "analytics", "feature flag", "event tracking", "capture", "identify", "A/B test", or "experiment".
+when_to_use: |
+  Use when implementing PostHog analytics in a TypeScript/Next.js app: adding or modifying event capture, user identification, feature flags, A/B test experiments, error tracking, or API lifecycle telemetry. Triggers on edits to PostHog or analytics modules, or any work that involves the `EVENTS` / `ANALYTICS_EVENTS` enum, `getPostHog()`, or `capturePostHogEvent`.
+
+  Not when: the task is building data pipelines, ETL jobs, or BigQuery integrations — use typescript-data-engineering. Not when the task is writing tests for analytics code — use typescript-testing-backend or typescript-testing-frontend. Not when the task is general observability, logging, or infrastructure metrics — use site-reliability-engineering.
 ---
 
 # Analytics Engineering (PostHog + TypeScript)

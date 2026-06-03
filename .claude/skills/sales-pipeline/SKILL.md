@@ -7,6 +7,10 @@ description: >-
   optimize a sales pipeline, score leads, resurrect dead deals, or configure
   campaign routing. For outbound email sequences see outbound-engine; for revenue
   attribution see revenue-intelligence.
+when_to_use: |
+  Use when setting up automated outbound from website visitor identification (RB2B), running suppression checks before cold outreach, routing leads to the right cold email campaigns, reviving closed-lost deals from HubSpot, finding companies showing buying signals (new hires, funding, job postings), or analyzing prospect approve/reject patterns to improve ICP targeting.
+
+  Not when: the request is about writing and scoring cold outbound email copy — use `outbound-engine` instead. Not when the request is about attributing revenue to content or analyzing sales call transcripts — use `revenue-intelligence`.
 ---
 
 # AI Sales Pipeline

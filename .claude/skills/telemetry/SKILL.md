@@ -6,6 +6,10 @@ description: >-
   Not a standalone skill — imported by other skills via their preamble blocks.
   Use when asked to view skill usage stats, configure telemetry opt-in/out, or
   check for skill updates.
+when_to_use: |
+  Not invoked directly — loaded automatically by skills that include telemetry tracking. Do not invoke manually.
+
+  Not when: any direct user task is involved — this skill is a shared library imported by other skills via their preamble blocks, not a standalone skill.
 ---
 
 # Telemetry
@@ -24,5 +28,5 @@ Shared telemetry library used by other skills. Opt-in only, local-first, no PII 
 ## Privacy
 
 - Opt-in only — nothing sent without explicit consent
-- Local-first — data always stored locally at `~/.ai-marketing-skills/analytics/`
+- Local-first — data always stored locally
 - No PII — no names, emails, paths, or content collected

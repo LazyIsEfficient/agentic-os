@@ -1,6 +1,10 @@
 ---
 name: planning-and-task-breakdown
 description: Breaks work into ordered, parallel-dispatchable tasks with an execution DAG. Output format is consumable by Cursor Background Agents, CI matrices, and parallel agent runners — each task has a stable ID, declared file writes, conflict edges, and branch suffix. Use when you have a spec, brief, or shaper output and need to decompose it into implementable units. Use when a task feels too large, when scope spans multi-repo or multi-week work, or when parallel execution across multiple agents is on the table.
+when_to_use: |
+  Use after a `prompt-shaper` or `marketing-shaper` brief when the work spans multiple repos, multiple weeks, or needs parallel agent execution — specifically when the implementation order is not obvious or tasks can safely be dispatched concurrently. Use when a spec or task feels too large to start in one session.
+
+  Not when: the change is single-file with obvious scope — implement directly using `incremental-implementation`. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first.
 ---
 
 # Planning and Task Breakdown

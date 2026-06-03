@@ -1,6 +1,17 @@
 ---
 name: skill-library-review
 description: Use when reviewing or auditing a library of Claude Code skills and agents — frontmatter correctness, routing quality, tool allowlists, cross-reference coherence, single-responsibility, file structure, and anti-pattern detection. Triggers on mentions of "review skills", "audit agents", "skill library", "agent definition review", "is this skill right", or when iterating on `.claude/skills/` or `.claude/agents/` directories. For code review of source code see code-review-and-quality.
+when_to_use: |
+  Use when reviewing or auditing `.claude/skills/` or `.claude/agents/`
+  directories: checking frontmatter correctness (name, description, tools
+  fields), assessing routing specificity and trigger vocabulary, verifying tool
+  allowlists match declared roles, confirming cross-references resolve and are
+  bidirectional, detecting single-responsibility violations, and catching
+  anti-patterns like keyword bloat or dangling references.
+
+  Not when: reviewing application source code for bugs or design problems — use
+  code-review-and-quality instead. For applying skill standards at gates use
+  standards-enforcer.
 ---
 
 # Skill Library Review

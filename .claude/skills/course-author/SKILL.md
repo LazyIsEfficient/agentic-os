@@ -1,6 +1,10 @@
 ---
 name: course-author
 description: Use to write lesson content from a filled lesson spec — hook, explanation, worked example with code snippets, exercises, misconception callouts, and formative check. Triggers on "write the lesson", "draft lesson", "author lesson", "expand the spec", "write course content", "add the code snippets", or when handed a filled lesson-spec-template from course-design. Writes one lesson at a time against the spec; does not reopen curriculum decisions. For course outlining see course-design; for intake shaping see course-shaper.
+when_to_use: |
+  Use when you have a filled lesson spec from `course-design` and need to expand it into a complete, teachable lesson — hook, core idea, worked example, misconception callouts, exercise progression, and formative check. Triggers on "write the lesson", "draft lesson", "expand the spec", or "write course content".
+
+  Not when: the lesson spec doesn't exist yet — use `course-design` first to create the curriculum outline and specs. Not when the overall course brief is still vague — use `course-shaper` first. Not when the deliverable is a blog post — use `blog-post-author`.
 ---
 
 # Course Author

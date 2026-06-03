@@ -1,6 +1,18 @@
 ---
 name: team-lead
 description: Use when triaging, grooming, or auditing work tickets in Linear or Jira (via MCP), or when capturing architectural decisions as ADRs (significant/non-default choices) or DADs (default patterns the team follows by convention). Triggers on mentions of "ticket", "issue", "Linear", "Jira", "backlog", "grooming", "triage", "sprint", "ADR", "DAD", "architecture decision", "decision record", "default pattern", or "team convention". For *product prioritization* — what to build, in what order, and why — see technical-product-management; this skill owns ticket *quality* and *decision capture*, not product strategy.
+when_to_use: |
+  Use when triaging, grooming, or auditing work tickets in Linear or Jira via
+  MCP (checking for clear acceptance criteria, owner, priority, no stale or
+  vague tickets), or when deciding whether an engineering decision should become
+  an ADR (significant/non-default, expensive to reverse) or a DAD (default
+  pattern new joiners should follow). Also use when writing, reviewing, or
+  superseding ADR/DAD documents, or converting postmortem action items into
+  well-formed tickets.
+
+  Not when: deciding what to build, in what order, or why — use
+  technical-product-management instead. For applying ADRs/DADs as compliance
+  checks at review gates use standards-enforcer.
 ---
 
 # Team Lead

@@ -6,23 +6,19 @@ description: >-
   sales teams. Use when asked to prepare deal pricing, generate pricing tiers,
   analyze sales calls, or build pricing playbooks. For pipeline automation see
   sales-pipeline; for revenue intelligence see revenue-intelligence.
+when_to_use: |
+  Use when preparing for a sales call and needing competitive data to anchor on
+  value, building tiered pricing proposals for prospects at different deal sizes,
+  analyzing sales call transcripts against the value-based pricing framework,
+  training sales reps on pricing patterns and objection handling, or upselling
+  existing deals by identifying missed value levers.
+
+  Not when: managing pipeline stages, lead tracking, or CRM automation — use
+  sales-pipeline instead. For deal forecasting and revenue analytics use
+  revenue-intelligence.
 ---
 
 # AI Sales Playbook — Value-Based Pricing & Deal Upselling
-
-## Preamble (runs on skill start)
-
-```bash
-# Version check (silent if up to date)
-python3 telemetry/version_check.py 2>/dev/null || true
-
-# Telemetry opt-in (first run only, then remembers your choice)
-python3 telemetry/telemetry_init.py 2>/dev/null || true
-```
-
-> **Privacy:** This skill logs usage locally to `~/.ai-marketing-skills/analytics/`. Remote telemetry is opt-in only. No code, file paths, or repo content is ever collected. See `telemetry/README.md`.
-
----
 
 Framework for value-based pricing that moves deals from $10K/mo → $40-100K/mo. Pre-call briefings, tiered package generation, post-call analysis, and a pattern library for training sales teams on proven pricing techniques.
 

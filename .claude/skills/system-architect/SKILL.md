@@ -1,6 +1,19 @@
 ---
 name: system-architect
 description: Use when designing new systems, evaluating architectural trade-offs, choosing between monolith vs microservices, planning for scale, or hardening systems for fault tolerance and observability. Triggers on mentions of "architecture", "system design", "design doc", "scalability", "microservices", "monolith", "distributed", "fault tolerance", "resilience", "observability", "SLO", "high availability", "HA", "capacity planning", or "RFC".
+when_to_use: |
+  Use when designing new systems or evaluating macro architectural trade-offs:
+  choosing between monolith and microservices, planning for scale (capacity
+  estimates, back-of-envelope QPS/storage), defining fault tolerance (timeouts,
+  retries, circuit breakers, graceful degradation), baking in observability
+  (SLIs/SLOs, logs, metrics, traces), selecting data ownership boundaries, or
+  writing an RFC or design doc. Time horizon is design-time decisions about what
+  to build in.
+
+  Not when: structuring code inside an existing service (modules, classes, DDD
+  patterns) — use software-design instead. For operating production systems at
+  runtime use site-reliability-engineering. For translating designs into
+  provisioned cloud resources use cloud-infrastructure.
 ---
 
 # System Architect

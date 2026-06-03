@@ -1,6 +1,20 @@
 ---
 name: site-reliability-engineering
 description: Use when operating production systems — defining and tracking SLIs/SLOs, tuning alerts, running on-call, leading incidents, writing postmortems, authoring runbooks, reducing toil, managing capacity at runtime, or running resilience exercises. Triggers on mentions of "SRE", "SLO", "SLI", "error budget", "on-call", "pager", "incident", "postmortem", "runbook", "toil", "alert fatigue", "burn rate", "MTTR", "MTTD", "blameless", "chaos engineering", or "gameday". For *designing* fault tolerance, observability, and capacity at architecture time see system-architect; for CI/CD release mechanics see deployment-pipelines; for security incidents see security-engineering.
+when_to_use: |
+  Use when operating production systems: setting or reviewing SLOs/SLIs/error
+  budgets, tuning alerts that fire too often or not enough, designing or fixing
+  an on-call rotation, leading or coaching through an active incident, writing
+  or reviewing a blameless postmortem, authoring or auditing a runbook,
+  measuring and reducing team toil, managing runtime autoscaling or load
+  shedding, or planning a gameday or chaos exercise. Time horizon is post-deploy
+  runtime — what happens after the system is running.
+
+  Not when: making design-time decisions about fault tolerance, observability
+  instrumentation, or capacity planning — use system-architect instead. For
+  release mechanics, canaries, and rollback automation use deployment-pipelines.
+  Security incidents share the incident-response process but security rules live
+  in security-engineering.
 ---
 
 # Site Reliability Engineering

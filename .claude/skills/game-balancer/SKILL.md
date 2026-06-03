@@ -1,6 +1,17 @@
 ---
 name: game-balancer
 description: Use when tuning the numbers in a game — economy curves, progression rates, difficulty pacing, drop tables, win/loss probabilities, time-to-X targets, currency velocities, and balance pass plans. Triggers on "balance pass", "tune the economy", "progression curve", "difficulty curve", "drop rate", "XP curve", "TTK", "time-to-content", "balance the economy", "spreadsheet model", "economy sim", or when handed a system spec from game-systems-designer with `<TBD>` placeholders. Produces an economy spreadsheet, a balance pass plan, simulation outputs, and per-system balance tables. Stops at the numbers — does not change system rules (that's game-systems-designer) or pricing (that's game-monetization-strategist / iap-manager). For systems design see game-systems-designer; for monetization model see game-monetization-strategist; for store catalog see iap-manager.
+when_to_use: |
+  Use when a system spec from `game-systems-designer` arrives with `<TBD by game-balancer>`
+  placeholders, when the team needs a curve (XP, levels, gear, season pass) but lacks a shape,
+  when live data shows an economy drifting and needing a re-tune, when a new content drop
+  changes balance, or when a monetization decision requires the economy to be re-tuned.
+  Triggers on "balance pass", "tune the economy", "progression curve", "drop rate", "XP curve",
+  "TTK", "economy sim", or "spreadsheet model".
+
+  Not when: the systems themselves are wrong and no amount of tuning will fix them — stop and
+  route to `game-systems-designer`. Not when the task is setting per-SKU prices in real money —
+  use `game-monetization-strategist` or `iap-manager` instead.
 ---
 
 # Game Balancer

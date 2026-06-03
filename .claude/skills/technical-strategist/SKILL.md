@@ -1,6 +1,10 @@
 ---
 name: technical-strategist
 description: Use when setting or revising the technical direction of an engineering organization — writing the technical strategy document, picking the load-bearing technical bets, deciding build vs buy vs adopt, deciding when to invest in shared platforms, declaring which DADs are core to the strategy, communicating direction to engineering and leadership, or pushing back on proposals that don't fit. Triggers on mentions of "technical strategy", "tech strategy", "technical vision", "platform investment", "build vs buy", "tech bet", "north star architecture", "technical principles", "technology choice", "technology stack decision", "platform-vs-product", or "load-bearing DAD". For *macro system design* (services, fault tolerance, capacity) see system-architect; for *enforcement of the strategy at gates* see standards-enforcer; for *capturing decisions as ADRs/DADs* see team-lead.
+when_to_use: |
+  Use when setting or revising the technical direction of an engineering organization: drafting or revising the technical strategy document, making a major build vs. buy vs. adopt decision, deciding whether to invest in a shared platform, declaring or revising load-bearing DADs, communicating technical direction to engineering or leadership, pushing back on proposals that don't fit the strategy, sizing a major technical bet (refactor, rewrite, migration), or reviewing how an existing strategy has played out.
+
+  Not when: the task is enforcing the strategy at specific gates (PR review, pre-release) — use standards-enforcer. Not when the task is macro system design for a specific service (fault tolerance, capacity planning) — use system-architect. Not when the task is capturing decisions as ADRs/DADs — use team-lead. Not when the task is defining what product features to build and why — use technical-product-management.
 ---
 
 # Technical Strategist

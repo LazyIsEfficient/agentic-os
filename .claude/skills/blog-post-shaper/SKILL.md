@@ -1,6 +1,10 @@
 ---
 name: blog-post-shaper
 description: Use to structure a vague blog-post idea into a well-scoped brief before any drafting begins. Triggers on "blog post on X", "write a blog about", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", or when invoked as the /blog-shape slash command. Produces a filled blog brief (opinion, case-study, or deep-dive) that blog-post-author consumes — the author then writes the post and emits one task file per declared asset (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map) that the parent agent dispatches to subagents. Do not use for short social-format posts (X, LinkedIn) — go to marketing-shaper's content brief or x-longform-post. For engineering intake see prompt-shaper; for course intake see course-shaper; for game-design intake see game-design-shaper.
+when_to_use: |
+  Use when a blog post idea is still vague and needs scoping into a brief before any drafting begins — opinion pieces, case studies, explainers, or deep dives. Triggers on "blog post on X", "write a blog about", "case study post", "opinion piece", "thought leadership post", or the /blog-shape command.
+
+  Not when: the brief is already fully scoped — go straight to `blog-post-author`. Not when the deliverable is a tweet thread, LinkedIn post, newsletter, or deck — use `marketing-shaper` or `x-longform-post`. Not when the request is a tutorial or course — use `course-shaper`.
 ---
 
 # Blog Post Shaper

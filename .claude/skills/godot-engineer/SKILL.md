@@ -1,6 +1,10 @@
 ---
 name: godot-engineer
 description: Use when building games or interactive software in Godot 4 with C# — designing scenes and nodes, writing gameplay code, handling input, physics, animation, UI, rendering, save systems, performance work, WebSocket-based multiplayer, or exporting to platforms. Triggers on mentions of "Godot", "GDScript", "C# Godot", "scene tree", "Node2D", "Node3D", "Control", "AnimationPlayer", "AnimationTree", "Tween", "PhysicsBody", "CharacterBody", "RigidBody", "Area", "_Process", "_PhysicsProcess", "signal", "autoload", "RPC", "high-level multiplayer", "WebSocketMultiplayerPeer", "shader", "viewport", "export preset", or any work inside a `.tscn`, `.tres`, `.gd`, or `.cs` file in a Godot project. For game design see game-systems-designer; for balance see game-balancer; for monetization see game-monetization-strategist; for marketing see game-marketer; for game-specific intake see game-design-shaper. For broader software design principles see software-design.
+when_to_use: |
+  Use when designing or restructuring Godot scenes, writing gameplay code in C#, handling input or physics, building UI with Control nodes, animating with AnimationPlayer/AnimationTree/Tween, implementing save/load systems, profiling and optimizing frame budgets, implementing WebSocket-based multiplayer, configuring export presets, or reviewing a Godot project for anti-patterns. Triggers on any work inside `.tscn`, `.tres`, `.gd`, or `.cs` files in a Godot project.
+
+  Not when: the request is about game mechanics, balance, or narrative — use `game-systems-designer` or `game-balancer` instead. Not when the project is Phaser/TypeScript — use `phaser-engineer`. Not when the question is about monetization strategy — use `game-monetization-strategist`.
 ---
 
 # Godot Engineer

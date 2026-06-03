@@ -1,6 +1,10 @@
 ---
 name: ux-research
 description: Use when planning or running user research — discovery interviews, usability tests, surveys, diary studies, analytics review, synthesis of qualitative data, building personas or jobs-to-be-done, communicating findings, or advocating for users in product decisions. Triggers on mentions of "user research", "UX research", "user interview", "usability test", "discovery", "JTBD", "jobs to be done", "persona", "survey", "diary study", "research plan", "research findings", "user feedback", or "research synthesis". For translating findings into wireframes, prototypes, and shipped UI see ux-design.
+when_to_use: |
+  Use when planning a research study, writing a discussion guide or usability test script, synthesizing findings from interviews or observations, building or auditing personas and JTBD statements, communicating research findings to product or engineering, triaging "we need research" requests, or reviewing analytics as a complement to qualitative work.
+
+  Not when: the task is translating research findings into wireframes, prototypes, or shipped UI — use ux-design. Not when the task is making prioritization or roadmap decisions from existing research — use technical-product-management. Not when the task is writing accessibility tests — use typescript-testing-frontend.
 ---
 
 # UX Research

@@ -1,6 +1,10 @@
 ---
 name: typescript-data-engineering
 description: Use when building data pipelines, ETL jobs, event processors, message-broker producers/consumers, application caching layers, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, RabbitMQ/Kafka/SQS/BullMQ producer or consumer code, Redis cache wrappers, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", "data migration", "message queue", "RabbitMQ", "Kafka", "SQS", "BullMQ", "Redis cache", or "caching". For provisioning the underlying data stores and brokers see cloud-infrastructure. For caching strategy and broker-selection trade-offs see system-architect.
+when_to_use: |
+  Use when building or modifying data pipelines, ETL jobs, event processors, message-broker producers/consumers (RabbitMQ, Kafka, SQS, BullMQ), Redis caching layers, database migrations (Prisma/Drizzle), BigQuery queries or warehouse integrations, or event-sourcing handlers in TypeScript. The key signal is data movement and transformation code, not application business logic.
+
+  Not when: the task is provisioning the underlying data stores or brokers — use cloud-infrastructure. Not when the task is writing PostHog analytics event capture — use typescript-analytics. Not when the task is writing tests for data pipeline code — use typescript-testing-backend. Not when the task is broker selection or caching strategy trade-offs at the architecture level — use system-architect.
 ---
 
 # Data Engineering (TypeScript)
