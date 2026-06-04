@@ -18,10 +18,10 @@ Every resource should be environment-aware: dev can rely on local Docker for sta
 ## Universal Rules
 
 ### Resource Creation
-1. **Tag everything** — use `getTags()` on every resource.
-2. **Name consistently** — use `getResourceName()` for all resource names.
+1. **Tag everything** — apply consistent resource tags (environment, team, project) on every resource.
+2. **Name consistently** — derive all resource names from a shared naming convention (service, environment, region).
 3. **Encrypt everything** — at rest and in transit on all data stores.
-4. **Size by environment** — use `getInstanceSizing()`, never hardcode instance types.
+4. **Size by environment** — select instance types by environment tier (dev/staging/prod); never hardcode production sizes for dev.
 5. **Condition on environment** — skip expensive dev resources, enforce HA in production.
 
 ### Security

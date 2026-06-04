@@ -28,3 +28,9 @@ Use Chrome DevTools MCP to give your agent eyes into the browser. This bridges t
 - [references/devtools-setup.md](references/devtools-setup.md) — MCP installation config and available tools table
 - [references/security-boundaries.md](references/security-boundaries.md) — Untrusted data rules, JS execution constraints, content boundary markers
 - [references/debugging-workflows.md](references/debugging-workflows.md) — UI bug workflow, network issue workflow, performance workflow, test plan template, screenshot verification, console patterns, accessibility verification, rationalizations, red flags, verification checklist
+
+## Related skills
+
+- [frontend-ui-engineering](../frontend-ui-engineering/SKILL.md) — the implementation skill for the UI being tested
+- [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — automated frontend test suite authoring
+- [typescript-testing-backend](../typescript-testing-backend/SKILL.md) — backend test authoring when browser tests surface API issues

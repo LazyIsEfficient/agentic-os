@@ -46,3 +46,8 @@ After setting up or modifying CI:
 - [ ] Secrets are stored in the secrets manager, not in code
 - [ ] Deployment has a rollback mechanism
 - [ ] Pipeline runs in under 10 minutes for the test suite
+
+## Related skills
+
+- [deployment-pipelines](../deployment-pipelines/SKILL.md) — YAML implementation of the pipeline configs this skill designs; use when the task is writing GitHub Actions or release pipeline YAML
+- [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the cloud primitives that CI/CD pipelines build and deploy onto

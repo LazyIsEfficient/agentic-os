@@ -4,7 +4,7 @@ description: Refines ideas iteratively. Refine ideas through structured divergen
 when_to_use: |
   Use when the user wants to refine a raw idea into a sharp, actionable concept — triggered by "help me refine this idea", "ideate on [concept]", "stress-test my plan", or any request to explore variations, challenge assumptions, and produce a concrete one-pager with an MVP scope and Not-Doing list.
 
-  Not when: the idea is already well-scoped and ready for task breakdown — use `prompt-shaper` or `planning-and-task-breakdown` instead. Not when the request is for a marketing campaign concept — use `marketing-shaper`.
+  Not when: the idea is already well-scoped and ready for task breakdown — use [prompt-shaper](../prompt-shaper/SKILL.md) or [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) instead. Not when the request is for a marketing campaign concept — use `marketing-shaper`.
 ---
 
 # Idea Refine

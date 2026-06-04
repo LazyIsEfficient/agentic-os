@@ -4,7 +4,7 @@ description: Conducts multi-axis code review. Use before merging any change. Use
 when_to_use: |
   Use before merging any PR or change, after a feature implementation or bug fix, when evaluating code produced by another agent or model, when refactoring existing code, or when a change needs assessment across correctness, readability, architecture, security, and performance.
 
-  Not when: you only want to reduce complexity in working code without changing behavior — use `code-simplification`. Not when the sole concern is a security audit — use `security-and-hardening` or `security-engineering`.
+  Not when: you only want to reduce complexity in working code without changing behavior — use `code-simplification`. Not when the sole concern is a security audit: for web-app security (OWASP Top 10, input validation) use `security-and-hardening`; for cross-stack security audits (infra, CI/CD, Web3, agentic AI) use `security-engineering`.
 ---
 
 # Code Review and Quality
@@ -25,6 +25,7 @@ Multi-dimensional code review with quality gates. Every change gets reviewed bef
 6. **Split large changes.** Ask the author to split anything over ~300 lines rather than reviewing one massive changeset.
 7. **Require cleanup before merge.** Don't accept "I'll fix it later" — later never comes.
 8. **Treat dependency additions as changes.** Every new dependency needs justification: size, maintenance status, license, known vulnerabilities.
+9. **Quote before flagging.** Every finding must include the specific lines that support it. "This function looks risky" without a quote is an opinion, not a finding. If you can't quote the evidence, you don't have a finding yet.
 
 ## Red Flags
 
@@ -43,6 +44,8 @@ After review is complete:
 
 - [ ] All Critical issues are resolved
 - [ ] All Important issues are resolved or explicitly deferred with justification
+- [ ] Every finding is backed by a specific quoted passage from the actual code
+- [ ] No findings were generated from assumed code structure — only from what was read
 - [ ] Tests pass
 - [ ] Build succeeds
 - [ ] The verification story is documented (what changed, how it was verified)

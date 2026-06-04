@@ -41,7 +41,7 @@ test.describe('Landing Page', () => {
   test('should load successfully', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await expect(page).toHaveTitle('Yield Guild Games Platform')
+    await expect(page).toHaveTitle('My App')
   })
 })
 ```

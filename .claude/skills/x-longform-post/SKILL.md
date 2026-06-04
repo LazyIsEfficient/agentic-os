@@ -4,7 +4,7 @@ description: Write long-form X (Twitter) posts and threads in a founder/CEO voic
 when_to_use: |
   Use when drafting a long-form X (Twitter) post, article, thread, or thought leadership piece in a founder/CEO voice. Triggers on requests to write X articles, long tweets, viral content, or contrarian thought leadership posts with real data and ASCII diagrams.
 
-  Not when: the task is a YouTube Shorts script — use yt-shorts-script. Not when the task is a blog post or newsletter — use blog-post-author. Not when the task is social media promotion posts (shorter, multi-platform) — use social-growth.
+  Not when: the task is a YouTube Shorts script — use [yt-shorts-script](../yt-shorts-script/SKILL.md). Not when the task is a blog post or newsletter — use [blog-post-author](../blog-post-author/SKILL.md). Not when the task is social media promotion posts (shorter, multi-platform) — use [social-growth](../social-growth/SKILL.md).
 ---
 
 # X Long-Form Post Writer

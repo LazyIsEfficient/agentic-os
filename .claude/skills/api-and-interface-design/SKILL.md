@@ -4,7 +4,7 @@ description: Guides stable API and interface design. Use when designing APIs, mo
 when_to_use: |
   Use when designing new API endpoints, defining module or team boundaries, creating component prop interfaces, establishing database schemas that inform API shape, or changing existing public interfaces. Also use when reviewing an interface contract for stability or backward compatibility.
 
-  Not when: only implementing code against an already-defined API — use `incremental-implementation` instead. Not when the primary concern is deprecating or removing an existing interface — use `deprecation-and-migration` instead.
+  Not when: only implementing code against an already-defined API — use [incremental-implementation](../incremental-implementation/SKILL.md) instead. Not when the primary concern is deprecating or removing an existing interface — use [deprecation-and-migration](../deprecation-and-migration/SKILL.md) instead.
 ---
 
 # API and Interface Design

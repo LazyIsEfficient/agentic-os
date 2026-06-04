@@ -14,7 +14,7 @@ when_to_use: |
   prioritized keyword target list scored by Impact × Confidence.
 
   Not when: running growth experiments or A/B tests — use growth-engine instead.
-  For deep content research and optimization use autoresearch.
+  For deep content research and optimization use [autoresearch](../autoresearch/SKILL.md).
 ---
 
 # AI SEO Ops

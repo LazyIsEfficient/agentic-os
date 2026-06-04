@@ -32,8 +32,8 @@ Services may share a database through a generated client package but stay decoup
 
 - [references/architecture.md](references/architecture.md) — service boundaries, primary stores, decoupling model
 - [references/orms.md](references/orms.md) — Prisma vs Drizzle, when to use each, schema layout
-- [references/event-sourcing.md](references/event-sourcing.md) — InfraIngestEvent/Outbox/Inbox/Cursor tables, event flow, outbox rules, CQRS commands
-- [references/etl-pipelines.md](references/etl-pipelines.md) — EVM indexer pipeline, points distribution cron ETL, merkle tree generation
+- [references/event-sourcing.md](references/event-sourcing.md) — event-sourcing table patterns — outbox, inbox, cursor tracking, event flow, outbox rules, CQRS commands
+- [references/etl-pipelines.md](references/etl-pipelines.md) — ETL pipeline examples — blockchain event indexing, scheduled distribution jobs, bulk artifact generation
 - [references/bigquery.md](references/bigquery.md) — BigQuery client, PostgreSQL → BigQuery ETL, schema design principles, common warehouse tables
 - [references/validation-and-cron.md](references/validation-and-cron.md) — Zod validation rules, cron config, persistent cron manager, idempotency
 - [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations, local Docker, GCP/AWS/Cloudflare/Pulumi, monorepo structure

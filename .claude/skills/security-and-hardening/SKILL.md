@@ -59,3 +59,8 @@ Security-first development practices for web applications. Treat every external 
 - [references/input-validation.md](references/input-validation.md) — Zod schema validation, file upload safety, rate limiting, secrets management
 - [references/audit-triage.md](references/audit-triage.md) — npm audit decision tree, rationalizations, red flags, verification checklist
 - [references/security-checklist.md](references/security-checklist.md) — Detailed pre-commit security checklist
+
+## Related skills
+
+- [security](../security/SKILL.md) — PII scanning and pre-commit hooks for sensitive data at rest
+- [security-engineering](../security-engineering/SKILL.md) — cross-stack security design, threat modeling, architecture review

@@ -1,6 +1,6 @@
 ---
 name: frontend-ui-engineering
-description: Builds production-quality UIs. Use when building or modifying user-facing interfaces. Use when creating components, implementing layouts, managing state, or when the output needs to look and feel production-quality rather than AI-generated.
+description: Builds production-quality UIs — React components, responsive layouts, state management, loading/error/empty states, design-system adherence, and accessibility (WCAG 2.1 AA). Use when output is HTML/CSS/React rendered in a browser and must look production-quality, not AI-generated.
 when_to_use: |
   Use when building new UI components or pages, modifying existing user-facing interfaces,
   implementing responsive layouts, adding interactivity or state management, or fixing visual

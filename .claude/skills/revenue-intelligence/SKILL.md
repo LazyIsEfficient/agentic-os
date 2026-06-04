@@ -11,7 +11,7 @@ when_to_use: |
   Not when: the request is about automating the sales pipeline from website visitor identification — use `sales-pipeline` instead. Not when the request is about pricing strategy or deal structuring — use `sales-playbook`.
 ---
 
-# AI Revenue Intelligence
+# Revenue Intelligence
 
 AI-powered revenue intelligence: sales call insight extraction, content-to-revenue attribution, and multi-source client reporting.
 

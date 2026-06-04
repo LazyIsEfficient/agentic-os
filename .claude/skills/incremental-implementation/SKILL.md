@@ -4,7 +4,7 @@ description: Delivers changes incrementally. Use when implementing any feature o
 when_to_use: |
   Use when implementing any multi-file change, building a new feature from a task breakdown, refactoring existing code, or any time you are tempted to write more than ~100 lines before testing. Use when a task feels too large to land in one step.
 
-  Not when: the change is a single-file, single-function edit where the scope is already minimal — just implement it directly. Not when you need to break down the work into tasks first — use `planning-and-task-breakdown` before switching to this skill.
+  Not when: the change is a single-file, single-function edit where the scope is already minimal — just implement it directly. Not when you need to break down the work into tasks first — use [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) before switching to this skill.
 ---
 
 # Incremental Implementation
@@ -15,7 +15,7 @@ Build in thin vertical slices — implement one piece, test it, verify it, then 
 
 ## The Increment Cycle
 
-For each slice: implement the smallest complete piece → test → verify (tests pass, build succeeds) → commit with a descriptive message → move to the next slice. See `git-workflow-and-versioning` for atomic commit guidance.
+For each slice: implement the smallest complete piece → test → verify (tests pass, build succeeds) → commit with a descriptive message → move to the next slice. See [git-workflow-and-versioning](../git-workflow-and-versioning/SKILL.md) for atomic commit guidance.
 
 ## Universal Rules
 

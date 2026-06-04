@@ -18,7 +18,7 @@ Document decisions, not just code. The most valuable documentation captures the 
 
 ## Core Rules
 
-1. Write ADRs for every significant architectural decision — framework, data model, auth strategy, API shape, or anything expensive to reverse. Store in `docs/decisions/` with sequential numbering.
+1. Write ADRs for every significant architectural decision — framework, data model, auth strategy, API shape, or anything expensive to reverse. Store in a consistent decisions directory (e.g., `docs/decisions/`) with sequential numbering.
 2. Comment the *why*, not the *what*. If the code already says it, the comment adds no value.
 3. Never delete old ADRs; write a new one that supersedes the old and cross-reference it.
 4. Document known gotchas inline at the point where an engineer would encounter them.

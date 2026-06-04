@@ -62,3 +62,8 @@ Every run outputs 3 files:
 - [references/round-structure.md](references/round-structure.md) — round-by-round procedure and 5-expert panel definitions
 - [references/content-types.md](references/content-types.md) — elements and score dimensions per content type (landing pages, email, ads, forms)
 - [references/execution-protocol.md](references/execution-protocol.md) — 6-step execution protocol with JSON schema
+
+## Related skills
+
+- [content-ops](../content-ops/SKILL.md) — quality scoring gate; run after autoresearch optimization
+- [conversion-ops](../conversion-ops/SKILL.md) — conversion-focused optimization; autoresearch generates the variants

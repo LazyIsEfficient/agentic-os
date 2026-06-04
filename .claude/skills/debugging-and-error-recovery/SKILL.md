@@ -44,3 +44,8 @@ After fixing a bug:
 - [ ] All existing tests pass
 - [ ] Build succeeds
 - [ ] The original bug scenario is verified end-to-end
+
+## Related skills
+
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — when debugging escalates to production incident response or requires SLO context
+- [context-engineering](../context-engineering/SKILL.md) — debugging AI agent context windows and prompt issues

@@ -1,6 +1,6 @@
 ---
-name: course-shaper
-description: Education pipeline — intake a teaching idea, design the curriculum, and author lesson content end-to-end (full course, single module, or workshop). Use when the user wants to teach something and needs a brief, outline, or lesson content. Triggers on `/course-shape` or phrases like "design a course", "build a workshop", "write this lesson", "curriculum", "module outline". For engineering intake see prompt-shaper. For marketing intake see marketing-shaper.
+name: course-pipeline
+description: Full course pipeline orchestrator — runs the complete intake → design → lesson fan-out pipeline using the course-shaper skill for intake. Use when the user wants to build a course end-to-end and needs a brief, outline, or lesson content. Triggers on `/course-shape` or phrases like "design a course", "build a workshop", "write this lesson", "curriculum", "module outline". NOT the same as the course-shaper skill (intake only — produces a brief and stops). For engineering intake see prompt-shaper. For marketing intake see marketing-shaper.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write, Agent
 ---
 
@@ -36,7 +36,7 @@ Stop and confirm with the caller at each step unless told to go straight through
 
 ## Delegate
 
-- **content-strategist** (marketer agent) — for content scoring rounds beyond the built-in expert-panel pass
+- **marketer** (marketer agent) — for content scoring rounds beyond the built-in expert-panel pass
 - **engineer** — when a lesson needs runnable code examples beyond snippets
 
 Report which stage you stopped at and what the caller needs to confirm before the next stage.

@@ -38,3 +38,11 @@ General-purpose scoring and iterative improvement engine. Auto-assembles the rig
 - [experts/humanizer.md](experts/humanizer.md) — AI writing detection rubric (24 patterns); always run
 - [experts/](experts/) — pre-built panels: humanizer, instagram, linkedin, newsletter, podcast-quotes, recruiting, seo-strategy, x-articles, youtube-shorts
 - [scoring-rubrics/](scoring-rubrics/) — content-quality, conversion-quality, evaluation-quality, strategic-quality, visual-quality
+
+## Related skills
+
+- [blog-post-author](../blog-post-author/SKILL.md) — produces blog post drafts that content-ops scores
+- [blog-post-shaper](../blog-post-shaper/SKILL.md) — blog intake skill whose output feeds into content-ops scoring
+- [course-author](../course-author/SKILL.md) — produces lesson drafts that content-ops scores
+- [autoresearch](../autoresearch/SKILL.md) — research optimization pass often run before content-ops scoring
+- [conversion-ops](../conversion-ops/SKILL.md) — post-publish conversion layer; run after content-ops quality gate

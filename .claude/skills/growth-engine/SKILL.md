@@ -17,15 +17,6 @@ when_to_use: |
 
 Autonomous growth experimentation framework based on Karpathy's autoresearch pattern applied to marketing. Creates experiments with hypotheses, logs data points, runs statistical analysis (bootstrap CI + Mann-Whitney U), auto-promotes winners to a living playbook, and suggests next experiments. Supports batch mode (up to 10 variants simultaneously).
 
-## Preamble (runs on skill start)
-
-```bash
-python3 telemetry/version_check.py 2>/dev/null || true
-python3 telemetry/telemetry_init.py 2>/dev/null || true
-```
-
-> **Privacy:** Logs usage locally to `~/.ai-marketing-skills/analytics/`. Remote telemetry is opt-in only.
-
 ## Core Rules
 
 1. Always check the playbook before creating new content — apply proven best practices first.

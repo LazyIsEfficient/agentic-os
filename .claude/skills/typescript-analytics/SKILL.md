@@ -1,8 +1,8 @@
 ---
 name: typescript-analytics
-description: Use when implementing analytics with PostHog in a TypeScript app — capturing events, identifying users, adding feature flags, tracking errors, or wiring API lifecycle telemetry. Triggers on edits to PostHog or analytics modules (e.g. `**/posthog/**`, `**/analytics/**`), or mentions of "PostHog", "analytics", "feature flag", "event tracking", "capture", "identify", "A/B test", or "experiment".
+description: Use when implementing analytics with PostHog in a TypeScript app — capturing events, identifying users, adding feature flags, tracking errors, or wiring API lifecycle telemetry. Triggers on edits to analytics integration files, or mentions of "PostHog", "analytics", "feature flag", "event tracking", "capture", "identify", "A/B test", or "experiment".
 when_to_use: |
-  Use when implementing PostHog analytics in a TypeScript/Next.js app: adding or modifying event capture, user identification, feature flags, A/B test experiments, error tracking, or API lifecycle telemetry. Triggers on edits to PostHog or analytics modules, or any work that involves the `EVENTS` / `ANALYTICS_EVENTS` enum, `getPostHog()`, or `capturePostHogEvent`.
+  Use when instrumenting event tracking, adding analytics calls, or working with PostHog integration in a TypeScript/Next.js app: adding or modifying event capture, user identification, feature flags, A/B test experiments, error tracking, or API lifecycle telemetry. Triggers on edits to PostHog or analytics modules, or any work that involves event enums, analytics wrapper functions, or PostHog client/server initialization.
 
   Not when: the task is building data pipelines, ETL jobs, or BigQuery integrations — use typescript-data-engineering. Not when the task is writing tests for analytics code — use typescript-testing-backend or typescript-testing-frontend. Not when the task is general observability, logging, or infrastructure metrics — use site-reliability-engineering.
 ---
@@ -15,14 +15,14 @@ PostHog client/server SDKs integrated into a Next.js app via a unified `getPostH
 
 ## Universal Rules
 
-1. **Never use autocapture** — all events must be explicit and in the `EVENTS` or `ANALYTICS_EVENTS` enum.
+1. **Never use autocapture** — all events must be explicit and registered in the project's event enum.
 2. **Track the full lifecycle** — `cta_clicked` → `in_progress` → `success` / `error`.
-3. **Use the unified pattern** — `getPostHog()` for both client and server, not raw SDK imports.
+3. **Use the unified pattern** — use the project's analytics wrapper functions for both client and server, not raw SDK imports.
 4. **Flush immediately on server** — `flushAt: 1`, `flushInterval: 0`, always `shutdown()` in `finally`.
 5. **Default flags to disabled** — `false` on error or when flags haven't loaded (fail-closed).
 6. **Identify by user ID** — never by email; set email as a person property.
 7. **Proxy through `/ph`** — never call PostHog directly from the client.
-8. **Add new events to the enum** — never use raw strings for event names.
+8. **Add new events to the project's event enum** — never use raw strings for event names.
 9. **Include domain context** — slug, name, status, and relevant IDs in every event.
 10. **Mask sensitive data** — wallet addresses should be masked in properties.
 

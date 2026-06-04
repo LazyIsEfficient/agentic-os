@@ -7,7 +7,7 @@ when_to_use: |
   Not when: the request is about sales pipeline automation and lead scoring from website visitors — use `sales-pipeline` instead. Not when the request is about general marketing campaign planning — use `marketing-shaper` to scope it first.
 ---
 
-# Cold Outbound Optimizer
+# Outbound Engine
 
 End-to-end cold outbound: ICP definition, expert panel copy scoring (recursive to 90+), infrastructure audit, capacity planning, and implementation docs.
 

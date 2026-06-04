@@ -13,7 +13,7 @@ when_to_use: |
   Not when: the request is about writing and scoring cold outbound email copy — use `outbound-engine` instead. Not when the request is about attributing revenue to content or analyzing sales call transcripts — use `revenue-intelligence`.
 ---
 
-# AI Sales Pipeline
+# Sales Pipeline
 
 ## Preamble (runs on skill start)
 

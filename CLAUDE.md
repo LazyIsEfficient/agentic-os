@@ -83,8 +83,18 @@ A subagent has not seen this conversation, does not know what you have already t
 - For lookups: give the exact command. For investigations: give the question.
 - Cap response length explicitly when you only need a verdict (`"under 200 words"`).
 - Never write `"based on your findings, fix the bug"` or `"based on the research, implement it."` That delegates synthesis. Synthesis is your job.
+- **Ground the brief in artifacts.** If the task touches existing files, tell the agent explicitly: *"Read X before suggesting changes to it."* An ungrounded brief produces confident hallucinations.
 
 Terse command-style prompts produce shallow generic work. A good brief reads like instructions to a smart colleague who just walked into the room.
+
+## Grounding discipline — agents must read before they claim
+
+The most common failure mode in agentic work is **generate-without-reading**: an agent states facts about files, functions, or state it never actually read. These rules apply to every agent this repo dispatches — no exceptions.
+
+**Agents must:**
+1. **Read before claiming.** Before stating what a file contains or what the current state is, the agent must read that artifact. Summary from training data is not reading.
+2. **Quote before changing.** Before suggesting a modification to existing code, quote the specific lines being changed. If the quote doesn't match the actual file, the agent is working from a hallucinated copy.
+3. **Flag the unverified.** If the agent cannot find evidence for a claim, it must write `UNVERIFIED: ...` and stop. A hedge ("this may be outdated") is not a flag — it's noise that gets ignored.
 
 ## Verification — trust but verify
 
@@ -105,6 +115,8 @@ If the agent says "implemented X" and `git status` is clean, the agent did not i
 - Adding memory entries faster than removing stale ones. The index must stay clean.
 - Sequential dispatch of independent work. Parallel or it's wasted wall-clock.
 - Letting reviewer agents become optional. The gate is the gate.
+- Letting agents reason about code state without reading the current files first.
+- Accepting "based on the codebase" or "typically in this pattern" claims without knowing what the agent actually read. If you don't know what it read, it probably read nothing.
 
 ## Communication
 

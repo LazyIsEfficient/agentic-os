@@ -18,7 +18,7 @@ when_to_use: |
   revenue-intelligence.
 ---
 
-# AI Sales Playbook — Value-Based Pricing & Deal Upselling
+# Sales Playbook
 
 Framework for value-based pricing that moves deals from $10K/mo → $40-100K/mo. Pre-call briefings, tiered package generation, post-call analysis, and a pattern library for training sales teams on proven pricing techniques.
 

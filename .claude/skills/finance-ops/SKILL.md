@@ -1,6 +1,6 @@
 ---
 name: finance-ops
-description: "AI-powered financial analysis suite. Generates executive CFO briefings from QuickBooks exports (P&L, Balance Sheet, General Ledger, Cash Flow, etc.) with anomaly detection, burn rate, runway analysis, and scenario modeling. Also estimates codebase development costs with organizational overhead and AI ROI analysis. Triggers on: 'CFO briefing', 'financial analysis', 'cost briefing', 'expense review', 'runway analysis', 'burn rate', 'cost estimate', 'how much would this cost to build', 'development cost', 'Claude ROI'."
+description: "Run CFO briefings from QuickBooks/CSV exports and estimate codebase cost by ticket volume. Use for financial reporting, burn-rate analysis, scenario modeling, or cost estimation."
 when_to_use: |
   Use when generating an executive CFO briefing from QuickBooks exports (P&L, Balance Sheet,
   General Ledger, Cash Flow), performing burn rate or runway analysis, modeling base/bull/bear
@@ -30,12 +30,14 @@ Generate executive financial summaries from QuickBooks exports.
 
 2. **Run analysis:**
    ```bash
+   # Scripts live at .claude/skills/finance-ops/scripts/ — copy to your project root or run from the skill directory
    python3 scripts/cfo-analyzer.py --input ./data/uploads/ [--period YYYY-MM]
    ```
    Options: `--history DIR` for MoM comparison, `--no-history` to skip saving. See `references/quickbooks-formats.md` for file format details.
 
 3. **Scenario modeling (optional):**
    ```bash
+   # Scripts live at .claude/skills/finance-ops/scripts/ — copy to your project root or run from the skill directory
    python3 scripts/scenario-modeler.py --input ./data/financial-latest.json
    ```
    Generates 12-month base/bull/bear projections.

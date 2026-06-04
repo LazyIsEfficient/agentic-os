@@ -16,7 +16,7 @@ when_to_use: |
   or pushing meeting action items to a CRM as tasks.
 
   Not when: the analysis requires financial modeling, headcount budgeting, or
-  compensation planning — use finance-ops instead.
+  compensation planning — use [finance-ops](../finance-ops/SKILL.md) instead.
 ---
 
 # AI Team Ops

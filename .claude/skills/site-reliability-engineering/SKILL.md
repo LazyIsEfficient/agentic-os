@@ -88,6 +88,8 @@ For **design-time** decisions about fault tolerance, observability instrumentati
 - [typescript-data-engineering](../typescript-data-engineering/SKILL.md) — pipelines, brokers, and caches each have their own runtime failure modes that this skill triages
 - [technical-strategist](../technical-strategist/SKILL.md) — operational direction (SLO targets, error-budget policies) is part of the technical strategy.
 - [standards-enforcer](../standards-enforcer/SKILL.md) — applies the operational readiness baseline at the pre-release gate, citing this skill as the source of truth for runbooks, alerts, rollback plans, etc.
+- [shipping-and-launch](../shipping-and-launch/SKILL.md) — launch readiness gate; SRE monitors the production systems during and after launch
+- [devops-engineer](../devops-engineer/SKILL.md) — provisions the infrastructure and pipelines that SRE monitors
 
 ## Enforcement
 

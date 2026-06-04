@@ -49,3 +49,10 @@ After completing any implementation:
 - [references/tdd-cycle.md](references/tdd-cycle.md) — Red-Green-Refactor steps, Prove-It Pattern for bugs, Test Pyramid and test size classification
 - [references/writing-good-tests.md](references/writing-good-tests.md) — State vs interaction testing, DAMP, AAA pattern, naming, anti-patterns table
 - [references/browser-testing.md](references/browser-testing.md) — DevTools debugging workflow, what to check, security boundaries, subagent pattern
+
+## Related skills
+
+- [typescript-testing-backend](../typescript-testing-backend/SKILL.md) — TypeScript/Node backend test specialization
+- [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — React/browser frontend test specialization
+- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — linting, coverage, CI quality gates
+- [code-review-and-quality](../code-review-and-quality/SKILL.md) — review discipline; TDD feeds into the review gate

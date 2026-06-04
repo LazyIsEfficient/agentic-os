@@ -45,3 +45,8 @@ After implementing with source-driven development:
 
 - [references/process.md](references/process.md) — four-step detect → fetch → implement → cite process with examples
 - [references/anti-patterns.md](references/anti-patterns.md) — common rationalizations and red flags
+
+## Related skills
+
+- [spec-driven-development](../spec-driven-development/SKILL.md) — adjacent methodology: spec-first design before implementation
+- [code-review-and-quality](../code-review-and-quality/SKILL.md) — verification axis; source-driven development feeds into code review

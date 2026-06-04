@@ -38,7 +38,7 @@ If you were handed a raw idea without a brief, stop. Route back to `blog-post-sh
 - **Hook over filler.** Open on the strongest sentence in the post. Never "in this post we'll explore…" or "imagine if…".
 - **Match the reference posts the brief named.** Cadence, sentence length, paragraph rhythm.
 - **Cite primary sources for technical claims.** Defer to `source-driven-development`. Don't invent URLs, version numbers, or stats.
-- **Code snippets must be runnable as shown** unless explicitly labeled `// pseudocode` or `// excerpt`. Borrow `course-author/references/code-snippet-discipline.md` if the post is technical.
+- **Code snippets must be runnable as shown** unless explicitly labeled `// pseudocode` or `// excerpt`. Borrow [course-author/references/code-snippet-discipline.md](../course-author/references/code-snippet-discipline.md) if the post is technical.
 - **Diagrams render on the target platform.** If the brief says Mermaid but the platform is Substack (no Mermaid support), flag and switch to image gen.
 - **One task = one file = one subagent.** The task file is self-contained: a subagent reading only that file should know what to build, where to write the output, and how to verify success.
 - **Output paths are real, not placeholders.** Substitute the post slug into every path before writing the task file.

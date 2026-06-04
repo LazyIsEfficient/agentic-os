@@ -1,11 +1,12 @@
 ---
 name: telemetry
 description: >-
-  Opt-in, local-first, privacy-respecting usage telemetry shared library for
-  AI marketing skills. Provides version checking, usage logging, and reporting.
-  Not a standalone skill — imported by other skills via their preamble blocks.
-  Use when asked to view skill usage stats, configure telemetry opt-in/out, or
-  check for skill updates.
+  INTERNAL LIBRARY — do not invoke directly. Opt-in, local-first,
+  privacy-respecting usage telemetry shared library for AI marketing skills.
+  Provides version checking, usage logging, and reporting. Not a standalone
+  skill — imported by other skills via their preamble blocks. Use when asked
+  to view skill usage stats, configure telemetry opt-in/out, or check for
+  skill updates.
 when_to_use: |
   Not invoked directly — loaded automatically by skills that include telemetry tracking. Do not invoke manually.
 

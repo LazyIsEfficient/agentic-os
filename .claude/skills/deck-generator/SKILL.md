@@ -8,7 +8,7 @@ when_to_use: |
   visual style.
 
   Not when: the goal is a written document rather than a visual presentation — use
-  `documentation-and-adrs` or `documentation-writer` instead.
+  [documentation-and-adrs](../documentation-and-adrs/SKILL.md) or [documentation-writer](../documentation-writer/SKILL.md) instead.
 ---
 
 # Deck Generator

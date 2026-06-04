@@ -17,7 +17,7 @@ when_to_use: |
   Not when: the content source is not a podcast episode and there is no transcript or RSS feed — use `content-ops` or `blog-post-author` for general content creation. Not when only a single content format (e.g. just a blog post) is needed from the episode — use the relevant single-format skill directly.
 ---
 
-# Podcast-to-Everything Pipeline
+# Podcast Ops
 
 Turns podcast episodes into a full content calendar across every platform. One episode in, 15–20 content pieces out — scored, deduplicated, and scheduled.
 

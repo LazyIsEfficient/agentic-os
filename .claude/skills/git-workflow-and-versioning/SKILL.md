@@ -2,11 +2,12 @@
 name: git-workflow-and-versioning
 description: Structures git workflow practices. Use when making any code change. Use when committing, branching, resolving conflicts, or when you need to organize work across multiple parallel streams.
 when_to_use: |
-  Use always — every code change flows through git. Specifically use when committing (atomic
-  commit discipline, descriptive messages), branching (feature branches, trunk-based
-  development), resolving merge conflicts, setting up worktrees for parallel agent work,
-  debugging regressions with git bisect, or establishing a .gitignore and pre-commit hygiene
-  for a new project.
+  Use when working with atomic commits, branch management, git bisect, pre-commit hooks,
+  worktree setup, tagging releases, or recovering from git mistakes. Specifically use when
+  committing (atomic commit discipline, descriptive messages), branching (feature branches,
+  trunk-based development), resolving merge conflicts, setting up worktrees for parallel agent
+  work, debugging regressions with git bisect, or establishing a .gitignore and pre-commit
+  hygiene for a new project.
 
   Not when: the task is managing CI/CD pipelines that run after a push — use
   `deployment-pipelines` for that. Not when the task is a higher-level release process

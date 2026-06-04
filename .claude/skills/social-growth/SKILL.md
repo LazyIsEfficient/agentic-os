@@ -17,7 +17,7 @@ when_to_use: |
 
 LinkedIn-primary, X fan-out. One input — a blog post or a raw idea — produces two ready-to-paste outputs: a LinkedIn post that drives comments, and an X variant of the same copy tightened for the X feed.
 
-This skill is what `blog-post-author` invokes for its LinkedIn and X share-post asset tasks. It also works standalone when there's no blog file yet.
+This skill is what [blog-post-author](../blog-post-author/SKILL.md) invokes for its LinkedIn and X share-post asset tasks. It also works standalone when there's no blog file yet.
 
 ## Core rules
 
@@ -38,8 +38,8 @@ This skill is what `blog-post-author` invokes for its LinkedIn and X share-post 
 
 ## What this skill does NOT do
 
-- Long-form X articles with ASCII diagrams → `x-longform-post`
-- Cross-platform campaign planning → `marketing-shaper`
+- Long-form X articles with ASCII diagrams → [x-longform-post](../x-longform-post/SKILL.md)
+- Cross-platform campaign planning → [marketing-shaper](../marketing-shaper/SKILL.md)
 - Auto-queueing to Buffer → separate explicit step, requires user confirmation
 
 ## References

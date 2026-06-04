@@ -66,6 +66,7 @@ Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP 
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the cloud resources these pipelines deploy to
 - [security-engineering](../security-engineering/SKILL.md) — pipeline security review, supply-chain hardening, secret-handling rules
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — runtime safety nets (canaries, error-budget gating, rollback automation) that consume what pipelines produce
+- [shipping-and-launch](../shipping-and-launch/SKILL.md) — pre-launch readiness gate that runs before the deployment pipeline executes
 
 ## Enforcement
 

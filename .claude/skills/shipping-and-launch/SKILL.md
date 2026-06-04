@@ -39,3 +39,8 @@ Ship with confidence. The goal is not just to deploy — it's to deploy safely, 
 - [references/security-checklist.md](references/security-checklist.md) — Security pre-launch checks
 - [references/performance-checklist.md](references/performance-checklist.md) — Performance pre-launch checklist
 - [references/accessibility-checklist.md](references/accessibility-checklist.md) — Accessibility verification before launch
+
+## Related skills
+
+- [deployment-pipelines](../deployment-pipelines/SKILL.md) — canary mechanics, progressive rollout, and rollback automation for the release
+- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — SLO monitoring and incident response that runs alongside the launch

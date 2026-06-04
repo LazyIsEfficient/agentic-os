@@ -24,8 +24,8 @@ Converts text to an MP3 using ElevenLabs. The script lives at `scripts/tts.mjs` 
 
 ## Prerequisites
 
-- `ELEVEN_API_KEY` set in `.env.local` (already configured)
-- `@elevenlabs/elevenlabs-js` installed (already in `package.json`)
+- `ELEVEN_API_KEY` set in `.env.local`
+- `@elevenlabs/elevenlabs-js` installed
 - Node.js ≥ 22
 
 ## Basic Usage

@@ -14,13 +14,6 @@ when_to_use: |
 
 Outlier detection and packaging pattern extraction for YouTube channels.
 
-## When to Use
-
-- User asks for YouTube competitive analysis
-- User wants to find viral video patterns
-- User wants packaging/title inspiration from specific creators
-- User wants to track competitor YouTube performance
-
 ## Prerequisites
 
 - YouTube Data API v3 key set as `$YOUTUBE_API_KEY`

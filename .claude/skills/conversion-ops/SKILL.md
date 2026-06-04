@@ -39,3 +39,8 @@ See [references/survey-lead-magnet.md](references/survey-lead-magnet.md) for ful
 No API keys required. Both tools work with local analysis only.
 
 See [references/recommended-workflow.md](references/recommended-workflow.md) for environment variables, dependencies, and recommended weekly/monthly cadence.
+
+## Related skills
+
+- [content-ops](../content-ops/SKILL.md) — quality scoring gate for the content before conversion work begins
+- [sales-pipeline](../sales-pipeline/SKILL.md) — downstream pipeline automation that acts on converted leads

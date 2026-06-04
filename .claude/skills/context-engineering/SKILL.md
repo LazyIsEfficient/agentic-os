@@ -48,3 +48,7 @@ After setting up context, confirm:
 - [references/packing-strategies.md](references/packing-strategies.md) — brain dump, selective include, and hierarchical summary patterns
 - [references/confusion-management.md](references/confusion-management.md) — conflict resolution, incomplete-requirements handling, and inline planning
 - [references/anti-patterns.md](references/anti-patterns.md) — anti-pattern table, common rationalizations, and red flags
+
+## Related skills
+
+- [debugging-and-error-recovery](../debugging-and-error-recovery/SKILL.md) — systematic debugging process for non-context errors

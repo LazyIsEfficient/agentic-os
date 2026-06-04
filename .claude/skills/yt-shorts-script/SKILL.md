@@ -8,12 +8,12 @@ description: >-
   voice. Triggers on `/yt-short`, "write a Shorts script", "YouTube Short on",
   "60-second script", "script for a Short", "script this Short". For channel
   research and outlier video patterns before scripting, run yt-competitive-analysis
-  first. For social promotion posts after filming, see social-growth. For long-form
-  X articles see x-longform-post.
+  first. For social promotion posts after filming, see [social-growth](../social-growth/SKILL.md). For long-form
+  X articles see [x-longform-post](../x-longform-post/SKILL.md).
 when_to_use: |
   Use when drafting a YouTube Shorts script from a topic and format choice (talking-head, screen-record, or text-on-screen). Produces a 60s primary script and 30s condensed cut with HOOK/BODY/CTA sections, per-line timing markers, and visual direction notes. Triggers on "/yt-short", "write a Shorts script", "YouTube Short on", "60-second script", "script for a Short", or "script this Short".
 
-  Not when: the task is the full end-to-end pipeline including recording and assembly — use yt-shorts-pipeline. Not when the task is channel research and outlier pattern analysis before scripting — run yt-competitive-analysis first. Not when the task is a long-form X article — use x-longform-post. Not when the task is social promotion posts after filming — use social-growth.
+  Not when: the task is the full end-to-end pipeline including recording and assembly — use yt-shorts-pipeline. Not when the task is channel research and outlier pattern analysis before scripting — run yt-competitive-analysis first. Not when the task is a long-form X article — use [x-longform-post](../x-longform-post/SKILL.md). Not when the task is social promotion posts after filming — use [social-growth](../social-growth/SKILL.md).
 ---
 
 # YouTube Shorts Script Generator

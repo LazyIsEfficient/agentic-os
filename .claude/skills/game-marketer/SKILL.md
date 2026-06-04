@@ -1,6 +1,6 @@
 ---
 name: game-marketer
-description: Use when marketing a game — store-page conversion (App Store / Google Play / Steam), trailers and hooks, soft-launch CPI / ROAS, creator / influencer / community programs, wishlist campaigns, launch and live-ops comms, web3 mint comms. Triggers on "store page", "Steam page", "trailer", "gameplay hook", "soft launch", "wishlist", "Discord community", "TikTok / YouTube Shorts", "creator program", "patch notes", "launch comms", or when handed a brief / strategy / catalog from the game pipeline. Produces store-page specs, trailer briefs, soft-launch creative plans, community programs, comms drafts. For non-game marketing see marketer; for marketing intake see marketing-shaper; for catalog comms see iap-manager; for KPI floors see game-monetization-strategist.
+description: Use when marketing a game — store-page conversion (App Store / Google Play / Steam), trailers and hooks, soft-launch CPI / ROAS, creator / influencer / community programs, wishlist campaigns, launch and live-ops comms, web3 mint comms. Triggers on "store page", "Steam page", "trailer", "gameplay hook", "soft launch", "wishlist", "Discord community", "TikTok / YouTube Shorts", "creator program", "patch notes", "launch comms", or when handed a brief / strategy / catalog from the game pipeline. Produces store-page specs, trailer briefs, soft-launch creative plans, community programs, comms drafts. For non-game marketing see marketing-shaper; for marketing intake see marketing-shaper; for catalog comms see iap-manager; for KPI floors see game-monetization-strategist.
 when_to_use: |
   Use when a game is approaching launch and needs store pages, trailers, or wishlist campaigns;
   when soft launch is running and needs creative iteration or store-page A/B testing; when a
@@ -10,7 +10,7 @@ when_to_use: |
   program", "patch notes", or "launch comms".
 
   Not when: the task is generic content marketing (newsletters, blog posts, SEO not specific
-  to a game) — use `marketer`. Not when the task is intake of a fresh marketing brief not yet
+  to a game) — use `marketing-shaper`. Not when the task is intake of a fresh marketing brief not yet
   game-specific — use `marketing-shaper`. Not when the task is the IAP catalog itself (which
   SKUs, what prices) — use `iap-manager`.
 ---

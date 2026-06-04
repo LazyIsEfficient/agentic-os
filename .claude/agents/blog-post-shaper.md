@@ -1,6 +1,6 @@
 ---
-name: blog-post-shaper
-description: Blog pipeline — intake a blog idea, draft the post, and emit one dispatch-ready task file per declared asset (hero image, OG card, social posts, embedded diagrams, code samples, internal-link map, newsletter excerpt), then fan those tasks out to subagents. Use when the user wants to publish a blog post and needs a brief, a draft, or the assets generated. Triggers on `/blog-shape` or phrases like "blog post on", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", "write a blog about". For non-blog content (X threads, LinkedIn posts, newsletters, decks, sequences) see marketing-shaper. For tutorials and curriculum see course-shaper. For engineering intake see prompt-shaper.
+name: blog-pipeline
+description: Full blog pipeline orchestrator — runs the complete intake → draft → asset fan-out pipeline using the blog-post-shaper skill for intake. Use when the user wants to publish a blog post end-to-end and needs a brief, a draft, or assets generated. Triggers on `/blog-shape` or phrases like "blog post on", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", "write a blog about". NOT the same as the blog-post-shaper skill (intake only — produces a brief and stops). For non-blog content (X threads, LinkedIn posts, newsletters, decks, sequences) see marketing-shaper. For tutorials and curriculum see course-pipeline. For engineering intake see prompt-shaper.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write, Agent
 ---
 
@@ -61,7 +61,7 @@ If the takeaway, audience, voice, length, asset bundle, and SEO surface are alre
 
 ## Delegate
 
-- **content-strategist** (marketer agent) — for content scoring rounds beyond the built-in expert-panel pass
+- **marketer** (marketer agent) — for content scoring rounds beyond the built-in expert-panel pass
 - **engineer** — when asset tasks involve code-sample repos with non-trivial setup
 - **ux-specialist** — when a hero image or OG card needs design review beyond a generated draft
 

@@ -24,5 +24,5 @@ See [references/procedure.md](references/procedure.md) for:
 
 ## Related Skills
 
-- `planning-and-task-breakdown` — consumes a multi-slice brief and decomposes it into ordered, parallel-dispatchable tasks with an execution DAG.
-- `incremental-implementation` — executes the resulting tasks in vertical slices with verification at each step.
+- [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) — consumes a multi-slice brief and decomposes it into ordered, parallel-dispatchable tasks with an execution DAG.
+- [incremental-implementation](../incremental-implementation/SKILL.md) — executes the resulting tasks in vertical slices with verification at each step.

@@ -8,6 +8,9 @@ Thumbs.db
 # Claude Code — persistent memory (machine-local, contains personal context)
 .claude/memory/
 
+# Claude Code — agent worktrees (ephemeral, machine-local)
+.claude/worktrees/
+
 # Editor
 *.swp
 *.swo

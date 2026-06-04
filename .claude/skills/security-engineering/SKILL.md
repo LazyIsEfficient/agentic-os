@@ -1,6 +1,6 @@
 ---
 name: security-engineering
-description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths. For developer-focused web app hardening see security-and-hardening. For PII sanitization see security.
+description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths. For developer-focused web app hardening see [security-and-hardening](../security-and-hardening/SKILL.md). For PII sanitization see security.
 when_to_use: |
   Use for cross-stack security review covering API security, infrastructure
   hardening, Web3 smart contract auditing, CI/CD pipeline security (OIDC, supply
@@ -10,7 +10,7 @@ when_to_use: |
   security baseline checks at every gate.
 
   Not when: the need is narrowly web-app input validation and OWASP Top 10
-  patterns for a TypeScript developer — use security-and-hardening instead. For
+  patterns for a TypeScript developer — use [security-and-hardening](../security-and-hardening/SKILL.md) instead. For
   scanning files for committed PII use security.
 ---
 

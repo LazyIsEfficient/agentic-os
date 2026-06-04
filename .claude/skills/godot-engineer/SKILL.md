@@ -37,23 +37,6 @@ This skill targets **Godot 4.x** with **C# (.NET 8+)** as the primary language. 
 11. **The editor is part of the workflow.** Configure exports, signals, and instances in the inspector when it makes sense. Don't insist on doing everything in code for ideological reasons.
 12. **Performance work is data-driven.** "It feels slow" is a hypothesis; the profiler is the test. Don't optimize what you haven't measured.
 
-## When to load this skill
-
-- Designing or restructuring scenes; deciding what should be a separate scene vs. an inline child node.
-- Writing gameplay code in C# — controllers, state machines, AI, physics interactions.
-- Handling input, including custom rebinding, controllers, touch.
-- Working with Godot's physics system (`CharacterBody2D`/`3D`, `RigidBody2D`/`3D`, `Area2D`/`3D`).
-- Building UI with `Control` nodes, anchors, themes, and containers.
-- Using `AnimationPlayer`, `AnimationTree`, or `Tween` to animate things.
-- Writing or debugging shaders (Godot's shading language).
-- Implementing save/load and config persistence.
-- Hitting a performance wall and needing to profile and optimize.
-- Implementing multiplayer with Godot's high-level networking, particularly over `WebSocketMultiplayerPeer`.
-- Configuring export presets and shipping to desktop, mobile, web, or console.
-- Reviewing a Godot project for anti-patterns and structural problems.
-
-For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for **monetization** see [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md); for **game marketing** see [game-marketer](../game-marketer/SKILL.md). For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Godot context, see [software-design](../software-design/SKILL.md). For **game UI as user experience** (accessibility, microcopy, game feel as it relates to UX), see [ux-design](../ux-design/SKILL.md).
-
 ## References
 
 - [references/godot-fundamentals.md](references/godot-fundamentals.md) — engine model: nodes, scenes, scripts, signals, the tree, the main loop, the project structure

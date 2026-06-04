@@ -32,6 +32,6 @@ See [references/procedure.md](references/procedure.md) for:
 
 ## Related Skills
 
-- `content-ops` — expert-panel scoring on each per-channel deliverable; the natural quality gate after decomposition.
+- [content-ops](../content-ops/SKILL.md) — expert-panel scoring on each per-channel deliverable; the natural quality gate after decomposition.
 - `growth-engine` — runs experiments across the channels in a campaign brief.
-- `outbound-engine`, `sales-pipeline` — consume pipeline briefs directly.
+- [outbound-engine](../outbound-engine/SKILL.md), `sales-pipeline` — consume pipeline briefs directly.

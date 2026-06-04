@@ -10,7 +10,7 @@ when_to_use: |
 
   Not when: the task is a single-line fix, typo correction, or unambiguous
   self-contained change. For breaking an existing spec into a parallel-runnable
-  task DAG use planning-and-task-breakdown.
+  task DAG use [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md).
 ---
 
 # Spec-Driven Development

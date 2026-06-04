@@ -1,6 +1,6 @@
 ---
 name: performance-optimization
-description: Optimizes application performance. Use when performance requirements exist, when you suspect performance regressions, or when Core Web Vitals or load times need improvement. Use when profiling reveals bottlenecks that need fixing.
+description: Optimizes application performance — Core Web Vitals (LCP, INP, CLS), N+1 query elimination, bundle size reduction, profiling-driven bottleneck fixes, and response-time SLA enforcement. Use when metrics show regression, users report slow behavior, or profiling reveals a concrete bottleneck.
 when_to_use: |
   Use when performance requirements exist in the spec (load time budgets, response time SLAs), when users or monitoring report slow behavior, when Core Web Vitals scores are below thresholds (LCP > 2.5s, INP > 200ms, CLS > 0.1), when a change introduced a suspected regression, or when building features that handle large datasets or high traffic and profiling reveals a concrete bottleneck.
 
