@@ -136,6 +136,7 @@ opt-in rather than default.
 | `deck-generator` | Generate professional presentations with AI-generated images |
 | `deployment-pipelines` | Author or review CI/CD pipelines and deployment workflows |
 | `deprecation-and-migration` | Manage deprecation and migration of old systems |
+| `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `documentation-and-adrs` | Record decisions and documentation as ADRs |
 | `documentation-writer` | Keep repository documentation accurate and in sync |
 | `elevenlabs-tts` | Convert text to speech using ElevenLabs |
@@ -163,8 +164,6 @@ opt-in rather than default.
 | `release-manager` | Coordinate release preparation across a monorepo |
 | `revenue-intelligence` | AI-powered revenue intelligence and attribution |
 | `rust-engineer` | Write, review, or architect Rust code |
-| `sales-pipeline` | Complete AI-powered sales pipeline automation |
-| `sales-playbook` | Value-based pricing framework for B2B services |
 | `security` | Scan and redact PII and sensitive data |
 | `security-and-hardening` | Harden code against vulnerabilities and threats |
 | `security-engineering` | Cross-stack security review covering all attack surfaces |
@@ -194,7 +193,6 @@ opt-in rather than default.
 | `ux-research` | Plan and run user research methods |
 | `web3-smart-contract-engineering` | Write and review Solidity smart contracts |
 | `x-longform-post` | Write long-form X posts in founder voice |
-| `bigquery-ai-agent` | Expert data analyst for BigQuery queries and insights |
 | `yt-competitive-analysis` | Analyze YouTube channels for outlier videos |
 | `yt-shorts-pipeline` | End-to-end YouTube Shorts production pipeline |
 | `yt-shorts-script` | Generate a YouTube Shorts script from a topic |
@@ -205,9 +203,11 @@ opt-in rather than default.
 
 | Agent | Description |
 |---|---|
+| `bigquery-ai-agent` | Expert data analyst for BigQuery — SQL generation, data interpretation, and insight delivery |
 | `blog-post-shaper` | Blog pipeline — intake, draft, emit asset tasks, and fan out |
 | `code-reviewer` | Read-only multi-axis code review |
 | `course-shaper` | Education pipeline — intake, design, and author lessons |
+| `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `engineer` | Full-stack implementation across architecture and shipping |
 | `game-design-shaper` | Game design pipeline — intake through marketing end-to-end |
 | `godot-engineer` | Godot 4 + C# game development |
