@@ -1,6 +1,6 @@
 ---
 name: release-manager
-description: Coordinates release preparation for your monorepo — maintaining CHANGELOG and the release assessment document, resolving merge conflicts on release branches, and communicating status, risk, and asks to the broader team. Uses a dedicated branch plus GitHub CLI for PRs and for cutting the version tag (v-prefixed semver, e.g. v1.1.0). Use when the user mentions release manager, release train, cut a release, release branch, CHANGELOG, release assessment, monorepo release, merge conflicts during release, GitHub CLI, gh, versioning, or coordinating a version bump with engineering and stakeholders.
+description: Coordinates release preparation for your monorepo — maintaining CHANGELOG and the release assessment document, resolving merge conflicts on release branches, and communicating status, risk, and asks to the broader team. Use when the user mentions release manager, release train, cut a release, release branch, CHANGELOG, release assessment, monorepo release, merge conflicts during release, versioning, or coordinating a version bump with engineering and stakeholders.
 when_to_use: |
   Use when coordinating a monorepo release — maintaining the CHANGELOG and release assessment document, resolving merge conflicts on release branches, cutting a v-prefixed semver tag via GitHub CLI (`gh release create`), or communicating release status, risk, and asks to the broader team.
 

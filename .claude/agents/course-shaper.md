@@ -1,5 +1,5 @@
 ---
-name: course-pipeline
+name: course-shaper
 description: Full course pipeline orchestrator — runs the complete intake → design → lesson fan-out pipeline using the course-shaper skill for intake. Use when the user wants to build a course end-to-end and needs a brief, outline, or lesson content. Triggers on `/course-shape` or phrases like "design a course", "build a workshop", "write this lesson", "curriculum", "module outline". NOT the same as the course-shaper skill (intake only — produces a brief and stops). For engineering intake see prompt-shaper. For marketing intake see marketing-shaper.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write, Agent
 ---

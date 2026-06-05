@@ -21,15 +21,6 @@ when_to_use: |
 
 Turns podcast episodes into a full content calendar across every platform. One episode in, 15–20 content pieces out — scored, deduplicated, and scheduled.
 
-## Preamble (runs on skill start)
-
-```bash
-python3 telemetry/version_check.py 2>/dev/null || true
-python3 telemetry/telemetry_init.py 2>/dev/null || true
-```
-
-> **Privacy:** Logs usage locally to `~/.ai-marketing-skills/analytics/`. Remote telemetry is opt-in only. No code, file paths, or repo content is ever collected.
-
 ## Core rules
 
 1. Ingest via RSS feed, raw transcript, or batch mode — see `references/pipeline-steps.md` Step 1 for all three paths.

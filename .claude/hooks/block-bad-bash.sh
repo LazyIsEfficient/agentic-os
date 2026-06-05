@@ -6,6 +6,8 @@
 
 set -uo pipefail
 
+command -v jq >/dev/null 2>&1 || exit 0
+
 cmd=$(jq -r '.tool_input.command // ""')
 
 # Rule 1: `cd <subdir> && git ...`
@@ -19,7 +21,7 @@ if printf '%s' "$cmd" | grep -qE '^[[:space:]]*cd[[:space:]]+[^&]+&&[[:space:]]*
 fi
 
 # Rule 2: 3+ commands chained with `&&` (i.e. 2+ `&&` operators)
-amp_count=$(printf '%s' "$cmd" | grep -oE '&&' | wc -l | tr -d '[:space:]' || echo 0)
+amp_count=$(printf '%s' "$cmd" | { grep -oE '&&' || true; } | wc -l | tr -d '[:space:]')
 if [ "${amp_count:-0}" -ge 2 ]; then
   {
     echo "Blocked by .claude/hooks/block-bad-bash.sh:"

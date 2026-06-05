@@ -1,10 +1,10 @@
 ---
 name: idea-refine
-description: Refines ideas iteratively. Refine ideas through structured divergent and convergent thinking. Use "idea-refine" or "ideate" to trigger.
+description: Refines fuzzy, early-stage ideas through structured divergent and convergent thinking — use this when the idea is still vague and needs shaping before any engineering intake. Use "idea-refine" or "ideate" to trigger. For engineering intake of a shaped idea see prompt-shaper; for game concept ideation see game-concept-creator.
 when_to_use: |
-  Use when the user wants to refine a raw idea into a sharp, actionable concept — triggered by "help me refine this idea", "ideate on [concept]", "stress-test my plan", or any request to explore variations, challenge assumptions, and produce a concrete one-pager with an MVP scope and Not-Doing list.
+  Use when the idea is still fuzzy and needs divergent/convergent shaping before any engineering intake — triggered by "help me refine this idea", "ideate on [concept]", "stress-test my plan", or any request to explore variations, challenge assumptions, and produce a concrete one-pager with an MVP scope and Not-Doing list.
 
-  Not when: the idea is already well-scoped and ready for task breakdown — use [prompt-shaper](../prompt-shaper/SKILL.md) or [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) instead. Not when the request is for a marketing campaign concept — use `marketing-shaper`.
+  Not when: the idea is already well-scoped and ready for task breakdown — use [prompt-shaper](../prompt-shaper/SKILL.md) or [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) instead. Not when the request is for a marketing campaign concept — use `marketing-shaper`. Not when the request is specifically for a game concept — use [game-concept-creator](../game-concept-creator/SKILL.md) instead.
 ---
 
 # Idea Refine
@@ -48,6 +48,6 @@ After completing an ideation session:
 
 - [assets/idea-one-pager.md](assets/idea-one-pager.md) — fill-in one-pager template (save completed versions to `docs/ideas/`)
 - [references/process.md](references/process.md) — detailed three-phase process with anti-patterns
-- [frameworks.md](frameworks.md) — ideation frameworks and lenses (use selectively)
-- [refinement-criteria.md](refinement-criteria.md) — full evaluation rubric for Phase 2
-- [examples.md](examples.md) — examples of great ideation sessions
+- [references/frameworks.md](references/frameworks.md) — ideation frameworks and lenses (use selectively)
+- [references/refinement-criteria.md](references/refinement-criteria.md) — full evaluation rubric for Phase 2
+- [references/examples.md](references/examples.md) — examples of great ideation sessions

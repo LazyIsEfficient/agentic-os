@@ -1,6 +1,6 @@
 ---
-name: blog-pipeline
-description: Full blog pipeline orchestrator — runs the complete intake → draft → asset fan-out pipeline using the blog-post-shaper skill for intake. Use when the user wants to publish a blog post end-to-end and needs a brief, a draft, or assets generated. Triggers on `/blog-shape` or phrases like "blog post on", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", "write a blog about". NOT the same as the blog-post-shaper skill (intake only — produces a brief and stops). For non-blog content (X threads, LinkedIn posts, newsletters, decks, sequences) see marketing-shaper. For tutorials and curriculum see course-pipeline. For engineering intake see prompt-shaper.
+name: blog-post-shaper
+description: Full blog pipeline orchestrator — runs the complete intake → draft → asset fan-out pipeline using the blog-post-shaper skill for intake. Use when the user wants to publish a blog post end-to-end and needs a brief, a draft, or assets generated. Triggers on `/blog-shape` or phrases like "blog post on", "long-form post", "case study post", "explainer post", "opinion piece", "thought leadership post", "write a blog about". NOT the same as the blog-post-shaper skill (intake only — produces a brief and stops). For non-blog content (X threads, LinkedIn posts, newsletters, decks, sequences) see marketing-shaper. For tutorials and curriculum see course-shaper. For engineering intake see prompt-shaper.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write, Agent
 ---
 

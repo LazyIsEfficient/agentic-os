@@ -1,6 +1,6 @@
 ---
 name: using-agent-skills
-description: Discovers and invokes agent skills. Use when starting a session or when you need to discover which skill applies to the current task. This is the meta-skill that governs how all other skills are discovered and invoked.
+description: Entry point when no skill is already identified — use when the task spans multiple lifecycle phases (discover → spec → implement → test → ship) or when starting a session with no clear skill match. Not when a specific skill is already known — go straight to it. Not when the task clearly maps to a single skill.
 when_to_use: |
   Use when starting a new session with an unfamiliar task, when uncertain which skill applies to the current work, or when a task spans multiple phases (discovery → spec → implementation → test → ship) and a routing decision is needed. This is the entry point for skill selection when no other skill is already clearly applicable.
 

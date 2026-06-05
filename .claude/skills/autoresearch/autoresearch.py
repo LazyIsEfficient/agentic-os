@@ -14,6 +14,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -368,13 +369,29 @@ def main():
     parser.add_argument("--name", help="Run name (default: input filename)")
     args = parser.parse_args()
 
+    # Validate output_dir — reject obviously dangerous system paths
+    output_dir_path = Path(args.output_dir).resolve()
+    forbidden_prefixes = [Path("/etc"), Path("/bin"), Path("/usr"), Path("/sys"), Path("/proc")]
+    if any(str(output_dir_path).startswith(str(p)) for p in forbidden_prefixes):
+        print(f"ERROR: Output directory {output_dir_path} is not allowed.", file=sys.stderr)
+        sys.exit(1)
+
+    # Sanitize name — strip path separators and dangerous characters
+    raw_name = args.name or None  # resolved below after input_path is known
+    if raw_name is not None:
+        raw_name = re.sub(r'[/\\<>:"|?*\x00-\x1f]', '_', raw_name)
+        raw_name = raw_name.strip('.')
+        if not raw_name:
+            print("ERROR: --name cannot be empty after sanitization.", file=sys.stderr)
+            sys.exit(1)
+
     # Read input
     input_path = Path(args.input)
     if not input_path.exists():
         print(f"File not found: {args.input}", file=sys.stderr)
         sys.exit(1)
     content = input_path.read_text()
-    name = args.name or input_path.stem
+    name = raw_name if raw_name is not None else input_path.stem
 
     # Detect or use specified content type
     content_type = args.type or detect_content_type(args.input)
@@ -415,14 +432,20 @@ def main():
     final_score = round(sum(scores) / len(scores), 1) if scores else 0
 
     # Write outputs
-    output_dir = args.output_dir
+    output_dir = str(output_dir_path)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Relativize source_file to avoid leaking absolute local paths when JSON is shared
+    try:
+        source_file_display = str(input_path.resolve().relative_to(Path.cwd()))
+    except ValueError:
+        source_file_display = input_path.name  # fallback: just the filename
 
     # Experiments JSON
     experiments = {
         "run_id": f"autoresearch-{name}-{int(time.time())}",
         "content_type": content_type,
-        "source_file": str(input_path),
+        "source_file": source_file_display,
         "min_score_threshold": args.min_score,
         "elements": {k: v for k, v in element_results.items()},
         "final_score": final_score,

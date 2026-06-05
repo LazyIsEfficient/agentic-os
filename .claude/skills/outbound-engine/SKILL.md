@@ -4,21 +4,12 @@ description: Design, analyze, and optimize cold outbound email campaigns using y
 when_to_use: |
   Use when asked to build cold outbound email sequences from scratch, optimize existing cold email campaigns, audit outbound infrastructure (sending accounts, warmup scores, domain inventory), define or refine ICP parameters, score email copy with a recursive expert panel, or generate capacity math and weekly metrics targets for an outbound motion.
 
-  Not when: the request is about sales pipeline automation and lead scoring from website visitors — use `sales-pipeline` instead. Not when the request is about general marketing campaign planning — use `marketing-shaper` to scope it first.
+  Not when: the request is about general marketing campaign planning — use `marketing-shaper` to scope it first.
 ---
 
 # Outbound Engine
 
 End-to-end cold outbound: ICP definition, expert panel copy scoring (recursive to 90+), infrastructure audit, capacity planning, and implementation docs.
-
-## Preamble (runs on skill start)
-
-```bash
-python3 telemetry/version_check.py 2>/dev/null || true
-python3 telemetry/telemetry_init.py 2>/dev/null || true
-```
-
-> **Privacy:** Logs usage locally to `~/.ai-marketing-skills/analytics/`. Remote telemetry is opt-in only.
 
 ## Core Rules
 

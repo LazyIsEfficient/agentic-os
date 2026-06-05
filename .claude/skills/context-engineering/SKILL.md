@@ -1,10 +1,10 @@
 ---
 name: context-engineering
-description: Optimizes agent context setup. Use when starting a new session, when agent output quality degrades, when switching between tasks, or when you need to configure rules files and context for a project.
+description: Optimizes agent context quality. Use when context is the diagnosed problem — wrong patterns being applied, hallucinated APIs, agent ignoring conventions, or setting up CLAUDE.md rules files for a project. Not for task routing or session startup when context is working fine.
 when_to_use: |
-  Use when starting a new coding session, when agent output quality is declining (wrong patterns, hallucinated APIs, ignoring conventions), when switching between different parts of a codebase, when setting up CLAUDE.md or equivalent rules files for a project, or when the agent is not following project conventions.
+  Use when context quality is the diagnosed cause of degraded output — wrong patterns being applied, hallucinated APIs, agent ignoring conventions, or setting up a CLAUDE.md rules file for a project. The distinguishing signal: the agent is producing plausible but incorrect output due to what it was given (or not given) as context, not due to a bug in the code.
 
-  Not when: the task is writing or editing actual code — this skill governs context setup, not implementation. Not when the issue is a code bug rather than context drift — use `debugging-and-error-recovery`.
+  Not when: the task is writing or editing actual code — this skill governs context setup, not implementation. Not when the issue is a code bug rather than context drift — use `debugging-and-error-recovery`. Not for general session startup when context is already working fine.
 ---
 
 # Context Engineering

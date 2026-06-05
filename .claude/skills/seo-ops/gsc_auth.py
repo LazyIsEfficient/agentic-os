@@ -20,6 +20,7 @@ import json
 import os
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 import requests
 
@@ -28,7 +29,7 @@ CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 REDIRECT_URI = os.environ.get("GSC_REDIRECT_URI", "http://localhost:8765")
 SCOPES = "https://www.googleapis.com/auth/webmasters.readonly"
-TOKEN_FILE = os.environ.get("GSC_TOKEN_FILE", os.path.join(os.path.dirname(__file__), ".gsc-token.json"))
+TOKEN_FILE = Path(os.environ.get("GSC_TOKEN_FILE", str(Path.home() / ".config" / "gsc-oauth-token.json")))
 
 # Try loading from credentials file if env vars not set
 CREDS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "")

@@ -4,12 +4,11 @@ description: >-
   AI-powered conversion rate optimization: landing page audits, CRO scoring,
   survey segmentation, and lead magnet generation. Use when asked to audit a
   landing page, run a CRO analysis, segment survey responses, or generate lead
-  magnets. For content quality scoring see content-ops; for sales pipeline
-  automation see sales-pipeline.
+  magnets. For content quality scoring see content-ops.
 when_to_use: |
   Use when auditing a landing page for CRO (scoring headline clarity, CTA visibility, social proof, trust signals, form friction, mobile responsiveness), segmenting survey responses by pain point, generating lead magnet briefs from survey data, or doing batch CRO analysis across multiple URLs.
 
-  Not when: the goal is quality-scoring content copy or strategy docs against an expert panel — use `content-ops`. Not when the goal is automating sales follow-up or pipeline stages — use `sales-pipeline`.
+  Not when: the goal is quality-scoring content copy or strategy docs against an expert panel — use `content-ops`.
 ---
 
 # AI Conversion Ops
@@ -43,4 +42,3 @@ See [references/recommended-workflow.md](references/recommended-workflow.md) for
 ## Related skills
 
 - [content-ops](../content-ops/SKILL.md) — quality scoring gate for the content before conversion work begins
-- [sales-pipeline](../sales-pipeline/SKILL.md) — downstream pipeline automation that acts on converted leads

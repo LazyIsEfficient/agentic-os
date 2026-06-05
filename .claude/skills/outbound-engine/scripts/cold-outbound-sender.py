@@ -19,6 +19,7 @@ Environment variables:
 import argparse
 import json
 import os
+import re
 import smtplib
 import subprocess
 import sys
@@ -102,8 +103,20 @@ def send_email_smtp(to, subject, body, sender_email, sender_name,
         return False
 
 
+ALLOWED_CLI_COMMANDS = {"gog gmail send", "msmtp", "sendmail"}
+
+
+def _sanitize_for_cli(value: str) -> str:
+    """Remove shell metacharacters while preserving readable content."""
+    return re.sub(r'[`$(){}|;&<>\\]', '', value)
+
+
 def send_email_cli(to, subject, body, sender_email, sender_name, cli_command, dry_run=False):
     """Send via a CLI tool (e.g., gog, msmtp, mailx)."""
+    # Validate cli_command against allowlist to prevent arbitrary command injection
+    if cli_command not in ALLOWED_CLI_COMMANDS:
+        raise ValueError(f"cli_command '{cli_command}' is not in the allowed list: {ALLOWED_CLI_COMMANDS}")
+
     ok_subj, subject = validate_outbound(subject)
     ok_body, body = validate_outbound(body)
     if not ok_subj or not ok_body:
@@ -113,6 +126,10 @@ def send_email_cli(to, subject, body, sender_email, sender_name, cli_command, dr
     if dry_run:
         print(f"  [DRY RUN] Would send to {to}: {subject}")
         return True
+
+    # Sanitize external data before passing to subprocess
+    subject = _sanitize_for_cli(subject)
+    body = _sanitize_for_cli(body)
 
     try:
         # Default CLI pattern: gog gmail send

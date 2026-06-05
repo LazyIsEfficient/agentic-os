@@ -14,8 +14,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 SANITIZER="$REPO_ROOT/security/sanitizer.py"
 
 if [ ! -f "$SANITIZER" ]; then
-    echo "⚠️  Sanitizer not found at $SANITIZER — skipping PII check."
-    exit 0
+    echo "⚠️  Sanitizer not found at $SANITIZER — blocking commit until sanitizer is restored."
+    exit 1
 fi
 
 # Get list of staged files

@@ -23,6 +23,7 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 # ── Configuration ──
 
@@ -61,8 +62,23 @@ def call_claude(prompt, model=None, max_tokens=4000):
         return result['content'][0]['text']
 
 
+ALLOWED_VIDEO_SCHEMES = {"https"}
+ALLOWED_VIDEO_DOMAINS = {"www.youtube.com", "youtu.be", "youtube.com"}
+
+
+def _validate_video_url(url: str) -> str:
+    """Validate that a video URL uses HTTPS and points to an allowed domain."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ALLOWED_VIDEO_SCHEMES:
+        raise ValueError(f"Disallowed URL scheme: {parsed.scheme!r}. Only HTTPS URLs accepted.")
+    if parsed.netloc not in ALLOWED_VIDEO_DOMAINS:
+        raise ValueError(f"Disallowed domain: {parsed.netloc!r}. Only YouTube URLs accepted.")
+    return url
+
+
 def download_vtt(url):
     """Download VTT subtitles from YouTube."""
+    _validate_video_url(url)
     video_id = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', url).group(1)
     vtt_path = f"/tmp/editorial_{video_id}.en.vtt"
 
@@ -320,6 +336,7 @@ def get_context_around_timestamp(segments, timestamp_str, context_seconds=180):
 
 def cut_clip(video_url, start_sec, duration_sec, output_path):
     """Download video and cut a clip using ffmpeg."""
+    _validate_video_url(video_url)
     video_id = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url).group(1)
 
     video_cache = f"/tmp/editorial_{video_id}.mp4"

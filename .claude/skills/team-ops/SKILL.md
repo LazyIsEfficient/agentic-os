@@ -23,15 +23,6 @@ when_to_use: |
 
 AI-powered team performance analysis and meeting intelligence: ruthless performance audits using the "Elon Algorithm" + automatic extraction of action items, decisions, and follow-ups from meeting transcripts.
 
-## Preamble (runs on skill start)
-
-```bash
-python3 telemetry/version_check.py 2>/dev/null || true
-python3 telemetry/telemetry_init.py 2>/dev/null || true
-```
-
-> **Privacy:** Logs usage locally to `~/.ai-marketing-skills/analytics/`. Remote telemetry is opt-in only. No code, file paths, or repo content ever collected.
-
 ## Tools
 
 | Script | Purpose | Key Command |

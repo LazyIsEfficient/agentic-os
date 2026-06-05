@@ -20,7 +20,13 @@ permissions:
 **Installation and auth**:
 
 ```bash
-curl https://cursor.com/install -fsS | bash
+# Anti-pattern: curl | bash executes unverified code from the network. Always download, checksum-verify, then execute.
+# DO NOT USE: curl https://cursor.com/install -fsS | bash
+
+# SAFE: download + verify checksum before executing
+curl -fsSL https://cursor.com/install -o /tmp/cursor-install.sh
+sha256sum --check cursor-install.sha256  # pin the expected hash
+bash /tmp/cursor-install.sh
 # Authenticates via CURSOR_API_KEY GitHub secret
 ```
 

@@ -38,6 +38,10 @@ After documenting:
 - [ ] No commented-out code remains
 - [ ] Rules files (CLAUDE.md etc.) are current and accurate
 
+## Related Skills
+
+- [team-lead](../team-lead/SKILL.md) — for the full ADR/DAD lifecycle with Linear/Jira integration (decision tracking, status updates, stakeholder coordination); use `team-lead` when ADRs must be linked to tickets and driven through a team process.
+
 ## References
 
 - [assets/adr-template.md](assets/adr-template.md) — fill-in ADR template (store completed ADRs in `docs/decisions/`)
