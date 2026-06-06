@@ -51,7 +51,6 @@ If you were handed a raw topic without a spec, stop. Route back to `course-desig
 
 - [course-design](../course-design/SKILL.md) — produces the lesson specs this skill consumes
 - [course-shaper](../course-shaper/SKILL.md) — produces the brief upstream of course-design
-- [documentation-writer](../documentation-writer/SKILL.md) — shares voice, Mermaid discipline, and incremental-update etiquette
 - [source-driven-development](../source-driven-development/SKILL.md) — mandatory for citing APIs, specs, and vendor behavior
 - [content-ops](../content-ops/SKILL.md) — expert panel scoring of the drafted lesson before publishing
 - [code-simplification](../code-simplification/SKILL.md) — worked-example code should pass the simplification bar

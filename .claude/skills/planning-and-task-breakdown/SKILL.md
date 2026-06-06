@@ -42,7 +42,7 @@ Decompose work into small, verifiable tasks with a parallel-dispatchable structu
 
 - [`references/task-block-format.md`](references/task-block-format.md) — per-task YAML frontmatter and prose structure, field-by-field semantics
 - [`references/execution-dag.md`](references/execution-dag.md) — DAG syntax, dispatcher contract, checkpoints, worked example
-- [`references/plan-document-template.md`](references/plan-document-template.md) — full document template
+- [`assets/plan-document-template.md`](assets/plan-document-template.md) — full document template
 - [`references/parallelization-decisions.md`](references/parallelization-decisions.md) — when to set each YAML field; contract-first, barrel-file, migration patterns
 - [`references/task-sizing-and-redflags.md`](references/task-sizing-and-redflags.md) — sizing table, when to split, common rationalizations, red flags
 

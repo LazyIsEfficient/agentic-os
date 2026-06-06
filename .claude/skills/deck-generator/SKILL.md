@@ -29,3 +29,7 @@ See [references/workflow.md](references/workflow.md) for the full step-by-step w
 - Content JSON format
 - Google Slides integration
 - Cost (~4¢/image), speed (~2 min for 14 slides), and auth details
+
+## Related skills
+
+- [course-author](../course-author/SKILL.md) — feeds an authored lesson in as the markdown content spec when a lesson is delivered as slides

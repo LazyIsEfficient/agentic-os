@@ -228,7 +228,7 @@ python3 meeting_action_extractor.py --transcript meeting.txt --dry-run
 
 ```bash
 git clone https://github.com/your-org/skills-db.git
-cd ai-marketing-skills/team-ops
+cd skills-db/.claude/skills/team-ops
 pip install -r requirements.txt
 ```
 

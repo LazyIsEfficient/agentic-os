@@ -27,14 +27,14 @@ The real value here. 24 specific patterns that reveal AI-generated text:
 
 **Scoring:** Start at 100, deduct per pattern violation. Ship at 90+. Rewrite from scratch below 75.
 
-Full checklist with all 24 patterns and deduction weights in `SKILL.md`.
+Full checklist with all 24 patterns and deduction weights in `references/humanizer-checklist.md`.
 
 ## Quick Start
 
-Drop `SKILL.md` into your Claude Code project:
+Drop the whole skill directory into your Claude Code project so `SKILL.md` keeps its `references/` (the 24-pattern humanizer checklist lives there):
 
 ```bash
-cp x-longform-post/SKILL.md your-project/.claude/skills/x-longform-post.md
+cp -r x-longform-post your-project/.claude/skills/x-longform-post
 ```
 
 Then ask Claude Code:

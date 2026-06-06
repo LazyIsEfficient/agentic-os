@@ -17,6 +17,7 @@ All scripts read from environment variables. Copy `.env.example` to `.env` and f
 | Variable | Used By | Description |
 |----------|---------|-------------|
 | `AHREFS_TOKEN` | Client Report | Ahrefs API token |
+| `YOUR_DOMAIN` | Client Report | Root domain for Ahrefs SEO lookup (default: `example.com`) |
 | `OUTPUT_DIR` | All | Directory for output files (default: `./output`) |
 
 ## Data Flow

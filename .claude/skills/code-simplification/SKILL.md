@@ -53,3 +53,7 @@ After completing a simplification pass:
 
 - [references/simplification-principles.md](references/simplification-principles.md) — Five principles: preserve behavior, follow conventions, clarity over cleverness, balance, scope discipline
 - [references/simplification-patterns.md](references/simplification-patterns.md) — Four-step process, pattern tables (structural/naming/redundancy), language-specific examples (TS, Python, React)
+
+## Related skills
+
+- [course-author](../course-author/SKILL.md) — worked-example snippets in lessons should pass this simplification bar before they ship
