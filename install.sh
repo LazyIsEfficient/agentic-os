@@ -115,10 +115,12 @@ echo "Installing to $DEST"
 
 install_dir "skills"
 install_dir "agents"
-# Commands: ship-tagged allowlist ONLY. Maintainer-only commands
-# (audit-library, review-gate) and ALL workflows stay in-repo and are never
-# installed — see .claude/plans/ship-commands-workflows.md ship/no-ship table.
-install_files "commands" "skill-new.md" "agent-new.md"
+# Commands: ship-tagged allowlist ONLY — list each file that installs into a
+# consumer's global namespace. Author-facing scaffolds and the router ship;
+# maintainer-only commands (audit-library, review-gate, plan-clean) and ALL
+# workflows stay in-repo and are never installed, to avoid polluting the
+# consumer's command namespace.
+install_files "commands" "skill-new.md" "agent-new.md" "route.md"
 install_dir "hooks"
 
 # Ensure hook scripts are executable
