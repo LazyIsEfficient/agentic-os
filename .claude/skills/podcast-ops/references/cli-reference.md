@@ -4,22 +4,23 @@
 
 ```bash
 # Process latest episode from RSS feed
-python podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml"
+# Replace <YOUR_RSS_FEED_URL> with your podcast's real feed URL.
+python podcast_pipeline.py --rss "<YOUR_RSS_FEED_URL>"
 
 # Process a local transcript
 python podcast_pipeline.py --transcript episode-42.txt
 
 # Batch process last 5 episodes
-python podcast_pipeline.py --batch "https://feeds.example.com/podcast.xml" --episodes 5
+python podcast_pipeline.py --batch "<YOUR_RSS_FEED_URL>" --episodes 5
 
 # Generate weekly calendar from existing outputs
 python podcast_pipeline.py --calendar
 
 # Process with custom dedup window
-python podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml" --dedup-days 60
+python podcast_pipeline.py --rss "<YOUR_RSS_FEED_URL>" --dedup-days 60
 
 # Process and only keep 80+ viral score content
-python podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml" --min-score 80
+python podcast_pipeline.py --rss "<YOUR_RSS_FEED_URL>" --min-score 80
 ```
 
 ---

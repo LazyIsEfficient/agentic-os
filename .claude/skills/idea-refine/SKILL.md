@@ -4,7 +4,7 @@ description: Refines fuzzy, early-stage ideas through structured divergent and c
 when_to_use: |
   Use when the idea is still fuzzy and needs divergent/convergent shaping before any engineering intake — triggered by "help me refine this idea", "ideate on [concept]", "stress-test my plan", or any request to explore variations, challenge assumptions, and produce a concrete one-pager with an MVP scope and Not-Doing list.
 
-  Not when: the idea is already well-scoped and ready for task breakdown — use [prompt-shaper](../prompt-shaper/SKILL.md) or [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) instead. Not when the request is for a marketing campaign concept — use `marketing-shaper`. Not when the request is specifically for a game concept — use [game-concept-creator](../game-concept-creator/SKILL.md) instead.
+  Not when: the idea is already well-scoped and ready for task breakdown — use [prompt-shaper](../prompt-shaper/SKILL.md) or [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) instead. Not when the request is for a marketing campaign concept — use [marketing-shaper](../marketing-shaper/SKILL.md). Not when the request is specifically for a game concept — use [game-concept-creator](../game-concept-creator/SKILL.md) instead.
 ---
 
 # Idea Refine
@@ -46,7 +46,7 @@ After completing an ideation session:
 
 ## References
 
-- [assets/idea-one-pager.md](assets/idea-one-pager.md) — fill-in one-pager template (save completed versions to `docs/ideas/`)
+- [assets/idea-one-pager.md](assets/idea-one-pager.md) — fill-in one-pager template (save completed versions to `docs/ideas/`; create the directory if it doesn't exist)
 - [references/process.md](references/process.md) — detailed three-phase process with anti-patterns
 - [references/frameworks.md](references/frameworks.md) — ideation frameworks and lenses (use selectively)
 - [references/refinement-criteria.md](references/refinement-criteria.md) — full evaluation rubric for Phase 2

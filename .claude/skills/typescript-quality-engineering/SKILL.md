@@ -25,12 +25,17 @@ What lives here: E2E (Playwright), cross-layer test policy, the test pyramid, Ha
 2. **Independent** — no test depends on another test's state or order.
 3. **Deterministic** — same result every run, no `sleep()` or arbitrary timeouts.
 4. **Literal expected values** — `expect(total).toBe(70)`, not `expect(total).toBe(a + b)`.
-5. **Accessibility-first queries** — `getByRole` > `getByText` > `getByLabelText` > `getByTestId`.
-6. **Prefer `userEvent.setup()`** over `fireEvent` for realistic interactions.
-7. **`beforeEach` cleanup**, not `afterEach` — leaves a clean state after failures.
-8. **Never `test.skip()`** — fix or delete.
-9. **Mock at the module boundary** for unit tests; use the real DB for integration tests.
-10. **`QueryClient` with `retry: false`** in test wrappers.
+5. **`beforeEach` cleanup**, not `afterEach` — leaves a clean state after failures.
+6. **Never `test.skip()`** — fix or delete.
+7. **Mock at the module boundary** for unit tests; use the real DB for integration tests.
+
+## Frontend Unit-Test Rules (React component/hook tests only)
+
+These apply when authoring React Testing Library / React Query tests — see [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) for the full guidance. They do **not** apply to Playwright E2E or contract tests:
+
+- **Accessibility-first queries** — `getByRole` > `getByText` > `getByLabelText` > `getByTestId`.
+- **Prefer `userEvent.setup()`** over `fireEvent` for realistic interactions.
+- **`QueryClient` with `retry: false`** in test wrappers.
 
 ## References
 

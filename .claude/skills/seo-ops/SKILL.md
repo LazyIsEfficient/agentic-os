@@ -28,7 +28,7 @@ AI-powered SEO operations: keyword intelligence, competitor gap analysis, GSC op
 | `content_attack_brief.py` | Full keyword intelligence pipeline: BOFU keywords, competitor gaps, decaying pages |
 | `gsc_client.py` | Google Search Console API client (CLI + library) |
 | `gsc_auth.py` | One-time OAuth setup for GSC access |
-| `trend_scout.py` | Multi-source trend detection across Google Trends, HN, Reddit, X, YouTube |
+| `trend_scout.py` | Multi-source trend detection across Google Trends, HN, Reddit, X |
 
 ## Core Rules
 

@@ -39,6 +39,6 @@ Score every variant against all 5. Batch all variants into a **single API call**
 | 4 | **Senior copywriter** | "Is this compelling, differentiated, and well-crafted?" |
 | 5 | **Your CEO/founder** | "Direct, ROI-obsessed, no BS. Would I put this on my site?" |
 
-> **Customization:** Replace persona #5 with your own CEO/founder voice. Define their priorities and communication style in a `references/founder-voice.md` file.
+> **Customization:** Replace persona #5 with your own CEO/founder voice. Define their priorities and communication style inline when you run the panel — e.g. "Persona #5 is our CEO: direct, ROI-obsessed, allergic to jargon, asks 'would I put this on my own site?'" Swap in the priorities, pet peeves, and tone that match the actual decision-maker.
 
 Each judge scores 0–100. **Final score = average across all 5 judges.**

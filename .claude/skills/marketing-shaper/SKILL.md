@@ -8,11 +8,12 @@ description: >-
   (campaign, content, optimization, research, or pipeline) that downstream
   marketing skills can act on. Do not use for work already well-defined — go
   straight to execution. For engineering task shaping see prompt-shaper; for
-  course intake see course-shaper; for game-design intake see game-design-shaper.
+  course intake see course-shaper; for game-design intake see game-design-shaper;
+  for a blog post see blog-post-shaper.
 when_to_use: |
-  Use when the user has a marketing goal but the description is missing audience, channels, success metrics, or timeline — triggered by "shape this campaign", "plan this launch", "scope this content", "marketing plan", "growth plan", "content strategy", "outbound plan", or the /mshape slash command. Produces a filled brief (campaign, content, optimization, research, or pipeline) that downstream marketing skills can act on.
+  Use when the user has a marketing goal but the brief is missing the load-bearing pieces — audience, channels, success metric, or timeline — and the work cannot start without them. The signal is an under-specified ask, not a keyword: if you cannot name the audience and the one number that defines success, shape it first.
 
-  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`.
+  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. Not when the intake is for a blog post — use `blog-post-shaper`.
 ---
 
 # Marketing Shaper

@@ -67,6 +67,6 @@ Multi-source trend detection. No API keys required for basic functionality.
 python trend_scout.py
 ```
 
-**Sources:** Google Trends RSS, Hacker News, Reddit, X/Twitter (needs `BRAVE_API_KEY`), YouTube outlier detection
+**Sources:** Google Trends RSS, Hacker News, Reddit, X/Twitter (needs `BRAVE_API_KEY`)
 
 **Output:** Prints summary + saves JSON to `OUTPUT_DIR/flash-trends-latest.json` and markdown report.

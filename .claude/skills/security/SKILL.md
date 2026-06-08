@@ -7,6 +7,9 @@ description: >-
   audit code for sensitive data, sanitize files before publishing, or install PII
   detection hooks. For application security hardening see security-engineering.
 when_to_use: |
+  Triggers on: "PII scan", "redact", "sanitize files", "pre-commit hook",
+  "sensitive data at rest", "accidentally committed", "open-source sanitize".
+
   Use when auditing a repository for accidentally committed PII or secrets,
   sanitizing files before open-sourcing or publishing, or installing a pre-commit
   hook to block future PII commits. Focused exclusively on data-at-rest scanning
@@ -25,12 +28,12 @@ Scans and redacts PII / sensitive data from files in this repo. Uses only Python
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
-| `sanitizer.py` | Scan or redact PII in files | Run the project's PII sanitizer script against the target directory (e.g., `python3 <path-to-sanitizer.py> --scan --dir . --recursive`) |
-| `pre-commit-hook.sh` | Git hook to block commits with PII | Install the pre-commit hook from the project's security hooks directory into `.git/hooks/pre-commit` |
+| `sanitizer.py` | Scan or redact PII in files | `python3 .claude/skills/security/sanitizer.py --scan --dir . --recursive` |
+| `pre-commit-hook.sh` | Git hook to block commits with PII | `cp .claude/skills/security/pre-commit-hook.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` |
 
 ## Configuration
 
-Edit `sanitizer-config.json` to customize blocklists, custom regex patterns, skip paths, and placeholder format.
+Edit `.claude/skills/security/sanitizer-config.json` to customize blocklists, custom regex patterns, skip paths, and placeholder format.
 
 ## Exit Codes
 
@@ -39,3 +42,4 @@ Edit `sanitizer-config.json` to customize blocklists, custom regex patterns, ski
 ## Related skills
 
 - [security-engineering](../security-engineering/SKILL.md) — application security, OWASP, auth hardening
+- [security-and-hardening](../security-and-hardening/SKILL.md) — OWASP Top 10 hardening, input validation, auth/session patterns for web applications

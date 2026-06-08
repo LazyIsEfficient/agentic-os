@@ -6,13 +6,11 @@ description: >-
   video clips, Twitter/X threads, LinkedIn articles, newsletter sections, quote
   cards, blog outlines with SEO keywords, and YouTube Shorts/TikTok scripts.
   Scores each piece by viral potential (novelty × controversy × utility) and
-  deduplicates against recent output. Use when asked to: "repurpose this podcast",
-  "turn this episode into content", "podcast content calendar", "extract clips
-  from this episode", "podcast to social", "content from RSS feed", "batch
-  process episodes", or any request to turn podcast/audio content into a
-  multi-platform content plan.
+  deduplicates against recent output. For general content creation without a
+  podcast source see content-ops; for a single-format deliverable see the
+  relevant single-format skill.
 when_to_use: |
-  Use when the input is a podcast RSS feed or transcript and the goal is to generate a multi-platform content calendar — short-form video clips, Twitter/X threads, LinkedIn articles, newsletter sections, quote cards, blog outlines, or YouTube Shorts/TikTok scripts. Also use for batch processing multiple episodes or scoring content by viral potential.
+  Use when the input is a podcast RSS feed or transcript and the goal is to generate a multi-platform content calendar — short-form video clips, Twitter/X threads, LinkedIn articles, newsletter sections, quote cards, blog outlines, or YouTube Shorts/TikTok scripts. Also use for batch processing multiple episodes or scoring content by viral potential. Triggers on "repurpose this podcast", "turn this episode into content", "podcast content calendar", "extract clips from this episode", "podcast to social", "content from RSS feed", "batch process episodes".
 
   Not when: the content source is not a podcast episode and there is no transcript or RSS feed — use `content-ops` or `blog-post-author` for general content creation. Not when only a single content format (e.g. just a blog post) is needed from the episode — use the relevant single-format skill directly.
 ---

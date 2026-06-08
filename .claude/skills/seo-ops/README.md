@@ -42,7 +42,6 @@ Scans Google Trends, Hacker News, Reddit, and X/Twitter to find trending topics 
 - Hacker News (filtered for your niche)
 - Reddit (configurable subreddits)
 - X/Twitter (via Brave Search)
-- YouTube competitor outlier detection
 
 ## Quick Start
 

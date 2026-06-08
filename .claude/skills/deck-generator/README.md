@@ -17,7 +17,7 @@ Content Spec (JSON/MD)
 └──────┬───────┘
        ▼
 ┌──────────────┐
-│   Assemble   │ local images or Google Slides
+│   Assemble   │ local images (Google Slides not yet implemented)
 └──────────────┘
 ```
 
@@ -67,10 +67,10 @@ Or describe your own: `--style "Retro 80s neon aesthetic with grid backgrounds"`
 ## Output Options
 
 1. **Local images** (default) — PNG files in output directory
-2. **Google Slides** — Automatic presentation creation via Google Slides API
+2. **Google Slides** — automatic presentation creation via Google Slides API *(NOT YET IMPLEMENTED — flags are accepted but produce only local images)*
 
 ## Requirements
 
 - Python 3.10+
 - Gemini API key (`$GEMINI_API_KEY`)
-- Google Slides API credentials (optional, for auto-assembly)
+- Google Slides API credentials (for auto-assembly — NOT YET IMPLEMENTED)
