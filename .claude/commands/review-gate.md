@@ -1,6 +1,6 @@
 ---
 description: Run the Pattern-3 review gate (code-reviewer + security/library-reviewer as warranted) on the current diff
-allowed-tools: Bash, Task
+allowed-tools: Bash, Agent
 ---
 
 Run this repo's mandatory **Pattern 3 — Build + review pairing** gate on the current working-tree diff. The routing below is quoted verbatim from `CLAUDE.md` and must be encoded exactly:
@@ -13,9 +13,9 @@ Run this repo's mandatory **Pattern 3 — Build + review pairing** gate on the c
 
 1. **See the changes.** Run `git status --porcelain` to list every changed path **including brand-new untracked files** (a plain `git diff` omits untracked files, which would hide a newly-created `.claude/agents/foo.md` and defeat the `library-reviewer` trigger below). Then run `git diff HEAD` for the tracked diff, and `git add -N <untracked paths>` (intent-to-add) so the untracked files also appear in a follow-up `git diff`. Use the combined set of paths from `git status --porcelain` — not just the diff — when deciding which reviewers to dispatch in step 3. If `git status --porcelain` is empty, stop and report "no changes to review."
 
-2. **Always dispatch `code-reviewer`** via the Task tool, read-only, on the full diff. This is unconditional.
+2. **Always dispatch `code-reviewer`** via the Agent tool, read-only, on the full diff. This is unconditional.
 
-3. **Inspect the changed paths and conditionally dispatch, in parallel** (single message, multiple Task calls, alongside `code-reviewer` where possible):
+3. **Inspect the changed paths and conditionally dispatch, in parallel** (single message, multiple Agent calls, alongside `code-reviewer` where possible):
    - **`security-reviewer`** — if ANY changed file touches a sensitive sink: auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD (e.g. `.github/workflows/`, deploy scripts), or any user-input-to-sensitive-sink path.
    - **`library-reviewer`** — if ANY changed file is under `.claude/skills/` or `.claude/agents/`.
    - If neither condition matches, dispatch `code-reviewer` alone.

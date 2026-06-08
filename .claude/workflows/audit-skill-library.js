@@ -149,7 +149,7 @@ log(`Discovered ${skills.length} skills to audit.`);
 // Generate stage — ONE agent per skill, clean context. Grounding discipline:
 // the agent MUST read the skill's actual files + the rubric before claiming.
 // ---------------------------------------------------------------------------
-async function generateStage(skill, _orig, index) {
+async function generateStage(skill, _orig, _index) {
   const result = await agent(
     `You are auditing ONE skill: "${skill}".\n\n` +
       `GROUNDING DISCIPLINE — read before you claim (no working from memory):\n` +
@@ -176,7 +176,7 @@ async function generateStage(skill, _orig, index) {
     }
   );
   // Stamp the reviewing skill so Backstop 1 can detect mis-attribution later.
-  return (result.findings || []).map((f) => ({ ...f, _reviewedBy: skill, _idx: index }));
+  return (result.findings || []).map((f) => ({ ...f, _reviewedBy: skill }));
 }
 
 // ---------------------------------------------------------------------------
@@ -282,13 +282,19 @@ const finalFindings = Array.isArray(reattributed.findings)
   : verified;
 
 // Backstop 1 returns a freshly-regenerated array, so the model can silently
-// drop or hallucinate findings. Re-attribution must preserve count — assert it.
+// drop or hallucinate findings. Re-attribution must preserve count — if it
+// didn't, the pass violated its own invariant, so we cannot trust it: discard
+// the re-attribution and fall back to the verified (pre-backstop) set, which is
+// already verify-gated and safe. Only "skill" attribution is lost, not findings.
+let attributedFindings = finalFindings;
 if (finalFindings.length !== verified.length) {
   log(
     `WARNING: Backstop 1 re-attribution changed finding count ` +
       `(${verified.length} in -> ${finalFindings.length} out). ` +
-      `Re-attribution must only overwrite "skill", never add/drop findings.`
+      `Re-attribution must only overwrite "skill", never add/drop findings — ` +
+      `discarding the re-attribution and falling back to the verified set.`
   );
+  attributedFindings = verified;
 }
 
 // Backstop 2 — dedup against existing issue BODIES, not just titles. Title-only
@@ -306,7 +312,7 @@ const deduped = await agent(
     `"findings"; record each dropped duplicate as {title, issueNumber} in\n` +
     `"droppedAsDuplicate"; and set "issuesFetched" to how many open issues (with\n` +
     `bodies) you fetched and compared against.\n\n` +
-    `Findings JSON:\n${JSON.stringify(finalFindings)}`,
+    `Findings JSON:\n${JSON.stringify(attributedFindings)}`,
   {
     label: "backstop-2-body-dedup",
     phase: "Backstop",
@@ -318,7 +324,7 @@ const deduped = await agent(
 // falling back to the pre-dedup set; only fall back when the field is absent.
 const confirmedFindings = Array.isArray(deduped.findings)
   ? deduped.findings
-  : finalFindings;
+  : attributedFindings;
 const droppedCount = Array.isArray(deduped.droppedAsDuplicate)
   ? deduped.droppedAsDuplicate.length
   : 0;

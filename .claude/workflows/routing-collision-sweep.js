@@ -353,6 +353,8 @@ const detectResults = await parallel(detectThunks);
 // Flatten + dedup candidate pairs (unordered) before verification.
 const candidateByKey = new Map();
 for (const r of detectResults) {
+  // parallel() turns a throwing detect thunk into null — guard before deref.
+  if (!r) continue;
   for (const c of r.candidates || []) {
     if (!c.skillA || !c.skillB || c.skillA === c.skillB) continue;
     const key = pairKey(c.skillA, c.skillB);
@@ -445,14 +447,13 @@ function reconcileSeverity(verdict) {
     }
     return { ...verdict, severity: "none" };
   }
-  // isRealCollision=true: only one side deflects -> should-fix; neither -> blocking.
+  // isRealCollision=true: at least one side deflects -> should-fix; neither -> blocking.
+  // (Both-sides-deflect is "resolved" per the verdict table and never reaches here
+  // with isRealCollision=true; if a contradictory verdict slips the schema, the
+  // conservative should-fix is correct — we never fabricate a "blocking" from it.)
   if (verdict.severity === "none") {
     const resolved =
-      verdict.skillADeflects && verdict.skillBDeflects
-        ? "should-fix"
-        : verdict.skillADeflects || verdict.skillBDeflects
-          ? "should-fix"
-          : "blocking";
+      verdict.skillADeflects || verdict.skillBDeflects ? "should-fix" : "blocking";
     log(
       `Reconciled contradictory verdict: isRealCollision=true but severity="none" -> "${resolved}".`
     );

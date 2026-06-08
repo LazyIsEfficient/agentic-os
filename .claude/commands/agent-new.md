@@ -1,7 +1,7 @@
 ---
 description: Scaffold a new agent (.md with frontmatter + tool allowlist + Skills-available block) and hand to library-reviewer
 argument-hint: <agent-name>
-allowed-tools: Glob, Write, Task
+allowed-tools: Glob, Write, Agent
 ---
 
 You are scaffolding a new agent definition for this skills+agents library so a maintainer gets a conforming starting point in one step. A conforming agent file matches the shape used by `.claude/agents/code-reviewer.md` and `.claude/agents/bigquery-ai-agent.md`: YAML frontmatter with `name`, `description` (trigger vocabulary + "For X see Y" cross-refs), and `tools` (comma-separated allowlist), then a body, ending with a "## Skills available" link section.
@@ -20,13 +20,13 @@ Before writing anything, use `Glob` to check whether `.claude/agents/$1.md` alre
 
 Before writing `tools:`, pick the allowlist from the role implied by the name, using `.claude/skills/skill-library-review/references/tool-allowlists.md` as the rule:
 
-- **Read-only reviewer / auditor** → `Read, Grep, Glob, Bash, WebFetch, WebSearch` (no `Edit`/`Write`/`NotebookEdit`, no `Task`).
-- **Intake / shaper** → `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` (no `Task`, no `Edit`/`Write`).
-- **Authoring** → reviewer set + `Edit, Write, AskUserQuestion` (still no `Task`).
-- **Orchestrator** → omit `tools:` to inherit (the only role that gets `Task`).
+- **Read-only reviewer / auditor** → `Read, Grep, Glob, Bash, WebFetch, WebSearch` (no `Edit`/`Write`/`NotebookEdit`, no `Agent`).
+- **Intake / shaper** → `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` (no `Agent`, no `Edit`/`Write`).
+- **Authoring** → reviewer set + `Edit, Write, AskUserQuestion` (still no `Agent`).
+- **Orchestrator** → omit `tools:` to inherit (the only role that gets `Agent`).
 - **Build / implement** → omit `tools:` to inherit.
 
-If the role is genuinely unknown from the name, do NOT guess: emit the placeholder allowlist `Read, Grep, Glob` and a `TODO` (see template). Order tools read-first, then write, then specialty. Drop `Bash`/`Task` unless the role clearly needs them.
+If the role is genuinely unknown from the name, do NOT guess: emit the placeholder allowlist `Read, Grep, Glob` and a `TODO` (see template). Order tools read-first, then write, then specialty. Drop `Bash`/`Agent` unless the role clearly needs them.
 
 ## Step 3 — write the file
 
@@ -64,16 +64,16 @@ This agent does not delegate — it reports back to the caller.
 
 If the chosen role is **build or orchestrator**, omit the `tools:` line entirely (do not write `tools: TODO`, and do NOT put any comment inside the `---` fences — an HTML comment between the fences is invalid YAML and breaks the generated file). The omission is self-explanatory; if you want to record why, add a single line in the body *below* the closing `---`, e.g. `<!-- tools omitted: inherits the full toolset -->`.
 
-If the chosen role is an **orchestrator** (it delegates to subagents via the `Task` tool), replace the `## Delegate` body with a delegation-enabled note instead of the no-delegate stub:
+If the chosen role is an **orchestrator** (it delegates to subagents via the `Agent` tool), replace the `## Delegate` body with a delegation-enabled note instead of the no-delegate stub:
 
 ```
 ## Delegate
 
-This agent is an orchestrator: it decomposes work and dispatches subagents via the `Task` tool, then reviews and integrates their results.
+This agent is an orchestrator: it decomposes work and dispatches subagents via the `Agent` tool, then reviews and integrates their results.
 ```
 
 For all non-orchestrator roles, keep the `## Delegate` "does not delegate — it reports back to the caller" body shown in the template.
 
 ## Step 4 — hand to library-reviewer
 
-After the file is written, dispatch a `library-reviewer` agent via the Task tool. Brief it: "Review the newly scaffolded agent definition at `.claude/agents/<name>.md` for frontmatter correctness, tool-allowlist coherence, routing/trigger quality, and the Skills-available block. It is a scaffold with intentional `TODO` placeholders — flag those as expected-incomplete, not errors, and focus your verdict on whether the *structure* conforms. Respond under 150 words." Then report the file path, the allowlist you chose (and why), and the reviewer's verdict to the user.
+After the file is written, dispatch a `library-reviewer` agent via the Agent tool. Brief it: "Review the newly scaffolded agent definition at `.claude/agents/<name>.md` for frontmatter correctness, tool-allowlist coherence, routing/trigger quality, and the Skills-available block. It is a scaffold with intentional `TODO` placeholders — flag those as expected-incomplete, not errors, and focus your verdict on whether the *structure* conforms. Respond under 150 words." Then report the file path, the allowlist you chose (and why), and the reviewer's verdict to the user.

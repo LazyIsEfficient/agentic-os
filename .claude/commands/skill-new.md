@@ -1,7 +1,7 @@
 ---
 description: Scaffold a new skill (SKILL.md with conforming frontmatter) and hand to library-reviewer
 argument-hint: <skill-name>
-allowed-tools: Glob, Write, Task
+allowed-tools: Glob, Write, Agent
 ---
 
 You are scaffolding a new conforming skill named `$1`.
@@ -51,7 +51,7 @@ Keep `SKILL.md` under ~100 lines; deep content belongs in `references/`. Templat
 
 ## 4. Review
 
-After the file is written, dispatch the `library-reviewer` agent via Task. Brief it: "Review the newly scaffolded skill at `.claude/skills/$1/SKILL.md` for frontmatter conformance (name matches folder, description has Use-when + trigger vocab + cross-ref, when_to_use has a Not-when paragraph) and file structure. It is a scaffold — flag structural problems, but treat `TODO` placeholders as expected, not findings. Report under 150 words."
+After the file is written, dispatch the `library-reviewer` agent via Agent. Brief it: "Review the newly scaffolded skill at `.claude/skills/$1/SKILL.md` for frontmatter conformance (name matches folder, description has Use-when + trigger vocab + cross-ref, when_to_use has a Not-when paragraph) and file structure. It is a scaffold — flag structural problems, but treat `TODO` placeholders as expected, not findings. Report under 150 words."
 
 ## 5. Report
 
