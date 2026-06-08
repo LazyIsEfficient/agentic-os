@@ -11,7 +11,7 @@ No manual spreadsheet work. No guessing. Data-driven competitive intel in minute
 3. Calculates per-channel averages
 4. Flags outliers (videos performing 2x+ above the channel average)
 5. Extracts title patterns from winners
-6. Exports to console, JSON, or Google Sheets
+6. Exports to console or JSON
 
 ## Quick Start
 

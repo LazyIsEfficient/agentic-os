@@ -5,9 +5,8 @@ when_to_use: |
   Use when a game is approaching launch and needs store pages, trailers, or wishlist campaigns;
   when soft launch is running and needs creative iteration or store-page A/B testing; when a
   live game needs ongoing comms (patch notes, events, season launches); when UA is
-  underperforming; or when a web3 game needs token-sale or mint comms. Triggers on "store
-  page", "Steam page", "trailer", "gameplay hook", "soft launch", "wishlist", "creator
-  program", "patch notes", or "launch comms".
+  underperforming; or when a web3 game needs token-sale or mint comms. (Trigger keywords
+  live in the `description` field — keep them there to avoid divergence.)
 
   Not when: the task is generic content marketing (newsletters, blog posts, SEO not specific
   to a game) — use `marketing-shaper`. Not when the task is intake of a fresh marketing brief not yet

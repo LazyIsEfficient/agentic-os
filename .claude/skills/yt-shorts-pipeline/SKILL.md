@@ -3,7 +3,7 @@ name: yt-shorts-pipeline
 description: >-
   End-to-end YouTube Shorts production pipeline: script → screen record →
   narration + captions → assembled 9:16 MP4. Orchestrates yt-shorts-script,
-  shorts-record.mjs, and shorts-assemble.mjs. Use when producing a Short
+  shorts:record, and shorts:assemble. Use when producing a Short
   from a topic through to a finished video file. Triggers on "make a Short",
   "produce this Short", "run the Shorts pipeline", "assemble the Short",
   "record a Short", "generate the video". For script-only work see

@@ -58,7 +58,7 @@ Every variant is scored by 5 simulated experts:
 2. **Skeptical Founder** — "Do I believe this?"
 3. **CRO Expert** — "Is this clear and action-driving?"
 4. **Senior Copywriter** — "Is this compelling and differentiated?"
-5. **Your CEO** — Configurable. Define their voice in `references/founder-voice.md`
+5. **Your CEO** — Configurable. Define their priorities and tone inline when you run the panel (e.g. "direct, ROI-obsessed, allergic to jargon")
 
 ## Output Files
 

@@ -18,7 +18,7 @@ Generate complete presentations where every slide is an AI-generated image in a 
 ## Quick Start
 
 1. Read the content spec (user provides slide content or a markdown file)
-2. Read `references/styles.md` to pick or customize a visual style
+2. Read [references/workflow.md](references/workflow.md) to pick or customize a visual style (Step 2: Style Selection)
 3. Run `scripts/generate-deck.py` with content + style
 
 See [references/workflow.md](references/workflow.md) for the full step-by-step workflow including:
@@ -27,7 +27,7 @@ See [references/workflow.md](references/workflow.md) for the full step-by-step w
 - CLI usage and flags
 - Regenerating individual slides
 - Content JSON format
-- Google Slides integration
+- Google Slides integration (flags accepted but NOT YET IMPLEMENTED — local images only)
 - Cost (~4¢/image), speed (~2 min for 14 slides), and auth details
 
 ## Related skills

@@ -39,8 +39,7 @@ python3 scripts/generate-deck.py \
 The script:
 1. Generates each slide image via Imagen 4.0 API
 2. Saves all images to the output directory
-3. Optionally creates a Google Slides presentation (requires Google Slides API credentials)
-4. Returns paths to all generated images
+3. Returns paths to all generated images and writes `summary.json`
 
 ## Step 4: Regenerate Individual Slides
 
@@ -62,7 +61,12 @@ python3 scripts/generate-deck.py \
 ]
 ```
 
-## Google Slides Integration (Optional)
+## Google Slides Integration (NOT YET IMPLEMENTED)
+
+The `--google-slides` and `--google-account` flags are accepted but not yet
+wired up. The script generates local PNG images only and prints a warning if
+these flags are passed; no presentation is created. The invocation below is the
+planned interface for when assembly lands:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"

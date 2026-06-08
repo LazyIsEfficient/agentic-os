@@ -2,7 +2,7 @@
 
 Before returning any X article draft, check against ALL 24 humanizer patterns. If any pattern is detected, rewrite that section.
 
-For the full humanizer expert scoring rubric, see: `../content-ops/experts/humanizer.md`
+For the full humanizer expert scoring rubric, see: `../../content-ops/experts/humanizer.md`
 
 ## CRITICAL: No "Not X, It's Y" Constructions
 
@@ -41,7 +41,7 @@ delve, tapestry, landscape (abstract), leverage, multifaceted, nuanced, pivotal,
 
 ## Humanizer Scoring
 
-Start at 100. Deduct points per the rubric in `../content-ops/experts/humanizer.md`.
+Start at 100. Deduct points per the rubric in `../../content-ops/experts/humanizer.md`.
 
 - **90-100**: Human-sounding. Clean. Ship it.
 - **70-89**: Minor AI tells. Quick fixes needed.

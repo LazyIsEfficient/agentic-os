@@ -4,7 +4,9 @@ Generate a presentation with AI-generated slide images.
 
 Usage:
   python3 generate-deck.py --content slides.json --style whiteboard --title "My Deck"
-  python3 generate-deck.py --content slides.json --style whiteboard --title "My Deck" --google-slides
+
+Note: --google-slides / --google-account are accepted but NOT YET IMPLEMENTED;
+the script generates local PNG images only and warns if those flags are passed.
 
 Content JSON format:
 [
@@ -78,9 +80,16 @@ def main():
     parser.add_argument("--model", default="imagen-4.0-generate-001", help="Imagen model")
     parser.add_argument("--output-dir", default="./output", help="Directory for generated images")
     parser.add_argument("--slides", help="Comma-separated slide numbers to regenerate (e.g., 3,7)")
-    parser.add_argument("--google-slides", action="store_true", help="Create Google Slides presentation")
-    parser.add_argument("--google-account", help="Google account email (for Google Slides)")
+    parser.add_argument("--google-slides", action="store_true", help="(NOT YET IMPLEMENTED) Create Google Slides presentation")
+    parser.add_argument("--google-account", help="(NOT YET IMPLEMENTED) Google account email (for Google Slides)")
     args = parser.parse_args()
+
+    if args.google_slides or args.google_account:
+        print(
+            "WARNING: Google Slides assembly is not yet implemented. "
+            "Generating local PNG images only; no presentation will be created.",
+            file=sys.stderr,
+        )
 
     # Load content
     with open(args.content) as f:

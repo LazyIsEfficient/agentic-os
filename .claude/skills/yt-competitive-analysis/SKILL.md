@@ -36,9 +36,7 @@ python3 analyze.py "$YOUTUBE_API_KEY" --set both --output console
 
 ## Predefined Channel Sets
 
-**AI Creators:** Jeff Su, Alex Finn, Riley Brown, Dan Martell, Matt Wolfe, Nate Herk, Grace Leung, Matt Berman
-
-**Business Creators:** Alex Hormozi, Gary Vaynerchuk, Patrick Bet-David, Codie Sanchez, Leila Hormozi, Iman Gadzhi, My First Million
+The `ai`, `business`, and `both` sets are defined in [references/channel-sets.md](references/channel-sets.md) — the single source of truth. Edit that file to add, remove, or retire channels.
 
 ## Output Interpretation
 
@@ -60,3 +58,7 @@ python3 analyze.py "$YOUTUBE_API_KEY" --set both --output console
 - "2024 vs 2025 X" (year comparison)
 - "Bad Good Great X" (tier ranking)
 - "Stop doing X, do Y instead" (contrarian)
+
+## References
+
+- [references/channel-sets.md](references/channel-sets.md) — the predefined `ai`, `business`, and `both` channel sets; maintain this file as channels rise and fall

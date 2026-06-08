@@ -9,7 +9,7 @@
 | Stale context | Agent references outdated patterns or deleted code | Start fresh sessions when context drifts |
 | Missing examples | Agent invents a new style instead of following yours | Include one example of the pattern to follow |
 | Implicit knowledge | Agent doesn't know project-specific rules | Write it down in rules files — if it's not written, it doesn't exist |
-| Silent confusion | Agent guesses when it should ask | Surface ambiguity explicitly using the confusion management patterns above |
+| Silent confusion | Agent guesses when it should ask | Surface ambiguity explicitly using the patterns in [confusion-management.md](confusion-management.md) |
 
 ## Common Rationalizations
 
