@@ -4,7 +4,7 @@ description: Breaks work into ordered, parallel-dispatchable tasks with an execu
 when_to_use: |
   Use after a `prompt-shaper` or `marketing-shaper` brief when the work spans multiple repos, multiple weeks, or needs parallel agent execution — specifically when the implementation order is not obvious or tasks can safely be dispatched concurrently. Use when a spec or task feels too large to start in one session.
 
-  Not when: the change is single-file with obvious scope — implement directly using `incremental-implementation`. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first.
+  Not when: the change is single-file with obvious scope — implement directly using `incremental-implementation`. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first. Not when there is no spec yet and requirements are unclear — use `spec-driven-development` to produce the spec, then return to decompose it.
 ---
 
 # Planning and Task Breakdown

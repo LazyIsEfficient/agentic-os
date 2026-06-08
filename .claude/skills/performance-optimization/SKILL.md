@@ -24,6 +24,37 @@ Measure before optimizing. Performance work without measurement is guessing — 
 7. Always include width, height, loading, and format attributes on images.
 8. Set a performance budget and enforce it in CI.
 
+## The Workflow
+
+Always run these five steps in order. Skipping straight to a fix is the most common failure mode.
+
+1. **Measure** — establish a baseline with real data. Synthetic (Lighthouse, DevTools Performance tab) for reproducibility; RUM (`web-vitals`, CrUX) to confirm a fix helped real users. Both, not one.
+2. **Identify** — find the *actual* bottleneck from the symptom, not an assumed one.
+3. **Fix** — change only the thing the measurement implicated.
+4. **Verify** — measure again; confirm the improvement with specific before/after numbers.
+5. **Guard** — add a CI budget check or monitoring alert so the win does not regress.
+
+Core Web Vitals "Good" thresholds: **LCP ≤ 2.5s**, **INP ≤ 200ms**, **CLS ≤ 0.1**. Default budgets: JS < 200KB gzip initial, API < 200ms p95, Lighthouse ≥ 90.
+
+## Symptom → First Action
+
+Use the symptom to pick where to measure first. This is enough to start; `references/optimization-workflow.md` has the full decision tree and bottleneck tables.
+
+| Symptom | First action |
+|---|---|
+| LCP > 2.5s | Lighthouse + Network waterfall; check LCP image size/priority and render-blocking CSS/JS |
+| INP > 200ms | Record an interaction trace in the DevTools Performance tab; find long tasks (>50ms) on the main thread |
+| CLS > 0.1 | Audit layout-shift attribution in DevTools; add `width`/`height` to media, reserve space for late content |
+| Slow first load | Measure bundle size; route-split and lazy-load rarely-used modules behind `Suspense` |
+| Slow TTFB | Check Network waterfall — split DNS/TLS vs server "Waiting"; if server, profile the backend |
+| Slow single API endpoint | Run `EXPLAIN` on its queries; check for N+1 in the query log; add missing indexes |
+| All endpoints slow | Check connection-pool sizing, CPU, and memory before touching any single query |
+| Memory growth over time | Take heap snapshots and diff; look for leaked references or unbounded caches |
+| Sluggish React UI | Profile renders in the React DevTools Profiler; remove inline object/array props, memoize the proven-hot path only |
+| Code-level SLA/latency breach | Profile the hot path (flamegraph); fix it; add p99 monitoring. (SLO *tracking/alerting* itself → `site-reliability-engineering`.) |
+
+Fixes for each pattern (N+1, unbounded fetch, image setup, re-renders, bundle splitting, caching) are in `references/anti-patterns.md`.
+
 ## References
 
 - [references/optimization-workflow.md](references/optimization-workflow.md) — Core Web Vitals targets, 5-step workflow, symptom-to-measurement decision tree, bottleneck tables

@@ -24,26 +24,3 @@ Role Descriptions + OKRs + Output Data (CSV/JSON)
         ▼
 Executive Summary + Individual Scorecards + Org Recommendations
 ```
-
-## Meeting Intelligence
-
-```
-Meeting Transcripts (text files or stdin)
-        │
-        ▼
-┌──────────────────────────────────┐
-│   meeting_action_extractor.py    │
-│   Extract:                       │
-│   • Decisions (who + context)    │
-│   • Action items (owner +        │
-│     deadline + priority)         │
-│   • Open questions               │
-│   • Key insights / quotes        │
-│   • Follow-up meetings needed    │
-│   • Implicit commitments         │
-│   + Confidence scores            │
-└──────────────────────────────────┘
-        │
-        ▼
-Structured JSON / Markdown + Optional CRM Push
-```

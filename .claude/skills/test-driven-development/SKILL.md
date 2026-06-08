@@ -54,5 +54,6 @@ After completing any implementation:
 
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md) — TypeScript/Node backend test specialization
 - [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — React/browser frontend test specialization
+- [rust-engineer](../rust-engineer/SKILL.md) — red-green-refactor applies in Rust; the borrow checker rewards test-first interface clarity
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — linting, coverage, CI quality gates
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — review discipline; TDD feeds into the review gate
