@@ -24,7 +24,7 @@ cd skills-directory
 ./install.sh
 ```
 
-Files are copied to `~/.claude/skills/` and `~/.claude/agents/`. Existing files are not overwritten by default. Add `--force` to update everything.
+Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/commands/`. Existing files are not overwritten by default. Add `--force` to update everything.
 
 ### Windows (PowerShell)
 
@@ -42,7 +42,7 @@ cd skills-directory
 .\install.ps1
 ```
 
-Files are copied to `%USERPROFILE%\.claude\skills\` and `%USERPROFILE%\.claude\agents\`. Add `-Force` to overwrite existing files.
+Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files.
 
 ### Custom install path
 
@@ -62,7 +62,10 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
+| `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/route` recommends the owning skill/agent for a task |
 | `~/.claude/hooks/` | PreToolUse hooks (e.g. `block-bad-bash.sh`) |
+
+> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`, `route`) install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `plan-clean` commands and the `workflows/` (sharded library audit, routing-collision sweep) — is **not** installed, to avoid polluting your command namespace.
 
 ---
 

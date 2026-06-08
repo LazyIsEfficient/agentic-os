@@ -1,6 +1,6 @@
 # Plan 1 — Ship commands + workflows (distributable surfaces)
 
-**Status:** proposed
+**Status:** shipped — Wave 1 in PR #94, Wave 2 (distribution + reviewer coverage) in PR #95
 **Author:** orchestration session, 2026-06-08 (split from `claude-feature-expansion.md`)
 **Scope:** add `.claude/commands/` and `.claude/workflows/`, wired into both installers, with each artifact tagged ship-to-users vs. in-repo-only.
 

@@ -71,6 +71,31 @@ function Install-Dir {
   Write-Host "  OK $Name -> $DestDir"
 }
 
+# Ship-tagged allowlist: copy ONLY the named files from $Src\$Name, never the
+# whole directory. Used for surfaces (commands) where some files are
+# maintainer-only and must not pollute a consumer's global namespace.
+function Install-Files {
+  param([string]$Name, [string[]]$Files)
+  $SrcDir  = Join-Path $Src $Name
+  $DestDir = Join-Path $Dest $Name
+  if (-not (Test-Path $SrcDir)) { return }
+
+  $copied = 0
+  foreach ($rel in $Files) {
+    $src = Join-Path $SrcDir $rel
+    if (-not (Test-Path $src)) { continue }
+    $target = Join-Path $DestDir $rel
+    if ($Force -or -not (Test-Path $target)) {
+      $targetParent = Split-Path $target
+      New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
+      Copy-Item -Path $src -Destination $target
+    }
+    $copied++
+  }
+
+  if ($copied -gt 0) { Write-Host "  OK $Name ($copied ship-tagged) -> $DestDir" }
+}
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 Write-Host ""
@@ -78,8 +103,12 @@ Write-Host "Installing to $Dest"
 
 Install-Dir "skills"
 Install-Dir "agents"
-Install-Dir "commands"
-Install-Dir "workflows"
+# Commands: ship-tagged allowlist ONLY — list each file that installs into a
+# consumer's global namespace. Author-facing scaffolds and the router ship;
+# maintainer-only commands (audit-library, review-gate, plan-clean) and ALL
+# workflows stay in-repo and are never installed, to avoid polluting the
+# consumer's command namespace.
+Install-Files "commands" @("skill-new.md", "agent-new.md", "route.md")
 
 $HooksSrc  = Join-Path $Src "hooks"
 $HooksDest = Join-Path $Dest "hooks"
@@ -94,6 +123,6 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 }
 
 Write-Host ""
-Write-Host "Done. Restart Claude Code to load the new skills, agents, commands, and workflows."
+Write-Host "Done. Restart Claude Code to load the new skills, agents, and commands."
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

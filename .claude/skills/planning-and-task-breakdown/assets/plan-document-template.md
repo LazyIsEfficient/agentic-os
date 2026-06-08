@@ -5,6 +5,8 @@ Full structure for a parallel-dispatchable implementation plan. The per-task blo
 ```markdown
 # Implementation Plan: [Feature/Project Name]
 
+**Status:** proposed   <!-- lifecycle: proposed → in-progress → shipped | superseded. /plan-clean deletes shipped & superseded. -->
+
 ## Overview
 [One paragraph summary of what we're building]
 
@@ -79,6 +81,17 @@ scope: M
 ## Open Questions
 - [Question needing human input]
 ```
+
+## Plan status lifecycle
+
+The `**Status:**` line (directly under the title) drives plan cleanup. Maintain it as the work moves:
+
+- `proposed` — written, not started (the value a fresh plan ships with).
+- `in-progress` — execution has begun.
+- `shipped` — the work landed (merged).
+- `superseded` — replaced by another plan or abandoned.
+
+Keep it current: the `/plan-clean` command reads this line and deletes plans marked `shipped` or `superseded` (after confirmation), leaving only live work in `.claude/plans/`. A plan with a missing or unrecognized status is never auto-deleted — but it also won't be cleaned up, so always set one.
 
 ## Section ordering rationale
 
