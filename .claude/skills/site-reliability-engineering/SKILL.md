@@ -13,8 +13,10 @@ when_to_use: |
   Not when: making design-time decisions about fault tolerance, observability
   instrumentation, or capacity planning — use system-architect instead. For
   release mechanics, canaries, and rollback automation use deployment-pipelines.
-  Security incidents share the incident-response process but security rules live
-  in security-engineering.
+  Not when the work is code-level profiling and fixing a latency bottleneck once
+  it is located — use performance-optimization; this skill owns the SLO/SLI,
+  alerting, and burn-rate side. Security incidents share the incident-response
+  process but security rules live in security-engineering.
 ---
 
 # Site Reliability Engineering

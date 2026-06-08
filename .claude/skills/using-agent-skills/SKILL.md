@@ -34,3 +34,7 @@ Non-negotiable behaviors that apply at all times, across all skills:
 3. **Multiple skills can apply.** A feature implementation might involve [idea-refine](../idea-refine/SKILL.md) → [spec-driven-development](../spec-driven-development/SKILL.md) → [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) → [incremental-implementation](../incremental-implementation/SKILL.md) → [test-driven-development](../test-driven-development/SKILL.md) → [code-review-and-quality](../code-review-and-quality/SKILL.md) → [shipping-and-launch](../shipping-and-launch/SKILL.md) in sequence.
 
 4. **When in doubt, start with a spec.** If the task is non-trivial and there's no spec, begin with [spec-driven-development](../spec-driven-development/SKILL.md).
+
+## Related skills
+
+- [skill-library-review](../skill-library-review/SKILL.md) — audits and maintains the health of the skill library this meta-skill routes against; keeps descriptions and cross-references coherent so discovery works

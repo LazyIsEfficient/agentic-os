@@ -1,9 +1,11 @@
 ---
 name: git-workflow-and-versioning
-description: Structures git workflow practices. Use when making any code change. Use when committing, branching, resolving conflicts, or when you need to organize work across multiple parallel streams.
+description: Git mechanics — atomic commits, branch discipline, worktrees, git bisect, conflict resolution, and pre-commit hygiene. Use for day-to-day commit and branch work and for tagging commits (git tag mechanics). Not for changelog or release coordination (use release-manager) or CI/CD pipelines that run after a push (use deployment-pipelines).
 when_to_use: |
   Use when working with atomic commits, branch management, git bisect, pre-commit hooks,
-  worktree setup, tagging releases, or recovering from git mistakes. Specifically use when
+  worktree setup, tagging a commit (git tag mechanics only — for the full release process
+  including CHANGELOG and stakeholder communication, use `release-manager`), or recovering
+  from git mistakes. Specifically use when
   committing (atomic commit discipline, descriptive messages), branching (feature branches,
   trunk-based development), resolving merge conflicts, setting up worktrees for parallel agent
   work, debugging regressions with git bisect, or establishing a .gitignore and pre-commit
@@ -11,8 +13,8 @@ when_to_use: |
 
   Not when: the task is managing CI/CD pipelines that run after a push — use
   `deployment-pipelines` for that. Not when the task is a higher-level release process
-  (changelogs, versioning strategy, hotfix coordination) — use `git-workflow-and-versioning`
-  for the commit mechanics and `documentation-and-adrs` for the changelog.
+  (changelogs, versioning strategy, hotfix coordination) — use `release-manager` for the
+  release coordination and `documentation-and-adrs` for the changelog.
 ---
 
 # Git Workflow and Versioning

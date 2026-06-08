@@ -9,7 +9,7 @@
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
-      "args": ["@anthropic/chrome-devtools-mcp@latest"]
+      "args": ["chrome-devtools-mcp@latest"]
     }
   }
 }

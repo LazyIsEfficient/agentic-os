@@ -1,6 +1,6 @@
 ---
 name: security-engineering
-description: Use when reviewing code for vulnerabilities, implementing auth/sessions/crypto, validating user input, configuring infrastructure security, auditing smart contracts, or hardening AI agent systems. Triggers on mentions of "security", "vulnerability", "auth", "OWASP", "pentest", "audit", "access control", "injection", "XSS", "CSRF", "secrets", "JWT", "rate limit", or any review of security-sensitive code paths. For developer-focused web app hardening see [security-and-hardening](../security-and-hardening/SKILL.md). For PII sanitization see security.
+description: Cross-stack security review — auditing vulnerabilities across infrastructure, smart contracts, CI/CD pipelines, and AI agent systems, plus auth/sessions/crypto and validating user input at API and infrastructure boundaries. Triggers on mentions of "vulnerability", "pentest", "OWASP", "access control", "injection", "CSRF", "JWT", "smart contract audit", "supply chain", "OIDC", or any review of security-sensitive code paths spanning more than one layer. For developer-focused web app hardening (OWASP Top 10 patterns, XSS, input validation in TypeScript/Node app code) see [security-and-hardening](../security-and-hardening/SKILL.md). For PII sanitization see [security](../security/SKILL.md).
 when_to_use: |
   Use for cross-stack security review covering API security, infrastructure
   hardening, Web3 smart contract auditing, CI/CD pipeline security (OIDC, supply
@@ -11,7 +11,7 @@ when_to_use: |
 
   Not when: the need is narrowly web-app input validation and OWASP Top 10
   patterns for a TypeScript developer — use [security-and-hardening](../security-and-hardening/SKILL.md) instead. For
-  scanning files for committed PII use security.
+  scanning files for committed PII use [security](../security/SKILL.md).
 ---
 
 # Security Engineering

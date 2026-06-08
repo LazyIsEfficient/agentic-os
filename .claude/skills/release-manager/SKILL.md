@@ -4,7 +4,7 @@ description: Coordinates release preparation for your monorepo — maintaining C
 when_to_use: |
   Use when coordinating a monorepo release — maintaining the CHANGELOG and release assessment document, resolving merge conflicts on release branches, cutting a v-prefixed semver tag via GitHub CLI (`gh release create`), or communicating release status, risk, and asks to the broader team.
 
-  Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. Not when the request is about product scope or launch messaging — use `technical-product-management`. Not when the request is about rollout strategy or incident posture on release day — use `site-reliability-engineering`.
+  Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. Not when the request is about product scope or launch messaging — use `technical-product-management`. Not when the request is about rollout strategy or incident posture on release day — use `site-reliability-engineering`. Not when the request is purely git commit mechanics, branch hygiene, pre-commit hooks, or git tag mechanics without release coordination — use `git-workflow-and-versioning`.
 ---
 
 # Release Manager
@@ -80,6 +80,7 @@ Release progress:
 - [team-lead](../team-lead/SKILL.md) — tickets, ADRs/DADs when a release surfaces a tracking or decision gap
 - [technical-product-management](../technical-product-management/SKILL.md) — scope, prioritization, and launch messaging when the release is product-shaped
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — CI/CD and workflow changes tied to the release process
+- [git-workflow-and-versioning](../git-workflow-and-versioning/SKILL.md) — commit mechanics, branch hygiene, pre-commit hooks, and git tag mechanics; hand off for git internals once the release branch is set up
 - [documentation-writer](../documentation-writer/SKILL.md) — prose polish for CHANGELOG/assessment when tone must match public docs
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — rollouts, canaries, and incident posture around release day
 

@@ -1,6 +1,6 @@
 ---
 name: devops-engineer
-description: Use when authoring or modifying infrastructure as code, working with Kubernetes (k8s, kubectl, cluster, namespace, RBAC, rollout, deployment), Helm (helm chart, helm upgrade, helm diff), Pulumi (pulumi stack, pulumi up, pulumi preview, IaC), or CI/CD pipeline DevOps mechanics (build systems, artifact publishing, environment promotion). Triggers on terms like "DevOps", "platform engineering", "cluster admin", "network policy", "resource quota", "pod spec", or "kubeconfig". For SRE/on-call/incident response see site-reliability-engineering. For Solidity/EVM contracts see web3-engineer. Not for GitHub Actions YAML authoring — use deployment-pipelines.
+description: Use when authoring or modifying infrastructure as code, working with Kubernetes (k8s, kubectl, cluster, namespace, RBAC, rollout, deployment), Helm (helm chart, helm upgrade, helm diff), Pulumi (pulumi stack, pulumi up, pulumi preview, IaC), or CI/CD pipeline DevOps mechanics (build systems, artifact publishing, environment promotion). Triggers on terms like "DevOps", "platform engineering", "cluster admin", "network policy", "resource quota", "pod spec", or "kubeconfig". For SRE/on-call/incident response see site-reliability-engineering. For Solidity/EVM contracts see web3-smart-contract-engineering. Not for GitHub Actions YAML authoring — use deployment-pipelines.
 when_to_use: |
   Use when: authoring or reviewing Pulumi stacks or other IaC, Kubernetes Day-2
   operations (deployments, rollouts, namespace admin, RBAC, resource quotas,
@@ -12,6 +12,7 @@ when_to_use: |
   Not when: configuring a service mesh (Istio, Linkerd) — that crosses into
   SRE territory. Not when setting up monitoring stacks (Prometheus, Grafana
   dashboards) — use site-reliability-engineering. Not when writing Terraform — this skill covers Pulumi and Helm, not Terraform.
+  Not when Pulumi (or any other IaC tool) is provisioning cloud primitives (VPCs, managed databases, IAM, cloud networking) with no Kubernetes or Helm component — use cloud-infrastructure for that scope.
   Not for cloud-provider-specific work that has no Kubernetes or IaC component — use cloud-infrastructure.
 ---
 
@@ -71,4 +72,4 @@ After completing DevOps work, confirm each item before reporting done:
 - [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the cloud primitives (VPCs, managed databases, IAM) that Kubernetes clusters and Pulumi stacks run on top of.
 - [security-and-hardening](../security-and-hardening/SKILL.md) — RBAC design, secrets management, and supply-chain security for container images and IaC overlap heavily; consult for any security-sensitive cluster change.
 - [ci-cd-and-automation](../ci-cd-and-automation/SKILL.md) — owns CI/CD workflow authoring (GitHub Actions YAML, quality gates, feature flags); use when the task is about *writing pipeline config*, not the Helm/Pulumi deploy targets those pipelines hit.
-- [deployment-pipelines](../deployment-pipelines/SKILL.md) — progressive rollout strategies, canaries, feature-flag-gated releases, and OIDC supply-chain hardening; use when the task is about *how a release reaches production*, not the cluster resources it lands on.
+- [deployment-pipelines](../deployment-pipelines/SKILL.md) — GitHub Actions workflow authoring, reusable workflows, composite actions, OIDC federation, artifact handling, and pipeline security hardening; use when the task is *writing pipeline config*, not the cluster resources those pipelines deploy to.

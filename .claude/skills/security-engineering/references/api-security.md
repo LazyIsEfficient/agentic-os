@@ -2,10 +2,10 @@
 
 ## Authentication Patterns
 
-**Session-based auth** (platform-app):
+**Session-based auth** (example — a primary web app):
 
 ```typescript
-// app/api/v1/shared/middlewares/auth.middleware.ts
+// apps/<app>/api/v1/shared/middlewares/auth.middleware.ts
 // 1. Clear stale context per request (warm instance safety)
 // 2. Validate session via sessionService.getUserSession()
 // 3. Retrieve user via userService.findUserById()
@@ -22,7 +22,7 @@
 **Signature-based partner API** (HMAC-SHA256):
 
 ```typescript
-// partner-api/services/signature.service.ts
+// apps/<partner-api>/services/signature.service.ts
 // Required headers: X-API-KEY, X-API-REQUEST (UUID), X-API-SIGNATURE
 const msg = `${method}${path}${uuidv7}${jsonStableStringify(body)}`
 const signature = crypto.createHmac('sha256', secret).update(msg).digest('hex')

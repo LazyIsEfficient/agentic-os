@@ -4,7 +4,7 @@ description: Tests in real browsers. Use when building or debugging anything tha
 when_to_use: |
   Use when building or modifying anything that renders in a browser: debugging UI layout or interaction issues, diagnosing console errors or network failures, profiling Core Web Vitals, verifying a fix works in a real browser, or running automated UI tests through an agent.
 
-  Not when: the change is backend-only, a CLI tool, or code that never runs in a browser — no DevTools session needed for those.
+  Not when: the change is backend-only, a CLI tool, or code that never runs in a browser — no DevTools session needed for those. Not when the task is building or fixing the UI implementation itself (components, layout, styling) — use `frontend-ui-engineering`.
 ---
 
 # Browser Testing with DevTools

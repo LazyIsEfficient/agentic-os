@@ -8,7 +8,9 @@ when_to_use: |
   or invest in migration.
 
   Not when: the task is purely refactoring without user-facing removal — use `software-design`
-  instead. Not when the task is writing the replacement system — use the appropriate
+  instead. Not when the dead code is provably orphaned — never a public API, no declared
+  consumers, removal needs no migration path — use `code-simplification` for that local cleanup.
+  Not when the task is writing the replacement system — use the appropriate
   feature-building skill first, then return here for the cutover and removal.
 ---
 

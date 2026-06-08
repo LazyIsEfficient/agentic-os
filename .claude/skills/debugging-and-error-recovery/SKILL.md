@@ -1,15 +1,17 @@
 ---
 name: debugging-and-error-recovery
-description: Guides systematic root-cause debugging. Use when tests fail, builds break, behavior doesn't match expectations, or you encounter any unexpected error. Use when you need a systematic approach to finding and fixing the root cause rather than guessing.
+description: Guides systematic root-cause debugging when the cause of a failure is unknown. Use when tests fail, builds break, or runtime behavior doesn't match expectations and you need to diagnose why before fixing. Use when you need a structured, evidence-preserving approach to finding the root cause rather than guessing. For writing a failing reproduction test first for a known bug see test-driven-development; for production incident response see site-reliability-engineering.
 when_to_use: |
   Use when tests fail after a code change, the build breaks, runtime behavior doesn't match
   expectations, a bug report arrives, an error appears in logs or console, or something worked
   before and has stopped working. Use when you need a structured, evidence-preserving approach
   to root-cause analysis rather than guessing at fixes.
 
-  Not when: the error is a known flake in CI infrastructure — use `site-reliability-engineering`
-  for systemic reliability work. Not when the goal is adding new behaviour — finish debugging
-  first, then use the appropriate feature-building skill.
+  Not when: the cause is already known and the expected behaviour is defined — write a failing
+  reproduction test first with `test-driven-development`; use this skill only to diagnose an
+  unknown failure. Not when the error is a known flake in CI infrastructure — use
+  `site-reliability-engineering` for systemic reliability work. Not when the goal is adding new
+  behaviour — finish debugging first, then use the appropriate feature-building skill.
 ---
 
 # Debugging and Error Recovery

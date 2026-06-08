@@ -2,9 +2,9 @@
 name: ci-cd-and-automation
 description: CI/CD strategy and quality-gate design — what to gate on, in what order, with what failure behavior. Use when designing a pipeline's gate structure, defining quality standards, configuring staged rollouts, or debugging CI gate failures. For writing or reviewing GitHub Actions YAML, OIDC configuration, or pipeline security hardening, use deployment-pipelines instead.
 when_to_use: |
-  Use when setting up a new project's CI pipeline, adding or modifying automated quality gates (lint, type-check, tests, build, security audit), configuring deployment pipelines (preview, staging, production), debugging CI failures, or implementing feature flags and staged rollouts.
+  Use when setting up a new project's CI pipeline, adding or modifying automated quality gates (lint, type-check, tests, build, security audit), designing the gate structure for preview/staging/production promotion (not writing the workflow YAML — use `deployment-pipelines` for that), debugging CI gate failures, or implementing feature flags and staged rollouts.
 
-  Not when: the task is provisioning cloud resources — use `cloud-infrastructure`. Not when hardening the supply chain, managing OIDC, or authoring GitHub Actions workflows with security focus — use `deployment-pipelines`.
+  Not when: the task is provisioning cloud resources — use `cloud-infrastructure`. Not when hardening the supply chain, managing OIDC, or authoring GitHub Actions workflows with security focus — use `deployment-pipelines`. Not when the work is Kubernetes/Helm/Pulumi pipeline DevOps mechanics or cluster-level environment promotion — use `devops-engineer`.
 ---
 
 # CI/CD and Automation

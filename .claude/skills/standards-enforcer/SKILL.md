@@ -1,6 +1,6 @@
 ---
 name: standards-enforcer
-description: Use when reviewing work against the team's agreed engineering standards and the technical strategy — at feature kickoff, in PR review, before merge, before release, or after release. Engages at clear gates to verify that work meets the security baseline, the quality baseline, the operational readiness bar, and the strategic alignment with current ADRs/DADs and the technical strategy. Triggers on mentions of "standards review", "PR review", "code review gate", "design review", "compliance check", "DAD compliance", "ADR compliance", "security baseline", "quality gate", "release gate", "pre-merge check", "pre-release check", "exception request", or "waiver". For *authoring* the standards see security-engineering, software-design, and ux-design; for *setting* the technical strategy see technical-strategist; for *capturing* decisions as ADRs/DADs see team-lead.
+description: Use when reviewing work against the team's agreed engineering standards and the technical strategy — at feature kickoff, in PR review, before merge, before release, or after release. Engages at clear gates to verify that work meets the security baseline, the quality baseline, the operational readiness bar, and the strategic alignment with current ADRs/DADs and the technical strategy. Triggers on mentions of "standards review", "PR review", "code review gate", "design review", "compliance check", "DAD compliance", "ADR compliance", "security baseline", "quality gate", "release gate", "pre-merge check", "pre-release check", "exception request", or "waiver". For *authoring* the standards see security-engineering, software-design, and ux-design; for *setting* the technical strategy see technical-strategist; for *capturing* decisions as ADRs/DADs see team-lead. Here "design review" means a compliance gate against the standards — when it means a UX/interface critique, use ux-design.
 when_to_use: |
   Use at defined engineering gates: reviewing a PR for compliance with standards
   and strategic alignment, reviewing a design doc for security/operational
@@ -11,10 +11,12 @@ when_to_use: |
   team against deadline pressure to skip standards. The enforcer cites rules from
   source-of-truth skills; it does not author them.
 
-  Not when: authoring security standards — use security-engineering. For
-  authoring design standards use software-design. For setting the technical
-  strategy use technical-strategist. For capturing decisions as ADRs/DADs use
-  team-lead.
+  Not when: reviewing code for quality (correctness, readability, architecture,
+  performance) without a standards/ADR/strategy compliance lens — use
+  code-review-and-quality. Not when: authoring security standards — use
+  security-engineering. For authoring design standards use software-design. For
+  setting the technical strategy use technical-strategist. For capturing
+  decisions as ADRs/DADs use team-lead.
 ---
 
 # Standards Enforcer
@@ -93,4 +95,5 @@ For **authoring the standards themselves**, defer to the source-of-truth skills:
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md), [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md), [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — sources of truth for test coverage and quality.
 - [technical-product-management](../technical-product-management/SKILL.md) — TPM and the enforcer collaborate on launch readiness; both gate releases.
 - [system-architect](../system-architect/SKILL.md) — design reviews are an enforcer gate; the architect produces the designs that the enforcer reviews against the strategy.
-- All other skills — every domain has standards the enforcer might engage with at the gates.
+- [code-review-and-quality](../code-review-and-quality/SKILL.md) — the multi-axis code-quality pass at the pre-merge gate; the enforcer adds the standards/ADR/strategy-compliance lens on top of it, not in place of it.
+- [skill-library-review](../skill-library-review/SKILL.md) — source-of-truth for the agent-library standard; the enforcer applies it at gates when the work under review is skills or agents.

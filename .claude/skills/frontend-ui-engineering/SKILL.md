@@ -8,8 +8,9 @@ when_to_use: |
   must look production-quality (correct accessibility, design-system adherence, proper states).
 
   Not when: the task is end-to-end testing of a browser UI — use `browser-testing-with-devtools`
-  instead. Not when the task is UX research or flow design without implementation — use
-  `ux-design` or `ux-research` instead.
+  instead. Not when the task is writing tests for React components or hooks — use
+  `typescript-testing-frontend` instead. Not when the task is UX research or flow design without
+  implementation — use `ux-design` or `ux-research` instead.
 ---
 
 # Frontend UI Engineering

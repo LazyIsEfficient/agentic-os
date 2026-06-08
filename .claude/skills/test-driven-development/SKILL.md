@@ -1,10 +1,10 @@
 ---
 name: test-driven-development
-description: Drives development with tests. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.
+description: Enforces the red-green-refactor cycle — a failing test must exist before any implementation. Use when implementing new behavior or fixing a bug whose expected behavior is known and you need to prove the code is correct, not just "seems right." For layer-specific React or backend tests see typescript-testing-frontend or typescript-testing-backend; for diagnosing an unknown failure first see debugging-and-error-recovery.
 when_to_use: |
   Use when implementing any new logic or behavior, fixing any bug (write the reproduction test first), modifying existing functionality, adding edge case handling, or any change that could break existing behavior. The red-green-refactor cycle applies to all behavioral code changes.
 
-  Not when: the change is pure configuration, documentation updates, or static content with no behavioral impact. Not when the task is establishing cross-cutting test strategy, E2E flows, or CI test configuration — use typescript-quality-engineering. Not when writing layer-specific tests for React components or backend services — use typescript-testing-frontend or typescript-testing-backend respectively.
+  Not when: the change is pure configuration, documentation updates, or static content with no behavioral impact. Not when the cause of a failure is still unknown and needs diagnosis — use debugging-and-error-recovery to find the root cause first, then return here to write the reproduction test. Not when the task is establishing cross-cutting test strategy, E2E flows, or CI test configuration — use typescript-quality-engineering. Not when writing layer-specific tests for React components or backend services — use typescript-testing-frontend or typescript-testing-backend respectively.
 ---
 
 # Test-Driven Development
@@ -38,7 +38,7 @@ Write a failing test before writing the code that makes it pass. For bug fixes, 
 After completing any implementation:
 
 - [ ] Every new behavior has a corresponding test
-- [ ] All tests pass: `npm test`
+- [ ] All tests pass (run the project's test command, e.g. `npm test` / `go test ./...` / `pytest` / `cargo test`)
 - [ ] Bug fixes include a reproduction test that failed before the fix
 - [ ] Test names describe the behavior being verified
 - [ ] No tests were skipped or disabled

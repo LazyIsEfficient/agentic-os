@@ -12,7 +12,11 @@ when_to_use: |
 
   Not when: deciding which services exist, how they communicate, or planning
   capacity — use system-architect instead. For capturing the resulting decisions
-  as ADRs or DADs use team-lead.
+  as ADRs or DADs use team-lead. Not when the goal is behavior-preserving
+  complexity reduction of already-working code (no structural reshaping) — use
+  code-simplification. Not when the review spans correctness, performance, and
+  security axes rather than design alone — use code-review-and-quality for
+  full-spectrum pre-merge review.
 ---
 
 # Software Design
@@ -74,6 +78,7 @@ For macro decisions (which services exist, how they communicate, capacity planni
 - [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — chronically high-toil services usually point back to design problems; reliability work and module design reinforce each other
 - [ux-design](../ux-design/SKILL.md) — the design's vocabulary (labels, names, journeys) should match the domain model's ubiquitous language; coordinating prevents months of vocabulary drift
 - [godot-engineer](../godot-engineer/SKILL.md) — software design principles (composition over inheritance, separation of concerns, cohesion/coupling) apply to Godot scene/node design; the most common Godot anti-pattern (god scenes) is the same anti-pattern as god classes in a different language
+- [rust-engineer](../rust-engineer/SKILL.md) — the same design principles apply to Rust; the most common Rust anti-patterns (god structs, tight coupling via concrete types) are god classes and rigid dependencies in a different language
 - [technical-strategist](../technical-strategist/SKILL.md) — module-level design choices that follow from the strategy ("we use hexagonal architecture for service X") become DADs maintained by team-lead and tracked by the strategist
 - [standards-enforcer](../standards-enforcer/SKILL.md) — code design quality is one of the categories the enforcer checks at the pre-merge gate, citing this skill as the source of truth
 
