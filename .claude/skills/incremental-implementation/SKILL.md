@@ -1,10 +1,10 @@
 ---
 name: incremental-implementation
-description: Delivers changes incrementally. Use when implementing any feature or change that touches more than one file. Use when you're about to write a large amount of code at once, or when a task feels too big to land in one step.
+description: Execution discipline for shipping large changes in safe, testable vertical slices — implement one increment, test, commit, repeat. Use for the implementation phase of any multi-file change, especially after the work has been decomposed into tasks. For breaking work into tasks first see planning-and-task-breakdown; for pure complexity reduction of working code see code-simplification.
 when_to_use: |
-  Use when implementing any multi-file change, building a new feature from a task breakdown, refactoring existing code, or any time you are tempted to write more than ~100 lines before testing. Use when a task feels too large to land in one step.
+  Use when implementing any multi-file change, building a new feature from a task breakdown, restructuring code as part of delivering a change, or any time you are tempted to write more than ~100 lines before testing. Use when a task feels too large to land in one step. This is the *execution* phase — a single task or change, built in slices.
 
-  Not when: the change is a single-file, single-function edit where the scope is already minimal — just implement it directly. Not when you need to break down the work into tasks first — use [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) before switching to this skill.
+  Not when: the change is a single-file, single-function edit where the scope is already minimal — just implement it directly. Not when you still need to *decompose* the work into an ordered task list — use [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) first, then return here to execute each task. Not when the goal is reducing complexity in already-working code without adding features or fixing bugs — use [code-simplification](../code-simplification/SKILL.md) for that.
 ---
 
 # Incremental Implementation
@@ -38,9 +38,8 @@ For each slice: implement the smallest complete piece → test → verify (tests
 After each increment, verify:
 
 - [ ] The change does one thing and does it completely
-- [ ] All existing tests still pass (`npm test`)
-- [ ] The build succeeds (`npm run build`)
-- [ ] Type checking passes (`npx tsc --noEmit`)
-- [ ] Linting passes (`npm run lint`)
+- [ ] All existing tests still pass (run the project's test command)
+- [ ] The build succeeds (run the project's build command)
+- [ ] Static analysis passes (type check / lint / compile, as the project provides)
 - [ ] The new functionality works as expected
 - [ ] The change is committed with a descriptive message

@@ -1,6 +1,6 @@
 ---
 name: documentation-and-adrs
-description: Records decisions and documentation. Use when making architectural decisions, changing public APIs, shipping features, or when you need to record context that future engineers and agents will need to understand the codebase.
+description: Records decisions and documentation. Use when making architectural decisions, changing public APIs, shipping features, or when you need to record context that future engineers and agents will need to understand the codebase. Triggers on "ADR", "decision record", "architecture decision", "README", "API docs", "OpenAPI", "JSDoc", or "changelog". For PR-driven doc sync (keeping docs/ in step with an ongoing diff) see documentation-writer. For ADRs linked to tickets and driven through team process see team-lead; this skill owns standalone ADR and decision-record authoring.
 when_to_use: |
   Use when making a significant architectural decision, choosing between competing approaches,
   adding or changing a public API, shipping a feature that changes user-facing behaviour,

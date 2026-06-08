@@ -11,6 +11,8 @@ when_to_use: |
   Not when: the task is provisioning or managing the cloud resources the pipeline deploys to —
   use `cloud-infrastructure` instead. Not when the task is runtime reliability (SLOs, canaries,
   rollback triggers) after the pipeline has run — use `site-reliability-engineering` instead.
+  Not when "release" means coordinating the release itself (CHANGELOG, release assessment,
+  version tag, stakeholder comms) rather than the pipeline YAML — use `release-manager`.
 ---
 
 # Deployment Pipelines

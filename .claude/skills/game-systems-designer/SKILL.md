@@ -12,7 +12,9 @@ when_to_use: |
 
   Not when: the concept is still open — stop and route to `game-concept-creator` first. Not
   when the systems are locked and the team wants numbers tuned — use `game-balancer`. Not when
-  the task is writing the engine implementation — use `godot-engineer`.
+  the task is writing the engine implementation — use `godot-engineer`. Not when the design doc
+  or system spec is for backend/software service architecture rather than game systems — use
+  `system-architect`.
 ---
 
 # Game Systems Designer

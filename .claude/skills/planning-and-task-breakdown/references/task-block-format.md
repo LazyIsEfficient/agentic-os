@@ -27,8 +27,8 @@ scope: S                          # XS | S | M | L  (L should be split before di
 - [ ] [Specific, testable condition]
 
 **Verification:**
-- [ ] Tests pass: `npm test -- --grep "feature-name"`
-- [ ] Build succeeds: `npm run build`
+- [ ] Tests pass: `<project test command, scoped to this task>`
+- [ ] Build succeeds: `<project build command>`
 - [ ] Manual check: [description of what to verify]
 ```
 

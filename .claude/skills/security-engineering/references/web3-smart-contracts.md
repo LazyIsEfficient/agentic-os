@@ -54,7 +54,7 @@ Plus per-token daily limits: `dailyTokenWithdrawals[currentDay][asset]`
 
 ## Smart Contract Audit Findings
 
-FailSafe audit of platform contracts identified 19 findings. Key themes:
+A representative third-party audit of platform contracts surfaced findings across these recurring themes (illustrative, not exhaustive):
 
 | Theme | Examples |
 |---|---|

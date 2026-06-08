@@ -4,7 +4,7 @@ description: Use when designing or reviewing user interfaces — wireframes, flo
 when_to_use: |
   Use when translating research findings or PM requirements into wireframes and flows, designing or reviewing information architecture or navigation, designing interactions or state transitions, auditing for accessibility (WCAG, keyboard, screen readers), writing microcopy (button labels, error messages, empty states), facilitating or participating in design critique, or preparing developer handoff specs and design QA.
 
-  Not when: the task is generative user research (interviews, usability tests, JTBD discovery, survey design) — use ux-research. Not when the task is implementing the UI in code — use frontend-ui-engineering. Not when the task is writing frontend tests for accessibility — use typescript-testing-frontend.
+  Not when: the task is generative user research (interviews, usability tests, JTBD discovery, survey design) — use ux-research. Not when the task is implementing the UI in code — use frontend-ui-engineering. Not when the task is writing frontend tests for accessibility — use typescript-testing-frontend. Not when "design review" means a standards/compliance gate (checking a design against the engineering standards before merge) rather than a UX critique — use standards-enforcer.
 ---
 
 # UX Design

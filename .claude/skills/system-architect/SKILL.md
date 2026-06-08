@@ -13,7 +13,10 @@ when_to_use: |
   Not when: structuring code inside an existing service (modules, classes, DDD
   patterns) — use software-design instead. For operating production systems at
   runtime use site-reliability-engineering. For translating designs into
-  provisioned cloud resources use cloud-infrastructure.
+  provisioned cloud resources use cloud-infrastructure. Not when the design doc
+  or system spec is for game systems and mechanics (core loops, progression,
+  content systems) rather than backend service architecture — use
+  game-systems-designer.
 ---
 
 # System Architect

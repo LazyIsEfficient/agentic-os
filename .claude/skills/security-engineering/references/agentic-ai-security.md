@@ -1,6 +1,6 @@
 # Agentic AI Security (OWASP 2026)
 
-When building or reviewing AI agent systems (relevant to `doaf` framework):
+When building or reviewing AI agent systems (e.g. an agent-orchestration framework):
 
 | Risk | Description | Mitigation |
 |------|-------------|------------|

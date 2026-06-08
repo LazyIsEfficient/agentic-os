@@ -1,6 +1,6 @@
 ---
 name: typescript-testing-frontend
-description: Use when writing or reviewing TypeScript frontend tests — Jest unit/integration tests for React components and hooks built with Chakra UI, React Query, Zustand, and Next.js App Router. Triggers on edits to `*.test.tsx`, files under `**/__tests__/`, custom test render helpers, or mentions of "frontend test", "component test", "hook test", "React test", "UI test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
+description: Use when writing or reviewing TypeScript frontend tests — Jest unit/integration tests for React components and hooks built with Chakra UI, React Query, Zustand, and Next.js App Router. Triggers on edits to `*.test.tsx`, React component/hook test files (`.tsx`, not `.ts`) under `**/__tests__/`, custom test render helpers, or mentions of "frontend test", "component test", "hook test", "React test", "UI test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
 when_to_use: |
   Use when writing or reviewing TypeScript frontend tests: Jest unit/integration tests for React components and hooks using React Testing Library, with Chakra UI, React Query, Zustand, and Next.js App Router. The key signals are `*.test.tsx` files, component test helpers, or any request to test a React UI, component behavior, or custom hook.
 

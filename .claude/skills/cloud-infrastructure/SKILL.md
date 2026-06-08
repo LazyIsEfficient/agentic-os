@@ -4,7 +4,7 @@ description: Use when provisioning or modifying cloud resources with infrastruct
 when_to_use: |
   Use when provisioning or modifying cloud resources via IaC — writing or editing Pulumi, Terraform, or CDK code for AWS (VPC, ECS, RDS, ElastiCache, SQS/SNS, MQ, MSK, Secrets Manager, IAM), Cloudflare Zero Trust tunnels, or GCP (BigQuery, GCS, Pub/Sub). Triggers on IaC file edits or any mention of "infrastructure", "Pulumi", "Terraform", "CDK", or specific AWS/GCP/Cloudflare service names.
 
-  Not when: the task is authoring GitHub Actions workflows or CI/CD pipelines — use `deployment-pipelines`. Not when the focus is hardening security posture on existing infrastructure — use `security-engineering`.
+  Not when: the task is authoring GitHub Actions workflows or CI/CD pipelines — use `deployment-pipelines`. Not when the focus is hardening security posture on existing infrastructure — use `security-engineering`. Not when the IaC change manages Kubernetes cluster resources, Helm charts, or Pulumi stacks whose primary output is cluster workloads — use `devops-engineer`.
 ---
 
 # Cloud Infrastructure

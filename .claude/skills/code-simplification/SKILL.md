@@ -4,7 +4,7 @@ description: Simplifies code for clarity. Use when refactoring code for clarity 
 when_to_use: |
   Use after a feature is working and tests pass but the implementation is heavier than it needs to be — deeply nested logic, long functions, unclear names, duplication, or over-engineered abstractions. Also use during code review when readability or complexity issues are flagged.
 
-  Not when: you don't yet understand what the code does (comprehend first), the code is performance-critical and simplification would measurably slow it, or you're about to rewrite the module entirely. Not when correctness bugs also need fixing — use [code-review-and-quality](../code-review-and-quality/SKILL.md) for that.
+  Not when: you don't yet understand what the code does (comprehend first), the code is performance-critical and simplification would measurably slow it, or you're about to rewrite the module entirely. Not when correctness bugs also need fixing — use [code-review-and-quality](../code-review-and-quality/SKILL.md) for that. Not when the problem is structural — coupling, cohesion, or where logic belongs — use [software-design](../software-design/SKILL.md) for that reshaping. Not when the code being removed was ever a public API, had declared consumers, or needs a migration path — use [deprecation-and-migration](../deprecation-and-migration/SKILL.md) instead.
 ---
 
 # Code Simplification

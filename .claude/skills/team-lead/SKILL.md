@@ -1,6 +1,6 @@
 ---
 name: team-lead
-description: Use when triaging, grooming, or auditing work tickets in Linear or Jira (via MCP), or when capturing architectural decisions as ADRs (significant/non-default choices) or DADs (default patterns the team follows by convention). Triggers on mentions of "ticket", "issue", "Linear", "Jira", "backlog", "grooming", "triage", "sprint", "ADR", "DAD", "architecture decision", "decision record", "default pattern", or "team convention". For *product prioritization* — what to build, in what order, and why — see technical-product-management; this skill owns ticket *quality* and *decision capture*, not product strategy.
+description: Use when triaging, grooming, or auditing work tickets in Linear or Jira (via MCP), or when capturing architectural decisions as ADRs (significant/non-default choices) or DADs (default patterns the team follows by convention). Triggers on mentions of "Linear issue", "Jira ticket", "grooming", "triage", "ADR", "DAD", "architecture decision", "decision record", "default pattern", or "team convention". For *product prioritization* — what to build, in what order, and why — see technical-product-management; this skill owns ticket *quality* and *decision capture*, not product strategy. For authoring a standalone ADR/decision record with no ticket or team-process linkage see documentation-and-adrs.
 when_to_use: |
   Use when triaging, grooming, or auditing work tickets in Linear or Jira via
   MCP (checking for clear acceptance criteria, owner, priority, no stale or
@@ -12,7 +12,10 @@ when_to_use: |
 
   Not when: deciding what to build, in what order, or why — use
   technical-product-management instead. For applying ADRs/DADs as compliance
-  checks at review gates use standards-enforcer.
+  checks at review gates use standards-enforcer. Not when authoring a
+  standalone ADR/decision record with no ticket or team-process linkage — use
+  documentation-and-adrs; this skill owns ADRs linked to tickets and driven
+  through team process.
 ---
 
 # Team Lead
@@ -80,4 +83,4 @@ If you find yourself writing an ADR that says "we chose the obvious thing," it s
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

@@ -72,7 +72,7 @@ Good: Use proactively before merging changes that touch auth, sessions, crypto, 
 Every adjacent skill/agent should be named in the description so the loader can route correctly when the request lands closer to a sibling:
 
 ```
-For Solidity contracts see web3-engineer. For Godot games see godot-engineer.
+For Solidity contracts see web3-smart-contract-engineering. For Godot games see godot-engineer.
 For read-only review verdicts see code-reviewer.
 ```
 

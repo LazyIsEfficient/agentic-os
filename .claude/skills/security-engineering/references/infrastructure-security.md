@@ -22,14 +22,14 @@
 Per-developer tunnels with access policies scoped by email domain:
 
 ```typescript
-// Access policy — team members
+// Access policy — team members (use your own org's email domain)
 decision: 'allow'
 includes: [{ emailDomain: { domain: 'example.com' } }]
 
 // Access policy — external tools (IP-restricted)
 decision: 'allow'
 includes: [
-  { ip: { ip: '35.90.103.132/30' } },  // Retool
+  { ip: { ip: '203.0.113.0/30' } },  // e.g. a third-party admin tool (RFC 5737 example range)
 ]
 ```
 
