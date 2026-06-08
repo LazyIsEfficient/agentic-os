@@ -36,7 +36,7 @@ Services may share a database through a generated client package but stay decoup
 - [references/etl-pipelines.md](references/etl-pipelines.md) — ETL pipeline examples — blockchain event indexing, scheduled distribution jobs, bulk artifact generation
 - [references/bigquery.md](references/bigquery.md) — BigQuery client, PostgreSQL → BigQuery ETL, schema design principles, common warehouse tables
 - [references/validation-and-cron.md](references/validation-and-cron.md) — Zod validation rules, cron config, persistent cron manager, idempotency
-- [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations, local Docker, GCP/AWS/Cloudflare/Pulumi, monorepo structure
+- [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations and the local-dev Docker stack; cloud provisioning defers to cloud-infrastructure
 - [references/data-models.md](references/data-models.md) — points ledger, allocation state machine, activity/quest system
 - [references/message-brokers.md](references/message-brokers.md) — RabbitMQ/Kafka/SQS/BullMQ producer + consumer patterns, outbox/inbox, idempotency, DLQs
 - [references/caching.md](references/caching.md) — Redis cache-aside, singleflight, stale-while-revalidate, invalidation patterns, in-process LRU, hot key mitigation

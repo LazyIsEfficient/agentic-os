@@ -15,6 +15,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "VERSION"
@@ -25,12 +26,18 @@ GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 CACHE_TTL_HOURS = 24
 
 
-def read_local_version() -> str:
-    """Read version from local VERSION file."""
+def read_local_version() -> Optional[str]:
+    """Read version from local VERSION file.
+
+    Returns the version string, or None if the VERSION file is absent or
+    unreadable. None means "version unknown" — the caller must not treat that
+    as 0.0.0, or every release would falsely look like an available update.
+    """
     try:
-        return VERSION_FILE.read_text().strip()
+        text = VERSION_FILE.read_text().strip()
     except OSError:
-        return "0.0.0"
+        return None
+    return text or None
 
 
 def parse_semver(version: str) -> tuple:
@@ -105,6 +112,11 @@ def fetch_latest_version() -> str:
 def check_version():
     """Main version check logic."""
     local = read_local_version()
+    if local is None:
+        # No local VERSION file means we have no baseline to compare against.
+        # Comparing a missing version would make every release look like an
+        # available update, so stay silent rather than nag on every run.
+        return
 
     # Check cache first
     cache = load_cache()

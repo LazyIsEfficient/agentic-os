@@ -16,7 +16,9 @@ when_to_use: |
   Not when the work is code-level profiling and fixing a latency bottleneck once
   it is located — use performance-optimization; this skill owns the SLO/SLI,
   alerting, and burn-rate side. Security incidents share the incident-response
-  process but security rules live in security-engineering.
+  process but security rules live in security-engineering. Not when the need is
+  the skills library's own opt-in usage/version telemetry (not production SLOs)
+  — use telemetry.
 ---
 
 # Site Reliability Engineering

@@ -16,7 +16,10 @@ when_to_use: |
   complexity reduction of already-working code (no structural reshaping) — use
   code-simplification. Not when the review spans correctness, performance, and
   security axes rather than design alone — use code-review-and-quality for
-  full-spectrum pre-merge review.
+  full-spectrum pre-merge review. Not when the primary concern is the *public
+  contract* of a module or API surface — its stability, versioning, or
+  backward compatibility — use api-and-interface-design; this skill shapes the
+  code behind the contract.
 ---
 
 # Software Design
@@ -71,6 +74,7 @@ For macro decisions (which services exist, how they communicate, capacity planni
 ## Related skills
 
 - [system-architect](../system-architect/SKILL.md) — picks bounded contexts and service boundaries; this skill structures code *inside* a context
+- [api-and-interface-design](../api-and-interface-design/SKILL.md) — owns the *public contract* of a module or interface (stability, versioning, backward compatibility); this skill shapes the internal code behind that contract. Designing a module boundary touches both: settle the contract there, structure the implementation here
 - [team-lead](../team-lead/SKILL.md) — significant design choices become ADRs; everyday defaults become DADs
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md) / [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — testability is a design feedback signal
 - [security-engineering](../security-engineering/SKILL.md) — separation of concerns is a security property: auth lives at the boundary, not sprinkled into domain logic

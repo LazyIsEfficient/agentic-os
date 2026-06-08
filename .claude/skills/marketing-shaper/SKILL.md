@@ -13,7 +13,7 @@ description: >-
 when_to_use: |
   Use when the user has a marketing goal but the brief is missing the load-bearing pieces — audience, channels, success metric, or timeline — and the work cannot start without them. The signal is an under-specified ask, not a keyword: if you cannot name the audience and the one number that defines success, shape it first.
 
-  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. Not when the intake is for a blog post — use `blog-post-shaper`.
+  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the outbound campaign is already scoped and the task is executing sequences/copy/infrastructure — use `outbound-engine`. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. Not when the intake is for a blog post — use `blog-post-shaper`.
 ---
 
 # Marketing Shaper
