@@ -78,6 +78,8 @@ Write-Host "Installing to $Dest"
 
 Install-Dir "skills"
 Install-Dir "agents"
+Install-Dir "commands"
+Install-Dir "workflows"
 
 $HooksSrc  = Join-Path $Src "hooks"
 $HooksDest = Join-Path $Dest "hooks"
@@ -92,6 +94,6 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 }
 
 Write-Host ""
-Write-Host "Done. Restart Claude Code to load the new skills and agents."
+Write-Host "Done. Restart Claude Code to load the new skills, agents, commands, and workflows."
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."
