@@ -98,7 +98,7 @@ def call_llm(prompt: str, system_prompt: str = "") -> str:
             import anthropic
             client = anthropic.Anthropic(api_key=api_key)
             message = client.messages.create(
-                model=model or "claude-sonnet-4-20250514",
+                model=model or "claude-sonnet-4-5",
                 max_tokens=4096,
                 system=system_prompt or "You are an expert organizational analyst and management consultant.",
                 messages=[{"role": "user", "content": prompt}],

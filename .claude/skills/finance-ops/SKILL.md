@@ -1,27 +1,28 @@
 ---
 name: finance-ops
-description: "Run CFO briefings from QuickBooks/CSV exports and estimate codebase cost by ticket volume. Use for financial reporting, burn-rate analysis, scenario modeling, or cost estimation."
+description: "Run CFO briefings from QuickBooks/CSV accounting exports: financial reporting, profitability and people-cost breakdowns, burn-rate and runway analysis, and base/bull/bear scenario modeling. Use for an executive financial briefing, expense/vendor review, or cash-runway analysis from accounting data. For estimating the development cost of a codebase (LOC-based build cost) see codebase-cost-estimator."
 when_to_use: |
   Use when generating an executive CFO briefing from QuickBooks exports (P&L, Balance Sheet,
-  General Ledger, Cash Flow), performing burn rate or runway analysis, modeling base/bull/bear
-  financial scenarios, or estimating full development cost of a codebase including organisational
-  overhead and AI ROI. Triggers on "CFO briefing", "financial analysis", "expense review",
-  "runway analysis", "burn rate", "cost estimate", "how much would this cost to build",
-  "development cost", or "Claude ROI".
+  General Ledger, Cash Flow), performing burn rate or runway analysis, reviewing expenses and
+  vendor concentration, or modeling base/bull/bear financial scenarios. Triggers on
+  "CFO briefing", "financial analysis", "expense review", "vendor concentration", "runway
+  analysis", "burn rate", or "scenario model".
 
-  Not when: the task is game-studio-level revenue forecasting or LTV/ARPDAU strategy — use
-  `game-monetization-strategist` for that. Not when the task is general business intelligence
+  Not when: the task is estimating the development/build cost of a codebase — LOC-based
+  engineering hours, calendar time, full-team cost, or Claude/AI ROI on delivered code — use
+  [codebase-cost-estimator](../codebase-cost-estimator/SKILL.md) instead. Not when the task is
+  game-studio-level revenue forecasting or LTV/ARPDAU strategy — use
+  `game-monetization-strategist`. Not when the task is general business intelligence
   dashboards — this skill processes QuickBooks exports specifically. Not when the task is
   team-performance evaluation or meeting action items — use `team-ops`.
 ---
 
 # AI Finance Ops
 
-Two tools: CFO Briefing Generator and Codebase Cost Estimator.
+Generate executive CFO briefings from QuickBooks/CSV accounting exports — profitability, people
+cost, vendor and customer concentration, burn rate, runway, and forward scenarios.
 
----
-
-## Tool 1: CFO Briefing Generator
+## CFO Briefing Generator
 
 Generate executive financial summaries from QuickBooks exports.
 
@@ -47,25 +48,12 @@ Generate executive financial summaries from QuickBooks exports.
 
 See `references/metrics-guide.md` for KPI definitions, healthy ranges, and red/yellow/green thresholds.
 
----
+## References
 
-## Tool 2: Codebase Cost Estimator
+- `references/quickbooks-formats.md` — QuickBooks export format specs and parsing rules
+- `references/metrics-guide.md` — KPI thresholds and benchmarks by revenue range
 
-Estimate full development cost of a codebase.
+## Related
 
-### Steps
-
-1. Analyze the codebase — catalog LOC by language, architectural complexity, features, test coverage, docs quality.
-2. Calculate dev hours — apply productivity rates from `references/rates.md`; add overhead multipliers for architecture, debugging, review, docs, integration.
-3. Research market rates — web search for current hourly rates for the relevant tech stack; build low/median/high rate table.
-4. Calculate org overhead — convert raw hours to calendar time using `references/org-overhead.md`; show across company types.
-5. Calculate full team cost — apply supporting role ratios from `references/team-cost.md`; role-by-role breakdown across company stages.
-6. Generate estimate — use template in `references/output-template.md`; include codebase metrics, dev hours, calendar time, market rates, engineering cost, full team cost, grand total, assumptions.
-7. **AI ROI (optional)** — if built with AI assistance, calculate value per AI hour using `references/claude-roi.md`.
-
-### Key Principles
-
-- Always show ranges (low/avg/high), never a single number
-- Include confidence level and key assumptions
-- Search for CURRENT year market rates — don't use stale data
-- Present professionally, suitable for stakeholders
+For estimating the development cost of a codebase (LOC-based engineering hours, calendar time,
+full-team cost, AI ROI), see [`codebase-cost-estimator`](../codebase-cost-estimator/SKILL.md).

@@ -2,7 +2,7 @@
 
 > Your AI CFO that finds hidden costs in 30 minutes.
 
-Upload your QuickBooks exports. Get a full executive CFO briefing with anomaly detection, burn rate analysis, vendor concentration risk, and actionable recommendations. Or point it at a codebase and get a development cost estimate with organizational overhead modeling and AI ROI analysis.
+Upload your QuickBooks exports. Get a full executive CFO briefing with anomaly detection, burn rate analysis, vendor concentration risk, and actionable recommendations.
 
 ## What's Inside
 
@@ -17,15 +17,6 @@ Drop in your QuickBooks exports (P&L, Balance Sheet, General Ledger, Expenses by
 - **Month-over-month comparison** — automatic trend detection
 - **Anomaly alerts** — expenses that spike, new vendors with big spend, owner draws
 - **Scenario modeling** — base/bull/bear case projections with monthly burns
-
-### Codebase Cost Estimator
-Point it at any codebase and get:
-
-- **Development hours estimate** by code type and complexity
-- **Market rate research** with current-year data
-- **Organizational overhead modeling** — solo founder through enterprise
-- **Full team cost** — PM, design, QA, DevOps, not just engineering
-- **AI ROI analysis** — what did each hour of Claude produce in value?
 
 ## Quick Start
 
@@ -43,8 +34,8 @@ mkdir -p data/uploads
 # 4. Run CFO analysis
 python scripts/cfo-analyzer.py --input data/uploads/
 
-# 5. Or estimate a codebase
-# Use the SKILL.md workflow with Claude Code
+# 5. (Optional) Run base/bull/bear scenario projections
+python scripts/scenario-modeler.py --input data/financial-latest.json
 ```
 
 ## Supported QuickBooks Reports
@@ -107,12 +98,7 @@ finance-ops/
 │   └── scenario-modeler.py # Base/bull/bear projections
 └── references/
     ├── metrics-guide.md    # KPI thresholds and benchmarks
-    ├── quickbooks-formats.md # QB export format specs
-    ├── rates.md            # Developer productivity rates
-    ├── org-overhead.md     # Organizational overhead factors
-    ├── team-cost.md        # Full team cost multipliers
-    ├── claude-roi.md       # AI ROI calculation method
-    └── output-template.md  # Cost estimate output format
+    └── quickbooks-formats.md # QB export format specs
 ```
 
 ## Customization

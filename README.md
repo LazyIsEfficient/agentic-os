@@ -126,7 +126,9 @@ opt-in rather than default.
 | `cloud-infrastructure` | Provision or modify cloud resources with infrastructure-as-code |
 | `code-review-and-quality` | Multi-axis code review before merging changes |
 | `code-simplification` | Simplify code for clarity without changing behavior |
+| `codebase-cost-estimator` | Estimate build/dev cost of a codebase by measured LOC and complexity |
 | `content-ops` | Score and evaluate content using an auto-assembled expert panel |
+| `content-pipeline` | Content-production pipeline — quote mining, clip discovery, repurposing, batch gating |
 | `context-engineering` | Optimize agent context setup for quality |
 | `conversion-ops` | AI-powered conversion rate optimization and lead magnet generation |
 | `course-author` | Write lesson content from a filled lesson spec |
@@ -155,6 +157,7 @@ opt-in rather than default.
 | `idea-refine` | Refine ideas iteratively through divergent thinking |
 | `incremental-implementation` | Deliver changes incrementally in vertical slices |
 | `marketing-shaper` | Structure a vague marketing request into a scoped brief |
+| `meeting-intelligence` | Extract action items, decisions, and follow-ups from meeting transcripts |
 | `outbound-engine` | Design and optimize cold outbound email campaigns |
 | `performance-optimization` | Optimize application performance with measurement |
 | `phaser-engineer` | Build games in Phaser 3 with TypeScript |

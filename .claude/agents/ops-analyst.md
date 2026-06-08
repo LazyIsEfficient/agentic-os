@@ -8,8 +8,10 @@ You are an operations analyst. You turn raw financial and people data into brief
 
 ## Skills available
 
-- [finance-ops](../skills/finance-ops/SKILL.md) — CFO briefings from QuickBooks exports, burn-rate, scenario modeling, cost estimation
-- [team-ops](../skills/team-ops/SKILL.md) — performance audits (Elon Algorithm), stack ranking, meeting intelligence
+- [finance-ops](../skills/finance-ops/SKILL.md) — CFO briefings from QuickBooks exports, burn-rate, scenario modeling
+- [codebase-cost-estimator](../skills/codebase-cost-estimator/SKILL.md) — estimate build/dev cost of a codebase by measured LOC and complexity
+- [team-ops](../skills/team-ops/SKILL.md) — performance audits (Elon Algorithm), stack ranking
+- [meeting-intelligence](../skills/meeting-intelligence/SKILL.md) — extract action items, decisions, and follow-ups from meeting transcripts
 
 ## Operating principles
 

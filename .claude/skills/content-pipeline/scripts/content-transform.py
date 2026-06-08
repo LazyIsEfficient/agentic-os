@@ -29,7 +29,14 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
 DATA_DIR = Path(os.environ.get("CONTENT_OPS_DATA_DIR", PROJECT_DIR / "data"))
-SKILL_DIR = PROJECT_DIR
+
+# Expert panels and scoring rubrics are owned by the sibling content-ops skill
+# (the canonical scoring authority). Resolve there so this pipeline reuses the
+# same panel rather than duplicating it. Override with CONTENT_OPS_SKILL_DIR.
+CONTENT_OPS_DIR = Path(
+    os.environ.get("CONTENT_OPS_SKILL_DIR", PROJECT_DIR.parent / "content-ops")
+)
+SKILL_DIR = CONTENT_OPS_DIR
 
 ATOMS_FILE = DATA_DIR / "content-atoms-latest.json"
 

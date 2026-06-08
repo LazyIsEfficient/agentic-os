@@ -1,19 +1,17 @@
 ---
 name: content-ops
 description: >-
-  Score, evaluate, and iteratively improve any content or strategy using an
-  auto-assembled panel of domain experts. Handles copy, sequences, landing pages,
-  strategy docs, titles, charts, recruiting evaluations, or anything else that
-  needs a quality gate. Recursively iterates until all scores hit 90+ (max 3
-  rounds). Use when asked to: "expert panel this", "score this", "rate these
-  variants", "quality check this", "panel review", "which version is better",
-  "expert score", "evaluate this copy/strategy/page", or when another skill
-  needs a quality gate on its output. Also triggers on: "score this landing page",
-  "expert panel these email variants", "rate this headline", "panel these charts".
+  Auto-assembles a domain-specific expert panel (7–10 experts), scores any
+  content or strategy artifact against a typed rubric, and iterates until the
+  aggregate hits 90+ (max 3 rounds). Use as a quality gate on copy, email
+  sequences, landing-page drafts, strategy docs, charts, titles, or recruiting
+  evaluations — or when another skill needs a final review gate on its output.
+  Triggers on "expert panel this", "score this", "rate these variants", "quality
+  check this", "panel review", "expert score", "evaluate this copy/strategy/page".
 when_to_use: |
-  Use when any content or strategy output needs a quality gate before publishing or handoff — scoring copy, landing pages, email sequences, strategy docs, charts, or candidate evaluations against an assembled panel of domain experts. Triggers on "expert panel this", "score this", "rate these variants", "quality check this", or when another skill (blog-post-author, course-author, outbound-engine) needs a final review gate.
+  Use when any single content or strategy artifact needs a quality gate before publishing or handoff — scoring copy, landing-page drafts, email sequences, strategy docs, charts, or candidate evaluations against an assembled panel of domain experts. Triggers on "expert panel this", "score this", "rate these variants", "quality check this", or when another skill (blog-post-author, course-author, outbound-engine) needs a final review gate.
 
-  Not when: the goal is pre-launch variant generation and optimization through many rounds — use `autoresearch` instead. Not when the focus is conversion-specific auditing and CRO scoring of a URL — use `conversion-ops`.
+  Not when: the goal is pre-launch variant generation and multi-round optimization of conversion copy — use `autoresearch`. Not when the focus is CRO auditing of a live URL (fetch + conversion-dimension scoring) — use `conversion-ops`; use content-ops when the artifact is a draft landing page being quality-gated before publish. Not when the job is running the content-production pipeline as scripts (RSS quote mining, video-clip discovery, repurposing, batch draft gating) — use `content-pipeline`.
 ---
 
 # Expert Panel
@@ -44,5 +42,6 @@ General-purpose scoring and iterative improvement engine. Auto-assembles the rig
 - [blog-post-author](../blog-post-author/SKILL.md) — produces blog post drafts that content-ops scores
 - [blog-post-shaper](../blog-post-shaper/SKILL.md) — blog intake skill whose output feeds into content-ops scoring
 - [course-author](../course-author/SKILL.md) — produces lesson drafts that content-ops scores
-- [autoresearch](../autoresearch/SKILL.md) — research optimization pass often run before content-ops scoring
+- [autoresearch](../autoresearch/SKILL.md) — pre-launch variant generation + multi-round optimization of conversion copy; run before content-ops's final gate
 - [conversion-ops](../conversion-ops/SKILL.md) — post-publish conversion layer; run after content-ops quality gate
+- [content-pipeline](../content-pipeline/SKILL.md) — script-driven content production (RSS quote mining, video-clip discovery, repurposing, batch draft gating); reuses this skill's `experts/` panels in its transform stage

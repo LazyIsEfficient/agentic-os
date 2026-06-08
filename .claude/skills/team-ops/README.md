@@ -2,9 +2,11 @@
 
 > **Run your team like an engineer runs a system — measure everything, cut waste, ship faster.**
 
-Two AI-powered tools for ruthless team optimization: a structured performance audit framework (the "Elon Algorithm") and an intelligent meeting transcript processor that never lets action items fall through the cracks.
+A structured team performance audit framework (the "Elon Algorithm") that scores every team member, stack ranks them into A/B/C tiers, and surfaces the redundancy, complexity, and bottlenecks holding the org back.
 
 Built for operators who want data-driven team decisions, not vibes-based management.
+
+For turning meeting transcripts into tracked action items and decisions, see [meeting-intelligence](../meeting-intelligence/SKILL.md). For financial analysis, see [finance-ops](../finance-ops/SKILL.md).
 
 ---
 
@@ -25,7 +27,7 @@ Built for operators who want data-driven team decisions, not vibes-based managem
                                    │
                     ┌──────────────▼───────────────────────┐
                     │  5-Step Elon Algorithm                │
-                    │                                      │
+                    │                                       │
                     │  1. Question — is this necessary?     │
                     │  2. Delete — flag redundancies        │
                     │  3. Simplify — cut complexity         │
@@ -39,46 +41,20 @@ Built for operators who want data-driven team decisions, not vibes-based managem
                     │  • Quality (30%)                      │
                     │  • Independence (20%)                 │
                     │  • Initiative (20%)                   │
-                    │                                      │
+                    │                                       │
                     │  → A/B/C Stack Rank                   │
                     │  → Promote / Coach / Reassign / Exit  │
-                    └──────────────────────────────────────┘
+                    └───────────────────────────────────────┘
                                    │
                                    ▼
                     Executive Summary + Scorecards + Org Recommendations
-
-
-                    ┌──────────────────────────────────────┐
-                    │     MEETING ACTION EXTRACTOR          │
-                    └──────────────┬───────────────────────┘
-                                   │
-                    Meeting Transcripts (text / stdin / batch)
-                                   │
-                    ┌──────────────▼───────────────────────┐
-                    │  LLM Extraction Engine                │
-                    │                                      │
-                    │  • Decisions (who + context)          │
-                    │  • Action Items (owner + deadline)    │
-                    │  • Open Questions                     │
-                    │  • Key Insights / Quotes              │
-                    │  • Follow-up Meetings                 │
-                    │  • Implicit Commitments               │
-                    │  + Confidence Scores                  │
-                    └──────────────┬───────────────────────┘
-                                   │
-                    ┌──────────────▼───────────────────────┐
-                    │  Output                               │
-                    │  • Structured JSON                    │
-                    │  • Formatted Markdown                 │
-                    │  • HubSpot Tasks (optional)           │
-                    └──────────────────────────────────────┘
 ```
+
+See [references/data-flow.md](references/data-flow.md) for the detailed data flow.
 
 ---
 
-## Tools
-
-### 1. 🏭 Team Performance Audit (`team_performance_audit.py`)
+## Tool: Team Performance Audit (`team_performance_audit.py`)
 
 The "Elon Algorithm" applied to team management. A 5-step framework that questions every role, deletes redundancy, simplifies workflows, accelerates bottlenecks, and flags automation opportunities.
 
@@ -167,61 +143,6 @@ Bob Park,Junior Dev,28,40,5.1,68,3.2,0,0
 
 ---
 
-### 2. 📋 Meeting Action Extractor (`meeting_action_extractor.py`)
-
-Never lose an action item again. Feed it meeting transcripts; get structured decisions, action items, follow-ups, and insights.
-
-**What it does:**
-- Extracts decisions with who made them and context
-- Identifies action items with owner, deadline, and priority
-- Catches implicit commitments ("I'll take care of that" → action item)
-- Flags open questions and unresolved items
-- Pulls out key insights and quotable moments
-- Identifies follow-up meetings needed
-- Assigns confidence scores (1.0 = explicit, 0.5 = inferred)
-- Supports batch processing of entire transcript directories
-- Optional HubSpot integration to push action items as tasks
-
-```bash
-# Single transcript → markdown
-python3 meeting_action_extractor.py --transcript meeting.txt
-
-# Single transcript → JSON
-python3 meeting_action_extractor.py --transcript meeting.txt --format json
-
-# Read from stdin (paste or pipe)
-cat meeting.txt | python3 meeting_action_extractor.py --stdin
-
-# Batch process a directory
-python3 meeting_action_extractor.py --batch ./transcripts/ --output ./actions/
-
-# Push action items to HubSpot
-python3 meeting_action_extractor.py --transcript meeting.txt --push-hubspot
-
-# Dry run
-python3 meeting_action_extractor.py --transcript meeting.txt --dry-run
-```
-
-**Example Output (Markdown):**
-
-```markdown
-## Action Items
-
-1. 🔴 **Finalize Q2 budget proposal** 
-   - Owner: **Sarah**
-   - Deadline: Friday March 15
-   - Confidence: 95%
-   - Source: "Sarah, can you get the Q2 budget finalized by Friday?"
-
-2. 🟡 **Look into the API latency issue** *(implicit)*
-   - Owner: **Mike**
-   - Deadline: No deadline
-   - Confidence: 80%
-   - Source: "Yeah, I'll look into that"
-```
-
----
-
 ## Quick Start
 
 ### 1. Clone and install
@@ -235,27 +156,23 @@ pip install -r requirements.txt
 ### 2. Configure environment
 
 ```bash
+cp .env.example .env
+
 # Set at least one LLM provider
 export ANTHROPIC_API_KEY="sk-ant-..."
 # OR
 export OPENAI_API_KEY="sk-..."
 
-# Optional: HubSpot for meeting action push
-export HUBSPOT_API_KEY="pat-..."
-
 # Optional: Override LLM settings
-export LLM_PROVIDER="anthropic"  # or "openai"
-export LLM_MODEL="claude-sonnet-4-20250514"      # or "gpt-4o"
+export LLM_PROVIDER="anthropic"        # or "openai"
+export LLM_MODEL="claude-sonnet-4-5"   # or "gpt-4o"
 ```
 
-### 3. Test with dry runs
+### 3. Test with a dry run
 
 ```bash
-# Test performance audit (quantitative scoring only)
+# Quantitative scoring only — no LLM calls
 python3 team_performance_audit.py --input sample_team.json --dry-run
-
-# Test meeting extractor
-python3 meeting_action_extractor.py --transcript sample_meeting.txt --dry-run
 ```
 
 ### 4. Run for real
@@ -263,23 +180,18 @@ python3 meeting_action_extractor.py --transcript sample_meeting.txt --dry-run
 ```bash
 # Full team audit
 python3 team_performance_audit.py --input team_data.json --output q1_audit.md
-
-# Extract actions from today's meeting
-python3 meeting_action_extractor.py --transcript standup.txt --format markdown
-
-# Batch process last week's meetings
-python3 meeting_action_extractor.py --batch ./weekly_transcripts/ --output ./weekly_actions/
 ```
 
 ---
 
 ## Integrations
 
-| Tool | Required | Used By |
-|------|----------|---------|
-| [Anthropic](https://anthropic.com) | One LLM required | Both tools |
-| [OpenAI](https://openai.com) | One LLM required | Both tools |
-| [HubSpot](https://hubspot.com) | Optional | Meeting Extractor (task push) |
+| Tool | Required | Used For |
+|------|----------|----------|
+| [Anthropic](https://anthropic.com) | One LLM required | Elon Algorithm analysis |
+| [OpenAI](https://openai.com) | One LLM required | Elon Algorithm analysis |
+
+The quantitative scoring and stack ranking run locally without any LLM key; only the qualitative 5-step analysis needs a provider.
 
 ---
 
@@ -290,16 +202,14 @@ team-ops/
 ├── README.md                       # This file
 ├── SKILL.md                        # Claude Code skill definition
 ├── requirements.txt                # Python dependencies
+├── .env.example                    # Environment variable template
 ├── team_performance_audit.py       # Elon Algorithm team audit
-└── meeting_action_extractor.py     # Meeting transcript → action items
+└── references/
+    └── data-flow.md                # Data flow diagram
 ```
 
 ---
 
-## How It Works Together
+## How To Use It
 
-1. **Team Performance Audit** gives you the big picture: who's performing, who isn't, where the org is inefficient
-2. **Meeting Action Extractor** keeps the day-to-day moving: every meeting produces clear, tracked action items
-3. Together: audit identifies what needs to change, meetings track the execution of those changes
-
-Run the audit quarterly. Run the extractor after every meeting. Watch accountability compound.
+Run the audit quarterly. It gives you the big picture: who's performing, who isn't, and where the org is inefficient. Pair it with [meeting-intelligence](../meeting-intelligence/SKILL.md) to track the day-to-day execution of the changes the audit recommends.
