@@ -1,6 +1,6 @@
 ---
 name: library-reviewer
-description: Read-only audit of a Claude Code skill/agent library — frontmatter correctness, routing quality, tool-allowlist coherence, single-responsibility, cross-reference health, file structure, and anti-pattern detection. Use proactively after editing files in `.claude/skills/` or `.claude/agents/`. Also triggers on "review my skills", "audit the library", "is this agent right", "skill library review".
+description: Read-only audit of a Claude Code skill/agent library — frontmatter correctness, routing quality, tool-allowlist coherence, single-responsibility, cross-reference health, file structure, and anti-pattern detection. Use proactively after editing files in `.claude/skills/` or `.claude/agents/`. Also triggers on "review my skills", "is this agent right", "skill library review". For a full, low-false-positive sweep of the whole library (sharded generate + adversarial verify gate) run the `audit-library` command instead — reach for this agent when iterating on a small set of files mid-edit.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

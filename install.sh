@@ -90,6 +90,8 @@ echo "Installing to $DEST"
 
 install_dir "skills"
 install_dir "agents"
+install_dir "commands"
+install_dir "workflows"
 install_dir "hooks"
 
 # Ensure hook scripts are executable
@@ -98,6 +100,6 @@ if [[ -d "$DEST/hooks" ]]; then
 fi
 
 echo ""
-echo "Done. Restart Claude Code to load the new skills and agents."
+echo "Done. Restart Claude Code to load the new skills, agents, commands, and workflows."
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."
