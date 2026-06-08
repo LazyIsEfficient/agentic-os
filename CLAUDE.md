@@ -4,6 +4,7 @@ This repo is a skills + agents library. Work here is rarely a single edit — it
 
 The doctrine is split into focused rule files under `.claude/rules/`, imported below. Edit those files, not this list. (These imports are repo-local editing ergonomics; `install.sh` never ships `CLAUDE.md` or `rules/` to consumers.)
 
+@.claude/rules/factual-correctness.md
 @.claude/rules/memory-discipline.md
 @.claude/rules/subagent-dispatch.md
 @.claude/rules/briefing.md
