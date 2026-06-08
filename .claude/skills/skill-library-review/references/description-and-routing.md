@@ -88,6 +88,24 @@ grep -r "<skill-name>" .claude/skills/ .claude/agents/
 
 Zero hits = orphan; investigate.
 
+## Verifying a collision before you report it
+
+A shared trigger keyword between two skills is **not** automatically a routing collision. Deliberately shared keywords, disambiguated by reciprocal "not when" clauses, are the intended pattern — the loader reads the deflection and routes correctly.
+
+Before reporting a collision, run this check:
+
+0. **Confirm the two skills actually contend.** A collision requires a *real* overlap: a shared trigger keyword, or two file-globs that both match the same file/request. Two skills that don't compete for the same request are not colliding just because neither names the other — that is expected, not a finding. (A general code-review skill and a test-strategy skill don't contend merely because neither cites the other.) No genuine overlap → stop here, no finding.
+1. Read **both** skills' `description` and `when_to_use`, including every `Not when … use <other>` clause.
+2. Ask: does each side already deflect to the other on the shared trigger?
+
+| Both sides deflect (reciprocal "not when") | Only one side deflects | Neither side deflects |
+|---|---|---|
+| **Not a finding.** Resolved — do not report. | Should-fix: add the missing reverse tiebreaker. | Blocking/should-fix: real collision, no disambiguation. |
+
+Quote the actual "not when" line from each side as evidence (or, for the "neither" column, paste the `grep` that shows the tiebreaker is absent). "These two share a keyword" *without* checking both tiebreakers is not a finding — it is half a check, and it is the single biggest source of false-positive collision reports.
+
+Example: `iap-manager` and `game-monetization-strategist` both trigger on "battle pass", but `iap-manager`'s description says "see game-monetization-strategist" and the reverse says "see iap-manager". Reciprocal — resolved — not a finding.
+
 ## Description anti-patterns
 
 - Starts with "I" or "We" (first-person)

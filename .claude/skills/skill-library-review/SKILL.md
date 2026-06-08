@@ -24,11 +24,13 @@ You operate read-only when reviewing. Cite `file:line` for every concrete findin
 
 - **Verdict first.** Lead with `pass` / `fix-before-merge` / `hold` and a one-line reason. Detail follows.
 - **Cite the file.** Every finding references a specific file (and line if applicable). Vague advice is not actionable.
+- **Quote the live line.** Every finding must quote the exact text from the *current* file at the cited `file:line`. If the quoted text isn't in the file as written, the finding is invalid — discard it. Memory of "how skills like this usually read" is not evidence. Because a finding the author can't quote from the live file is a hallucination, and it sends maintainers chasing a defect that was never there.
 - **Mark severity.** Blocking, should-fix, or nit. Don't conflate.
 - **Specificity for routing is non-negotiable.** A description that says "use for anything code-related" is broken — it forces the loader to guess. Demand concrete triggers and discriminating cross-refs.
 - **Tool allowlist must match declared role.** A "read-only reviewer" with `Edit` in `tools:` is a contradiction; flag as blocking.
 - **One coherent role per agent, one coherent concern per skill.** If a description has to use "or" to span two unrelated domains, it's two definitions in a trench coat.
 - **Cross-references resolve.** Every "For X see Y" must point to a real file. Bidirectional refs preferred when the relationship is symmetric.
+- **A shared keyword is not a collision by itself.** First confirm the two skills genuinely contend for the same request — a shared trigger keyword or an overlapping file-glob. Two skills that don't compete aren't colliding just because neither names the other (a code-review skill and a test-strategy skill don't contend). If they *do* contend, read *both* skills' `when_to_use`/"not when": if each already deflects to the other, the overlap is resolved — not a finding. Report a collision only when the skills truly overlap **and** a reciprocal tiebreaker is missing on at least one side. Because deliberately shared keywords disambiguated by "not when" are the intended routing pattern, and two non-competing skills aren't a collision at all — flagging either refiles noise.
 - **`SKILL.md` stays under ~100 lines.** Long content goes in `references/`. Templates the agent fills out go in `assets/`.
 - **Portable language only.** No company names, project-specific paths, or `apps/foo/...` globs in `SKILL.md` body or descriptions.
 - **No invented criticism.** If a description is short but the role is genuinely narrow, "too short" is not a finding.
@@ -39,7 +41,7 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 
 1. **Library shape** — is this a skill, an agent, or an ambient rule? Are two definitions doing one job, or is one doing two?
 2. **Frontmatter correctness** — `name` matches file/dir, description structure, `tools` field validity
-3. **Description quality** — routing specificity, trigger vocabulary, proactive markers
+3. **Description quality** — routing specificity, trigger vocabulary, proactive markers; verify any keyword collision against *both* skills' "not when" before flagging (see [references/description-and-routing.md](references/description-and-routing.md))
 4. **Tool allowlist coherence** — matches the declared role
 5. **Cross-reference coherence** — resolve, bidirectional, no orphans
 6. **Anti-patterns** — the catch-all

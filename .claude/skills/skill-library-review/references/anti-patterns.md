@@ -2,6 +2,13 @@
 
 The catch-all of smells that don't fit cleanly into the other reference files.
 
+## Evidence and grounding smells
+
+> These are the two failure modes behind most false-positive findings. Check them first.
+
+- **Finding not grounded in the current file** — the finding quotes a line that isn't in the file as written, or paraphrases "how this skill probably reads" from memory. Every finding must quote the exact text at the cited `file:line`; if you can't quote it from the live file, it isn't a finding. Re-read the file before asserting what it says.
+- **Collision claimed without checking the other side** — reporting that A collides with B after reading only A. Routing findings are two-sided: read B's `when_to_use`/"not when" too. A reciprocal tiebreaker on both sides means the overlap is already resolved. See [description-and-routing.md](description-and-routing.md) → Verifying a collision.
+
 ## Naming
 
 - **Agent and skill share a name** — cosmetic, not blocking, but causes confusion when referring to "X" in conversation. Either disambiguate consistently (e.g., always say "the X agent" vs "the X skill"), or rename one.
@@ -73,5 +80,5 @@ The catch-all of smells that don't fit cleanly into the other reference files.
 ## Library-wide smells (only visible across files)
 
 - **No skill claims a domain that obviously matters** — e.g., observability work but no `observability` skill. Either it's hiding inside another skill (note that), or there's a real gap.
-- **Two skills both claim the same domain from different angles** — usually means one should subsume the other, or they need clearly drawn boundaries in their descriptions.
+- **Two skills both claim the same domain from different angles** — usually means one should subsume the other, or they need clearly drawn boundaries in their descriptions. First confirm neither *already* draws that boundary: if both descriptions carry a reciprocal "not when" deflecting to the other, the domains are already split and there is no finding (see [description-and-routing.md](description-and-routing.md) → Verifying a collision).
 - **README index doesn't match the directory** — skills exist on disk but aren't in the README table (or vice versa). Run `ls .claude/skills/` against the README's skill list.

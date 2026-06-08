@@ -11,7 +11,8 @@ when_to_use: |
 
   Not when: the task is game-studio-level revenue forecasting or LTV/ARPDAU strategy — use
   `game-monetization-strategist` for that. Not when the task is general business intelligence
-  dashboards — this skill processes QuickBooks exports specifically.
+  dashboards — this skill processes QuickBooks exports specifically. Not when the task is
+  team-performance evaluation or meeting action items — use `team-ops`.
 ---
 
 # AI Finance Ops

@@ -9,5 +9,15 @@
       "Edit(.claude/settings.json)",
       "Edit(pocs/**)"
     ]
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "The canonical remote for this project is `origin2` = git@github.com:LazyIsEfficient/agentic-os.git — the user's own repository. Pushing branches and opening pull requests to it is expected and authorized."
+    ],
+    "allow": [
+      "$defaults",
+      "Pushing branches/commits and opening pull requests to the project's own remote (origin2 → LazyIsEfficient/agentic-os) is allowed."
+    ]
   }
 }

@@ -177,7 +177,7 @@ All configuration is via environment variables (see `.env.example`):
 
 ## Using as a Claude Code Skill
 
-Add this to your `.claude/agents/` directory and use the `SKILL.md` for Claude Code integration. The skill enables Claude to:
+Add this to your `.claude/skills/` directory and use the `SKILL.md` for Claude Code integration. The skill enables Claude to:
 
 1. Run keyword analysis on demand
 2. Generate weekly content attack briefs
@@ -189,7 +189,7 @@ Add this to your `.claude/agents/` directory and use the `SKILL.md` for Claude C
 ```
 seo-ops/
 ├── README.md                  # This file
-├── SKILL.md                   # Claude Code agent skill definition
+├── SKILL.md                   # Claude Code skill definition
 ├── content_attack_brief.py    # Full keyword intelligence pipeline
 ├── gsc_client.py              # GSC API client (library + CLI)
 ├── gsc_auth.py                # GSC OAuth setup flow

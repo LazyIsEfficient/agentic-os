@@ -24,13 +24,15 @@ Feed agents the right information at the right time. Context is the single bigge
 
 ## MCP Integrations
 
-| MCP Server | What It Provides |
-|-----------|-----------------|
-| **Context7** | Auto-fetches relevant documentation for libraries |
-| **Chrome DevTools** | Live browser state, DOM, console, network |
-| **PostgreSQL** | Direct database schema and query results |
-| **Filesystem** | Project file access and search |
-| **GitHub** | Issue, PR, and repository context |
+Reach for an MCP server when the context the agent needs lives in a live system rather than the files you can already load. Each one replaces a guess with ground truth, which is the core context-engineering move.
+
+| MCP Server | What It Provides | Reach for it when |
+|-----------|-----------------|-------------------|
+| **Context7** | Auto-fetches relevant documentation for libraries | The agent is hallucinating APIs — inject current docs instead of training-data memory. |
+| **Chrome DevTools** | Live browser state, DOM, console, network | Frontend behavior is the context — feed real DOM/console output, not assumptions about render state. |
+| **PostgreSQL** | Direct database schema and query results | The agent guesses at table shapes — give it the actual schema instead of an invented one. |
+| **Filesystem** | Project file access and search | You need to load only the files relevant to the task (Core Rule 3) without dumping the whole tree. |
+| **GitHub** | Issue, PR, and repository context | The task references an issue or PR — pull its real content rather than paraphrasing from memory. |
 
 ## Verification
 

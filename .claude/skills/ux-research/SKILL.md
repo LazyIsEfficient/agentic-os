@@ -71,7 +71,6 @@ For *translating* research findings into wireframes, prototypes, and shipped UI,
 - [technical-product-management](../technical-product-management/SKILL.md) — the primary consumer of research findings for prioritization and roadmap decisions; close handoff in both directions
 - [godot-engineer](../godot-engineer/SKILL.md) — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly to game development
 - [system-architect](../system-architect/SKILL.md) — research often surfaces non-functional requirements (latency tolerance, offline behavior, data freshness expectations) that drive architectural choices
-- [software-design](../software-design/SKILL.md) — the ubiquitous language the design team picks needs to match the domain model; researchers should pay attention to vocabulary used during interviews
 - [team-lead](../team-lead/SKILL.md) — research findings often become tickets; significant UX decisions (e.g. "we are not building feature X based on findings from study Y") become DADs or ADRs
 - [documentation-writer](../documentation-writer/SKILL.md) — research outputs (personas, JTBD statements, findings) often live in `docs/` and need the same incremental-update discipline
 - [security-engineering](../security-engineering/SKILL.md) — auth UX, consent flows, and privacy decisions intersect with security; pull research findings into those conversations

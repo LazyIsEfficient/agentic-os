@@ -3,6 +3,11 @@
 **Verdict**: <pass | fix-before-merge | hold>
 **Reason**: <one line — the highest-severity finding or the overall posture>
 
+## Grounding certification
+> Confirm before submitting; an unchecked box invalidates the related findings.
+- [ ] Every finding quotes the exact text at its cited `file:line` from the current file.
+- [ ] Every routing-collision finding confirms **both** skills lack a reciprocal "not when" tiebreaker (else it is resolved and omitted).
+
 ## Scope reviewed
 - <files / directories audited>
 - <total skills, total agents>
@@ -41,6 +46,7 @@
 - <descriptions likely to misroute and why>
 - <missing or imprecise proactive markers>
 - <keyword density issues — too vague or too bloated>
+- <keyword collisions — only after confirming neither side already deflects via "not when">
 
 ## Tool allowlist coherence
 - <agents whose tool list contradicts their declared role>

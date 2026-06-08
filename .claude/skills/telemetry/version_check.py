@@ -20,7 +20,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "VERSION"
 CACHE_DIR = Path.home() / ".ai-marketing-skills"
 CACHE_FILE = CACHE_DIR / "version-cache.json"
-GITHUB_API_URL = "https://api.github.com/repos/ericosiu/ai-marketing-skills/releases/latest"
+GITHUB_REPO = os.environ.get("TELEMETRY_GITHUB_REPO", "ericosiu/ai-marketing-skills")
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 CACHE_TTL_HOURS = 24
 
 

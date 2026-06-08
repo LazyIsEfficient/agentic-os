@@ -29,7 +29,7 @@ jobs:
 
 ## Preview vs Apply (IaC pattern)
 
-For Pulumi / Terraform / Pulumi:
+For Pulumi / Terraform:
 
 ```yaml
 preview:
