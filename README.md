@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/ins
 
 ```bash
 git clone https://github.com/LazyIsEfficient/agentic-os.git
-cd skills-directory
+cd agentic-os
 ./install.sh
 ```
 
@@ -38,7 +38,7 @@ irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/install.ps
 
 ```powershell
 git clone https://github.com/LazyIsEfficient/agentic-os.git
-cd skills-directory
+cd agentic-os
 .\install.ps1
 ```
 
@@ -239,8 +239,14 @@ opt-in rather than default.
 │   ├── references/       # deep-dive docs loaded on demand
 │   ├── assets/           # fill-in templates (ADRs, RFCs, briefs)
 │   └── scripts/          # runnable helpers
-└── agents/<agent-name>.md
+├── agents/<agent-name>.md
+├── commands/<command>.md # slash commands (author-facing + maintainer-only)
+├── hooks/                # PreToolUse hooks (e.g. block-bad-bash.sh)
+├── rules/                # operating doctrine, @-imported by CLAUDE.md
+└── workflows/            # multi-agent orchestration scripts
 ```
+
+> Only a curated allowlist ships to consumers (see [What gets installed](#what-gets-installed)); `CLAUDE.md` and `rules/` are repo-local and are never installed.
 
 ---
 
