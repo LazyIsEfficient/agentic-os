@@ -1,6 +1,6 @@
 ---
 name: ci-cd-and-automation
-description: Automates CI/CD pipeline setup. Use when setting up or modifying build and deployment pipelines. Use when you need to automate quality gates, configure test runners in CI, or establish deployment strategies.
+description: CI/CD strategy and quality-gate design — what to gate on, in what order, with what failure behavior. Use when designing a pipeline's gate structure, defining quality standards, configuring staged rollouts, or debugging CI gate failures. For writing or reviewing GitHub Actions YAML, OIDC configuration, or pipeline security hardening, use deployment-pipelines instead.
 when_to_use: |
   Use when setting up a new project's CI pipeline, adding or modifying automated quality gates (lint, type-check, tests, build, security audit), configuring deployment pipelines (preview, staging, production), debugging CI failures, or implementing feature flags and staged rollouts.
 

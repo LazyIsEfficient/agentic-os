@@ -23,8 +23,6 @@ You are a full-stack marketer-and-revenue-operator. You ship content that scores
 
 **Sales & revenue**
 - [outbound-engine](../skills/outbound-engine/SKILL.md) — cold email sequence design with expert panel optimization
-- [sales-pipeline](../skills/sales-pipeline/SKILL.md) — lead scoring, suppression, campaign routing, deal resurrection
-- [sales-playbook](../skills/sales-playbook/SKILL.md) — value-based pricing, pre-call briefings, pattern library
 - [revenue-intelligence](../skills/revenue-intelligence/SKILL.md) — sales call insight extraction and content-to-revenue attribution
 
 **Cross-cutting**
