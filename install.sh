@@ -85,13 +85,40 @@ install_dir() {
   echo "  ✓ $name → $dest_dir"
 }
 
+# Ship-tagged allowlist: copy ONLY the named files from $SRC/$name, never the
+# whole directory. Used for surfaces (commands) where some files are
+# maintainer-only and must not pollute a consumer's global namespace.
+install_files() {
+  local name="$1"; shift
+  local src_dir="$SRC/$name"
+  local dest_dir="$DEST/$name"
+
+  [[ -d "$src_dir" ]] || return 0
+
+  local copied=0
+  for rel in "$@"; do
+    local src="$src_dir/$rel"
+    [[ -f "$src" ]] || continue
+    local target="$dest_dir/$rel"
+    if [[ "$FORCE" == "true" || ! -e "$target" ]]; then
+      mkdir -p "$(dirname "$target")"
+      cp "$src" "$target"
+    fi
+    copied=$((copied + 1))
+  done
+
+  [[ "$copied" -gt 0 ]] && echo "  ✓ $name ($copied ship-tagged) → $dest_dir"
+}
+
 echo ""
 echo "Installing to $DEST"
 
 install_dir "skills"
 install_dir "agents"
-install_dir "commands"
-install_dir "workflows"
+# Commands: ship-tagged allowlist ONLY. Maintainer-only commands
+# (audit-library, review-gate) and ALL workflows stay in-repo and are never
+# installed — see .claude/plans/ship-commands-workflows.md ship/no-ship table.
+install_files "commands" "skill-new.md" "agent-new.md"
 install_dir "hooks"
 
 # Ensure hook scripts are executable
@@ -100,6 +127,6 @@ if [[ -d "$DEST/hooks" ]]; then
 fi
 
 echo ""
-echo "Done. Restart Claude Code to load the new skills, agents, commands, and workflows."
+echo "Done. Restart Claude Code to load the new skills, agents, and commands."
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."
