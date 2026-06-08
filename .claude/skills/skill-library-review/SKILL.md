@@ -1,12 +1,14 @@
 ---
 name: skill-library-review
-description: Use when reviewing or auditing a library of Claude Code skills and agents — frontmatter correctness, routing quality, tool allowlists, cross-reference coherence, single-responsibility, file structure, and anti-pattern detection. Triggers on mentions of "review skills", "audit agents", "skill library", "agent definition review", "is this skill right", or when iterating on `.claude/skills/` or `.claude/agents/` directories. For code review of source code see code-review-and-quality.
+description: Use when reviewing or auditing a library of Claude Code skills, agents, slash commands, and workflows — frontmatter correctness, routing quality, tool allowlists, command arg-hints, workflow meta/phase coherence, cross-reference coherence, single-responsibility, file structure, and anti-pattern detection. Triggers on mentions of "review skills", "audit agents", "skill library", "agent definition review", "review this command", "review this workflow", "is this skill right", or when iterating on `.claude/skills/`, `.claude/agents/`, `.claude/commands/`, or `.claude/workflows/` directories. For code review of source code see code-review-and-quality.
 when_to_use: |
-  Use when reviewing or auditing `.claude/skills/` or `.claude/agents/`
-  directories: checking frontmatter correctness (name, description, tools
-  fields), assessing routing specificity and trigger vocabulary, verifying tool
-  allowlists match declared roles, confirming cross-references resolve and are
-  bidirectional, detecting single-responsibility violations, and catching
+  Use when reviewing or auditing `.claude/skills/`, `.claude/agents/`,
+  `.claude/commands/`, or `.claude/workflows/` directories: checking frontmatter
+  correctness (name, description, tools fields), assessing routing specificity
+  and trigger vocabulary, verifying tool allowlists match declared roles,
+  validating command `argument-hint`/`allowed-tools` against the body and
+  workflow `meta`/`phase()` coherence, confirming cross-references resolve and
+  are bidirectional, detecting single-responsibility violations, and catching
   anti-patterns like keyword bloat or dangling references.
 
   Not when: reviewing application source code for bugs or design problems — use
@@ -16,7 +18,7 @@ when_to_use: |
 
 # Skill Library Review
 
-You are reviewing a library of Claude Code agent and skill definitions — markdown files with YAML frontmatter that the loader uses to route work. The loader picks badly when descriptions are vague, single-responsibility is violated, or cross-references are stale. Your job is to catch those problems before users hit them.
+You are reviewing a library of Claude Code agent and skill definitions, plus slash **commands** (`.claude/commands/*.md`) and **workflows** (`.claude/workflows/*.js`) — markdown files with YAML frontmatter (and, for workflows, executable JS) that the loader uses to route and run work. The loader picks badly when descriptions are vague, single-responsibility is violated, or cross-references are stale; commands and workflows fail silently when their frontmatter promises something the body doesn't deliver. Your job is to catch those problems before users hit them.
 
 You operate read-only when reviewing. Cite `file:line` for every concrete finding.
 
@@ -39,7 +41,7 @@ You operate read-only when reviewing. Cite `file:line` for every concrete findin
 
 Most expensive to fix → least expensive. Stop at first blocking issue if a quick verdict was requested.
 
-1. **Library shape** — is this a skill, an agent, or an ambient rule? Are two definitions doing one job, or is one doing two?
+1. **Library shape** — is this a skill, an agent, an ambient rule, a command, or a workflow? Are two definitions doing one job, or is one doing two? For commands and workflows, review the frontmatter *against the body* — see [references/commands-and-workflows.md](references/commands-and-workflows.md) (command `argument-hint`/`allowed-tools`, `Agent`-not-`Task`; workflow pure-literal `meta`, `node --check`, schema-guaranteed fields).
 2. **Frontmatter correctness** — `name` matches file/dir, description structure, `tools` field validity
 3. **Description quality** — routing specificity, trigger vocabulary, proactive markers; verify any keyword collision against *both* skills' "not when" before flagging (see [references/description-and-routing.md](references/description-and-routing.md))
 4. **Tool allowlist coherence** — matches the declared role
@@ -53,6 +55,7 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 - [references/tool-allowlists.md](references/tool-allowlists.md) — agent tool permissions matrix, role-to-allowlist map, why Bash is a soft-write vector
 - [references/library-shape.md](references/library-shape.md) — skill vs agent vs ambient rule, consolidation and split heuristics, single-responsibility checks
 - [references/anti-patterns.md](references/anti-patterns.md) — catch-all: name collisions, keyword bloat, frontmatter drift, dangling refs, orchestrator-only agents
+- [references/commands-and-workflows.md](references/commands-and-workflows.md) — validation rules for slash commands (`.claude/commands/`) and workflows (`.claude/workflows/`): arg-hints, allowed-tools, `meta`/`phase()` coherence
 - [assets/review-template.md](assets/review-template.md) — verdict-first review output format
 
 ## Related skills
