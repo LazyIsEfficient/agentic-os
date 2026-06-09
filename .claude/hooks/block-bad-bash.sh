@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Bash: blocks two patterns that reliably trigger permission prompts.
+# PreToolUse hook on Bash: nudges away from two patterns that reliably trigger
+# permission prompts.
 #   1. `cd <path> && git ...`   — use `git -C <path> ...` instead
 #   2. 3+ commands chained with `&&` — split into separate Bash calls (parallel where independent)
 # Exits 2 with stderr message so Claude sees feedback and rewrites the call.
+#
+# NOT A SECURITY CONTROL. This is a best-effort ergonomics/UX nudge, not a
+# sandbox or a command filter. It does plain substring/regex matching, so it is
+# trivially and intentionally bypassable — `;`, `|`, `pushd`, subshells, and
+# command substitution all slip past, and Rule 2 counts `&&` literally so a
+# quoted `echo "a && b"` can false-positive. That is acceptable: the only cost
+# of a miss or a false hit is one extra (or one skipped) permission prompt.
+# Do NOT extend this pattern-by-pattern chasing completeness — anything that
+# needs real guarantees belongs in the permission system, not here.
 
 set -uo pipefail
 

@@ -392,19 +392,28 @@ check_ship_manifest() {
   fi
 }
 
+# Exact whole-token membership. `grep -w` treats '.' as a word character, so it
+# would let "route.md" match "routeXmd" — wrong for a manifest equality check.
+# -x (whole line) + -F (literal, no regex) against a newline-split haystack gives
+# true exact matching. Haystack tokens never contain spaces (dir/file names).
+in_set() {
+  local needle="$1"; shift
+  printf '%s\n' "$@" | grep -qxF -- "$needle"
+}
+
 compare_manifest() {
   local file="$1" got_dirs="$2" got_cmds="$3"
   # dirs
   if [[ "$got_dirs" != "$EXPECTED_DIRS" ]]; then
     local d
-    for d in $got_dirs;      do grep -qw -- "$d" <<<"$EXPECTED_DIRS" || fail ship-manifest "$file" "ships unexpected dir: $d"; done
-    for d in $EXPECTED_DIRS; do grep -qw -- "$d" <<<"$got_dirs"      || fail ship-manifest "$file" "missing expected dir: $d"; done
+    for d in $got_dirs;      do in_set "$d" $EXPECTED_DIRS || fail ship-manifest "$file" "ships unexpected dir: $d"; done
+    for d in $EXPECTED_DIRS; do in_set "$d" $got_dirs      || fail ship-manifest "$file" "missing expected dir: $d"; done
   fi
   # commands
   if [[ "$got_cmds" != "$EXPECTED_CMDS" ]]; then
     local c
-    for c in $got_cmds;      do grep -qw -- "$c" <<<"$EXPECTED_CMDS" || fail ship-manifest "$file" "ships unexpected command: $c"; done
-    for c in $EXPECTED_CMDS; do grep -qw -- "$c" <<<"$got_cmds"      || fail ship-manifest "$file" "missing expected command: $c"; done
+    for c in $got_cmds;      do in_set "$c" $EXPECTED_CMDS || fail ship-manifest "$file" "ships unexpected command: $c"; done
+    for c in $EXPECTED_CMDS; do in_set "$c" $got_cmds      || fail ship-manifest "$file" "missing expected command: $c"; done
   fi
 }
 
