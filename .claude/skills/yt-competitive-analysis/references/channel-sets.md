@@ -1,5 +1,10 @@
 # YouTube Competitive Analysis — Predefined Channel Sets
 
+> **Reference only — not the source of truth.** This file is a human-readable
+> mirror of the `AI_CHANNELS` and `BIZ_CHANNELS` dicts in `analyze.py`, which is
+> what the tool actually reads. To change the sets the tool uses, edit those
+> dicts in `analyze.py`; keep this file in sync by hand for readers.
+
 ## `ai` — AI Creators
 
 Jeff Su, Alex Finn, Riley Brown, Dan Martell, Matt Wolfe, Nate Herk, Grace Leung, Matt Berman
@@ -14,4 +19,4 @@ All channels from `ai` and `business` combined.
 
 ---
 
-Update this file as channels rise, fall, or become irrelevant to your competitive landscape.
+As channels rise, fall, or become irrelevant, update the `AI_CHANNELS`/`BIZ_CHANNELS` dicts in `analyze.py` (the source of truth), then mirror the change here.

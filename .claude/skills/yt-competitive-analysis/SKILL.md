@@ -36,7 +36,7 @@ python3 analyze.py "$YOUTUBE_API_KEY" --set both --output console
 
 ## Predefined Channel Sets
 
-The `ai`, `business`, and `both` sets are defined in [references/channel-sets.md](references/channel-sets.md) — the single source of truth. Edit that file to add, remove, or retire channels.
+The `ai`, `business`, and `both` sets are defined by the `AI_CHANNELS` and `BIZ_CHANNELS` dicts in `analyze.py` — the single source of truth the tool actually reads. Edit those dicts to add, remove, or retire channels. [references/channel-sets.md](references/channel-sets.md) is a human-readable mirror for reference only; editing it does not change tool behavior.
 
 ## Output Interpretation
 
@@ -61,4 +61,4 @@ The `ai`, `business`, and `both` sets are defined in [references/channel-sets.md
 
 ## References
 
-- [references/channel-sets.md](references/channel-sets.md) — the predefined `ai`, `business`, and `both` channel sets; maintain this file as channels rise and fall
+- [references/channel-sets.md](references/channel-sets.md) — human-readable mirror of the predefined `ai`, `business`, and `both` channel sets; the authoritative definitions live in `analyze.py` (`AI_CHANNELS`/`BIZ_CHANNELS`)

@@ -1,6 +1,6 @@
 ---
 name: deck-generator
-description: Generate professional presentations with AI-generated images. Use when asked to create a deck, presentation, pitch deck, or slides. Supports style presets (whiteboard, corporate, minimalist, etc). Uses Imagen 4.0 API for image generation and Google Slides API for assembly. Produces full decks from markdown content specs in minutes.
+description: Generate professional presentations as AI-generated slide images. Use when asked to create a deck, presentation, pitch deck, or slides. Supports style presets (whiteboard, corporate, minimalist, etc). Uses Imagen 4.0 API for image generation; outputs local PNG images from markdown content specs in minutes (Google Slides auto-assembly is planned, not yet implemented).
 when_to_use: |
   Use when asked to create a deck, presentation, pitch deck, or slides — including converting a
   game concept one-pager into a publisher/investor pitch deck. Accepts a topic, a markdown file,
