@@ -91,7 +91,7 @@ install_dir() {
   else
     # Copy files individually so we never overwrite existing files on any platform
     while IFS= read -r -d '' file; do
-      local rel="${file#$src_dir/}"
+      local rel="${file#"$src_dir"/}"
       local target="$dest_dir/$rel"
       if [[ ! -e "$target" ]]; then
         mkdir -p "$(dirname "$target")"
