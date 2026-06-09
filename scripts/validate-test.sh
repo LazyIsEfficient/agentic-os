@@ -114,7 +114,9 @@ assert_trips "case 4 claude-imports (missing import)" "$c4" claude-imports
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"
 mkdir -p "$c5/.claude/memory"
-yes '- [x](x.md) — y' | head -201 > "$c5/.claude/memory/MEMORY.md"
+# awk loop (not `yes`): GNU `yes` parses a leading-dash argument as options and
+# errors out, leaving an empty file so the invariant never trips (BSD `yes` does not).
+awk 'BEGIN { for (i = 0; i < 201; i++) print "- [x](x.md) — y" }' > "$c5/.claude/memory/MEMORY.md"
 printf 'x\n' > "$c5/.claude/memory/x.md"   # keep links resolving so only memory-length trips
 assert_trips "case 5 memory-length (201 lines)" "$c5" memory-length
 

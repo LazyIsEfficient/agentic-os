@@ -21,23 +21,23 @@ Scans and redacts PII / sensitive data from files in this repo.
 
 ```bash
 # Scan the whole repo (dry run — changes nothing)
-python3 security/sanitizer.py --scan --dir . --recursive
+python3 .claude/skills/security/sanitizer.py --scan --dir . --recursive
 
 # Scan a single file
-python3 security/sanitizer.py --scan --file path/to/file.py
+python3 .claude/skills/security/sanitizer.py --scan --file path/to/file.py
 
 # Redact PII in place
-python3 security/sanitizer.py --sanitize --file path/to/file.py
+python3 .claude/skills/security/sanitizer.py --sanitize --file path/to/file.py
 
 # Redact everything recursively
-python3 security/sanitizer.py --sanitize --dir . --recursive
+python3 .claude/skills/security/sanitizer.py --sanitize --dir . --recursive
 ```
 
 Exit codes: `0` = clean, `1` = PII found (useful for CI).
 
 ## Configuration
 
-Edit `security/sanitizer-config.json`:
+Edit `.claude/skills/security/sanitizer-config.json`:
 
 ```json
 {
@@ -63,7 +63,7 @@ Edit `security/sanitizer-config.json`:
 Install to block commits containing PII:
 
 ```bash
-cp security/pre-commit-hook.sh .git/hooks/pre-commit
+cp .claude/skills/security/pre-commit-hook.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
