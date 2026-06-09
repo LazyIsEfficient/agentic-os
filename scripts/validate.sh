@@ -62,6 +62,7 @@ fail() {
 # Prints nothing if there is no well-formed block.
 fm_block() {
   awk '
+    { sub(/\r$/, "") }               # tolerate CRLF line endings
     NR==1 && $0!="---" { exit }      # no frontmatter at all
     NR==1 { inside=1; next }
     inside && $0=="---" { exit }
