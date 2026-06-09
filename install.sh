@@ -57,6 +57,24 @@ else
   SRC="$TMP/$REPO_NAME-$BRANCH/.claude"
 fi
 
+# ── Validate before copying ───────────────────────────────────────────────────
+# Repo root is the parent of $SRC (which points at .../<root>/.claude) for both
+# the local clone and the downloaded tarball. The validator lives at repo-root
+# scripts/validate.sh in both cases. Fail closed: never copy from a library that
+# fails the structural invariants.
+REPO_ROOT="$(cd "$(dirname "$SRC")" && pwd)"
+if [[ -f "$REPO_ROOT/scripts/validate.sh" ]]; then
+  echo ""
+  echo "Validating library structure ..."
+  if ! bash "$REPO_ROOT/scripts/validate.sh" "$REPO_ROOT"; then
+    echo "Error: library failed structural validation — aborting install." >&2
+    exit 1
+  fi
+else
+  echo "Error: scripts/validate.sh not found at $REPO_ROOT — aborting install." >&2
+  exit 1
+fi
+
 # ── Install ───────────────────────────────────────────────────────────────────
 
 install_dir() {

@@ -256,6 +256,26 @@ Pull requests welcome. Each skill should have a `SKILL.md` with valid frontmatte
 
 ---
 
+## Validating the library
+
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `MEMORY.md` length, and that the install scripts ship exactly the curated allowlist.
+
+Enable the pre-commit hook once per clone so the validator runs before every commit:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+Run it manually any time:
+
+```sh
+bash scripts/validate.sh
+```
+
+CI enforces the same check on every pull request and push to `main`, and `install.sh` runs it before copying anything — a library that fails validation will not install.
+
+---
+
 ## License
 
 MIT

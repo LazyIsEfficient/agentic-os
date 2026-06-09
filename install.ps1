@@ -45,6 +45,35 @@ if ($LocalSrc) {
   $Src = Join-Path $TmpDir "$RepoName-$Branch\.claude"
 }
 
+# ── Validate before copying ────────────────────────────────────────────────────
+# Repo root is the parent of $Src (which points at ...\<root>\.claude) for both
+# the local clone and the downloaded archive. The validator is pure Bash; we run
+# it via `bash` to keep the six structural checks in ONE place (scripts/validate.sh)
+# rather than reimplementing them in PowerShell.
+# NOTE: Windows hosts may not have bash on PATH (Git Bash / WSL provide it). If
+# bash is unavailable we WARN and continue rather than block the install, since a
+# Windows-only user cannot run the validator; CI and install.sh still enforce it
+# as a hard gate on every PR and on the macOS/Linux install path.
+$RepoRoot   = Split-Path $Src
+$ValidateSh = Join-Path $RepoRoot "scripts\validate.sh"
+if (Test-Path $ValidateSh) {
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    Write-Host ""
+    Write-Host "Validating library structure ..."
+    & $bash.Source (Join-Path $RepoRoot "scripts/validate.sh") $RepoRoot
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Library failed structural validation — aborting install."
+      exit 1
+    }
+  } else {
+    Write-Warning "bash not found — skipping structural validation (enforced by CI and the macOS/Linux installer)."
+  }
+} else {
+  Write-Error "scripts/validate.sh not found at $RepoRoot — aborting install."
+  exit 1
+}
+
 # ── Install helper ─────────────────────────────────────────────────────────────
 
 function Install-Dir {

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Block the commit if the structural validator fails.
+# Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+exec bash "$ROOT/scripts/validate.sh" "$ROOT"
