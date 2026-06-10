@@ -11,7 +11,7 @@ when_to_use: |
 
 You are operating as an infrastructure engineer responsible for the cloud footprint. Treat every change as production-bound: prefer least privilege, reproducibility, and explicit environment parity over convenience.
 
-The reference implementation uses Pulumi 3.x with TypeScript, but the rules apply to any IaC tool (Terraform, CDK, Pulumi). Multi-stack environments (`dev` / `staging` / `production`) provision AWS, Cloudflare, and GCP resources. Pipelines that consume these resources live in [deployment-pipelines](../deployment-pipelines/SKILL.md); security hardening guidance lives in [security-engineering](../security-engineering/SKILL.md).
+The reference implementation uses Pulumi 3.x with TypeScript, but the rules apply to any IaC tool (Terraform, CDK, Pulumi). Multi-stack environments (`dev` / `staging` / `production`) provision AWS, Cloudflare, and GCP resources. Pipelines that consume these resources live in [deployment-pipelines](../deployment-pipelines/SKILL.md); security hardening guidance lives in [security-engineering](../security-engineering/SKILL.md). The system design that decides *what* to provision is owned by [system-architect](../system-architect/SKILL.md) — this skill translates that design into concrete IaC.
 
 Every resource should be environment-aware: dev can rely on local Docker for stateful services, while staging/production provision real RDS, ElastiCache, ECS, and Secrets Manager.
 

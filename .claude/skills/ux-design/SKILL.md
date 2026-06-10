@@ -73,6 +73,7 @@ For *generative research* that informs what to design (interviews, discovery, JT
 - [ux-research](../ux-research/SKILL.md) — the practice that produces the evidence you design from; pair early and often
 - [technical-product-management](../technical-product-management/SKILL.md) — TPM picks the problems; design solves them. Pair on which experience problems to take on, and on launch readiness for design work.
 - [godot-engineer](../godot-engineer/SKILL.md) — game UI is UX. Accessibility, microcopy, hierarchy, feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
+- [game-systems-designer](../game-systems-designer/SKILL.md) — specs the game systems and player verbs; this skill designs the screens, flows, and microcopy that sit on top of them
 - [system-architect](../system-architect/SKILL.md) — UX surfaces non-functional requirements (latency, offline, data freshness) that constrain architecture; the architect surfaces constraints that constrain UX
 - [software-design](../software-design/SKILL.md) — the ubiquitous language the design uses should match the domain model; coordination here prevents months of vocabulary drift
 - [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — accessibility testing (jest-axe, axe-core) is a shared concern; design provides the criteria, tests enforce them

@@ -62,3 +62,4 @@ After review is complete:
 - [skill-library-review](../skill-library-review/SKILL.md) — applies the same review discipline to agent and skill definitions rather than source code
 - [software-design](../software-design/SKILL.md) — for review focused solely on internal design (cohesion, coupling, where logic belongs)
 - [standards-enforcer](../standards-enforcer/SKILL.md) — the gate-time standards/ADR/strategy-compliance lens that sits on top of this multi-axis review
+- [source-driven-development](../source-driven-development/SKILL.md) — grounds implementation in official docs upstream; its source citations feed into the correctness axis of this review

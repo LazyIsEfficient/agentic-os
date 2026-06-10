@@ -42,3 +42,4 @@ See [references/recommended-workflow.md](references/recommended-workflow.md) for
 ## Related skills
 
 - [content-ops](../content-ops/SKILL.md) — quality scoring gate for the content before conversion work begins
+- [autoresearch](../autoresearch/SKILL.md) — generates and multi-round-optimizes the conversion-copy variants this skill then audits and scores
