@@ -14,6 +14,9 @@ when_to_use: |
   prioritized keyword target list scored by Impact × Confidence.
 
   Not when: running growth experiments or A/B tests — use growth-engine instead.
+  Not when the content-gap analysis is REVENUE/pipeline-driven (which content
+  drives deals or revenue, buyer-journey gaps) rather than SEO/search-driven —
+  use revenue-intelligence; this skill's gap analysis is keyword/search-demand-driven.
   For deep content research and optimization use [autoresearch](../autoresearch/SKILL.md).
 ---
 

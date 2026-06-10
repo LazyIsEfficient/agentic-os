@@ -13,6 +13,11 @@ when_to_use: |
   rollback triggers) after the pipeline has run — use `site-reliability-engineering` instead.
   Not when "release" means coordinating the release itself (CHANGELOG, release assessment,
   version tag, stakeholder comms) rather than the pipeline YAML — use `release-manager`.
+  Not when the task is designing the CI/CD gate structure, quality-gate strategy, or
+  preview/staging/production promotion flow (rather than authoring the workflow YAML or
+  doing pipeline security hardening) — use `ci-cd-and-automation`. Not when the task is
+  DevOps build-system, artifact-registry, or environment-promotion mechanics (rather than
+  GitHub Actions YAML authoring) — use `devops-engineer`.
 ---
 
 # Deployment Pipelines

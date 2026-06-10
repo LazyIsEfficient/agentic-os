@@ -176,19 +176,12 @@ const VERDICT_SCHEMA = {
         "Evidence: quote the actual 'Not when ... use <other>' line from each side, or state which side's tiebreaker is absent.",
     },
   },
-  // Enforce severity <-> isRealCollision consistency per the verdict table:
-  //   isRealCollision=false  => severity MUST be "none" (resolved / no contention)
-  //   isRealCollision=true   => severity MUST be a non-none level (should-fix | blocking)
-  allOf: [
-    {
-      if: { properties: { isRealCollision: { const: false } } },
-      then: { properties: { severity: { const: "none" } } },
-    },
-    {
-      if: { properties: { isRealCollision: { const: true } } },
-      then: { properties: { severity: { enum: ["should-fix", "blocking"] } } },
-    },
-  ],
+  // NOTE: do NOT add a top-level allOf/oneOf/anyOf here. Anthropic tool
+  // input_schema rejects them with "400 input_schema does not support oneOf,
+  // allOf, or anyOf at the top level", which makes EVERY StructuredOutput call
+  // in this phase fail silently (the agent completes without a verdict). The
+  // severity<->isRealCollision consistency the schema used to encode is enforced
+  // at runtime by reconcileSeverity() below instead.
 };
 
 // ---------------------------------------------------------------------------

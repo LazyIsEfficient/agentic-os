@@ -9,8 +9,9 @@ when_to_use: |
 
   Not when: the task is end-to-end testing of a browser UI — use `browser-testing-with-devtools`
   instead. Not when the task is writing tests for React components or hooks — use
-  `typescript-testing-frontend` instead. Not when the task is UX research or flow design without
-  implementation — use `ux-design` or `ux-research` instead.
+  `typescript-testing-frontend` instead. Not when the work is game/canvas rendering in Phaser
+  (Phaser scenes, GameObjects, Arcade physics) — use `phaser-engineer` instead. Not when the task
+  is UX research or flow design without implementation — use `ux-design` or `ux-research` instead.
 ---
 
 # Frontend UI Engineering

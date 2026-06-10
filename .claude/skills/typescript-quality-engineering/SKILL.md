@@ -4,7 +4,7 @@ description: Use when establishing or auditing cross-cutting test strategy acros
 when_to_use: |
   Use when establishing or auditing cross-cutting test strategy across the TypeScript stack: writing or reviewing Playwright E2E specs, configuring `playwright.config.*`, writing smart contract tests (Hardhat/Foundry), defining test policy and the test pyramid, setting coverage thresholds, or configuring the test CI workflow. This is the umbrella skill for QE concerns that span multiple layers.
 
-  Not when: the task is writing or reviewing unit/integration tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is writing or reviewing tests for React components or hooks — use typescript-testing-frontend. Not when the task is writing Solidity contract logic itself — use web3-smart-contract-engineering.
+  Not when: the task is writing or reviewing unit/integration tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is writing or reviewing tests for React components or hooks — use typescript-testing-frontend. Not when the task is writing Solidity contract logic itself — use web3-smart-contract-engineering. Not when the tests are for Solidity/EVM smart contracts (Foundry/Hardhat contract tests) — use web3-smart-contract-engineering.
 ---
 
 # Quality Engineering (TypeScript)

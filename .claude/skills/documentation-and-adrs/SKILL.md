@@ -9,7 +9,9 @@ when_to_use: |
 
   Not when: the task is keeping docs/ in sync with an ongoing PR diff — use `documentation-writer`
   for that incremental work. Not when the task is obvious code-level comments — those belong
-  inline in the code without a separate skill.
+  inline in the code without a separate skill. Not when the changelog work is part of cutting or
+  coordinating a release (release notes for a version, release train, version-tagged changelog
+  entry) — use `release-manager`; this skill owns standalone changelog/ADR/README/API-doc authoring.
 ---
 
 # Documentation and ADRs

@@ -4,7 +4,7 @@ description: Use when writing or reviewing TypeScript frontend tests — Jest un
 when_to_use: |
   Use when writing or reviewing TypeScript frontend tests: Jest unit/integration tests for React components and hooks using React Testing Library, with Chakra UI, React Query, Zustand, and Next.js App Router. The key signals are `*.test.tsx` files, component test helpers, or any request to test a React UI, component behavior, or custom hook.
 
-  Not when: the task is writing tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is E2E flows, smart contract tests, or cross-cutting test policy — use typescript-quality-engineering. Not when the task is writing production React component code — use frontend-ui-engineering.
+  Not when: the task is writing tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is E2E flows, smart contract tests, or cross-cutting test policy — use typescript-quality-engineering. Not when the task is writing production React component code — use frontend-ui-engineering. Not when the task is running or verifying the UI in a real browser (Chrome DevTools, visual/layout/interaction verification) — use browser-testing-with-devtools.
 ---
 
 # TypeScript Testing — Frontend
