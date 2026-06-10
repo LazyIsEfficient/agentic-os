@@ -25,3 +25,6 @@ Thumbs.db
 node_modules/
 
 pocs/
+
+# Release artifacts built by scripts/release.sh (not source)
+/agentic-os-*.tar.gz
