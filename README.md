@@ -13,7 +13,7 @@ extracting anything — see [Verifying the download](#verifying-the-download).
 
 - **Current release:** `v1.0.0`
 - **Asset:** `agentic-os-v1.0.0.tar.gz`
-- **SHA-256:** `59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6`
+- **SHA-256:** `11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c`
 
 ### macOS / Linux
 
@@ -61,9 +61,9 @@ yourself:
 ```bash
 curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v1.0.0/agentic-os-v1.0.0.tar.gz
 # macOS / BSD:
-echo "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6  agentic-os-v1.0.0.tar.gz" | shasum -a 256 -c
+echo "11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c  agentic-os-v1.0.0.tar.gz" | shasum -a 256 -c
 # Linux (coreutils):
-echo "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6  agentic-os-v1.0.0.tar.gz" | sha256sum -c
+echo "11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c  agentic-os-v1.0.0.tar.gz" | sha256sum -c
 ```
 
 There is intentionally no "track `main`" remote install path — to install
