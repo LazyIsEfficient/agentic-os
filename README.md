@@ -1,8 +1,10 @@
-# Skills Library
+# Engineering Heresy — Agentic Framework
 
 A collection of skills and agents for [Claude Code](https://claude.ai/code) that encode engineering workflows, content pipelines, game development, marketing ops, and more into reusable AI playbooks.
 
 Install once, use in any project.
+
+> Part of **[Engineering Heresy](https://geggleto.substack.com/)** by Glenn Eggleton — challenging conventional wisdom in AI and software engineering. **[Subscribe on Substack →](https://geggleto.substack.com/)**
 
 ---
 
