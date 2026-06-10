@@ -16,13 +16,28 @@
 #
 # Why a self-built asset (not GitHub's auto-generated source tarball): GitHub
 # does not guarantee its `archive/refs/tags/*.tar.gz` is byte-stable over time,
-# so a pinned digest of it can spuriously break. `git archive | gzip -n` is
-# reproducible (gzip -n drops the mtime/name from the header), so the digest is
-# stable across rebuilds of the same ref.
+# so a pinned digest of it can spuriously break.
+#
+# Why the digest is CONTENT-only (and how — do not "simplify" this):
+#   - We archive the TREE (`$REF^{tree}`), NOT the commit. `git archive <commit>`
+#     embeds the commit SHA in a pax global header, so two commits with identical
+#     payloads would produce different tarballs (and digests).
+#   - We pass `--mtime` (a fixed epoch). For a tree, `git archive` would otherwise
+#     stamp entries with the CURRENT time (non-reproducible across runs); for a
+#     commit it uses the commit date (varies per commit). A fixed mtime removes
+#     both. Requires git >= 2.38.
+#   - `gzip -n` drops the mtime/name from the gzip header.
+# Net: the digest depends ONLY on the payload bytes — so updating the pinned
+# digest (a new commit, new timestamp) does NOT change it, which is what makes
+# the pin-then-tag-then-verify flow non-circular.
 #
 # Why the asset excludes the installers/README: they embed the digest, so
 # including them would make the hash self-referential. The asset is ONLY the
 # install payload — the library plus the validator the installer runs.
+
+# Fixed modification time for every archived entry (any constant works; the value
+# only needs to be stable across runs/commits).
+ARCHIVE_MTIME="1970-01-01T00:00:00Z"
 
 set -euo pipefail
 
@@ -38,10 +53,19 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ASSET="$REPO_NAME-$VERSION.tar.gz"
 PREFIX="$REPO_NAME-$VERSION/"
 
+# `git archive --mtime` needs git >= 2.38. Guard explicitly so an old git fails
+# with a clear message instead of a cryptic "unknown option --mtime".
+gitver="$(git --version | awk '{print $3}')"
+if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; then
+  echo "Error: release.sh needs git >= 2.38 (for 'git archive --mtime'); found $gitver." >&2
+  exit 1
+fi
+
 # Reproducible payload: .claude (everything the installer copies) + the single
 # validator script the installer runs before copying. Nothing else.
-git -C "$ROOT" archive --format=tar --prefix="$PREFIX" "$REF" \
-    .claude scripts/validate.sh | gzip -n > "$ROOT/$ASSET"
+# Archive the TREE (not the commit) with a fixed mtime — see header for why.
+git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
+    "$REF^{tree}" .claude scripts/validate.sh | gzip -n > "$ROOT/$ASSET"
 
 # Fail closed: validate EXACTLY what we packed (extract the asset and run its
 # own validator), not the working tree — they can differ when REF != HEAD or the

@@ -11,10 +11,15 @@ shipped to consumers.
   tagged release asset — never a moving branch. There is no "track `main`"
   remote path; unreleased changes are installed from a local clone
   (`./install.sh`), which copies the working tree directly and does no download.
-- **Self-built, reproducible asset.** `scripts/release.sh` builds the asset with
-  `git archive | gzip -n`, which is byte-stable across rebuilds of the same ref.
-  GitHub's auto-generated `archive/refs/tags/*.tar.gz` is **not** guaranteed
-  byte-stable, so we do not pin its digest.
+- **Self-built, content-addressed asset.** `scripts/release.sh` builds the asset
+  by archiving the *tree* with a fixed mtime (`git archive --mtime … <ref>^{tree}
+  | gzip -n`), so the digest depends only on the payload bytes — identical across
+  commits and rebuilds. (Archiving a *commit* would embed the commit SHA + commit
+  date and produce a different digest per commit; that subtlety is what makes
+  pinning non-circular — see the comment block in `scripts/release.sh`.) Requires
+  **git ≥ 2.38** (for `git archive --mtime`). GitHub's auto-generated
+  `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
+  pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload*
   (`.claude/` plus `scripts/validate.sh`, the validator the installer runs). It
   excludes `install.sh` / `install.ps1` / `README.md`, which embed the digest —

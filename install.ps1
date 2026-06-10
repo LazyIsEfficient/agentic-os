@@ -30,7 +30,7 @@ $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 # must be updated together — $ExpectedSha256 is the digest of the release asset
 # built from tag $Version.
 $Version        = "v1.0.0"
-$ExpectedSha256 = "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6"
+$ExpectedSha256 = "11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 

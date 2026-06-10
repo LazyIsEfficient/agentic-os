@@ -26,7 +26,7 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
 VERSION="v1.0.0"
-EXPECTED_SHA256="59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6"
+EXPECTED_SHA256="11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c"
 
 DEST="${CLAUDE_DIR:-$HOME/.claude}"
 FORCE=false
