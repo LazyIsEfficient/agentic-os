@@ -46,9 +46,9 @@ apps/platform-app/
 
 | Type | Pattern | Example |
 |---|---|---|
-| Service tests | `{module}.service.test.ts` |
-| Controller tests | `{module}.controller.test.ts` |
-| Integration tests | `{feature}.integration.test.ts` |
+| Service tests | `{module}.service.test.ts` | `user.service.test.ts` |
+| Controller tests | `{module}.controller.test.ts` | `user.controller.test.ts` |
+| Integration tests | `{feature}.integration.test.ts` | `checkout.integration.test.ts` |
 
 ## Coverage Configuration
 
