@@ -1,6 +1,6 @@
 # AI Outbound Engine
 
-From ICP definition to emails in inbox — fully automated cold outbound.
+From ICP definition to ready-to-load copy — cold outbound prepared for human review and send.
 
 This skill category handles the complete cold outbound pipeline: defining your ideal customer profile, writing expert-scored email sequences, sourcing and verifying leads, deduplicating against existing campaigns, uploading to your email platform, and monitoring the competitive landscape.
 
@@ -132,11 +132,12 @@ outbound-engine/
 │   ├── competitive-monitor.py          # Competitor tracking
 │   ├── cross-signal-detector.py        # Multi-source signal detection
 │   └── cold-outbound-sender.py         # Send approved outbound emails
-└── references/
-    ├── expert-panel.md                 # Default 10-expert scoring roster
-    ├── copy-rules.md                   # Cold email copywriting rules
-    ├── icp-template.md                 # ICP data collection template
-    └── instantly-rules.md              # Instantly variable syntax & deliverability rules
+├── references/
+│   ├── expert-panel.md                 # Default 10-expert scoring roster
+│   ├── copy-rules.md                   # Cold email copywriting rules
+│   └── instantly-rules.md              # Instantly variable syntax & deliverability rules
+└── assets/
+    └── icp-template.md                 # ICP data collection template
 ```
 
 ## Requirements
@@ -148,7 +149,7 @@ outbound-engine/
 
 ## Customization
 
-- **ICP**: Edit `references/icp-template.md` or provide parameters at runtime
+- **ICP**: Edit `assets/icp-template.md` or provide parameters at runtime
 - **Expert Panel**: Swap panelists in `references/expert-panel.md` for your industry
 - **Competitors**: Configure the `COMPETITORS` dict in `competitive-monitor.py`
 - **Send limits**: Adjust `MAX_PER_DAY` in `cold-outbound-sender.py`

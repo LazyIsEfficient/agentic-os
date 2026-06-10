@@ -68,7 +68,7 @@ Always present a range with explicit assumptions; never a single number.
    program management, tech writing, DevOps) to produce a role-by-role breakdown across company
    stages, plus a full-team total.
 
-7. **Assemble the estimate.** Use the structure in `references/output-template.md`: codebase
+7. **Assemble the estimate.** Use the structure in `assets/output-template.md`: codebase
    metrics, dev hours, calendar time, market rates, engineering cost (low/median/high), full-team
    cost, grand-total summary, confidence level, and assumptions.
 
@@ -90,5 +90,5 @@ Always present a range with explicit assumptions; never a single number.
 - `references/rates.md` — lines-per-hour productivity bands and overhead multipliers
 - `references/org-overhead.md` — efficiency factors and the calendar-time formula
 - `references/team-cost.md` — supporting-role ratios and full-team multipliers
-- `references/output-template.md` — the stakeholder-ready estimate template
+- `assets/output-template.md` — the stakeholder-ready estimate template
 - `references/claude-roi.md` — AI/Claude ROI calculation method

@@ -25,7 +25,7 @@ The real value here. 24 specific patterns that reveal AI-generated text:
 | Promotional language | "boasts a vibrant..." | Use specific numbers instead |
 | AI vocabulary clustering | 3+ banned words in one paragraph | Rewrite the paragraph |
 
-**Scoring:** Start at 100, deduct per pattern violation. Ship at 90+. Rewrite from scratch below 75.
+**Scoring:** Start at 100, deduct per pattern violation. Ship at 90+. Rewrite from scratch below 50.
 
 Full checklist with all 24 patterns and deduction weights in `references/humanizer-checklist.md`.
 

@@ -26,11 +26,11 @@ End-to-end cold outbound: ICP definition, expert panel copy scoring (recursive t
 
 **Optimize existing** — there is a live account to learn from. First questions: (1) Do you have an Instantly API key? (2) Which campaigns are underperforming, and on what metric? (3) Is there historical data to pull? With an API key, run `scripts/instantly-audit.py` to pull campaigns, account inventory, and warmup scores before touching copy.
 
-**Start from scratch** — no campaigns yet. First questions: (1) Who is the ICP (titles, industries, company size)? (2) What do you sell, in one jargon-free sentence, and what is the primary offer (audit, trial, demo, call)? (3) What proof points are real and linkable? Use `references/icp-template.md` to collect the ICP before writing copy.
+**Start from scratch** — no campaigns yet. First questions: (1) Who is the ICP (titles, industries, company size)? (2) What do you sell, in one jargon-free sentence, and what is the primary offer (audit, trial, demo, call)? (3) What proof points are real and linkable? Use `assets/icp-template.md` to collect the ICP before writing copy.
 
 ## The Three Phases (summary)
 
-1. **Discovery & Audit** — Determine mode. If audit mode, run the Instantly audit and flag any account with warmup score <80 or <14 days as NOT ready. Define the ICP, capture business context (offer, real URLs, proof points), and confirm the expert-panel roster. Detail in `references/workflow.md`; ICP fields in `references/icp-template.md`.
+1. **Discovery & Audit** — Determine mode. If audit mode, run the Instantly audit and flag any account with warmup score <80 or <14 days as NOT ready. Define the ICP, capture business context (offer, real URLs, proof points), and confirm the expert-panel roster. Detail in `references/workflow.md`; ICP fields in `assets/icp-template.md`.
 2. **Expert Panel Recursive Scoring** — Draft the sequence, then score it with the 10-expert panel (`references/expert-panel.md`), each scoring through their own lens. Each round emits a per-panelist score table, an aggregate, the top weaknesses, the edits made, and the revised copy. Score honestly — no padding to 90. Below 90: fix the top 3 weaknesses and run another round. At ≥90: finalize. Copy must follow `references/copy-rules.md` (and `references/instantly-rules.md` for Instantly variable/deliverability rules).
 3. **Deliverables** — Produce the strategy doc: brutal-truth analysis, ICP summary, infrastructure status, every scoring round, final copy for every step, implementation plan, capacity math, weekly metric targets, and STOP/START lists. Full doc structure in `references/workflow.md`.
 
@@ -55,6 +55,11 @@ The core skill is the three-phase design workflow above. Three scripts ship in t
 | `references/instantly-rules.md` | Instantly variable syntax, sequence structure, deliverability rules |
 | `references/expert-panel.md` | Default 10-expert roster with scoring lenses |
 | `references/copy-rules.md` | Email copy rules (first sentence, CTA, stats framing) |
-| `references/icp-template.md` | ICP data collection template |
+| `assets/icp-template.md` | ICP data collection template |
 | `scripts/instantly-audit.py` | Pulls campaigns, accounts, warmup scores via Instantly v2 API (write paths gated) |
 | `scripts/cold-outbound-sender.py` | Sends approved emails — gated; human approval required (see Sending Gate) |
+
+## Related skills
+
+- [content-ops](../content-ops/SKILL.md) — expert-panel quality gate; the recursive 90+ scoring of sequence copy is a content-ops review pass
+- [marketing-shaper](../marketing-shaper/SKILL.md) — produces the scoped outbound brief (ICP, goal, structure) this skill executes from
