@@ -8,12 +8,19 @@ Install once, use in any project.
 
 ## Install
 
+The one-liners install a **pinned release** and verify its SHA-256 before
+extracting anything — see [Verifying the download](#verifying-the-download).
+
+- **Current release:** `v1.0.0`
+- **Asset:** `agentic-os-v1.0.0.tar.gz`
+- **SHA-256:** `59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6`
+
 ### macOS / Linux
 
 **One-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash
 ```
 
 **Or from a local clone:**
@@ -31,7 +38,7 @@ Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/com
 **One-liner (no clone required):**
 
 ```powershell
-irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.ps1 | iex
 ```
 
 **Or from a local clone:**
@@ -42,7 +49,26 @@ cd agentic-os
 .\install.ps1
 ```
 
-Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files.
+Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files. (The remote install uses `tar`, which ships with Windows 10 1803+.)
+
+### Verifying the download
+
+The remote install path downloads the pinned release asset and aborts if its
+SHA-256 does not match the digest embedded in the installer. To verify
+out-of-band before trusting the one-liner, download the asset and check it
+yourself:
+
+```bash
+curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v1.0.0/agentic-os-v1.0.0.tar.gz
+# macOS / BSD:
+echo "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6  agentic-os-v1.0.0.tar.gz" | shasum -a 256 -c
+# Linux (coreutils):
+echo "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6  agentic-os-v1.0.0.tar.gz" | sha256sum -c
+```
+
+There is intentionally no "track `main`" remote install path — to install
+unreleased changes, clone the repo and run `./install.sh` from the clone.
+Maintainers: see [RELEASING.md](RELEASING.md) for how the pin is produced.
 
 ### Custom install path
 

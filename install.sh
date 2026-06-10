@@ -2,7 +2,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash
 #
 # Usage — from a local clone:
 #   ./install.sh
@@ -10,12 +10,24 @@
 # Options:
 #   CLAUDE_DIR   Override the install destination (default: ~/.claude)
 #   --force      Overwrite existing files without prompting
+#
+# Integrity: the remote install path downloads a PINNED release asset and
+# verifies its SHA-256 against EXPECTED_SHA256 below before extracting anything.
+# A mismatch aborts the install. To install a different state, install from a
+# local clone (./install.sh) instead — there is intentionally no "track main"
+# remote path. See RELEASING.md for how the pin is produced.
 
 set -euo pipefail
 
 REPO_OWNER="${REPO_OWNER:-LazyIsEfficient}"
 REPO_NAME="${REPO_NAME:-agentic-os}"
-BRANCH="main"
+
+# Pinned release. Both values are produced together by scripts/release.sh and
+# must be updated together — EXPECTED_SHA256 is the digest of the release asset
+# built from tag $VERSION.
+VERSION="v1.0.0"
+EXPECTED_SHA256="59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6"
+
 DEST="${CLAUDE_DIR:-$HOME/.claude}"
 FORCE=false
 
@@ -34,27 +46,55 @@ fi
 
 TMP=""
 
+# Compute the SHA-256 of a file using whichever tool is available.
+sha256_of() {
+  if command -v shasum &>/dev/null; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum &>/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    echo "Error: need 'shasum' or 'sha256sum' to verify the download integrity." >&2
+    exit 1
+  fi
+}
+
 if [[ -n "$SCRIPT_DIR" && -d "$SCRIPT_DIR/.claude/skills" ]]; then
   SRC="$SCRIPT_DIR/.claude"
   echo "Installing from local clone at $SCRIPT_DIR"
 else
+  ASSET="$REPO_NAME-$VERSION.tar.gz"
+  ASSET_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/$ASSET"
 
-  echo "Downloading from https://github.com/$REPO_OWNER/$REPO_NAME ..."
+  echo "Downloading pinned release $VERSION from https://github.com/$REPO_OWNER/$REPO_NAME ..."
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
+  archive="$TMP/$ASSET"
 
   if command -v curl &>/dev/null; then
-    curl -fsSL "https://github.com/$REPO_OWNER/$REPO_NAME/archive/refs/heads/$BRANCH.tar.gz" \
-      | tar -xz -C "$TMP"
+    curl -fsSL -o "$archive" "$ASSET_URL"
   elif command -v wget &>/dev/null; then
-    wget -qO- "https://github.com/$REPO_OWNER/$REPO_NAME/archive/refs/heads/$BRANCH.tar.gz" \
-      | tar -xz -C "$TMP"
+    wget -qO "$archive" "$ASSET_URL"
   else
     echo "Error: curl or wget is required." >&2
     exit 1
   fi
 
-  SRC="$TMP/$REPO_NAME-$BRANCH/.claude"
+  # Verify integrity BEFORE extracting. Fail closed on any mismatch.
+  actual_sha="$(sha256_of "$archive")"
+  if [[ "$actual_sha" != "$EXPECTED_SHA256" ]]; then
+    echo "Error: integrity check FAILED for $ASSET — aborting install." >&2
+    echo "  expected: $EXPECTED_SHA256" >&2
+    echo "  actual:   $actual_sha" >&2
+    echo "Do not proceed. The download may be corrupt or tampered with." >&2
+    exit 1
+  fi
+  echo "  ✓ SHA-256 verified ($actual_sha)"
+
+  if ! tar -xzf "$archive" -C "$TMP"; then
+    echo "Error: failed to extract $ASSET — aborting install." >&2
+    exit 1
+  fi
+  SRC="$TMP/$REPO_NAME-$VERSION/.claude"
 fi
 
 # ── Validate before copying ───────────────────────────────────────────────────

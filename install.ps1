@@ -1,7 +1,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install.ps1
@@ -9,6 +9,12 @@
 # Options:
 #   -Force   Overwrite existing files without prompting
 #   -Dest    Override the install destination (default: $env:USERPROFILE\.claude)
+#
+# Integrity: the remote install path downloads a PINNED release asset and
+# verifies its SHA-256 against $ExpectedSha256 below before extracting anything.
+# A mismatch aborts the install. To install a different state, install from a
+# local clone (.\install.ps1) instead — there is intentionally no "track main"
+# remote path. See RELEASING.md for how the pin is produced.
 
 param(
   [switch]$Force,
@@ -19,7 +25,12 @@ $ErrorActionPreference = "Stop"
 
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
-$Branch    = "main"
+
+# Pinned release. Both values are produced together by scripts/release.sh and
+# must be updated together — $ExpectedSha256 is the digest of the release asset
+# built from tag $Version.
+$Version        = "v1.0.0"
+$ExpectedSha256 = "59eb6e7af99db5d08c5a11eb8bc37e28f417ee5fd87d7b39d54a00cd2622e1f6"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -34,15 +45,36 @@ if ($LocalSrc) {
   $Src = $LocalSrc
   Write-Host "Installing from local clone at $ScriptDir"
 } else {
-  $TmpDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName()))
-  $ZipUrl  = "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
-  $ZipPath = Join-Path $TmpDir "repo.zip"
+  if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
+    Write-Error "tar is required to extract the release asset (ships with Windows 10 1803+). Install tar or use a local clone (.\install.ps1)."
+    exit 1
+  }
 
-  Write-Host "Downloading from https://github.com/$RepoOwner/$RepoName ..."
-  Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath -UseBasicParsing
-  Expand-Archive -Path $ZipPath -DestinationPath $TmpDir -Force
+  $TmpDir   = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName()))
+  $Asset    = "$RepoName-$Version.tar.gz"
+  $AssetUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$Version/$Asset"
+  $Archive  = Join-Path $TmpDir $Asset
 
-  $Src = Join-Path $TmpDir "$RepoName-$Branch\.claude"
+  Write-Host "Downloading pinned release $Version from https://github.com/$RepoOwner/$RepoName ..."
+  Invoke-WebRequest -Uri $AssetUrl -OutFile $Archive -UseBasicParsing
+
+  # Verify integrity BEFORE extracting. Fail closed on any mismatch.
+  $ActualSha = (Get-FileHash -Algorithm SHA256 -Path $Archive).Hash.ToLower()
+  if ($ActualSha -ne $ExpectedSha256.ToLower()) {
+    Remove-Item $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Error "Integrity check FAILED for $Asset — aborting install.`n  expected: $ExpectedSha256`n  actual:   $ActualSha`nDo not proceed. The download may be corrupt or tampered with."
+    exit 1
+  }
+  Write-Host "  OK SHA-256 verified ($ActualSha)"
+
+  & tar -xzf "$Archive" -C "$TmpDir"
+  if ($LASTEXITCODE -ne 0) {
+    Remove-Item $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Error "Failed to extract $Asset — aborting install."
+    exit 1
+  }
+
+  $Src = Join-Path $TmpDir "$RepoName-$Version\.claude"
 }
 
 # ── Validate before copying ────────────────────────────────────────────────────
