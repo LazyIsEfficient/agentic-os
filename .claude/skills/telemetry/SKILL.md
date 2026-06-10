@@ -18,7 +18,7 @@ Internal, opt-in, local-first telemetry for the skills in this repository. It an
 
 ## Where data lives
 
-All state is under `~/.ai-marketing-skills/`:
+All state lives under the telemetry data directory — by default `~/.ai-marketing-skills/`, the upstream location, which can differ per install:
 
 | Path | Written by | Contents |
 |------|-----------|----------|
@@ -74,4 +74,4 @@ Compares a local `VERSION` file against the latest GitHub release, caches the re
 - **Opt-in only** — nothing is sent without explicit consent.
 - **Local-first** — usage is always stored locally for your own inspection.
 - **No PII** — no names, emails, paths, repo names, or content.
-- **Revocable** — delete `~/.ai-marketing-skills/telemetry-config.json` and re-run `telemetry_init.py`.
+- **Revocable** — delete `telemetry-config.json` from the telemetry data directory (by default `~/.ai-marketing-skills/`) and re-run `telemetry_init.py`.

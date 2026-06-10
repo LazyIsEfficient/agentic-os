@@ -54,3 +54,4 @@ After setting up context, confirm:
 ## Related skills
 
 - [debugging-and-error-recovery](../debugging-and-error-recovery/SKILL.md) — systematic debugging process for non-context errors
+- [spec-driven-development](../spec-driven-development/SKILL.md) — during its implement phase, calls on this skill to scope agent context to the relevant spec section instead of the whole document

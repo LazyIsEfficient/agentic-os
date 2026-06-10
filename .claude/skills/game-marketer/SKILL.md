@@ -28,12 +28,14 @@ The right stance: **the fantasy is the headline; gameplay is the proof; communit
 4. **Build store pages** — [references/store-page-conversion.md](references/store-page-conversion.md); use `assets/store-page-template.md` per platform
 5. **Brief the trailers** — [references/trailers-and-hooks.md](references/trailers-and-hooks.md); use `assets/trailer-brief-template.md`
 6. **Plan soft launch creative** — [references/soft-launch-creative.md](references/soft-launch-creative.md); use `assets/soft-launch-creative-plan-template.md`
-7. **Build the community program** — [references/communities-and-influencers.md](references/communities-and-influencers.md)
-8. **Plan the launch** — [references/launch-week.md](references/launch-week.md); use `assets/launch-plan-template.md`
+7. **Build the community program** — [references/communities-and-influencers.md](references/communities-and-influencers.md); use `assets/community-program-template.md`
+8. **Plan the launch** — [references/launch-week.md](references/launch-week.md); use `assets/launch-plan-template.md`. For a web3 game, plan the token-sale / mint comms — [references/web3-mint-comms.md](references/web3-mint-comms.md)
 9. **Plan live-ops comms cadence** — [references/live-ops-comms.md](references/live-ops-comms.md); use `assets/comms-cadence-template.md`
 10. **Plan re-engagement** — [references/re-engagement.md](references/re-engagement.md)
 
 ## Universal Rules
+
+See [references/marketing-anti-patterns.md](references/marketing-anti-patterns.md) for the common failure modes these rules guard against.
 
 - Lead with fantasy, not features
 - The hook is the first 5 seconds of the trailer

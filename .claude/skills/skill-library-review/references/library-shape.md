@@ -99,7 +99,7 @@ Keep as skill when:
 - The agent's parent should follow it, not delegate to it
 
 Keep ambient (don't make a skill at all):
-- `using-agent-skills`, `context-engineering`, `telemetry`
+- House style, tone-of-voice, or formatting conventions that should colour every response
 - Any policy that should apply to every turn
 
 ## Library-shape smells

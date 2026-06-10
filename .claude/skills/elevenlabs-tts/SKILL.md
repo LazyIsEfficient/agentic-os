@@ -14,6 +14,8 @@ when_to_use: |
   audio", "text to speech", "TTS", "voiceover", "read this script aloud", or "convert to audio".
 
   Not when: the goal is generating the script itself — use `yt-shorts-script` upstream first.
+  Not when: the goal is the full topic-to-MP4 Short including recording and assembly — use
+  `yt-shorts-pipeline`, which calls this skill for the narration step.
   Not when: real-time streaming playback, voice cloning, or captioning is needed — those are
   outside the scope of this skill.
 ---

@@ -57,3 +57,4 @@ After completing any implementation:
 - [rust-engineer](../rust-engineer/SKILL.md) — red-green-refactor applies in Rust; the borrow checker rewards test-first interface clarity
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — linting, coverage, CI quality gates
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — review discipline; TDD feeds into the review gate
+- [spec-driven-development](../spec-driven-development/SKILL.md) — produces the spec and task list; this cycle drives each of those tasks red-green-refactor during its implement phase

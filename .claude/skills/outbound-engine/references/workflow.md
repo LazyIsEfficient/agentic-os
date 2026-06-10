@@ -31,7 +31,7 @@ If no ICP defined, collect:
 - **Revenue floor:** Minimum ARR/revenue to qualify?
 - **Anti-ICP:** Who to explicitly exclude?
 
-Use `references/icp-template.md` as the collection template.
+Use `assets/icp-template.md` as the collection template.
 
 ### 1D — Business Context
 Collect:

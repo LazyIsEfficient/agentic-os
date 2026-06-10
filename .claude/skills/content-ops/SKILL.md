@@ -8,6 +8,9 @@ description: >-
   evaluations — or when another skill needs a final review gate on its output.
   Triggers on "expert panel this", "score this", "rate these variants", "quality
   check this", "panel review", "expert score", "evaluate this copy/strategy/page".
+  For variant generation and multi-round conversion optimization see autoresearch;
+  for live-URL CRO auditing see conversion-ops; for the scripted content-production
+  pipeline see content-pipeline.
 when_to_use: |
   Use when any single content or strategy artifact needs a quality gate before publishing or handoff — scoring copy, landing-page drafts, email sequences, strategy docs, charts, or candidate evaluations against an assembled panel of domain experts. Triggers on "expert panel this", "score this", "rate these variants", "quality check this", or when another skill (blog-post-author, course-author, outbound-engine) needs a final review gate.
 

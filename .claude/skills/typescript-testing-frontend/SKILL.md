@@ -43,6 +43,7 @@ Do not implement those refactors in the same turn unless instructed — hand off
 
 - [software-design](../software-design/SKILL.md) — testability is a design feedback signal; do not game tests to hide issues. When the mandate is **tests only**, capture component- or module-level improvements under **Refactor opportunities (not in scope)** instead of refactoring production code in the same turn unless the user asked.
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
+- [test-driven-development](../test-driven-development/SKILL.md) — the red-green-refactor discipline that drives when these React/hook tests get written; this skill is the frontend-specific specialization of it
 - [ux-design](../ux-design/SKILL.md) — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
 
 ## References

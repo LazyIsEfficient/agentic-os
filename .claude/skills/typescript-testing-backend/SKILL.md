@@ -32,6 +32,7 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 
 - [software-design](../software-design/SKILL.md) — if a unit is hard to test without elaborate mocking, the production design is the real problem; refactor before adding mocks
 - [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
+- [test-driven-development](../test-driven-development/SKILL.md) — language-agnostic red-green-refactor discipline; this skill is the TypeScript backend stack it deflects to
 
 ## References
 

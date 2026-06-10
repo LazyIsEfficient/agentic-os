@@ -38,7 +38,7 @@ tokei .            # or: cloc --vcs=git .
 4. **Research** current-year market hourly rates for the stack; build a low/median/high table.
 5. **Convert** raw hours to calendar time with the efficiency factors in `references/org-overhead.md`.
 6. **Layer in** full-team cost via the role ratios and multipliers in `references/team-cost.md`.
-7. **Assemble** the estimate with `references/output-template.md`.
+7. **Assemble** the estimate with `assets/output-template.md`.
 8. **Optional:** compute AI/Claude ROI with `references/claude-roi.md`.
 
 ## File Structure
@@ -47,12 +47,13 @@ tokei .            # or: cloc --vcs=git .
 codebase-cost-estimator/
 ├── README.md                  # This file
 ├── SKILL.md                   # Claude Code skill definition
-└── references/
-    ├── rates.md               # Lines-per-hour productivity bands + overhead multipliers
-    ├── org-overhead.md        # Efficiency factors + calendar-time formula
-    ├── team-cost.md           # Supporting-role ratios + full-team multipliers
-    ├── output-template.md     # Stakeholder-ready estimate template
-    └── claude-roi.md          # AI/Claude ROI calculation method
+├── references/
+│   ├── rates.md               # Lines-per-hour productivity bands + overhead multipliers
+│   ├── org-overhead.md        # Efficiency factors + calendar-time formula
+│   ├── team-cost.md           # Supporting-role ratios + full-team multipliers
+│   └── claude-roi.md          # AI/Claude ROI calculation method
+└── assets/
+    └── output-template.md     # Stakeholder-ready estimate template
 ```
 
 ## Related
