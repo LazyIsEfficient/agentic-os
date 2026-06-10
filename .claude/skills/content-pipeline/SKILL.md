@@ -12,7 +12,7 @@ description: >-
 when_to_use: |
   Use when running the content-production pipeline as scripts — ingesting raw source (podcast RSS, meeting notes, video transcripts), repurposing it into platform-native drafts, and batch-filtering those drafts through an automated quality gate before publish. Triggers on "mine quotes from this feed", "find clip-worthy moments", "repurpose this long-form into X/LinkedIn/Shorts/newsletter", "transform these content atoms", or "run the publish gate on these drafts".
 
-  Not when: you want to interactively score, rate, or quality-gate a single piece of content or strategy against an assembled panel of domain experts — use `content-ops` (the expert-panel scorer this pipeline reuses for its optional in-loop gate). Not when the goal is pre-launch variant generation and multi-round optimization of conversion copy — use `autoresearch`.
+  Not when: you want to interactively score, rate, or quality-gate a single piece of content or strategy against an assembled panel of domain experts — use `content-ops` (the expert-panel scorer this pipeline reuses for its optional in-loop gate). Not when the task is specifically the PODCAST-to-everything workflow — one episode → show notes, clips, and social/calendar for a podcast — use `podcast-ops`. Not when the goal is pre-launch variant generation and multi-round optimization of conversion copy — use `autoresearch`.
 ---
 
 # Content Pipeline

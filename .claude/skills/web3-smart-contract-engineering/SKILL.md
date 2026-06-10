@@ -4,7 +4,7 @@ description: Use when writing, reviewing, or deploying Solidity smart contracts 
 when_to_use: |
   Use when writing, reviewing, testing, or deploying Solidity smart contracts: token contracts (ERC20/721/1155), signature-gated payout systems, merkle-gated staking vaults, allocation modules, role-based proxies, factory patterns, or Hardhat/Foundry contract test suites. The key signal is any edit to `*.sol` files, `hardhat.config.*`, `foundry.toml`, or deploy scripts.
 
-  Not when: the task is a security audit or adversarial review of contract logic — use security-engineering. Not when the task is TypeScript data pipelines that consume on-chain events — use typescript-data-engineering. Not when the task is cross-cutting contract test strategy or CI configuration for the test suite — use typescript-quality-engineering.
+  Not when: the task is a security audit or adversarial review of contract logic — use security-engineering. Not when the task is TypeScript data pipelines that consume on-chain events — use typescript-data-engineering. Not when the task is cross-cutting contract test strategy or CI configuration for the test suite — use typescript-quality-engineering. Not when the work is general TypeScript test policy, E2E, or coverage strategy (not on-chain contract tests) — use typescript-quality-engineering.
 ---
 
 # Web3 / Smart Contract Engineering

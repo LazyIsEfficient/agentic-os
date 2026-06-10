@@ -17,7 +17,10 @@ when_to_use: |
   HubSpot as CRM tasks.
 
   Not when: the task is team-performance evaluation, stack ranking, or A/B/C
-  scorecards — use [team-ops](../team-ops/SKILL.md) instead. Not when the task
+  scorecards — use [team-ops](../team-ops/SKILL.md) instead. Not when the
+  transcript is a SALES call being mined for revenue, pipeline, or deal
+  signals (objections, buying signals, attribution) — use
+  [revenue-intelligence](../revenue-intelligence/SKILL.md). Not when the task
   is financial modeling or headcount budgeting — use
   [finance-ops](../finance-ops/SKILL.md).
 ---

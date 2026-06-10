@@ -12,7 +12,7 @@ description: >-
 when_to_use: |
   Use when the input is a podcast RSS feed or transcript and the goal is to generate a multi-platform content calendar — short-form video clips, Twitter/X threads, LinkedIn articles, newsletter sections, quote cards, blog outlines, or YouTube Shorts/TikTok scripts. Also use for batch processing multiple episodes or scoring content by viral potential. Triggers on "repurpose this podcast", "turn this episode into content", "podcast content calendar", "extract clips from this episode", "podcast to social", "content from RSS feed", "batch process episodes".
 
-  Not when: the content source is not a podcast episode and there is no transcript or RSS feed — use `content-ops` or `blog-post-author` for general content creation. Not when only a single content format (e.g. just a blog post) is needed from the episode — use the relevant single-format skill directly.
+  Not when: the content source is not a podcast episode and there is no transcript or RSS feed — use `content-ops` or `blog-post-author` for general content creation. Not when the task is the general scripted content-production PIPELINE — RSS quote mining, clip discovery, batch repurposing across mixed sources — rather than the podcast-to-calendar workflow — use `content-pipeline`. Not when only a single content format (e.g. just a blog post) is needed from the episode — use the relevant single-format skill directly.
 ---
 
 # Podcast Ops
