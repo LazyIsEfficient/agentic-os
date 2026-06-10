@@ -53,6 +53,14 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ASSET="$REPO_NAME-$VERSION.tar.gz"
 PREFIX="$REPO_NAME-$VERSION/"
 
+# `git archive --mtime` needs git >= 2.38. Guard explicitly so an old git fails
+# with a clear message instead of a cryptic "unknown option --mtime".
+gitver="$(git --version | awk '{print $3}')"
+if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; then
+  echo "Error: release.sh needs git >= 2.38 (for 'git archive --mtime'); found $gitver." >&2
+  exit 1
+fi
+
 # Reproducible payload: .claude (everything the installer copies) + the single
 # validator script the installer runs before copying. Nothing else.
 # Archive the TREE (not the commit) with a fixed mtime — see header for why.
