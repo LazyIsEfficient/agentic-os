@@ -1,6 +1,6 @@
 ---
 name: source-driven-development
-description: Grounds every implementation decision in official documentation. Use when you want authoritative, source-cited code free from outdated patterns. Use when building with any framework or library where correctness matters.
+description: Grounds every framework-specific implementation decision in official documentation — detect the version from the dependency file, fetch the matching docs, cite the source. Use when the user says "use the official docs", "check the latest docs", or "don't guess the API", or when writing framework code (forms, routing, data fetching, auth) against a specific version where outdated training-data patterns or deprecated APIs are a real risk. For spec-first design before implementation see spec-driven-development; for the post-implementation quality pass see code-review-and-quality.
 when_to_use: |
   Use when the user wants code that follows current best practices for a given
   framework, building boilerplate or patterns that will be copied across a
