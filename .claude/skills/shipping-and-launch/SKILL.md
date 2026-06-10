@@ -12,7 +12,14 @@ when_to_use: |
   Not when: the concern is CI/CD pipeline mechanics or canary deployment
   automation — use deployment-pipelines instead. For ongoing production
   operations, SLO tracking, and incident response after launch use
-  site-reliability-engineering.
+  site-reliability-engineering. Not when "staged rollout" or "feature flags"
+  means designing the CI quality-gate structure or the feature-flag pipeline
+  config rather than coordinating the launch — use ci-cd-and-automation. Not
+  when "rollout" or "rollback" means the Kubernetes/infrastructure rollout and
+  rollback mechanics rather than the launch decision — use devops-engineer. Not
+  when "release", "production launch", or "rollout" means cutting and
+  coordinating the release itself (release train, CHANGELOG, versioning) rather
+  than the go-to-market launch sequencing — use release-manager.
 ---
 
 # Shipping and Launch

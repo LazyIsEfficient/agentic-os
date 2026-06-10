@@ -11,7 +11,9 @@ when_to_use: |
 
   Not when: auditing infrastructure security, CI/CD pipelines, smart contracts, or
   agentic AI systems — use security-engineering instead. For scanning existing
-  files for accidentally committed PII use security.
+  files for accidentally committed PII use security. Not when the task is a
+  general multi-axis code review (correctness, readability, architecture,
+  performance) rather than security-specific hardening — use code-review-and-quality.
 ---
 
 # Security and Hardening

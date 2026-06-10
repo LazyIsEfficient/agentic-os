@@ -13,6 +13,10 @@ when_to_use: |
   it into a parallel-runnable task DAG — use [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md).
   Not when the plan is already settled and you just need to execute it in safe
   slices — use [incremental-implementation](../incremental-implementation/SKILL.md).
+  Not when the task is grounding a framework-specific implementation in official
+  docs — forms, routing, or data-fetching against a specific framework version —
+  use [source-driven-development](../source-driven-development/SKILL.md); that
+  owns version-correct implementation, not producing the spec or task breakdown.
   The discriminator: spec-driven-development owns the "we don't yet know what to
   build" phase; the other two own decomposition and execution of a known thing.
 ---

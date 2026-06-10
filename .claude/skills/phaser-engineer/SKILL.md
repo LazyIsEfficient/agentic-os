@@ -4,7 +4,7 @@ description: Use when building games or interactive software in Phaser 3 with Ty
 when_to_use: |
   Use when scaffolding a Phaser 3 + TypeScript + Vite project, designing or restructuring scenes, writing gameplay code (controllers, state machines, AI, physics), handling input, working with Arcade physics (Matter is covered for the Arcade-vs-Matter decision only; the Matter implementation deep-dive is not yet documented here), building animations or tweens, importing Tiled tilemaps, managing assets (atlases, audio sprites, dynamic loading), implementing save/load with versioning, profiling frame-budget issues, or reviewing a Phaser project for anti-patterns.
 
-  Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the work is on the non-canvas web app surrounding the game (landing page, login, store) — use `frontend-ui-engineering`. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`.
+  Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the work is on the non-canvas web app surrounding the game (landing page, login, store) — use `frontend-ui-engineering`. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`. Not when the task is a general profiling or optimization methodology outside the Phaser engine — use `performance-optimization`.
 ---
 
 # Phaser Engineer

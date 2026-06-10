@@ -18,7 +18,9 @@ when_to_use: |
   alerting, and burn-rate side. Security incidents share the incident-response
   process but security rules live in security-engineering. Not when the need is
   the skills library's own opt-in usage/version telemetry (not production SLOs)
-  — use telemetry.
+  — use telemetry. Not when the task is planning the launch or rollout itself —
+  pre-launch checklist, staged-rollout decision, rollback planning — rather than
+  runtime SLO tracking or incident response — use shipping-and-launch.
 ---
 
 # Site Reliability Engineering

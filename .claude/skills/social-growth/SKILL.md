@@ -9,8 +9,11 @@ when_to_use: |
   and an X variant, plus Buffer cadence notes when a blog file is the input.
 
   Not when: writing long-form X articles with ASCII diagrams or founder-voice
-  threads — use x-longform-post instead. For cross-platform campaign planning or
-  marketing brief intake use marketing-shaper.
+  threads — use x-longform-post instead. Not when the social posts are an ASSET
+  bundled with authoring a full blog post (the post's social-share posts are an
+  asset that `blog-post-author` emits as part of its bundle), rather than a
+  standalone promo post — use `blog-post-author`. For cross-platform campaign
+  planning or marketing brief intake use marketing-shaper.
 ---
 
 # Social Growth Post Writer

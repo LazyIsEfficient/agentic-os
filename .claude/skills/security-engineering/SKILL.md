@@ -11,7 +11,9 @@ when_to_use: |
 
   Not when: the need is narrowly web-app input validation and OWASP Top 10
   patterns for a TypeScript developer — use [security-and-hardening](../security-and-hardening/SKILL.md) instead. For
-  scanning files for committed PII use [security](../security/SKILL.md).
+  scanning files for committed PII use [security](../security/SKILL.md). Not when the task is a
+  general multi-axis code review (correctness, readability, architecture,
+  performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md).
 ---
 
 # Security Engineering

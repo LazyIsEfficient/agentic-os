@@ -14,9 +14,15 @@ when_to_use: |
   capacity — use system-architect instead. For capturing the resulting decisions
   as ADRs or DADs use team-lead. Not when the goal is behavior-preserving
   complexity reduction of already-working code (no structural reshaping) — use
-  code-simplification. Not when the review spans correctness, performance, and
+  code-simplification. Not when the refactor or consolidation of duplicate
+  implementations is specifically about deprecating and migrating users off an
+  old implementation (cutover path, deprecation notices, removal) rather than
+  designing the cleaner shape — use deprecation-and-migration. Not when the review spans correctness, performance, and
   security axes rather than design alone — use code-review-and-quality for
-  full-spectrum pre-merge review. Not when the primary concern is the *public
+  full-spectrum pre-merge review. Not when the PR/code review is applying
+  compliance gates against an agreed standard, ADR/DAD, or strategy (a pass/fail
+  gate, not designing the module or abstraction) — use standards-enforcer. Not
+  when the primary concern is the *public
   contract* of a module or API surface — its stability, versioning, or
   backward compatibility — use api-and-interface-design; this skill shapes the
   code behind the contract.

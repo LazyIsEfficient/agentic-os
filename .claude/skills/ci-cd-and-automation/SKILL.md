@@ -4,7 +4,7 @@ description: CI/CD strategy and quality-gate design — what to gate on, in what
 when_to_use: |
   Use when setting up a new project's CI pipeline, adding or modifying automated quality gates (lint, type-check, tests, build, security audit), designing the gate structure for preview/staging/production promotion (not writing the workflow YAML — use `deployment-pipelines` for that), debugging CI gate failures, or implementing feature flags and staged rollouts.
 
-  Not when: the task is provisioning cloud resources — use `cloud-infrastructure`. Not when hardening the supply chain, managing OIDC, or authoring GitHub Actions workflows with security focus — use `deployment-pipelines`. Not when the work is Kubernetes/Helm/Pulumi pipeline DevOps mechanics or cluster-level environment promotion — use `devops-engineer`.
+  Not when: the task is provisioning cloud resources — use `cloud-infrastructure`. Not when hardening the supply chain, managing OIDC, or authoring GitHub Actions workflows with security focus — use `deployment-pipelines`. Not when the work is Kubernetes/Helm/Pulumi pipeline DevOps mechanics or cluster-level environment promotion — use `devops-engineer`. Not when "staged rollout" or "feature flags" means coordinating the actual staged rollout and launch sequencing rather than authoring the CI quality gates — use `shipping-and-launch`.
 ---
 
 # CI/CD and Automation

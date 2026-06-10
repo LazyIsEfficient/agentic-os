@@ -15,7 +15,11 @@ when_to_use: |
   checks at review gates use standards-enforcer. Not when authoring a
   standalone ADR/decision record with no ticket or team-process linkage — use
   documentation-and-adrs; this skill owns ADRs linked to tickets and driven
-  through team process.
+  through team process. Not when the task is authoring or owning the
+  load-bearing DAD or the technical strategy itself — picking tech bets, build
+  vs buy, declaring which DADs are core to the direction — use
+  technical-strategist; this skill captures decisions through team process, it
+  does not set the strategy.
 ---
 
 # Team Lead
