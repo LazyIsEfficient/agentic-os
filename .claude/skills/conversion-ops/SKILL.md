@@ -8,7 +8,7 @@ description: >-
 when_to_use: |
   Use when auditing a landing page for CRO (scoring headline clarity, CTA visibility, social proof, trust signals, form friction, mobile responsiveness), segmenting survey responses by pain point, generating lead magnet briefs from survey data, or doing batch CRO analysis across multiple URLs.
 
-  Not when: the goal is quality-scoring content copy or strategy docs against an expert panel — use `content-ops`.
+  Not when: the goal is quality-scoring content copy or strategy docs against an expert panel — use `content-ops`. Not when the task is generating and multi-round-optimizing copy VARIANTS pre-launch (50+ variants scored by a simulated panel, winners evolved over rounds) rather than auditing a live URL — use `autoresearch`.
 ---
 
 # AI Conversion Ops

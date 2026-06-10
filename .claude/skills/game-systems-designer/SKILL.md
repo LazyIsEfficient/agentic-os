@@ -10,7 +10,11 @@ when_to_use: |
   Triggers on "game design doc", "GDD", "system spec", "core loop design", "progression
   design", "level design", "MDA", or "design the systems".
 
-  Not when: the concept is still open — stop and route to `game-concept-creator` first. Not
+  Not when: the request is still SHAPING the game concept/brief — load-bearing items (target
+  player, core fantasy, platform, success bar) are not yet locked and you have a "game design
+  plan" or "game design doc" ask without a locked concept to design from — use
+  `game-design-shaper` first. Not when the concept is still open — stop and route to
+  `game-concept-creator` first. Not
   when the systems are locked and the team wants numbers tuned — use `game-balancer`. Not when
   the task is writing the engine implementation — use `godot-engineer`. Not when the design doc
   or system spec is for backend/software service architecture rather than game systems — use

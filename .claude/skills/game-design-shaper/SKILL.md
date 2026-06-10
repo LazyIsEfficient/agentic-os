@@ -11,7 +11,10 @@ when_to_use: |
 
   Not when: the brief is already fully scoped with all load-bearing items answered — go
   straight to `game-concept-creator` (concept open) or `game-systems-designer` (concept
-  locked). Not when the intake is for engineering work — use `prompt-shaper` instead. Not
+  locked). Not when a "live game update" is specifically about the monetization model or
+  live-game economy (LTV/ARPDAU/ROAS targets, F2P vs premium, battle pass, soft-launch KPI
+  floors) rather than overall game shaping — use `game-monetization-strategist`. Not when the
+  intake is for engineering work — use `prompt-shaper` instead. Not
   when the intake is for marketing — use `marketing-shaper` instead.
 ---
 

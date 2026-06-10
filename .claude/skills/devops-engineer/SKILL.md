@@ -14,6 +14,8 @@ when_to_use: |
   dashboards) — use site-reliability-engineering. Not when writing Terraform — this skill covers Pulumi and Helm, not Terraform.
   Not when Pulumi (or any other IaC tool) is provisioning cloud primitives (VPCs, managed databases, IAM, cloud networking) with no Kubernetes or Helm component — use cloud-infrastructure for that scope.
   Not for cloud-provider-specific work that has no Kubernetes or IaC component — use cloud-infrastructure.
+  Not when "rollout" or "rollback" means orchestrating the product launch/rollout decision and checklist rather than the k8s/infra rollout and rollback mechanics — use shipping-and-launch.
+  Not when the task is designing the CI quality-gate strategy or structure rather than the infra/build-system mechanics — use ci-cd-and-automation.
 ---
 
 # DevOps Engineer

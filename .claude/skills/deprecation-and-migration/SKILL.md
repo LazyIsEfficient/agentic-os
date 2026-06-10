@@ -12,6 +12,10 @@ when_to_use: |
   consumers, removal needs no migration path — use `code-simplification` for that local cleanup.
   Not when the task is writing the replacement system — use the appropriate
   feature-building skill first, then return here for the cutover and removal.
+  Not when the task is designing the new or replacement API surface itself —
+  its shape, contract, or backward-compatibility guarantees (even when the old
+  API is deprecated) — use `api-and-interface-design`; return here to plan the
+  deprecation and migration path off the old one.
 ---
 
 # Deprecation and Migration

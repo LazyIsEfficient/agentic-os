@@ -17,7 +17,9 @@ when_to_use: |
   preview/staging/production promotion flow (rather than authoring the workflow YAML or
   doing pipeline security hardening) — use `ci-cd-and-automation`. Not when the task is
   DevOps build-system, artifact-registry, or environment-promotion mechanics (rather than
-  GitHub Actions YAML authoring) — use `devops-engineer`.
+  GitHub Actions YAML authoring) — use `devops-engineer`. Not when "release" or "rollout" means
+  coordinating the launch/rollout — pre-launch checklist, staged-rollout decision, rollback
+  planning — rather than authoring the workflow YAML — use `shipping-and-launch`.
 ---
 
 # Deployment Pipelines
