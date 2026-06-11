@@ -44,26 +44,36 @@ import os
 import re
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
-# Advisory file locking, cross-platform within the stdlib. fcntl on POSIX;
-# msvcrt byte-range locking on Windows (LK_LOCK retries ~10s then raises —
-# acceptable for a journal whose writers hold the lock for milliseconds).
+# Advisory file locking, cross-platform within the stdlib: non-blocking
+# attempts polled under a single deadline in locked(), so a wedged lock
+# holder (stopped process, stale NFS handle) produces a diagnostic exit 2 on
+# every platform instead of hanging POSIX writers forever.
 try:
     import fcntl
 
-    def _lock(fh):
-        fcntl.flock(fh, fcntl.LOCK_EX)
+    def _try_lock(fh):
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError:
+            return False
 
     def _unlock(fh):
         fcntl.flock(fh, fcntl.LOCK_UN)
 except ImportError:  # Windows
     import msvcrt
 
-    def _lock(fh):
+    def _try_lock(fh):
         fh.seek(0)
-        msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+        try:
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            return False
 
     def _unlock(fh):
         fh.seek(0)
@@ -74,6 +84,7 @@ OCCURRENCE_STATUSES = ("NEW", "RECURRING")  # events that count as a sighting
 REQUIRED_KEYS = ("fingerprint", "file", "claim", "tier", "source", "run_id",
                  "date", "evidence", "status")
 FINGERPRINT_LEN = 16
+LOCK_TIMEOUT_S = 20  # writers hold the lock for milliseconds; 20s means wedged
 
 
 def die(msg):
@@ -133,6 +144,9 @@ def default_ledger_path():
             if not common.is_absolute():
                 common = Path.cwd() / common
             root = common.resolve().parent
+            # With `git init --separate-git-dir`, common-dir's parent is NOT
+            # the repo root; the .claude check fails and we degrade to the
+            # directory walk below — acceptable for that exotic layout.
             if (root / ".claude").is_dir():
                 return root / ".claude" / "ledger" / "findings.jsonl"
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -158,12 +172,11 @@ def locked(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_name(path.name + ".lock")
     with lock_path.open("a+") as fh:
-        try:
-            _lock(fh)
-        except OSError as exc:
-            # msvcrt LK_LOCK gives up after ~10s; keep the 0-ok/2-setup
-            # exit contract instead of leaking a traceback (exit 1).
-            die(f"could not acquire ledger lock {lock_path} ({exc})")
+        deadline = time.monotonic() + LOCK_TIMEOUT_S
+        while not _try_lock(fh):
+            if time.monotonic() >= deadline:
+                die(f"could not acquire ledger lock {lock_path} within {LOCK_TIMEOUT_S}s")
+            time.sleep(0.05)
         try:
             yield
         finally:
