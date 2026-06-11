@@ -1,7 +1,7 @@
 ---
 description: Tally the findings ledger and propose ratchet targets for recurring findings (the human disposes)
 argument-hint: "[recurrence-threshold] [age-days]"
-allowed-tools: Bash, Read, Grep, Glob
+allowed-tools: Bash, Read
 ---
 
 You are triaging the stochastic-findings ledger per the tier doctrine in `.claude/rules/review-tiers.md`: Tier 2 findings accumulate in `.claude/ledger/findings.jsonl`; recurrence — not rhetoric — decides what gets investigated; and the RATCHET moves recurring findings out of the stochastic layer into deterministic checks. **This command only proposes. The human disposes** — never edit `validate.sh`, skills, or the ledger statuses yourself from this command.

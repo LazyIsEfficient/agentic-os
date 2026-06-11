@@ -13,7 +13,7 @@ when_to_use: |
   patterns for a TypeScript developer — use [security-and-hardening](../security-and-hardening/SKILL.md) instead. For
   scanning files for committed PII use [security](../security/SKILL.md). Not when the task is a
   general multi-axis code review (correctness, readability, architecture,
-  performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md).
+  performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md). Not when the task is provisioning or building infrastructure (Pulumi/Terraform/CDK, standing up a cluster) rather than auditing its security posture — use [cloud-infrastructure](../cloud-infrastructure/SKILL.md).
 ---
 
 # Security Engineering

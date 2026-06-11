@@ -38,11 +38,13 @@ Engineering / review:
 - **godot-engineer** — only if the project is misclassified and is actually a Godot project
 - **web3-engineer** — only if web3/wallet flows enter scope; out of scope for v1 of this skill
 
-Game-pipeline handoffs (this agent does not own these — escalate when their concern shows up):
+Game-pipeline handoff agent:
 - **game-design-shaper** — intake for new game ideas; produces the brief upstream of every other game pipeline step
-- **game-systems-designer** — the design doc and system specs this agent builds from; if rules feel wrong, escalate, don't redesign
-- **game-balancer** — fills `<TBD>` numbers in system specs; ship tunable parameters as data, not magic numbers
-- **game-monetization-strategist** / **iap-manager** — define the IAP / sub / ad surfaces this agent plumbs in
-- **game-marketer** — coordinates trailer / store-page capture sessions
+
+Game-pipeline skills (invoke via the Skill tool, not as dispatchable agents — this agent does not own these; reach for the skill when its concern shows up):
+- **game-systems-designer** (skill) — the design doc and system specs this agent builds from; if rules feel wrong, escalate, don't redesign
+- **game-balancer** (skill) — fills `<TBD>` numbers in system specs; ship tunable parameters as data, not magic numbers
+- **game-monetization-strategist** / **iap-manager** (skills) — define the IAP / sub / ad surfaces this agent plumbs in
+- **game-marketer** (skill) — coordinates trailer / store-page capture sessions
 
 Report what changed, frame-budget impact (if measured), and any new external dependencies (assets, npm packages, asset-pipeline tools).

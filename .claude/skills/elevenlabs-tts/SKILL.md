@@ -7,7 +7,8 @@ description: >-
   ELEVEN_API_KEY in .env.local. Run from your project root.
   Triggers on "generate audio", "text to speech", "TTS", "voiceover", "read
   this script aloud", "convert to audio". For script generation upstream, see
-  yt-shorts-script.
+  yt-shorts-script. For the full topic-to-MP4 Short including recording and
+  assembly, see yt-shorts-pipeline; this skill handles audio only.
 when_to_use: |
   Use when generating audio narration from text — including YouTube Shorts scripts (SAY: lines),
   voiceovers, or any text that needs to be converted to an MP3 file. Triggers on "generate
