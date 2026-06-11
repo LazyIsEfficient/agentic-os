@@ -37,6 +37,10 @@ investigated.
   (the lock sidecar stays local) and commit the findings file so recurrence is
   measured across the whole team's runs. Append-only + stable ordering keeps
   the diffs reviewable.
+- **CI runners don't persist it.** Appends made during a CI job vanish with
+  the runner — and CI must never push the ledger back to the repo. Upload the
+  run's findings as a build artifact and harvest locally instead; patterns in
+  [references/ledger-format.md](references/ledger-format.md).
 
 Entry fields: `fingerprint`, `file`, `claim`, `tier`, `source`, `run_id`,
 `date`, `evidence` (path or null), `status`

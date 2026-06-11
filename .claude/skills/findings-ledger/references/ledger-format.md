@@ -131,3 +131,41 @@ accumulates its own noise. To share across a team, delete the
   committed artifact before pushing;
 - keep the lock sidecar out of the commit: add `.claude/ledger/*.lock` to
   `.gitignore` when you remove the `.claude/ledger/` line.
+
+## CI environments — the ledger does not survive the runner
+
+CI runners are ephemeral: any `ledger add` made during a CI job writes to the
+runner's checkout and vanishes when the job ends. Two consequences:
+
+- **Tier 2 findings emitted by CI-run reviewer agents are lost by default.**
+  CI's load-bearing role in the tier architecture is Tier 0 (`validate.sh`),
+  which is unaffected. But if you run stochastic reviewers in CI and want
+  their residue counted toward recurrence, you must export it.
+- **Never have CI commit or push the ledger back to the repo.** This fails
+  predictably: concurrent jobs race on push and devolve into retry loops, bot
+  commits trigger new workflow runs (so you maintain loop guards instead of a
+  ledger), branch protection fights the bot, and CI merge commits pollute
+  history. The write path is humans committing from their own clones — never
+  the runner.
+
+Patterns that do work:
+
+1. **Artifact + local harvest** (recommended). The CI job uploads the run's
+   `findings.jsonl` (or just the lines it appended) as a build artifact. A
+   human downloads it and concatenates it into their local ledger — events
+   are self-contained JSON lines, so harvest is
+   `cat ci-findings.jsonl >> .claude/ledger/findings.jsonl`. NEW/RECURRING
+   labels in the harvested lines may be stale relative to your ledger (a
+   fingerprint CI saw first may already exist locally); that's cosmetic —
+   recurrence counts and current status are derived at read time from run ids
+   and event order, not from the labels.
+2. **Job summary for human triage.** Print the reviewer's Tier 2 findings in
+   the job summary or a PR comment; a human runs `ledger add` locally for the
+   ones worth tracking.
+3. **Accept the loss.** If stochastic review in CI is advisory color rather
+   than counted signal, let it vanish. The gates that matter in CI are
+   deterministic ones.
+
+In team-shared mode the committed ledger reaches CI read-only like any other
+file (`validate.sh`'s shape check runs against it); the no-push rule still
+holds.
