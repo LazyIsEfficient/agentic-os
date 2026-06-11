@@ -175,6 +175,7 @@ opt-in rather than default.
 | `documentation-writer` | Keep repository documentation accurate and in sync |
 | `elevenlabs-tts` | Convert text to speech using ElevenLabs |
 | `finance-ops` | AI-powered financial analysis and CFO briefings |
+| `findings-ledger` | Record and triage stochastic (Tier 2) review findings for recurrence |
 | `frontend-ui-engineering` | Build production-quality UIs and components |
 | `game-balancer` | Tune game economy curves, progression, and balance |
 | `game-concept-creator` | Generate, evaluate, and refine pitch-quality game concepts |
@@ -260,6 +261,22 @@ opt-in rather than default.
 
 ---
 
+## Commands
+
+Slash commands in `.claude/commands/`. Only `agent-new`, `route`, and `skill-new` ship to consumers; the rest are repo-local maintainer tools.
+
+| Command | Description |
+|---|---|
+| `agent-new` | Scaffold a new conforming agent definition |
+| `audit-library` | Launch the sharded, adversarially-verified skill-library audit |
+| `plan-clean` | Find completed plans in `.claude/plans/` and delete them after confirmation |
+| `review-gate` | Run the mandatory build + review pairing gate on the current diff |
+| `route` | Recommend the owning skill/agent for a task |
+| `skill-new` | Scaffold a new conforming skill |
+| `triage-findings` | Tally the findings ledger and propose ratchet targets (human disposes) |
+
+---
+
 ## Repository layout
 
 ```
@@ -288,7 +305,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions
 
 ## Validating the library
 
-A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `MEMORY.md` length, and that the install scripts ship exactly the curated allowlist.
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the curated allowlist.
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 

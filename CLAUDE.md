@@ -9,6 +9,7 @@ The doctrine is split into focused rule files under `.claude/rules/`, imported b
 @.claude/rules/subagent-dispatch.md
 @.claude/rules/briefing.md
 @.claude/rules/grounding.md
+@.claude/rules/review-tiers.md
 @.claude/rules/verification.md
 @.claude/rules/anti-patterns.md
 @.claude/rules/communication.md

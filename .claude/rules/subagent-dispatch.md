@@ -27,7 +27,7 @@ After any implementation that touches more than a trivial diff:
 - Spawn `security-reviewer` in parallel if the diff touches auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD, or any user-input-to-sensitive-sink path.
 - Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
 
-Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed.
+Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.md`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
 
 ### Pattern 4 — Research via Explore, never the main thread
 For any question that needs more than 2–3 file reads or greps, spawn `Explore` (or `general-purpose`) agents instead of polluting the main context.

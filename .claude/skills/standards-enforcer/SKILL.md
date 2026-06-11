@@ -66,6 +66,10 @@ The most important rule: **the enforcer engages at gates, not on every commit**.
 
 For **authoring the standards themselves**, defer to the source-of-truth skills: [security-engineering](../security-engineering/SKILL.md), [software-design](../software-design/SKILL.md), [site-reliability-engineering](../site-reliability-engineering/SKILL.md), [ux-design](../ux-design/SKILL.md), and the various TypeScript and Godot testing skills. For **setting the technical strategy** (which the enforcer applies), defer to [technical-strategist](../technical-strategist/SKILL.md). For **capturing decisions as ADRs/DADs** (which the enforcer cites), defer to [team-lead](../team-lead/SKILL.md).
 
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment proposes, deterministic verification disposes. Tier 0 is the deterministic gate layer (CI validators, linters, test suites) — the only layer that blocks on its own authority. Tier 1 is a compliance finding with its evidence attached: the cited rule *plus* the quoted lines or failing check demonstrating the deviation — the artifact gates, not the opinion. Tier 2 is judgment without an artifact — strategic-fit readings, "this feels off-strategy" — advisory only: a block riding solely on Tier 2 findings is a proposal to the operator; log such findings to [findings-ledger](../findings-ledger/SKILL.md) and let recurrence make the case.
+
 ## References
 
 - [references/enforcement-philosophy.md](references/enforcement-philosophy.md) — why standards exist, the cost of erosion, the role of the enforcer, the difference between enforcement and gatekeeping
@@ -97,3 +101,4 @@ For **authoring the standards themselves**, defer to the source-of-truth skills:
 - [system-architect](../system-architect/SKILL.md) — design reviews are an enforcer gate; the architect produces the designs that the enforcer reviews against the strategy.
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — the multi-axis code-quality pass at the pre-merge gate; the enforcer adds the standards/ADR/strategy-compliance lens on top of it, not in place of it.
 - [skill-library-review](../skill-library-review/SKILL.md) — source-of-truth for the agent-library standard; the enforcer applies it at gates when the work under review is skills or agents.
+- [findings-ledger](../findings-ledger/SKILL.md) — where the enforcer's Tier 2 (unevidenced) findings get recorded for recurrence instead of blocking.

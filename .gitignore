@@ -11,6 +11,11 @@ Thumbs.db
 # Claude Code — agent worktrees (ephemeral, machine-local)
 .claude/worktrees/
 
+# Claude Code — review findings ledger (Tier 2 advisory noise; machine-local by
+# default). Team-shared mode: delete this ignore line and commit
+# .claude/ledger/findings.jsonl so recurrence is measured across the team.
+.claude/ledger/
+
 # Editor
 *.swp
 *.swo
@@ -23,6 +28,7 @@ Thumbs.db
 
 # Optional tooling
 node_modules/
+__pycache__/
 
 pocs/
 

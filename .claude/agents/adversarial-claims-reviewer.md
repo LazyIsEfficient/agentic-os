@@ -27,6 +27,19 @@ This agent MUST be spawned with a cold context: it receives **only the document 
 - Prefer deterministic verification: symbolic computation, fixed-point numerical spot-checks in multiple regimes, known identities, dimensional analysis. Quote every line of the document a verdict relies on.
 - For each formula, evaluate at least one regime where the correct answer is independently known and check sign, direction, and magnitude.
 - A claim you cannot check is UNVERIFIABLE and counts against the document — never give benefit of the doubt.
+- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md`. VERIFIED and REFUTED verdicts are Tier 1 — each gates only through its deterministic artifact (the exit-nonzero script path or explicit counterexample); a REFUTED with no artifact is not REFUTED. UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern, are Tier 2: they count against the document in the report but block nothing on their own — journal them:
+
+```sh
+python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+  --file <path> --claim "<one-sentence finding>" --tier 2 \
+  --source adversarial-claims-reviewer --run-id <doc-or-review-id>
+```
+
+The ledger append is the one permitted repo write for this read-only agent (throwaway /tmp verification scripts remain fair game) — it journals the review and never touches the document under review.
 
 ## Output format
 

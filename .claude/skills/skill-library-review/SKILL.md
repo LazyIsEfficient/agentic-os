@@ -48,6 +48,14 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 5. **Cross-reference coherence** — resolve, bidirectional, no orphans
 6. **Anti-patterns** — the catch-all
 
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment proposes, deterministic verification disposes.
+
+- **Tier 0:** everything `scripts/validate.sh` already checks (frontmatter presence, kebab-case name/dir match, dangling links and `@`-imports). Cite the validator; don't re-find its territory.
+- **Tier 1 (may gate, evidence attached):** findings whose quoted live line *is* the reproducible evidence — a `tools:` line contradicting a declared read-only role, a cross-reference whose target path does not exist. State the line and the failing check.
+- **Tier 2 (advisory, never gates):** routing specificity, description vagueness, single-responsibility judgments, keyword bloat. A `fix-before-merge` verdict riding only on Tier 2 findings is a proposal to the operator, not a gate — log these to [findings-ledger](../findings-ledger/SKILL.md); recurrence, not rhetoric, escalates them.
+
 ## References
 
 - [references/frontmatter-rules.md](references/frontmatter-rules.md) — required fields, format, validation, common errors
@@ -64,3 +72,4 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 - [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — applies adversarial verification to formal/technical claims in documents rather than library definitions
 - [standards-enforcer](../standards-enforcer/SKILL.md) — gate-time enforcement; this skill is the source-of-truth for the agent-library standard
 - [using-agent-skills](../using-agent-skills/SKILL.md) — meta-skill for skill discovery and invocation; this skill keeps that machinery healthy
+- [findings-ledger](../findings-ledger/SKILL.md) — where this skill's Tier 2 (unevidenced) findings get recorded and tallied for recurrence
