@@ -13,16 +13,16 @@ Install once, use in any project.
 The one-liners install a **pinned release** and verify its SHA-256 before
 extracting anything — see [Verifying the download](#verifying-the-download).
 
-- **Current release:** `v1.1.0`
-- **Asset:** `agentic-os-v1.1.0.tar.gz`
-- **SHA-256:** `ec9c493b147779d4f1f2354608a5c72716d8fb44834c7cfad7767da4a43a8290`
+- **Current release:** `v1.1.1`
+- **Asset:** `agentic-os-v1.1.1.tar.gz`
+- **SHA-256:** `7f1bbc6173cbcaa5cf8de8ff976f1b1388864296c9cc76f3385a17fe4da22a8e`
 
 ### macOS / Linux
 
 **One-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.1.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.1.1/install.sh | bash
 ```
 
 **Or from a local clone:**
@@ -40,7 +40,7 @@ Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/com
 **One-liner (no clone required):**
 
 ```powershell
-irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.1.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.1.1/install.ps1 | iex
 ```
 
 **Or from a local clone:**
@@ -61,11 +61,11 @@ out-of-band before trusting the one-liner, download the asset and check it
 yourself:
 
 ```bash
-curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v1.1.0/agentic-os-v1.1.0.tar.gz
+curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v1.1.1/agentic-os-v1.1.1.tar.gz
 # macOS / BSD:
-echo "ec9c493b147779d4f1f2354608a5c72716d8fb44834c7cfad7767da4a43a8290  agentic-os-v1.1.0.tar.gz" | shasum -a 256 -c
+echo "7f1bbc6173cbcaa5cf8de8ff976f1b1388864296c9cc76f3385a17fe4da22a8e  agentic-os-v1.1.1.tar.gz" | shasum -a 256 -c
 # Linux (coreutils):
-echo "ec9c493b147779d4f1f2354608a5c72716d8fb44834c7cfad7767da4a43a8290  agentic-os-v1.1.0.tar.gz" | sha256sum -c
+echo "7f1bbc6173cbcaa5cf8de8ff976f1b1388864296c9cc76f3385a17fe4da22a8e  agentic-os-v1.1.1.tar.gz" | sha256sum -c
 ```
 
 There is intentionally no "track `main`" remote install path — to install
