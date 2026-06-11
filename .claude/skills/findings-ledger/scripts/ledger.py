@@ -40,15 +40,51 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
+
+# Advisory file locking, cross-platform within the stdlib: non-blocking
+# attempts polled under a single deadline in locked(), so a wedged lock
+# holder (stopped process, stale NFS handle) produces a diagnostic exit 2 on
+# every platform instead of hanging POSIX writers forever.
+try:
+    import fcntl
+
+    def _try_lock(fh):
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError:
+            return False
+
+    def _unlock(fh):
+        fcntl.flock(fh, fcntl.LOCK_UN)
+except ImportError:  # Windows
+    import msvcrt
+
+    def _try_lock(fh):
+        fh.seek(0)
+        try:
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            return False
+
+    def _unlock(fh):
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 STATUSES = ("NEW", "RECURRING", "INVESTIGATING", "PROMOTED", "RETIRED-NOISE")
 OCCURRENCE_STATUSES = ("NEW", "RECURRING")  # events that count as a sighting
 REQUIRED_KEYS = ("fingerprint", "file", "claim", "tier", "source", "run_id",
                  "date", "evidence", "status")
 FINGERPRINT_LEN = 16
+LOCK_TIMEOUT_S = 20  # writers hold the lock for milliseconds; 20s means wedged
 
 
 def die(msg):
@@ -85,11 +121,66 @@ def fingerprint(file, claim):
 
 
 def default_ledger_path():
-    """Nearest ancestor of CWD containing .claude/ -> .claude/ledger/findings.jsonl."""
+    """Resolve the ledger at the MAIN repository, even from a linked worktree.
+
+    `git rev-parse --git-common-dir` returns the main repo's .git directory
+    from any worktree, so every worktree converges on ONE ledger instead of
+    appending to an ephemeral copy that vanishes with the worktree. Outside a
+    git repo (or when the main repo has no .claude/), fall back to the nearest
+    ancestor of CWD containing .claude/.
+    """
+    try:
+        # Scrub git env overrides: a hook-exported GIT_DIR would silently
+        # resolve ANOTHER repo's ledger. Timeout guards against a hung git
+        # (fsmonitor, network filesystems) hanging the CLI.
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")}
+        out = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, check=True, env=env, timeout=10,
+        ).stdout.strip()
+        if out:
+            common = Path(out)
+            if not common.is_absolute():
+                common = Path.cwd() / common
+            root = common.resolve().parent
+            # With `git init --separate-git-dir`, common-dir's parent is NOT
+            # the repo root; the .claude check fails and we degrade to the
+            # directory walk below — acceptable for that exotic layout.
+            if (root / ".claude").is_dir():
+                return root / ".claude" / "ledger" / "findings.jsonl"
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass  # no git, not a repo, or git hung — fall through to the directory walk
     for d in [Path.cwd()] + list(Path.cwd().parents):
         if (d / ".claude").is_dir():
             return d / ".claude" / "ledger" / "findings.jsonl"
     return None
+
+
+@contextmanager
+def locked(path):
+    """Exclusive lock for the read -> decide-status -> append critical section.
+
+    Without it, two concurrent `add`s of the same new fingerprint both read an
+    absent fingerprint and both record NEW (a cosmetic mislabel — recurrence
+    counts distinct run ids — but a race nonetheless). Locks a sidecar
+    `<ledger>.lock` file rather than the ledger itself so the lock exists
+    before the first event does and never blocks read-only tooling. Worktree
+    convergence (see default_ledger_path) means all writers lock the same
+    inode. In team-shared mode, keep `.claude/ledger/*.lock` gitignored.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    with lock_path.open("a+") as fh:
+        deadline = time.monotonic() + LOCK_TIMEOUT_S
+        while not _try_lock(fh):
+            if time.monotonic() >= deadline:
+                die(f"could not acquire ledger lock {lock_path} within {LOCK_TIMEOUT_S}s")
+            time.sleep(0.05)
+        try:
+            yield
+        finally:
+            _unlock(fh)
 
 
 def resolve_ledger(args, must_exist):
@@ -186,20 +277,21 @@ def cmd_add(args):
         print("note: tier 1 without --evidence demotes to tier 2", file=sys.stderr)
         tier = 2
     fp = fingerprint(args.file, args.claim)
-    prior = group(read_events(path)) if path.is_file() else {}
-    status = "RECURRING" if fp in prior else "NEW"
-    event = {
-        "fingerprint": fp,
-        "file": args.file,
-        "claim": args.claim,
-        "tier": tier,
-        "source": args.source,
-        "run_id": args.run_id,
-        "date": args.date,
-        "evidence": evidence,
-        "status": status,
-    }
-    append_event(path, event)
+    with locked(path):
+        prior = group(read_events(path)) if path.is_file() else {}
+        status = "RECURRING" if fp in prior else "NEW"
+        event = {
+            "fingerprint": fp,
+            "file": args.file,
+            "claim": args.claim,
+            "tier": tier,
+            "source": args.source,
+            "run_id": args.run_id,
+            "date": args.date,
+            "evidence": evidence,
+            "status": status,
+        }
+        append_event(path, event)
     print(f"{status} {fp} tier={tier} {args.file} — {trunc(args.claim)}")
 
 
@@ -248,22 +340,23 @@ def cmd_triage(args):
 
 def _transition(args, status, evidence=None):
     path = resolve_ledger(args, must_exist=True)
-    by_fp = group(read_events(path))
-    if args.fingerprint not in by_fp:
-        die(f"unknown fingerprint: {args.fingerprint}")
-    first = by_fp[args.fingerprint][0]
-    event = {
-        "fingerprint": args.fingerprint,
-        "file": first["file"],
-        "claim": first["claim"],
-        "tier": first["tier"],
-        "source": args.source,
-        "run_id": args.run_id,
-        "date": args.date,
-        "evidence": evidence,
-        "status": status,
-    }
-    append_event(path, event)
+    with locked(path):
+        by_fp = group(read_events(path))
+        if args.fingerprint not in by_fp:
+            die(f"unknown fingerprint: {args.fingerprint}")
+        first = by_fp[args.fingerprint][0]
+        event = {
+            "fingerprint": args.fingerprint,
+            "file": first["file"],
+            "claim": first["claim"],
+            "tier": first["tier"],
+            "source": args.source,
+            "run_id": args.run_id,
+            "date": args.date,
+            "evidence": evidence,
+            "status": status,
+        }
+        append_event(path, event)
     print(f"{status} {args.fingerprint} — {trunc(first['claim'])}")
 
 

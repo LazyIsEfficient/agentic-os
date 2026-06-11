@@ -1,6 +1,11 @@
 # Ledger format — schema, lifecycle, fingerprinting
 
-The ledger is a single append-only JSONL file at `.claude/ledger/findings.jsonl`.
+The ledger is a single append-only JSONL file at `.claude/ledger/findings.jsonl`
+in the **main repository** — `ledger.py` resolves the path via
+`git rev-parse --git-common-dir`, so an agent running inside a linked git
+worktree appends to the main checkout's ledger, not an ephemeral worktree copy
+(outside a git repo it falls back to the nearest ancestor containing
+`.claude/`; `--ledger PATH` overrides either way).
 One JSON object per line, one line per **event**. Events are never edited or
 deleted; corrections and status changes are appended as new events carrying the
 same fingerprint. Keys are serialized sorted (`json.dumps(..., sort_keys=True)`)
@@ -100,15 +105,13 @@ different file is a different finding.
   column).
 - **Renames break grouping.** Moving a file orphans its history; the next
   sighting starts a fresh fingerprint at `NEW`.
-- **No file locking.** Two truly concurrent `add`s of the same new finding can
-  both record `NEW`; the duplicate inflates nothing (recurrence counts
-  distinct run ids) but reads oddly in tally. Appends are line-atomic in
-  practice; serialize writers if that matters to you.
-- **Worktree dispatch loses sightings.** The default ledger path resolves to
-  the *nearest* `.claude/` ancestor, so an agent running inside an ephemeral
-  git worktree appends to that worktree's ledger, which vanishes with it.
-  Pass `--ledger` pointing at the main checkout when dispatching reviewers
-  into worktrees.
+- **Cross-machine clones don't share a lock.** Within one machine, writers
+  are serialized: `add` and status transitions hold an exclusive lock on a
+  `<ledger>.lock` sidecar across their read→decide→append section, so racing
+  processes (including worktree-dispatched agents) can't both record `NEW`
+  for the same fingerprint. The lock is advisory and per-filesystem — it does
+  nothing for two developers' separate clones, where git merge (team-shared
+  mode) is the serialization.
 
 These trade-offs are deliberate: the ledger biases toward *measuring
 recurrence cheaply* over perfect identity. The triage human is the precision
@@ -125,4 +128,48 @@ accumulates its own noise. To share across a team, delete the
 - append-only + sorted keys keeps merge conflicts trivial (concurrent appends
   typically union cleanly — accept both sides);
 - the file contains reviewer claims about repo files; review it like any other
-  committed artifact before pushing.
+  committed artifact before pushing;
+- keep the lock sidecar out of the commit: add `.claude/ledger/*.lock` to
+  `.gitignore` when you remove the `.claude/ledger/` line.
+
+## CI environments — the ledger does not survive the runner
+
+CI runners are ephemeral: any `ledger add` made during a CI job writes to the
+runner's checkout and vanishes when the job ends. Two consequences:
+
+- **Tier 2 findings emitted by CI-run reviewer agents are lost by default.**
+  CI's load-bearing role in the tier architecture is Tier 0 (`validate.sh`),
+  which is unaffected. But if you run stochastic reviewers in CI and want
+  their residue counted toward recurrence, you must export it.
+- **Never have CI commit or push the ledger back to the repo.** This fails
+  predictably: concurrent jobs race on push and devolve into retry loops, bot
+  commits trigger new workflow runs (so you maintain loop guards instead of a
+  ledger), branch protection fights the bot, and CI merge commits pollute
+  history. The write path is humans committing from their own clones — never
+  the runner.
+
+Patterns that do work:
+
+1. **Artifact + local harvest** (recommended). The CI job uploads the run's
+   `findings.jsonl` (or just the lines it appended) as a build artifact. A
+   human downloads it and concatenates it into their local ledger — events
+   are self-contained JSON lines, so harvest is
+   `cat ci-findings.jsonl >> .claude/ledger/findings.jsonl`. Two ordering
+   caveats. Recurrence counts are label-independent (derived from distinct
+   run ids at read time), so stale NEW/RECURRING labels in harvested lines
+   are cosmetic. But **current status is the last event in file order**, so
+   harvest before making status transitions: a harvested sighting appended
+   after your `promote`/`retire` flips the fingerprint back to a sighting
+   status and re-lists it in triage, even though the CI sighting may predate
+   the transition — a false re-sighting signal. If you must harvest late,
+   re-run the affected `promote`/`retire` afterwards.
+2. **Job summary for human triage.** Print the reviewer's Tier 2 findings in
+   the job summary or a PR comment; a human runs `ledger add` locally for the
+   ones worth tracking.
+3. **Accept the loss.** If stochastic review in CI is advisory color rather
+   than counted signal, let it vanish. The gates that matter in CI are
+   deterministic ones.
+
+In team-shared mode the committed ledger reaches CI read-only like any other
+file (`validate.sh`'s shape check runs against it); the no-push rule still
+holds.
