@@ -1,7 +1,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.1.0/install.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install.ps1
@@ -29,8 +29,8 @@ $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — $ExpectedSha256 is the digest of the release asset
 # built from tag $Version.
-$Version        = "v1.0.0"
-$ExpectedSha256 = "11d13fcd6b8df0beac30ecc26a903022f512773189b164b1af0596d01b56756c"
+$Version        = "v1.1.0"
+$ExpectedSha256 = "ec9c493b147779d4f1f2354608a5c72716d8fb44834c7cfad7767da4a43a8290"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
