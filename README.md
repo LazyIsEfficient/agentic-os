@@ -254,6 +254,7 @@ opt-in rather than default.
 | `ops-analyst` | Finance and team operations analyst |
 | `phaser-engineer` | Phaser 3 + TypeScript web game development |
 | `prompt-shaper` | Engineering intake — turn a vague request into a task brief |
+| `rust-engineer` | Principal-level Rust engineering — async services, APIs, workspaces |
 | `security-reviewer` | Read-only cross-stack security audit |
 | `technical-pm` | Product strategy, technical strategy, and engineering leadership |
 | `ux-specialist` | UX design and research |
