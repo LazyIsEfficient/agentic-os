@@ -12,13 +12,17 @@ workspace, not this document.
 - `edition = "2024"`, `resolver = "2"`, shared metadata in
   `[workspace.package]`. (The toolchain reference documents edition 2021 as
   the general library default; this profile is newer — as always, the
-  workspace's declared edition wins.)
+  workspace's declared edition wins. Note that edition 2024 defaults to
+  resolver `"3"` (MSRV-aware); declaring `"2"` explicitly opts out of that —
+  treat it as deliberate, don't "fix" it.)
 - **Every external version is declared once** in `[workspace.dependencies]`;
   member crates take `dep = { workspace = true }`. A version literal inside a
   member's `Cargo.toml` is a review finding.
 - Internal crates are also declared in `[workspace.dependencies]` as
   `{ path = "./crate-name", version = "0.0.0" }` so members depend on them
-  uniformly.
+  uniformly. (Caveat: `version = "0.0.0"` only matches exactly 0.0.0 — this
+  convention assumes internal crates never bump independently; revisit it if
+  internals start publishing real versions to the registry.)
 - Private-registry publishing is controlled by an allowlist in
   `[workspace.package] publish = [...]` — never per-crate ad hoc.
 - **Pin discipline:** the default caret requirement for most deps (a bare
@@ -51,13 +55,13 @@ for `.expect()`. Do not fight the workspace lints — they are CI-enforced.
 |---|---|---|
 | Async runtime | `tokio` (features = `["full"]`), `async-trait`, `futures`/`futures-util` | `async-std` may exist in legacy crates/tests; new code is Tokio |
 | HTTP server | `axum` 0.8 | test through `axum-test`, not hand-rolled hyper clients |
-| HTTP client | `reqwest` (`native-tls`, `json`, `blocking`, `multipart`) + `reqwest-middleware` + `reqwest-retry` | retries/backoff live in middleware, not call sites |
+| HTTP client | `reqwest` (`native-tls`, `json`, `blocking`, `multipart`) + `reqwest-middleware` + `reqwest-retry` | retries/backoff live in middleware, not call sites; the `blocking` feature is for tests/CLI tools only — never inside the async service (it spawns a second runtime) |
 | Errors | `thiserror` 2 (libraries), `anyhow` (binaries), `backtrace` | matches this skill's error-handling reference |
 | Tracing/logs | `tracing` + `tracing-subscriber` (`json`, `env-filter`), `tracing-panic`, `tracing-log` bridge | `log`/`env_logger`/`kv-log-macro` are legacy-crate compatibility; new code uses `tracing` |
 | Telemetry | `opentelemetry` 0.31 + `opentelemetry-otlp` (`grpc-tonic`) + `opentelemetry_sdk` + `tracing-opentelemetry` | OTLP over gRPC is the export path |
 | Serialization | `serde`, `serde_json` | derive everywhere; no hand-rolled JSON |
 | Time | `chrono` (`serde`) | |
-| Money/decimals | `rust_decimal` (`serde-float`) + `rust_decimal_macros` | never `f64` for money |
+| Money/decimals | `rust_decimal` (`serde-float`) + `rust_decimal_macros` | never `f64` for money *in code*. Note the tension: `serde-float` serializes `Decimal` as a JSON number, so consumers MUST parse decimal-aware or they reintroduce f64 loss on the wire — this profile assumes decimal-aware consumers; for payloads crossing trust boundaries prefer the default string serialization |
 | IDs | `uuid` (`v4`, `serde`), `cuid2` | |
 | Config | `envconfig` | env-var struct mapping, no bespoke parsing |
 | Enums | `strum` + `strum_macros` | |
