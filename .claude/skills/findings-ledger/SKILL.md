@@ -32,10 +32,11 @@ investigated.
 - **Append-only.** Status transitions are new events for the same fingerprint;
   prior lines are never mutated. Current status = the fingerprint's most recent
   event.
-- **Gitignored by default** (machine-local noise). **Team-shared mode:** remove
-  the `.claude/ledger/` line from `.gitignore` and commit the file so
-  recurrence is measured across the whole team's runs. Append-only + stable
-  ordering keeps the diffs reviewable.
+- **Gitignored by default** (machine-local noise). **Team-shared mode:** in
+  `.gitignore`, replace the `.claude/ledger/` line with `.claude/ledger/*.lock`
+  (the lock sidecar stays local) and commit the findings file so recurrence is
+  measured across the whole team's runs. Append-only + stable ordering keeps
+  the diffs reviewable.
 
 Entry fields: `fingerprint`, `file`, `claim`, `tier`, `source`, `run_id`,
 `date`, `evidence` (path or null), `status`

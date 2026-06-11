@@ -1,6 +1,11 @@
 # Ledger format — schema, lifecycle, fingerprinting
 
-The ledger is a single append-only JSONL file at `.claude/ledger/findings.jsonl`.
+The ledger is a single append-only JSONL file at `.claude/ledger/findings.jsonl`
+in the **main repository** — `ledger.py` resolves the path via
+`git rev-parse --git-common-dir`, so an agent running inside a linked git
+worktree appends to the main checkout's ledger, not an ephemeral worktree copy
+(outside a git repo it falls back to the nearest ancestor containing
+`.claude/`; `--ledger PATH` overrides either way).
 One JSON object per line, one line per **event**. Events are never edited or
 deleted; corrections and status changes are appended as new events carrying the
 same fingerprint. Keys are serialized sorted (`json.dumps(..., sort_keys=True)`)
@@ -100,15 +105,13 @@ different file is a different finding.
   column).
 - **Renames break grouping.** Moving a file orphans its history; the next
   sighting starts a fresh fingerprint at `NEW`.
-- **No file locking.** Two truly concurrent `add`s of the same new finding can
-  both record `NEW`; the duplicate inflates nothing (recurrence counts
-  distinct run ids) but reads oddly in tally. Appends are line-atomic in
-  practice; serialize writers if that matters to you.
-- **Worktree dispatch loses sightings.** The default ledger path resolves to
-  the *nearest* `.claude/` ancestor, so an agent running inside an ephemeral
-  git worktree appends to that worktree's ledger, which vanishes with it.
-  Pass `--ledger` pointing at the main checkout when dispatching reviewers
-  into worktrees.
+- **Cross-machine clones don't share a lock.** Within one machine, writers
+  are serialized: `add` and status transitions hold an exclusive lock on a
+  `<ledger>.lock` sidecar across their read→decide→append section, so racing
+  processes (including worktree-dispatched agents) can't both record `NEW`
+  for the same fingerprint. The lock is advisory and per-filesystem — it does
+  nothing for two developers' separate clones, where git merge (team-shared
+  mode) is the serialization.
 
 These trade-offs are deliberate: the ledger biases toward *measuring
 recurrence cheaply* over perfect identity. The triage human is the precision
@@ -125,4 +128,6 @@ accumulates its own noise. To share across a team, delete the
 - append-only + sorted keys keeps merge conflicts trivial (concurrent appends
   typically union cleanly — accept both sides);
 - the file contains reviewer claims about repo files; review it like any other
-  committed artifact before pushing.
+  committed artifact before pushing;
+- keep the lock sidecar out of the commit: add `.claude/ledger/*.lock` to
+  `.gitignore` when you remove the `.claude/ledger/` line.

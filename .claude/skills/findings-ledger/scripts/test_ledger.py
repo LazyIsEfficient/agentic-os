@@ -13,10 +13,16 @@ where contractions live.
 Run: python3 .claude/skills/findings-ledger/scripts/test_ledger.py
 """
 
+import json
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+SCRIPTS_DIR = Path(__file__).resolve().parent
+LEDGER_PY = SCRIPTS_DIR / "ledger.py"
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
     from ledger import fingerprint, normalize
@@ -62,6 +68,96 @@ check("single-quoted snippets still stripped", e == f, f"{e} vs {f}")
 g = fingerprint("a/b.md", "Description at line 12 is vague: `use for stuff`")
 h = fingerprint("a/b.md", "description AT LINE 99 is vague: `another snippet`")
 check("line/quote/case variants collide", g == h, f"{g} vs {h}")
+
+# 6. Worktree convergence: an `add` run from inside a linked git worktree
+#    (no --ledger flag) must land in the MAIN repository's ledger, not an
+#    ephemeral copy inside the worktree.
+def check_worktree_convergence():
+    if shutil.which("git") is None:
+        print("SKIP  worktree convergence (git not available)")
+        return
+    with tempfile.TemporaryDirectory() as td:
+        main = Path(td) / "repo"
+        wt = Path(td) / "repo-wt"
+        env_git = ["-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.run(["git", "init", "-q", str(main)], check=True)
+        (main / ".claude").mkdir()
+        subprocess.run(["git", *env_git, "-C", str(main), "commit", "-q",
+                        "--allow-empty", "-m", "init"], check=True)
+        subprocess.run(["git", "-C", str(main), "worktree", "add", "-q",
+                        str(wt)], check=True)
+        r = subprocess.run(
+            [sys.executable, str(LEDGER_PY), "add", "--file", "f.md",
+             "--claim", "c", "--tier", "2", "--source", "s", "--run-id", "r1"],
+            cwd=wt, capture_output=True, text=True)
+        main_ledger = main / ".claude" / "ledger" / "findings.jsonl"
+        check("worktree add exits 0", r.returncode == 0, r.stderr.strip())
+        check("worktree add lands in MAIN repo ledger",
+              main_ledger.is_file() and len(main_ledger.read_text().splitlines()) == 1,
+              f"main ledger: {main_ledger.is_file()}")
+        check("no ledger forked inside the worktree",
+              not (wt / ".claude" / "ledger").exists(),
+              "worktree grew its own .claude/ledger")
+
+
+# 7. Concurrent adds are serialized: N racing processes adding the same
+#    fingerprint must produce N intact lines with exactly one NEW (the
+#    read→decide→append section is locked; without the lock, several racers
+#    read an absent fingerprint and all record NEW).
+def check_concurrent_adds(n=12):
+    with tempfile.TemporaryDirectory() as td:
+        lp = Path(td) / "findings.jsonl"
+        go = Path(td) / "go"
+        # Start barrier: every racer spins until the go-file exists, so their
+        # read→decide→append sections genuinely overlap. Without it, process
+        # startup skew serializes the racers and the test can't distinguish
+        # locked from unlocked code.
+        racer = (
+            "import os, runpy, sys, time\n"
+            f"while not os.path.exists({str(go)!r}): time.sleep(0.002)\n"
+            f"sys.argv = ['ledger.py', '--ledger', {str(lp)!r}, 'add',"
+            " '--file', 'f.md', '--claim', 'same defect', '--tier', '2',"
+            " '--source', 's', '--run-id', sys.argv[1]]\n"
+            f"runpy.run_path({str(LEDGER_PY)!r}, run_name='__main__')\n"
+        )
+        # Racers spin until the go file exists, so always create it (even if
+        # spawning fails midway) and always reap — a hung racer must FAIL the
+        # test (possible lock deadlock), never hang it.
+        procs = []
+        try:
+            for i in range(n):
+                procs.append(subprocess.Popen(
+                    [sys.executable, "-c", racer, f"r{i}"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            go.touch()
+            codes = [p.wait(timeout=30) for p in procs]
+        except subprocess.TimeoutExpired:
+            check("racing adds complete without deadlock", False,
+                  "a racer did not finish within 30s")
+            return
+        finally:
+            go.touch()
+            for p in procs:
+                if p.poll() is None:
+                    p.kill()
+                    p.wait()
+        check("all racing adds exit 0", all(c == 0 for c in codes), f"{codes}")
+        lines = lp.read_text().splitlines()
+        try:
+            events = [json.loads(l) for l in lines if l.strip()]
+        except json.JSONDecodeError as exc:
+            check("ledger lines intact after race", False, str(exc))
+            return
+        statuses = sorted(e["status"] for e in events)
+        check("ledger lines intact after race", len(events) == n,
+              f"{len(events)} of {n} lines")
+        check("exactly one NEW among racing adds",
+              statuses.count("NEW") == 1 and statuses.count("RECURRING") == n - 1,
+              f"statuses: NEW×{statuses.count('NEW')} RECURRING×{statuses.count('RECURRING')}")
+
+
+check_worktree_convergence()
+check_concurrent_adds()
 
 print()
 if FAILURES:
