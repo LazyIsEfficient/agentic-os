@@ -59,10 +59,18 @@ def die(msg):
 def normalize(claim):
     """Normalize claim text for fingerprinting (heuristic, not identity)."""
     t = claim.lower()
-    # quoted snippets vary per run (exact code excerpts, messages) — strip them
+    # quoted snippets vary per run (exact code excerpts, messages) — strip them.
+    # Single quotes only count as delimiters when not embedded in a word:
+    # apostrophes in contractions/possessives ("doesn't", "user's") would
+    # otherwise pair up and delete the prose between them (caught by external
+    # review of PR #134; regression-tested in test_ledger.py).
     t = re.sub(r"`[^`]*`", " ", t)
     t = re.sub(r'"[^"]*"', " ", t)
-    t = re.sub(r"'[^']*'", " ", t)
+    t = re.sub(r"(?<!\w)'[^']*'(?!\w)", " ", t)
+    # contractions: fold "n't" to " not" so contracted and expanded phrasings
+    # of the same defect collide; drop any remaining in-word apostrophes
+    t = re.sub(r"n't\b", " not", t)
+    t = t.replace("'", "")
     # line/column references: "line 12", "lines 3-5", "col 7", "L12", ":12:3"
     t = re.sub(r"\b(?:line|ln|col|column)s?\s*[#:]?\s*\d+(?:\s*[-,]\s*\d+)*", " ", t)
     t = re.sub(r"\bl\d+\b", " ", t)

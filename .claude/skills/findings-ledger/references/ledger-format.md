@@ -20,6 +20,12 @@ so identical events byte-compare equal and team-shared diffs stay stable.
 | `evidence`    | string or null | Path to the deterministic evidence artifact. Required for tier 1 — `add` demotes tier 1 to tier 2 when it is missing. On a `PROMOTED` event, this is the encoded check (validator rule or script) — `promote` refuses to record PROMOTED without it. |
 | `status`      | enum          | `NEW`, `RECURRING`, `INVESTIGATING`, `PROMOTED`, `RETIRED-NOISE`. |
 
+Why tier 1 entries exist in a ledger billed as the Tier 2 inbox: a tier 1
+entry (evidence attached) is an audit trail, not a proposal — it records that
+an evidenced finding was raised and lets a later `add` of the same fingerprint
+reveal that the defect re-surfaced after its fix or promotion. Gating still
+happens through the evidence artifact, never through the ledger entry.
+
 ## Status lifecycle
 
 ```
@@ -54,10 +60,18 @@ one fingerprint. `normalize()` in `scripts/ledger.py`:
 
 1. lowercases the claim text
 2. strips backtick-, double-, and single-quoted snippets (exact code excerpts
-   vary per run)
-3. strips line/column references: `line 12`, `lines 3-5`, `col 7`, `L12`,
+   vary per run). Single quotes count as delimiters only when not embedded in
+   a word, so apostrophes in contractions and possessives (`doesn't`,
+   `user's`) are not treated as quote pairs
+3. folds `n't` contractions to ` not` and drops remaining in-word
+   apostrophes, so contracted and expanded phrasings of the same defect
+   collide
+4. strips line/column references: `line 12`, `lines 3-5`, `col 7`, `L12`,
    `:12:3`
-4. collapses all whitespace runs to a single space
+5. collapses all whitespace runs to a single space
+
+These rules are regression-tested by `scripts/test_ledger.py` (exit-nonzero
+evidence script).
 
 The file path is NOT normalized beyond whitespace trimming — a finding about a
 different file is a different finding.
@@ -76,6 +90,14 @@ different file is a different finding.
   ("the line `X` should be `Y`") normalizes to nearly nothing and collides
   with other quote-heavy claims about the same file. Prefer claim summaries
   that describe the defect in words.
+- **Contraction folding is lossy.** `n't` → ` not` makes "doesn't"/"does not"
+  collide, but irregular forms stay apart ("can't" folds to "ca not", which
+  never matches "cannot"). Vocabulary-level identity is out of scope.
+- **Same bug-class across different files never collides.** The file path is
+  part of the fingerprint by design, so a defect pattern repeated in N files
+  is N fingerprints — recurrence measures *this defect here*, not the class.
+  Spotting cross-file patterns is the triage human's job (scan the claim
+  column).
 - **Renames break grouping.** Moving a file orphans its history; the next
   sighting starts a fresh fingerprint at `NEW`.
 - **No file locking.** Two truly concurrent `add`s of the same new finding can
