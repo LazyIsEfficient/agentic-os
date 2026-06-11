@@ -41,11 +41,15 @@ Ship with confidence. The goal is not just to deploy — it's to deploy safely, 
 ## References
 
 - [references/pre-launch-checklist.md](references/pre-launch-checklist.md) — Full checklist: code quality, security, performance, accessibility, infrastructure, documentation
-- [references/rollout-strategy.md](references/rollout-strategy.md) — Feature flag lifecycle, staged rollout sequence, decision thresholds table, rollback plan template
+- [references/rollout-strategy.md](references/rollout-strategy.md) — Feature flag lifecycle, staged rollout sequence, decision thresholds table, rollback planning guidance
 - [references/monitoring-setup.md](references/monitoring-setup.md) — What to monitor, error reporting code, post-launch verification steps, rationalizations, red flags, verification checklist
 - [references/security-checklist.md](references/security-checklist.md) — Security pre-launch checks
 - [references/performance-checklist.md](references/performance-checklist.md) — Performance pre-launch checklist
 - [references/accessibility-checklist.md](references/accessibility-checklist.md) — Accessibility verification before launch
+
+## Assets
+
+- [assets/rollback-plan-template.md](assets/rollback-plan-template.md) — Copy-and-fill rollback plan: trigger conditions, rollback steps, database considerations, time-to-rollback
 
 ## Related skills
 

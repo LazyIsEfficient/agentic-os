@@ -66,4 +66,4 @@ Every run outputs 3 files:
 ## Related skills
 
 - [content-ops](../content-ops/SKILL.md) — quality scoring gate; run after autoresearch optimization
-- [conversion-ops](../conversion-ops/SKILL.md) — conversion-focused optimization; autoresearch generates the variants
+- [conversion-ops](../conversion-ops/SKILL.md) — audits a LIVE landing-page URL across CRO dimensions; use it instead when scoring a live page rather than optimizing copy variants pre-launch

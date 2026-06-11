@@ -28,12 +28,12 @@ Scans and redacts PII / sensitive data from files in this repo. Uses only Python
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
-| `sanitizer.py` | Scan or redact PII in files | `python3 .claude/skills/security/sanitizer.py --scan --dir . --recursive` |
-| `pre-commit-hook.sh` | Git hook to block commits with PII | `cp .claude/skills/security/pre-commit-hook.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` |
+| `scripts/sanitizer.py` | Scan or redact PII in files | `python3 .claude/skills/security/scripts/sanitizer.py --scan --dir . --recursive` |
+| `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | `cp .claude/skills/security/scripts/pre-commit-hook.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` |
 
 ## Configuration
 
-Edit `.claude/skills/security/sanitizer-config.json` to customize blocklists, custom regex patterns, skip paths, and placeholder format.
+Edit `.claude/skills/security/scripts/sanitizer-config.json` to customize blocklists, custom regex patterns, skip paths, and placeholder format.
 
 ## Exit Codes
 

@@ -1,6 +1,6 @@
 ---
 name: bigquery-ai-agent
-description: Expert data analyst for BigQuery — SQL generation, data interpretation, and insight delivery grounded in your warehouse schema. Use when you need to query a BigQuery data warehouse, interpret results, detect anomalies, forecast trends, or answer business questions from warehouse data. Triggers on "BigQuery", "warehouse query", "SQL", "revenue query", "player behavior", "BQML", "anomaly detection", "trend forecast".
+description: Expert data analyst for BigQuery — Standard SQL generation, data interpretation, and insight delivery grounded in your warehouse schema. Use when you need to query a BigQuery data warehouse, interpret results, detect anomalies, forecast trends, or answer business questions from warehouse data. Triggers on "BigQuery", "warehouse query", "BigQuery SQL", "Standard SQL", "revenue query", "player behavior", "BQML", "anomaly detection", "trend forecast". Not when the work is non-BigQuery SQL or generic analytics/data-engineering against another store (Postgres, application DBs, ETL pipelines) — route that to the `engineer` agent.
 tools: mcp__bigquery
 ---
 

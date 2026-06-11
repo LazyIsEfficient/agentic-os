@@ -1,6 +1,6 @@
 ---
 name: engineer
-description: Full-stack implementation across architecture, frontend, backend, infrastructure, reliability, and shipping. Use to build features, fix bugs, design systems, write tests, wire CI/CD, provision infra, or ship releases. Triggers on "implement", "build", "fix", "RFC", "deploy", or concrete coding tasks. For Solidity see web3-engineer. For Godot see godot-engineer. For review verdicts see code-reviewer / security-reviewer.
+description: Full-stack implementation across architecture, frontend, backend, infrastructure, reliability, and shipping. Use to build features, fix bugs, design systems, write tests, wire CI/CD, provision infra, or ship releases. Triggers on "implement", "build", "fix", "RFC", "deploy", or concrete coding tasks. For Solidity see web3-engineer. For Godot see godot-engineer. For Kubernetes/Helm/Pulumi/IaC platform work see devops-engineer. For Rust see rust-engineer. For review verdicts see code-reviewer / security-reviewer.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 
@@ -59,6 +59,8 @@ The skills below carry discipline-specific rules; load the ones the task touches
 - **code-reviewer** — read-only multi-axis review of changed code
 - **security-reviewer** — cross-stack security audit
 - **web3-engineer**, **godot-engineer** — specialized stacks
+- **devops-engineer** — Kubernetes/Helm/Pulumi/IaC and cluster platform work
+- **rust-engineer** — Rust implementation, Cargo workspaces, async Rust
 - **prompt-shaper** — when the task itself is still vague
 
 Report a tight summary on completion: what changed, what's left, and any assumption you had to make.

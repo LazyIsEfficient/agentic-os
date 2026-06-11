@@ -263,7 +263,7 @@ Phaser's plugin system lets you add behavior to a scene or the whole game. There
 
 ## TypeScript Integration (Brief)
 
-Phaser ships with first-class TypeScript types via `@types/phaser` (or, for current Phaser 3 versions, types bundled with the `phaser` package itself). The basics:
+Phaser ships with first-class TypeScript types bundled in the `phaser` package itself (`phaser/types/phaser`) — do not install `@types/phaser`, which is stale and conflicts with the bundled types. The basics:
 
 ```ts
 import Phaser from 'phaser';

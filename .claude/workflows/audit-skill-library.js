@@ -223,6 +223,13 @@ async function verifyStage(candidateFindings, _skill, index) {
       }
     );
 
+    if (!verdict) {
+      // Verifier rate-limited/errored (agent() returns null on terminal failure):
+      // default-reject — a finding cannot be confirmed without an independent
+      // re-read. Skip rather than null-deref and crash the whole skill's chain.
+      log(`Verifier errored (default-reject) for "${f.title}" (${f.skill})`);
+      continue;
+    }
     if (verdict.isReal) {
       confirmed.push({
         ...f,
@@ -277,7 +284,7 @@ const reattributed = await agent(
 );
 // Honor a legitimately-empty result (findings: []) instead of falling back to
 // the prior set; only fall back when the field is absent/non-array (errored).
-const finalFindings = Array.isArray(reattributed.findings)
+const finalFindings = reattributed && Array.isArray(reattributed.findings)
   ? reattributed.findings
   : verified;
 
@@ -322,14 +329,14 @@ const deduped = await agent(
 
 // Honor a legitimately-empty result (everything was a duplicate) instead of
 // falling back to the pre-dedup set; only fall back when the field is absent.
-const confirmedFindings = Array.isArray(deduped.findings)
+const confirmedFindings = deduped && Array.isArray(deduped.findings)
   ? deduped.findings
   : attributedFindings;
-const droppedCount = Array.isArray(deduped.droppedAsDuplicate)
+const droppedCount = deduped && Array.isArray(deduped.droppedAsDuplicate)
   ? deduped.droppedAsDuplicate.length
   : 0;
 log(
-  `Backstop 2 dedup: fetched ${deduped.issuesFetched} open issue bodies, ` +
+  `Backstop 2 dedup: fetched ${(deduped && deduped.issuesFetched) || 0} open issue bodies, ` +
     `dropped ${droppedCount} as duplicates.`
 );
 log(`Confirmed ${confirmedFindings.length} findings after verify gate + both backstops.`);
