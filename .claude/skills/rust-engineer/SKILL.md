@@ -24,7 +24,7 @@ The right stance is **work with the type system, not around it; own what you mut
 ## Universal Rules
 
 1. **Make invalid states unrepresentable.** Use newtypes, sealed enums, and typestate machines to eliminate entire classes of runtime errors at compile time. If an invalid state can be constructed, it will be.
-2. **`.unwrap()` is banned in library code.** `.expect("reason")` is permitted at program entry points where the invariant is established by the caller and panic is acceptable. In any `lib.rs` crate, propagate with `?`.
+2. **`.unwrap()` is banned in library code.** `.expect("reason")` is permitted at program entry points where the invariant is established by the caller and panic is acceptable. In any `lib.rs` crate, propagate with `?`. **Exception:** some workspaces invert this via CI-enforced clippy lints (`expect_used = "deny"`, `unwrap_used = "allow"` — expect-strings rot; a bare unwrap is a greppable assert). The workspace's lint profile always wins — see [references/preferred-stack.md](references/preferred-stack.md).
 3. **`thiserror` for library errors, `anyhow` for application errors.** Library crates expose typed error variants callers can match on. Binary/application crates use `anyhow` for context chains that surface in logs and user messages.
 4. **Async means Tokio; blocking means `spawn_blocking`.** Never call `std::thread::sleep`, blocking I/O, or CPU-intensive computation directly inside an async task. Use `tokio::task::spawn_blocking` to offload. Violation causes the entire executor thread to stall.
 5. **Own what you mutate, borrow everything else.** Reach for `.clone()` only when ownership semantics genuinely require it. `Arc<Mutex<T>>` is a last resort for shared mutable state, not a convenience — prefer message passing or ownership transfer first.
@@ -63,6 +63,7 @@ For **security audits and adversarial review** of Rust code, defer to the `secur
 - [references/testing-patterns.md](references/testing-patterns.md) — co-located unit tests, `tests/` integration layout, `axum-test` for HTTP, trait mocking, `proptest`, `insta` snapshots
 - [references/performance-and-profiling.md](references/performance-and-profiling.md) — zero-cost abstraction principle, `criterion`, `cargo flamegraph`, DHAT, `Bytes` for zero-copy I/O, hot-path allocation discipline
 - [references/toolchain-and-conventions.md](references/toolchain-and-conventions.md) — `rustfmt`, `clippy` configuration, `cargo audit`, `cargo deny`, `cargo nextest`, edition 2021, MSRV policy, CI shape
+- [references/preferred-stack.md](references/preferred-stack.md) — opinionated service-workspace profile: sanctioned crate per concern (tokio/axum/reqwest-middleware/tracing+OTLP/rstest/pact), workspace-dependency discipline, pin policy, and the deny-expect/allow-unwrap lint inversion
 
 ## Related skills
 

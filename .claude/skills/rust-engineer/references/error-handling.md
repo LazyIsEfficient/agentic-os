@@ -237,7 +237,7 @@ The `.context()` call wraps the error before `?` returns it. The order matters: 
 
 ### `.unwrap()` vs `.expect("reason")`
 
-Always prefer `.expect()` over `.unwrap()`. When the panic fires, the message appears in the output.
+Default: prefer `.expect()` over `.unwrap()` — when the panic fires, the message appears in the output. **Exception:** some workspaces CI-enforce the inverse (`expect_used = "deny"`, `unwrap_used = "allow"`), on the argument that expect-strings rot into false documentation while a bare `.unwrap()` is a greppable, honest assert. The workspace's lint profile always wins — see [preferred-stack.md](preferred-stack.md).
 
 ```rust
 // Bad: "called `Option::unwrap()` on a `None` value"
