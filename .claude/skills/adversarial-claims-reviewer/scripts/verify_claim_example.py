@@ -60,8 +60,12 @@ def smooth(f):
     return sp.integrate(f.subs(x, y) * G, (y, -sp.oo, sp.oo))
 
 
-def is_identically_zero(expr):
-    """Symbolic simplification first; deterministic numeric fallback."""
+def is_zero(expr):
+    """Symbolic proof when SymPy reduces the expression; otherwise deterministic
+    fixed-point spot-checks. The detail string states which evidence level was
+    achieved — numeric passes are evidence at the tested points, not a proof of
+    identical vanishing. Callers (and the final summary) must not claim more
+    than the detail string supports."""
     simplified = sp.simplify(expr)
     if simplified == 0:
         return True, "symbolic: simplifies to 0"
@@ -94,19 +98,27 @@ def check(label, ok, detail):
 # original paper hid behind.
 for name, f in [("sin(k*x)", sp.sin(k * x)), ("exp(-x**2/2)", sp.exp(-(x**2) / 2))]:
     commutator = sp.diff(smooth(f), x, 2) - smooth(sp.diff(f, x, 2))
-    ok, detail = is_identically_zero(commutator)
+    ok, detail = is_zero(commutator)
     check(f"C[f] = d2(Af) - A(d2 f) == 0 for f = {name}", ok, detail)
 
 # CHECK 2 — the formula the paper actually wrote is a DIFFERENT quantity:
 # it must NOT vanish, or the conflation would be harmless.
 f = sp.sin(k * x)
 written_formula = sp.simplify(sp.diff(smooth(f), x, 2) - sp.diff(f, x, 2))
-ok_zero, _ = is_identically_zero(written_formula)
-sample = written_formula.subs({x: sp.Rational(7, 10), k: 2, delta: sp.Rational(1, 2)})
+ok_zero, _ = is_zero(written_formula)
+try:
+    sample = float(
+        sp.N(written_formula.subs({x: sp.Rational(7, 10), k: 2, delta: sp.Rational(1, 2)}), 30)
+    )
+except (TypeError, ValueError) as exc:
+    # Same contract as is_zero: an evaluation failure is a setup
+    # problem (exit 2), never a refutation (exit 1).
+    print(f"SETUP ERROR: could not evaluate D at the sample point: {exc}")
+    sys.exit(2)
 check(
     "D[f] = d2(Af) - d2 f != 0 for f = sin(k*x)",
     not ok_zero,
-    f"at (x,k,delta)=(7/10,2,1/2): D = {float(sample):.6f} (expected (e**(-d**2k**2/2)-1)*(-k**2 sin(kx)) != 0)",
+    f"at (x,k,delta)=(7/10,2,1/2): D = {sample:.6f} (expected (e**(-d**2k**2/2)-1)*(-k**2 sin(kx)) != 0)",
 )
 
 print()
@@ -114,7 +126,9 @@ if failures:
     print(f"REFUTED: {failures} check(s) failed — the claim does not hold as stated.")
     sys.exit(1)
 print(
-    "VERIFIED: d2(A f) - A(d2 f) == 0 identically, while d2(A f) - d2 f != 0. "
-    "The two quantities the paper conflated are different objects."
+    "VERIFIED: d2(A f) - A(d2 f) vanishes on every check (symbolic where SymPy "
+    "reduces, fixed-point numeric otherwise — see per-check evidence lines), "
+    "while d2(A f) - d2 f != 0. The two quantities the paper conflated are "
+    "different objects."
 )
 sys.exit(0)

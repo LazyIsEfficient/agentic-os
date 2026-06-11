@@ -5,6 +5,11 @@ motivating case study and per-step guidance.
 
 ## The motivating failure
 
+(This case and the diagnostic example in Step 5 are deliberately uncited — treat the
+narratives as illustrative, not as checkable historical claims. The mathematical
+content, which is what matters, is independently proven by
+[scripts/verify_claim_example.py](../scripts/verify_claim_example.py).)
+
 A paper's central equation was labeled:
 
 > "the commutator C[f] = ∂²(Af) − A(∂²f)"
@@ -83,10 +88,11 @@ document: a claim that cannot be checked is a liability, not a benefit of the do
 For every formula and diagnostic, evaluate it in at least one regime where the correct
 answer is independently known, and check **sign, direction, and magnitude**.
 
-Motivating example: a "calculus breakdown" diagnostic that turned out to be **maximal
-in flat space and minimal at the horizon** — exactly backwards from the physics it
-claimed to measure. The formula was internally consistent; only a regime check exposed
-that it measured the opposite of its label.
+Motivating example (uncited — illustrative): a "calculus
+breakdown" diagnostic that turned out to be **maximal in flat space and minimal at
+the horizon** — exactly backwards from the physics it claimed to measure. The formula
+was internally consistent; only a regime check exposed that it measured the opposite
+of its label.
 
 Standard regimes: limits (0, ∞, identity operator), flat/trivial cases, known exact
 solutions, degenerate parameters, symmetry points.
