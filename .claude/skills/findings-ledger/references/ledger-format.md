@@ -154,11 +154,15 @@ Patterns that do work:
    `findings.jsonl` (or just the lines it appended) as a build artifact. A
    human downloads it and concatenates it into their local ledger — events
    are self-contained JSON lines, so harvest is
-   `cat ci-findings.jsonl >> .claude/ledger/findings.jsonl`. NEW/RECURRING
-   labels in the harvested lines may be stale relative to your ledger (a
-   fingerprint CI saw first may already exist locally); that's cosmetic —
-   recurrence counts and current status are derived at read time from run ids
-   and event order, not from the labels.
+   `cat ci-findings.jsonl >> .claude/ledger/findings.jsonl`. Two ordering
+   caveats. Recurrence counts are label-independent (derived from distinct
+   run ids at read time), so stale NEW/RECURRING labels in harvested lines
+   are cosmetic. But **current status is the last event in file order**, so
+   harvest before making status transitions: a harvested sighting appended
+   after your `promote`/`retire` flips the fingerprint back to a sighting
+   status and re-lists it in triage, even though the CI sighting may predate
+   the transition — a false re-sighting signal. If you must harvest late,
+   re-run the affected `promote`/`retire` afterwards.
 2. **Job summary for human triage.** Print the reviewer's Tier 2 findings in
    the job summary or a PR comment; a human runs `ledger add` locally for the
    ones worth tracking.
