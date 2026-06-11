@@ -44,4 +44,5 @@ General-purpose scoring and iterative improvement engine. Auto-assembles the rig
 - [course-author](../course-author/SKILL.md) — produces lesson drafts that content-ops scores
 - [autoresearch](../autoresearch/SKILL.md) — pre-launch variant generation + multi-round optimization of conversion copy; run before content-ops's final gate
 - [conversion-ops](../conversion-ops/SKILL.md) — post-publish conversion layer; run after content-ops quality gate
+- [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — judges whether formal/technical claims are true; content-ops judges whether the prose is good
 - [content-pipeline](../content-pipeline/SKILL.md) — script-driven content production (RSS quote mining, video-clip discovery, repurposing, batch draft gating); reuses this skill's `experts/` panels in its transform stage

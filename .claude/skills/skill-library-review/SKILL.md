@@ -61,5 +61,6 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 ## Related skills
 
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — applies the same review discipline to source code rather than agent definitions
+- [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — applies adversarial verification to formal/technical claims in documents rather than library definitions
 - [standards-enforcer](../standards-enforcer/SKILL.md) — gate-time enforcement; this skill is the source-of-truth for the agent-library standard
 - [using-agent-skills](../using-agent-skills/SKILL.md) — meta-skill for skill discovery and invocation; this skill keeps that machinery healthy

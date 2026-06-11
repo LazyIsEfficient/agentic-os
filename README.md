@@ -120,6 +120,7 @@ opt-in rather than default.
 
 | Skill | Description |
 |---|---|
+| `adversarial-claims-reviewer` | Adversarially verify formal/technical claims — math, stats, benchmarks |
 | `api-and-interface-design` | Design stable APIs and interfaces that are hard to misuse |
 | `autoresearch` | Run Karpathy-style autoresearch optimization on any content |
 | `blog-post-author` | Draft a blog post from a filled blog-post-shaper brief |
@@ -209,6 +210,7 @@ opt-in rather than default.
 
 | Agent | Description |
 |---|---|
+| `adversarial-claims-reviewer` | Read-only, cold-context adversarial review of formal/technical claims |
 | `bigquery-ai-agent` | Expert data analyst for BigQuery — SQL generation, data interpretation, and insight delivery |
 | `blog-post-shaper` | Blog pipeline — intake, draft, emit asset tasks, and fan out |
 | `code-reviewer` | Read-only multi-axis code review |
@@ -252,7 +254,7 @@ opt-in rather than default.
 
 ## Contributing
 
-Pull requests welcome. Each skill should have a `SKILL.md` with valid frontmatter (`name`, `description`, `when_to_use`). Run the `skill-library-review` agent on your diff before submitting.
+Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and review gates. The short version: scaffold with `/skill-new` or `/agent-new`, run the `library-reviewer` agent on your diff, and make sure `bash scripts/validate.sh` passes.
 
 ---
 
