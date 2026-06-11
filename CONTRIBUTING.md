@@ -41,7 +41,9 @@ Add a one-line row for every new skill and agent to the `## Skills` and `## Agen
 Both gates must pass before a change is done:
 
 1. **Library review.** Run the `library-reviewer` agent on your diff for any change touching `.claude/skills/`, `.claude/agents/`, `.claude/commands/`, or `.claude/workflows/`. If the change includes runnable scripts, run `code-reviewer` on them as well. Address the verdict — the gate is the gate.
-2. **Structural validation.** `bash scripts/validate.sh` must exit 0. It is deterministic and LLM-free: frontmatter completeness, kebab-case names matching file/dir, no dangling links or `@`-imports, `MEMORY.md` length, and ship-manifest drift. CI runs it on every PR and push to `main` (`.github/workflows/validate.yml`).
+2. **Structural validation.** `bash scripts/validate.sh` must exit 0. It is deterministic and LLM-free: frontmatter completeness, kebab-case names matching file/dir, no dangling links or `@`-imports, `MEMORY.md` length, ship-manifest drift, and review-tier wiring ("Tier discipline" sections must reference the tier doctrine; the findings ledger, if present, must be valid JSONL with known status values). CI runs it on every PR and push to `main` (`.github/workflows/validate.yml`).
+
+**The tier rule.** Every check belongs to a tier sorted by reproducibility (doctrine: [.claude/rules/review-tiers.md](.claude/rules/review-tiers.md)). Only Tier 0 — deterministic checks like `validate.sh` — hard-blocks a change on its own authority. Tier 1 LLM findings may block only through their attached evidence artifact (a failing script or explicit counterexample). Everything unevidenced is Tier 2: advisory, recorded in the findings ledger (`findings-ledger` skill, `/triage-findings` command) so recurrence — not one run's mood — decides what gets investigated and promoted into a deterministic check. In gate 1 above, treat a reviewer verdict that rides only on unevidenced findings as a proposal, not a block.
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 

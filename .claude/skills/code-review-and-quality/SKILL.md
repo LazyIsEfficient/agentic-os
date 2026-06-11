@@ -50,6 +50,14 @@ After review is complete:
 - [ ] Build succeeds
 - [ ] The verification story is documented (what changed, how it was verified)
 
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment proposes, deterministic verification disposes.
+
+- **Tier 0:** the CI gates themselves (tests, build, linters, validators). These hard-block on their own authority; cite them instead of re-finding what they catch.
+- **Tier 1 (may gate, evidence attached):** correctness and security findings demonstrated by a failing test, failing command, or concrete counterexample input — the artifact is the gate, the review only chose which artifact to produce. The missing-regression-test blocker is Tier 1: the evidence is the absent test.
+- **Tier 2 (advisory, never gates):** readability, architecture taste, "could be simpler", unevidenced performance concerns. Severity labels (Critical, blocking) on unevidenced findings are *proposals to the operator*, not gates — log them to [findings-ledger](../findings-ledger/SKILL.md) rather than writing blocking language.
+
 ## References
 
 - [references/review-axes.md](references/review-axes.md) — Five-axis review checklist: correctness, readability, architecture, security, performance
@@ -64,3 +72,4 @@ After review is complete:
 - [software-design](../software-design/SKILL.md) — for review focused solely on internal design (cohesion, coupling, where logic belongs)
 - [standards-enforcer](../standards-enforcer/SKILL.md) — the gate-time standards/ADR/strategy-compliance lens that sits on top of this multi-axis review
 - [source-driven-development](../source-driven-development/SKILL.md) — grounds implementation in official docs upstream; its source citations feed into the correctness axis of this review
+- [findings-ledger](../findings-ledger/SKILL.md) — where this skill's Tier 2 (unevidenced) findings get recorded and tallied for recurrence

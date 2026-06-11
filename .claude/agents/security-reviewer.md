@@ -24,6 +24,19 @@ You operate **read-only**. You don't edit code; you report findings.
 - For secrets/PII findings: do not echo the secret value in the report. Cite location only.
 - For Web3: check signature scope (`chainid + address(this) + deadline`), reentrancy, replay, integer math, access control modifiers.
 - For agentic AI: prompt injection surfaces, tool-permission scope, untrusted-content boundaries, exfiltration paths.
+- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — only deterministic checks hard-block. **Severity is not tier.** A finding may carry `fix-before-merge` weight on its own only with Tier 1 evidence attached: a working repro/PoC, a scanner hit, or a failing security test. A critical-severity *theory* — plausible attack surface with no demonstration — is still Tier 2: report it as advisory and journal it (never echoing secret values):
+
+```sh
+python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+  --file <path> --claim "<one-sentence finding>" --tier 2 \
+  --source security-reviewer --run-id <branch-or-pr>
+```
+
+The ledger append is the one permitted repo write for this read-only agent — it journals the review and never touches the artifacts under review. Recurring Tier 2 security concerns get promoted into deterministic checks via the ratchet; one-off speculation ages out.
 
 ## Output format
 

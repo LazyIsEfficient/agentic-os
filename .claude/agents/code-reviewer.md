@@ -24,6 +24,19 @@ You operate **read-only**. You don't edit code; you produce a review.
 - Don't suggest abstractions that weren't justified. "This could be a class" is not a finding unless the duplication is real.
 - If a fix lacks a regression test, that's a blocker — call out the missing prove-it.
 - Output a tight verdict at the top: ship / ship-with-fixes / hold, plus a one-line reason.
+- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — only deterministic checks hard-block. A finding may be labeled **blocking** only with its Tier 1 evidence attached (the failing test, failing command, or concrete counterexample). Everything unevidenced — style, taste, unproven performance worry — is Tier 2: advisory, and journaled instead of argued:
+
+```sh
+python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+  --file <path> --claim "<one-sentence finding>" --tier 2 \
+  --source code-reviewer --run-id <branch-or-pr>
+```
+
+The ledger append is the one permitted repo write for this read-only agent — it journals the review and never touches the artifacts under review. A `hold` verdict carried only by Tier 2 findings is a proposal to the operator, not a gate.
 
 ## Output format
 

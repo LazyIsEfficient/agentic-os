@@ -417,12 +417,61 @@ compare_manifest() {
   fi
 }
 
+# ── Invariant 7: review-tiers ──────────────────────────────────────────────────
+# The tier doctrine policing itself (.claude/rules/review-tiers.md):
+#   (a) any skill/agent that declares a "Tier discipline" section must reference
+#       review-tiers.md, so tier claims always trace back to the doctrine;
+#   (b) the findings ledger (gitignored → usually absent in CI; skip gracefully)
+#       must be line-wise JSON objects with valid status values. This is a crude
+#       shape check, not a JSON parse — no python/jq per this script's
+#       constraints: each non-blank line must look like {...} and carry a
+#       "status" field with one of the five allowed values.
+VALID_LEDGER_STATUSES='NEW|RECURRING|INVESTIGATING|PROMOTED|RETIRED-NOISE'
+
+check_review_tiers() {
+  # (a) Tier discipline sections reference the doctrine. Scan every markdown
+  # file under skills/ (SKILL.md AND references/), agents/, and commands/ so a
+  # heading can't dodge the check by living in a reference or command file.
+  # Heading match is case-insensitive for the same reason.
+  local files=()
+  [[ -d "$CLAUDE/skills" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/skills" -name '*.md' -type f | sort)
+  [[ -d "$CLAUDE/agents" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/agents" -maxdepth 1 -name '*.md' -type f | sort)
+  [[ -d "$CLAUDE/commands" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/commands" -maxdepth 1 -name '*.md' -type f | sort)
+  if [[ ${#files[@]} -gt 0 ]]; then
+    local f
+    for f in "${files[@]}"; do
+      if grep -Eiq '^##+[ \t]+Tier discipline' "$f"; then
+        if ! grep -q 'review-tiers\.md' "$f"; then
+          fail review-tiers "$f" "declares a 'Tier discipline' section but never references review-tiers.md"
+        fi
+      fi
+    done
+  fi
+
+  # (b) ledger shape
+  local lf="$CLAUDE/ledger/findings.jsonl"
+  [[ -f "$lf" ]] || return 0
+  local n=0 line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    n=$((n+1))
+    [[ -z "${line//[[:space:]]/}" ]] && continue
+    if ! [[ "$line" =~ ^\{.*\}[[:space:]]*$ ]]; then
+      fail ledger "$lf" "line $n is not a JSON object"
+      continue
+    fi
+    if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"('"$VALID_LEDGER_STATUSES"')"' <<<"$line"; then
+      fail ledger "$lf" "line $n missing or invalid \"status\" (want one of: $VALID_LEDGER_STATUSES)"
+    fi
+  done < "$lf"
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
 check_claude_imports
 check_memory_length
 check_ship_manifest
+check_review_tiers
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

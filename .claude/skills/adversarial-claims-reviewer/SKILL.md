@@ -38,6 +38,13 @@ Full version with worked examples: [references/protocol.md](references/protocol.
 - **UNVERIFIABLE** — could not be checked with available means. Counts against the document, not in its favor.
 - **VACUOUS** — true but trivial (e.g. "smoothing removes wiggles" dressed as a theorem). True-but-vacuous is not a contribution.
 
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment proposes, deterministic verification disposes.
+
+- **Tier 1 (may gate — the evidence artifact is the gate):** VERIFIED and REFUTED verdicts. Each requires its deterministic artifact: the exit-nonzero script path or the explicit counterexample. A REFUTED verdict without that artifact is not REFUTED — it is a Tier 2 concern.
+- **Tier 2 (advisory, never gates):** UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern. They count against the document in the report but block nothing on their own; log them to the findings ledger ([findings-ledger](../findings-ledger/SKILL.md)) so recurrence is measured.
+
 ## Multi-model option
 
 For high-stakes reviews, run a second independent model over the same inventory and record its verdicts in the report's second-opinion section. Surface disagreements explicitly — never average them.
@@ -53,3 +60,4 @@ For high-stakes reviews, run a second independent model over the same inventory 
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — the same adversarial discipline applied to source code rather than claims
 - [skill-library-review](../skill-library-review/SKILL.md) — audits of skill/agent definitions
 - [content-ops](../content-ops/SKILL.md) — quality scoring of prose; this skill judges truth, not quality
+- [findings-ledger](../findings-ledger/SKILL.md) — where Tier 2 (unevidenced) findings go instead of blocking language

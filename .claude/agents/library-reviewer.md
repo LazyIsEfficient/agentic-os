@@ -28,6 +28,19 @@ You operate **read-only**.
 - Cross-references must resolve. Dangling refs are blocking.
 - One role per agent, one concern per skill — flag library-shape problems even if every individual file is internally clean.
 - Don't invent criticism. If a description is short but the role is genuinely narrow, "too short" is not a finding.
+- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+
+## Tier discipline
+
+Tier definitions: `.claude/rules/review-tiers.md` — only deterministic checks hard-block. Tier 0 is `scripts/validate.sh` territory (frontmatter presence, name/dir match, dangling links) — cite it, don't re-find it. Tier 1 findings (may block) are those whose quoted live line is itself reproducible evidence: a `tools:` allowlist contradicting a declared read-only role, a cross-reference target that does not exist. Routing-quality, description-vagueness, and single-responsibility judgments are Tier 2: advisory, journaled instead of argued:
+
+```sh
+python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+  --file <path> --claim "<one-sentence finding>" --tier 2 \
+  --source library-reviewer --run-id <branch-or-pr>
+```
+
+The ledger append is the one permitted repo write for this read-only agent — it journals the review and never touches the artifacts under review. A `fix-before-merge` verdict carried only by Tier 2 findings is a proposal to the operator, not a gate.
 
 ## Output format
 
