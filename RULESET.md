@@ -48,6 +48,9 @@ the deterministic gate (`scripts/validate.sh`) is the final authority.
 - **R12** — `description` ≤ 1024 characters. (Local rubric prefers ≤ ~800 — R32.)
 - **R13** — No XML angle brackets (`<` or `>`) anywhere in frontmatter — it is
   injected into the system prompt and brackets are a prompt-injection vector.
+  **Exception:** a command's `argument-hint` may use the documented
+  `<placeholder>` / `[optional]` syntax — it is a CLI usage hint rendered to the
+  user, not instruction text folded into the model's context.
 - **R14** — Optional fields when useful: `license`, `compatibility` (1–500 chars,
   environment needs), `allowed-tools` (restrict tool access), `metadata`
   (author/version/mcp-server/tags/etc.).

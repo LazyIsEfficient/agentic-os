@@ -24,7 +24,7 @@ is a candidate to ratchet *down* into `validate.sh`.
 |---|---|---|---|---|---|---|
 | R9 | skills, agents | `fm_value name` then `grep -iE 'claude\|anthropic'` on the name | name contains neither `claude` nor `anthropic` (case-insensitive) | VIOLATES | 1 | investigator |
 | R12 / R32-desc | md-fm (skills, agents, commands) | extract full `description:` value (inline + continuation lines joined), `wc -c` | description length ≤ 800 chars | VIOLATES | 1 | investigator |
-| R13 | md-fm (skills, agents, commands) | `fm_block`, strip trailing block-scalar indicator (`key: >-`, `key: \|`, etc.), then `grep '[<>]'` | frontmatter content contains no `<` or `>` | VIOLATES | 1 | investigator |
+| R13 | md-fm (skills, agents, commands) | `fm_block`, strip trailing block-scalar indicator (`key: >-`, `key: \|`, etc.) AND blank the `argument-hint:` value (exempt per RULESET R13), then `grep '[<>]'` | frontmatter content contains no `<` or `>` outside `argument-hint` | VIOLATES | 1 | investigator |
 | R32-body | skills only | `wc -l < SKILL.md` | SKILL.md ≤ 100 lines | VIOLATES | 1 | investigator |
 | R33 | skills only | `test -f <skill-dir>/README.md` | no `README.md` in the skill folder | VIOLATES | 2 | investigator |
 | R5 | skills only | `find <skill-dir> -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' -o -name '*.js' \)` | no runnable at the skill ROOT (runnables live under `scripts/`) | VIOLATES | 2 | investigator |
@@ -39,9 +39,12 @@ is a candidate to ratchet *down* into `validate.sh`.
   the body — angle brackets in body prose are legal. A YAML block-scalar
   indicator on a `key:` line (`description: >-`, `when_to_use: |`, `key: >2`) is
   structural YAML, not injected content, and `validate.sh` already treats it as
-  legal — so the trailing indicator is stripped before the scan. Only a `<`/`>`
-  surviving in a key or value (e.g. a literal `<TBD>` placeholder, or `LCP >
-  2.5s` in prose folded into the description) is a true R13 violation.
+  legal — so the trailing indicator is stripped before the scan. A command's
+  `argument-hint` value is exempt too (RULESET R13 exception — `<placeholder>` is
+  a rendered CLI hint, not injected text), so that line's value is blanked first.
+  Only a `<`/`>` surviving elsewhere in a key or value (e.g. a literal `<TBD>`
+  placeholder, or `LCP > 2.5s` in prose folded into the description) is a true
+  R13 violation.
 - **R32-body** counts physical lines of `SKILL.md` only; references/ and assets/
   are uncapped.
 - **R33** is a known repo divergence: many existing skills ship a README. The

@@ -123,7 +123,10 @@ fm_value() {
 # content. A YAML block-scalar indicator (`key: |`, `key: >`, `key: >-`, etc.)
 # is structural YAML, not injected content, and validate.sh already treats it as
 # legal — so the indicator char immediately after `key:` is stripped before the
-# scan. Any `<` or `>` that survives is genuine content and a true violation.
+# scan. Per RULESET R13, a command's `argument-hint` value is also exempt — the
+# `<placeholder>`/`[optional]` syntax is a rendered CLI usage hint, not injected
+# instruction text — so that line's value is blanked before the scan. Any `<` or
+# `>` that survives elsewhere is genuine content and a true violation.
 probe_r13() {
   local f="$1" block scrubbed
   block="$(fm_block "$f")"
@@ -135,7 +138,8 @@ probe_r13() {
   # `key: >`, `key: |`, `key: >-`, `key: |+`, `key: >2`, etc. (indicator only,
   # nothing else after it). This never touches `<`/`>` that appear in values.
   scrubbed="$(printf '%s\n' "$block" \
-    | sed -E 's/^([A-Za-z0-9_-]+:[ \t]*)[|>]([+-]?[0-9]*)[ \t]*$/\1/')"
+    | sed -E 's/^([A-Za-z0-9_-]+:[ \t]*)[|>]([+-]?[0-9]*)[ \t]*$/\1/' \
+    | sed -E 's/^(argument-hint:).*$/\1/')"
   if printf '%s\n' "$scrubbed" | grep -q '[<>]'; then
     local line
     line="$(printf '%s\n' "$scrubbed" | grep -n '[<>]' | head -1)"
