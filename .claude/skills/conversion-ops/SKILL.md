@@ -17,7 +17,7 @@ AI-powered conversion rate optimization: landing page audits, CRO scoring, surve
 
 ## Tools
 
-### CRO Audit (`cro_audit.py`)
+### CRO Audit (`scripts/cro_audit.py`)
 
 Fetches a landing page and scores it across 8 conversion dimensions (0–100 each): Headline Clarity, CTA Visibility, Social Proof, Urgency, Trust Signals, Form Friction, Mobile Responsiveness, Page Speed Indicators.
 
@@ -25,7 +25,7 @@ Output: per-dimension scores, priority fixes ranked by impact, before/after sugg
 
 See [references/cro-audit.md](references/cro-audit.md) for full CLI usage and supported industries.
 
-### Survey-to-Lead-Magnet Engine (`survey_lead_magnet.py`)
+### Survey-to-Lead-Magnet Engine (`scripts/survey_lead_magnet.py`)
 
 Ingests survey CSV data, clusters respondents by pain point, and generates lead magnet briefs for each segment.
 

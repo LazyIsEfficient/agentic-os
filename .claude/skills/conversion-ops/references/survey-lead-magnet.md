@@ -1,4 +1,4 @@
-# Survey-to-Lead-Magnet Engine (`survey_lead_magnet.py`)
+# Survey-to-Lead-Magnet Engine (`scripts/survey_lead_magnet.py`)
 
 Ingests survey CSV data, clusters respondents by pain point, and generates lead magnet briefs for each segment.
 
@@ -6,19 +6,19 @@ Ingests survey CSV data, clusters respondents by pain point, and generates lead 
 
 ```bash
 # Basic usage — analyze survey CSV
-python survey_lead_magnet.py --csv survey_responses.csv
+python scripts/survey_lead_magnet.py --csv survey_responses.csv
 
 # Specify which columns contain pain points / challenges
-python survey_lead_magnet.py --csv survey.csv --pain-columns "biggest_challenge" "top_frustration"
+python scripts/survey_lead_magnet.py --csv survey.csv --pain-columns "biggest_challenge" "top_frustration"
 
 # Limit number of segments
-python survey_lead_magnet.py --csv survey.csv --top-segments 5
+python scripts/survey_lead_magnet.py --csv survey.csv --top-segments 5
 
 # JSON output
-python survey_lead_magnet.py --csv survey.csv --json
+python scripts/survey_lead_magnet.py --csv survey.csv --json
 
 # Save output
-python survey_lead_magnet.py --csv survey.csv --output lead_magnets.json
+python scripts/survey_lead_magnet.py --csv survey.csv --output lead_magnets.json
 ```
 
 ## Output

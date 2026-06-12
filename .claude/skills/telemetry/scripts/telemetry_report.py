@@ -2,9 +2,9 @@
 """Local stats viewer for skill usage data.
 
 Usage:
-    python3 telemetry/telemetry_report.py           # Full report
-    python3 telemetry/telemetry_report.py --json     # Machine-readable output
-    python3 telemetry/telemetry_report.py --skill X  # Filter to one skill
+    python3 telemetry/scripts/telemetry_report.py           # Full report
+    python3 telemetry/scripts/telemetry_report.py --json     # Machine-readable output
+    python3 telemetry/scripts/telemetry_report.py --skill X  # Filter to one skill
 """
 
 import argparse

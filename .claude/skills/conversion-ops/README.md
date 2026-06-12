@@ -40,26 +40,26 @@ pip install -r requirements.txt
 
 ```bash
 # Single page
-python cro_audit.py --url https://yoursite.com/landing-page
+python scripts/cro_audit.py --url https://yoursite.com/landing-page
 
 # With industry benchmarks
-python cro_audit.py --url https://yoursite.com/landing-page --industry saas
+python scripts/cro_audit.py --url https://yoursite.com/landing-page --industry saas
 
 # Batch mode
-python cro_audit.py --file urls.txt --industry ecommerce --output results.json
+python scripts/cro_audit.py --file urls.txt --industry ecommerce --output results.json
 ```
 
 ### 3. Generate lead magnets from survey data
 
 ```bash
 # Basic analysis
-python survey_lead_magnet.py --csv survey_responses.csv
+python scripts/survey_lead_magnet.py --csv survey_responses.csv
 
 # Specify pain point columns
-python survey_lead_magnet.py --csv survey.csv --pain-columns "biggest_challenge" "what_keeps_you_up"
+python scripts/survey_lead_magnet.py --csv survey.csv --pain-columns "biggest_challenge" "what_keeps_you_up"
 
 # Top 3 segments with JSON output
-python survey_lead_magnet.py --csv survey.csv --top-segments 3 --json
+python scripts/survey_lead_magnet.py --csv survey.csv --top-segments 3 --json
 ```
 
 ## CRO Scoring Model
@@ -169,8 +169,9 @@ Add this to your `.claude/agents/` directory and use the `SKILL.md` for Claude C
 conversion-ops/
 ├── README.md                  # This file
 ├── SKILL.md                   # Claude Code agent skill definition
-├── cro_audit.py               # Landing page CRO scoring engine
-├── survey_lead_magnet.py      # Survey segmentation + lead magnet generator
+├── scripts/
+│   ├── cro_audit.py           # Landing page CRO scoring engine
+│   └── survey_lead_magnet.py  # Survey segmentation + lead magnet generator
 └── requirements.txt           # Python dependencies
 ```
 

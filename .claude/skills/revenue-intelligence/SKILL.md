@@ -18,9 +18,9 @@ AI-powered revenue intelligence: sales call insight extraction, content-to-reven
 
 | Tool | Purpose |
 |------|---------|
-| `gong_insight_pipeline.py` | Extract objections, buying signals, and competitive mentions from call transcripts |
-| `revenue_attribution.py` | Map content to closed revenue with first-touch, linear, and time-decay models |
-| `client_report_generator.py` | Generate unified GA4 + HubSpot + Ahrefs + Gong client reports |
+| `scripts/gong_insight_pipeline.py` | Extract objections, buying signals, and competitive mentions from call transcripts |
+| `scripts/revenue_attribution.py` | Map content to closed revenue with first-touch, linear, and time-decay models |
+| `scripts/client_report_generator.py` | Generate unified GA4 + HubSpot + Ahrefs + Gong client reports |
 
 ## References
 

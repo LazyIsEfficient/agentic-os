@@ -55,22 +55,22 @@ See [references/data-flow.md](references/data-flow.md) for the detailed data flo
 
 ```bash
 # Single transcript → markdown
-python3 meeting_action_extractor.py --transcript meeting.txt
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt
 
 # Single transcript → JSON
-python3 meeting_action_extractor.py --transcript meeting.txt --format json
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --format json
 
 # Read from stdin (paste or pipe)
-cat meeting.txt | python3 meeting_action_extractor.py --stdin
+cat meeting.txt | python3 scripts/meeting_action_extractor.py --stdin
 
 # Batch process a directory
-python3 meeting_action_extractor.py --batch ./transcripts/ --output ./actions/
+python3 scripts/meeting_action_extractor.py --batch ./transcripts/ --output ./actions/
 
 # Push action items to HubSpot
-python3 meeting_action_extractor.py --transcript meeting.txt --push-hubspot
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --push-hubspot
 
 # Dry run
-python3 meeting_action_extractor.py --transcript meeting.txt --dry-run
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --dry-run
 ```
 
 **Example Output (Markdown):**
@@ -124,17 +124,17 @@ export LLM_MODEL="claude-sonnet-4-5"   # or "gpt-4o"
 ### 3. Test with a dry run
 
 ```bash
-python3 meeting_action_extractor.py --transcript sample_meeting.txt --dry-run
+python3 scripts/meeting_action_extractor.py --transcript sample_meeting.txt --dry-run
 ```
 
 ### 4. Run for real
 
 ```bash
 # Extract actions from today's meeting
-python3 meeting_action_extractor.py --transcript standup.txt --format markdown
+python3 scripts/meeting_action_extractor.py --transcript standup.txt --format markdown
 
 # Batch process last week's meetings
-python3 meeting_action_extractor.py --batch ./weekly_transcripts/ --output ./weekly_actions/
+python3 scripts/meeting_action_extractor.py --batch ./weekly_transcripts/ --output ./weekly_actions/
 ```
 
 ---
@@ -159,7 +159,8 @@ meeting-intelligence/
 ├── SKILL.md                        # Claude Code skill definition
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Environment variable template
-├── meeting_action_extractor.py     # Meeting transcript → action items
+├── scripts/
+│   └── meeting_action_extractor.py # Meeting transcript → action items
 └── references/
     └── data-flow.md                # Data flow diagram
 ```

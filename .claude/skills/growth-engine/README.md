@@ -38,7 +38,7 @@ cp .env.example .env
 
 ```bash
 # Create an experiment
-python3 experiment-engine.py create \
+python3 scripts/experiment-engine.py create \
   --agent content \
   --hypothesis "Thread posts get 2x impressions vs single posts" \
   --variable "format" \
@@ -47,29 +47,29 @@ python3 experiment-engine.py create \
   --cycle-hours 8
 
 # Log data as it comes in
-python3 experiment-engine.py log \
+python3 scripts/experiment-engine.py log \
   --agent content \
   --experiment-id EXP-CONTENT-001 \
   --variant "thread" \
   --metrics '{"impressions": 4500, "clicks": 120, "replies": 8}'
 
 # Score when you have enough data
-python3 experiment-engine.py score \
+python3 scripts/experiment-engine.py score \
   --agent content \
   --experiment-id EXP-CONTENT-001
 
 # Check your playbook of proven winners
-python3 experiment-engine.py playbook --agent content
+python3 scripts/experiment-engine.py playbook --agent content
 
 # What should you test next?
-python3 experiment-engine.py suggest --agent content
+python3 scripts/experiment-engine.py suggest --agent content
 ```
 
 ---
 
 ## Commands
 
-### experiment-engine.py
+### scripts/experiment-engine.py
 
 The core engine. Manages the full experiment lifecycle.
 
@@ -85,7 +85,7 @@ The core engine. Manages the full experiment lifecycle.
 **Batch mode** — test up to 10 variants simultaneously:
 
 ```bash
-python3 experiment-engine.py create \
+python3 scripts/experiment-engine.py create \
   --agent email \
   --hypothesis "Which subject line style drives highest open rate?" \
   --variable "subject_line_style" \
@@ -94,31 +94,31 @@ python3 experiment-engine.py create \
   --batch-mode
 ```
 
-### autogrowth-weekly-scorecard.py
+### scripts/autogrowth-weekly-scorecard.py
 
 Generates a weekly report across all agents/channels.
 
 ```bash
 # Current week scorecard
-python3 autogrowth-weekly-scorecard.py
+python3 scripts/autogrowth-weekly-scorecard.py
 
 # Two weeks ago
-python3 autogrowth-weekly-scorecard.py --weeks 2
+python3 scripts/autogrowth-weekly-scorecard.py --weeks 2
 
 # Save to file
-python3 autogrowth-weekly-scorecard.py --output reports/week-12.md
+python3 scripts/autogrowth-weekly-scorecard.py --output reports/week-12.md
 ```
 
-### pacing-alert.py
+### scripts/pacing-alert.py
 
 Monitors campaign health and pacing against targets.
 
 ```bash
 # Formatted text output
-python3 pacing-alert.py
+python3 scripts/pacing-alert.py
 
 # JSON output for integrations
-python3 pacing-alert.py --json
+python3 scripts/pacing-alert.py --json
 ```
 
 ---
@@ -268,7 +268,7 @@ import subprocess
 
 # After publishing a social post, log the experiment data
 subprocess.run([
-    "python3", "experiment-engine.py", "log",
+    "python3", "scripts/experiment-engine.py", "log",
     "--agent", "content",
     "--experiment-id", current_experiment_id,
     "--variant", variant_used,
@@ -277,14 +277,14 @@ subprocess.run([
 
 # Periodically score experiments
 subprocess.run([
-    "python3", "experiment-engine.py", "score",
+    "python3", "scripts/experiment-engine.py", "score",
     "--agent", "content",
     "--experiment-id", current_experiment_id
 ])
 
 # Before creating new content, check the playbook
 result = subprocess.run(
-    ["python3", "experiment-engine.py", "playbook", "--agent", "content"],
+    ["python3", "scripts/experiment-engine.py", "playbook", "--agent", "content"],
     capture_output=True, text=True
 )
 # Parse playbook rules and apply them to new content
@@ -296,9 +296,10 @@ result = subprocess.run(
 
 ```
 growth-engine/
-├── experiment-engine.py          # Core experiment lifecycle engine
-├── autogrowth-weekly-scorecard.py # Weekly report generator
-├── pacing-alert.py               # Campaign pacing monitor
+├── scripts/
+│   ├── experiment-engine.py          # Core experiment lifecycle engine
+│   ├── autogrowth-weekly-scorecard.py # Weekly report generator
+│   └── pacing-alert.py               # Campaign pacing monitor
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # Environment variable template
 ├── SKILL.md                      # Claude Code skill definition

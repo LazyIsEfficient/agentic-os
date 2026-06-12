@@ -28,14 +28,14 @@ AI-powered SEO operations: keyword intelligence, competitor gap analysis, GSC op
 
 | Tool | Purpose |
 |------|---------|
-| `content_attack_brief.py` | Full keyword intelligence pipeline: BOFU keywords, competitor gaps, decaying pages |
-| `gsc_client.py` | Google Search Console API client (CLI + library) |
-| `gsc_auth.py` | One-time OAuth setup for GSC access |
-| `trend_scout.py` | Multi-source trend detection across Google Trends, HN, Reddit, X |
+| `scripts/content_attack_brief.py` | Full keyword intelligence pipeline: BOFU keywords, competitor gaps, decaying pages |
+| `scripts/gsc_client.py` | Google Search Console API client (CLI + library) |
+| `scripts/gsc_auth.py` | One-time OAuth setup for GSC access |
+| `scripts/trend_scout.py` | Multi-source trend detection across Google Trends, HN, Reddit, X |
 
 ## Core Rules
 
-1. Run `gsc_auth.py` once before any GSC tool — it saves the OAuth token locally.
+1. Run `scripts/gsc_auth.py` once before any GSC tool — it saves the OAuth token locally.
 2. Keywords are prioritized by Impact × Confidence (max 100) — focus on high-score BOFU targets first.
 3. Check the playbook in `growth-engine` before creating new content to apply proven patterns.
 4. Weekly cadence: full brief + daily striking-distance check + 2×/week trend scout.

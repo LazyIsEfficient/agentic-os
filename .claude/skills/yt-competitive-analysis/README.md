@@ -20,18 +20,18 @@ No manual spreadsheet work. No guessing. Data-driven competitive intel in minute
 export YOUTUBE_API_KEY="your-key-here"
 
 # Analyze specific channels
-python3 analyze.py "$YOUTUBE_API_KEY" --channels "@AlexHormozi,@garyvee,@CodieSanchezCT"
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --channels "@AlexHormozi,@garyvee,@CodieSanchezCT"
 
 # Use predefined channel sets
-python3 analyze.py "$YOUTUBE_API_KEY" --set ai          # AI creator set
-python3 analyze.py "$YOUTUBE_API_KEY" --set business    # Business creator set
-python3 analyze.py "$YOUTUBE_API_KEY" --set both        # All channels
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set ai          # AI creator set
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set business    # Business creator set
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set both        # All channels
 
 # Export to JSON for programmatic use
-python3 analyze.py "$YOUTUBE_API_KEY" --set both --output json > results.json
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set both --output json > results.json
 
 # Custom lookback period
-python3 analyze.py "$YOUTUBE_API_KEY" --channels "@mkbhd" --days 60
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --channels "@mkbhd" --days 60
 ```
 
 ## Setup
@@ -105,7 +105,7 @@ Run weekly to surface new outliers automatically:
 
 ```bash
 # Cron: every Sunday at 8am
-0 8 * * 0 YOUTUBE_API_KEY="your-key" python3 /path/to/analyze.py "$YOUTUBE_API_KEY" --set both --output json > /path/to/weekly-results.json
+0 8 * * 0 YOUTUBE_API_KEY="your-key" python3 /path/to/scripts/analyze.py "$YOUTUBE_API_KEY" --set both --output json > /path/to/weekly-results.json
 ```
 
 ## Requirements

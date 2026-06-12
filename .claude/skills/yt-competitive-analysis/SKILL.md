@@ -22,16 +22,16 @@ Outlier detection and packaging pattern extraction for YouTube channels.
 
 ```bash
 # Analyze specific channels
-python3 analyze.py "$YOUTUBE_API_KEY" --channels "@handle1,@handle2" --days 30
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --channels "@handle1,@handle2" --days 30
 
 # Use predefined sets
-python3 analyze.py "$YOUTUBE_API_KEY" --set ai
-python3 analyze.py "$YOUTUBE_API_KEY" --set business
-python3 analyze.py "$YOUTUBE_API_KEY" --set both
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set ai
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set business
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set both
 
 # Export formats
-python3 analyze.py "$YOUTUBE_API_KEY" --set both --output json
-python3 analyze.py "$YOUTUBE_API_KEY" --set both --output console
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set both --output json
+python3 scripts/analyze.py "$YOUTUBE_API_KEY" --set both --output console
 ```
 
 ## Predefined Channel Sets

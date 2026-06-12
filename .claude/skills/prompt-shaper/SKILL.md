@@ -4,7 +4,7 @@ description: Structures a vague engineering request into a well-scoped task brie
 when_to_use: |
   The gap this fills: the user wants engineering work done but you cannot yet name the repos in scope, what "done" looks like, or the load-bearing constraints — so any subagent dispatched now would guess. Shaping converts that gap into a brief that downstream skills and subagents can execute without re-interviewing the user.
 
-  Discriminator: triggers fire only when scope is missing. "Implement this <fully-specified spec>" is already scoped — skip shaping and execute. The /shape command is the unambiguous trigger; keyword matches are secondary hints.
+  Discriminator: triggers fire only when scope is missing. "Implement this fully-specified spec" is already scoped — skip shaping and execute. The /shape command is the unambiguous trigger; keyword matches are secondary hints.
 
   Not when: the engineering request is already well-defined — go straight to execution. Not when the request is a still-fuzzy, raw idea that needs divergent ideation or stress-testing before it can be scoped (not an under-specified-but-concrete engineering goal) — use `idea-refine` first to shape the idea, then return here for intake. Not when the task is purely picking or invoking the right skill for an unknown task type — use `using-agent-skills`. Not when the intake is for marketing work — use `marketing-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. If "plan"/"scope" arrives without a clear domain, ask one qualifying question first rather than assuming engineering.
 ---

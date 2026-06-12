@@ -33,7 +33,7 @@ Turn meeting transcripts into structured, trackable output. Feed it a transcript
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
-| `meeting_action_extractor.py` | Extract decisions, actions, follow-ups, insights from transcripts | `python3 meeting_action_extractor.py --transcript meeting.txt --format markdown` |
+| `scripts/meeting_action_extractor.py` | Extract decisions, actions, follow-ups, insights from transcripts | `python3 scripts/meeting_action_extractor.py --transcript meeting.txt --format markdown` |
 
 See [references/data-flow.md](references/data-flow.md) for the full data-flow diagram.
 
@@ -41,22 +41,22 @@ See [references/data-flow.md](references/data-flow.md) for the full data-flow di
 
 ```bash
 # Single transcript → markdown (default)
-python3 meeting_action_extractor.py --transcript meeting.txt
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt
 
 # Single transcript → JSON
-python3 meeting_action_extractor.py --transcript meeting.txt --format json
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --format json
 
 # Read from stdin (paste or pipe)
-cat meeting.txt | python3 meeting_action_extractor.py --stdin
+cat meeting.txt | python3 scripts/meeting_action_extractor.py --stdin
 
 # Batch process a directory of transcripts (.txt/.md/.json)
-python3 meeting_action_extractor.py --batch ./transcripts/ --output ./actions/
+python3 scripts/meeting_action_extractor.py --batch ./transcripts/ --output ./actions/
 
 # Push extracted action items to HubSpot as tasks
-python3 meeting_action_extractor.py --transcript meeting.txt --push-hubspot
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --push-hubspot
 
 # Dry run (no LLM calls; shows what would be processed)
-python3 meeting_action_extractor.py --transcript meeting.txt --dry-run
+python3 scripts/meeting_action_extractor.py --transcript meeting.txt --dry-run
 ```
 
 ## What it extracts

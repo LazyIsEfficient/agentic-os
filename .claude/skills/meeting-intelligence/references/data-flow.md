@@ -6,18 +6,18 @@
 Meeting Transcripts (text file / stdin / batch directory)
         │
         ▼
-┌──────────────────────────────────┐
-│   meeting_action_extractor.py    │
-│   Extract:                       │
-│   • Decisions (who + context)    │
-│   • Action items (owner +        │
-│     deadline + priority)         │
-│   • Open questions               │
-│   • Key insights / quotes        │
-│   • Follow-up meetings needed    │
-│   • Implicit commitments         │
-│   + Confidence scores            │
-└──────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ scripts/meeting_action_extractor.py │
+│   Extract:                          │
+│   • Decisions (who + context)       │
+│   • Action items (owner +           │
+│     deadline + priority)            │
+│   • Open questions                  │
+│   • Key insights / quotes           │
+│   • Follow-up meetings needed       │
+│   • Implicit commitments            │
+│   + Confidence scores               │
+└─────────────────────────────────────┘
         │
         ▼
 Structured JSON / Markdown + Optional HubSpot Task Push

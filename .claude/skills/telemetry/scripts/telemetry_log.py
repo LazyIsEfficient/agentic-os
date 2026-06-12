@@ -2,7 +2,7 @@
 """Log a skill run event. Called by each skill's preamble.
 
 Usage:
-    python3 telemetry/telemetry_log.py --skill <name> --duration <ms> --success <true/false> --version <ver>
+    python3 telemetry/scripts/telemetry_log.py --skill <name> --duration <ms> --success <true/false> --version <ver>
 
 Always logs locally. If opted in, also sends to analytics endpoint.
 Never logs: code content, file paths, repo names, usernames, environment variables.

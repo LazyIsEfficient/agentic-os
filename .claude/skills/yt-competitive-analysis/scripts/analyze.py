@@ -6,7 +6,7 @@ Analyzes YouTube channels to find outlier videos (2x+ average views)
 and extract packaging patterns from winners.
 
 Usage:
-    python3 analyze.py <API_KEY> [--channels @h1,@h2] [--set ai|business|both] [--days 30] [--output console|json]
+    python3 scripts/analyze.py <API_KEY> [--channels @h1,@h2] [--set ai|business|both] [--days 30] [--output console|json]
 """
 
 import argparse

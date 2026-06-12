@@ -32,21 +32,21 @@ When you opt in, the following **anonymous** data is sent:
 
 ### First run (interactive)
 ```bash
-python3 telemetry/telemetry_init.py
+python3 telemetry/scripts/telemetry_init.py
 ```
 You'll be asked to choose. Your choice is saved.
 
 ### Non-interactive
 ```bash
-python3 telemetry/telemetry_init.py --yes   # Opt in
-python3 telemetry/telemetry_init.py --no    # Opt out
+python3 telemetry/scripts/telemetry_init.py --yes   # Opt in
+python3 telemetry/scripts/telemetry_init.py --no    # Opt out
 ```
 
 ### Change your mind later
 Delete the config and re-run:
 ```bash
 rm ~/.ai-marketing-skills/telemetry-config.json
-python3 telemetry/telemetry_init.py
+python3 telemetry/scripts/telemetry_init.py
 ```
 
 ## Local Data — Always Available
@@ -62,21 +62,21 @@ This data never leaves your machine unless you opt in.
 ## View Your Stats
 
 ```bash
-python3 telemetry/telemetry_report.py
+python3 telemetry/scripts/telemetry_report.py
 ```
 
 Shows: total runs, runs per skill, success rates, average durations, most used skill, and more.
 
 ### Options
 ```bash
-python3 telemetry/telemetry_report.py --json          # Machine-readable JSON
-python3 telemetry/telemetry_report.py --skill seo-bot  # Filter to one skill
+python3 telemetry/scripts/telemetry_report.py --json          # Machine-readable JSON
+python3 telemetry/scripts/telemetry_report.py --skill seo-bot  # Filter to one skill
 ```
 
 ## Check for Updates
 
 ```bash
-python3 telemetry/version_check.py
+python3 telemetry/scripts/version_check.py
 ```
 
 - Compares your local version against the latest GitHub release

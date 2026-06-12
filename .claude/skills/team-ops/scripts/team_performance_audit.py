@@ -14,16 +14,16 @@ The 5 Steps:
 
 Usage:
   # Analyze from JSON input
-  python3 team_performance_audit.py --input team_data.json --output report.md
+  python3 scripts/team_performance_audit.py --input team_data.json --output report.md
 
   # Analyze from CSV
-  python3 team_performance_audit.py --input team_data.csv --output report.md
+  python3 scripts/team_performance_audit.py --input team_data.csv --output report.md
 
   # Dry run (print to stdout, no LLM calls)
-  python3 team_performance_audit.py --input team_data.json --dry-run
+  python3 scripts/team_performance_audit.py --input team_data.json --dry-run
 
   # JSON output instead of markdown
-  python3 team_performance_audit.py --input team_data.json --format json --output report.json
+  python3 scripts/team_performance_audit.py --input team_data.json --format json --output report.json
 
 Input format (JSON):
   {

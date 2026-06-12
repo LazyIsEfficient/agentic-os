@@ -30,10 +30,10 @@ GA4 + HubSpot + Ahrefs + Gong → Client Report → Executive Summary + Anomalie
 
 ## Recommended Workflow
 
-1. **Weekly:** Run `gong_insight_pipeline.py --gong --days 7` to extract call intelligence
-2. **Monthly:** Run `revenue_attribution.py --report` to prove content ROI
-3. **Monthly:** Run `client_report_generator.py` for each client deliverable
-4. **Quarterly:** Run `revenue_attribution.py --gaps` to find content gaps
+1. **Weekly:** Run `scripts/gong_insight_pipeline.py --gong --days 7` to extract call intelligence
+2. **Monthly:** Run `scripts/revenue_attribution.py --report` to prove content ROI
+3. **Monthly:** Run `scripts/client_report_generator.py` for each client deliverable
+4. **Quarterly:** Run `scripts/revenue_attribution.py --gaps` to find content gaps
 5. **Ongoing:** Feed Gong insight follow-ups into outbound sequences
 
 ## Dependencies

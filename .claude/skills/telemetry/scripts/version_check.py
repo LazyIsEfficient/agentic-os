@@ -2,7 +2,7 @@
 """Check for updates against GitHub releases.
 
 Usage:
-    python3 telemetry/version_check.py
+    python3 telemetry/scripts/version_check.py
 
 Silent when up to date. Prints update notice if newer version available.
 Caches result for 24 hours. Gracefully handles offline/errors.
@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VERSION_FILE = REPO_ROOT / "VERSION"
 CACHE_DIR = Path.home() / ".ai-marketing-skills"
 CACHE_FILE = CACHE_DIR / "version-cache.json"
