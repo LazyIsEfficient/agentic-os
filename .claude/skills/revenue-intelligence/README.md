@@ -57,7 +57,7 @@ Now open-sourced for any revenue-focused marketing team.
 
 ## Tools
 
-### 1. 🎙️ Gong-to-Insight Pipeline (`gong_insight_pipeline.py`)
+### 1. 🎙️ Gong-to-Insight Pipeline (`scripts/gong_insight_pipeline.py`)
 
 Turns sales call transcripts into structured intelligence. Works with the Gong API or plain `.txt` transcript files.
 
@@ -71,16 +71,16 @@ Turns sales call transcripts into structured intelligence. Works with the Gong A
 
 ```bash
 # Analyze a transcript file
-python gong_insight_pipeline.py --file transcript.txt
+python scripts/gong_insight_pipeline.py --file transcript.txt
 
 # Analyze a directory of transcripts
-python gong_insight_pipeline.py --dir ./transcripts/ --content-topics
+python scripts/gong_insight_pipeline.py --dir ./transcripts/ --content-topics
 
 # Pull from Gong API (last 7 days)
-python gong_insight_pipeline.py --gong --days 7
+python scripts/gong_insight_pipeline.py --gong --days 7
 
 # Full output with follow-ups
-python gong_insight_pipeline.py --file call.txt --follow-ups --output insights.json
+python scripts/gong_insight_pipeline.py --file call.txt --follow-ups --output insights.json
 
 # Example output:
 # ============================================================
@@ -104,7 +104,7 @@ python gong_insight_pipeline.py --file call.txt --follow-ups --output insights.j
 #   💰 Pricing discussed: Yes (3 mentions)
 ```
 
-### 2. 💰 Revenue Attribution Mapper (`revenue_attribution.py`)
+### 2. 💰 Revenue Attribution Mapper (`scripts/revenue_attribution.py`)
 
 The "prove content ROI" tool. Maps blog posts, videos, podcasts, and webinars to actual closed deals using first-touch, linear, or time-decay attribution models.
 
@@ -117,16 +117,16 @@ The "prove content ROI" tool. Maps blog posts, videos, podcasts, and webinars to
 
 ```bash
 # Full attribution report (linear model)
-python revenue_attribution.py --report
+python scripts/revenue_attribution.py --report
 
 # Time-decay model (more credit to recent touchpoints)
-python revenue_attribution.py --report --model time-decay
+python scripts/revenue_attribution.py --report --model time-decay
 
 # Content gaps (which funnel stages are uncovered?)
-python revenue_attribution.py --gaps
+python scripts/revenue_attribution.py --gaps
 
 # CPA by content type
-python revenue_attribution.py --cpa --costs content_costs.json
+python scripts/revenue_attribution.py --cpa --costs content_costs.json
 
 # Example output:
 # ======================================================================
@@ -150,7 +150,7 @@ python revenue_attribution.py --cpa --costs content_costs.json
 #   ...
 ```
 
-### 3. 📋 Multi-Source Client Report Generator (`client_report_generator.py`)
+### 3. 📋 Multi-Source Client Report Generator (`scripts/client_report_generator.py`)
 
 Pulls from all four data sources (GA4, HubSpot, Ahrefs, Gong) and generates a unified, client-ready BI report with an auto-generated executive summary and optional anomaly detection.
 
@@ -165,16 +165,16 @@ Pulls from all four data sources (GA4, HubSpot, Ahrefs, Gong) and generates a un
 
 ```bash
 # Console summary
-python client_report_generator.py --client "Acme Corp"
+python scripts/client_report_generator.py --client "Acme Corp"
 
 # Full markdown report
-python client_report_generator.py --client "Acme Corp" --format markdown --output report.md
+python scripts/client_report_generator.py --client "Acme Corp" --format markdown --output report.md
 
 # JSON for dashboards/slides
-python client_report_generator.py --client "Acme Corp" --format json --anomalies
+python scripts/client_report_generator.py --client "Acme Corp" --format json --anomalies
 
 # Skip sources you don't use
-python client_report_generator.py --client "Acme Corp" --skip gong,ahrefs
+python scripts/client_report_generator.py --client "Acme Corp" --skip gong,ahrefs
 
 # Example output:
 # ======================================================================
@@ -222,13 +222,13 @@ Rep: I understand. What range were you expecting?
 Prospect: We were looking at HubSpot too, they quoted us around 50k.
 Rep: Makes sense. Our ROI calculator shows 3x return in year one." > sample.txt
 
-python gong_insight_pipeline.py --file sample.txt --follow-ups
+python scripts/gong_insight_pipeline.py --file sample.txt --follow-ups
 
 # Run attribution report (uses sample data without API keys)
-python revenue_attribution.py --report --gaps
+python scripts/revenue_attribution.py --report --gaps
 
 # Generate client report (uses sample data without API keys)
-python client_report_generator.py --client "Demo Corp" --anomalies
+python scripts/client_report_generator.py --client "Demo Corp" --anomalies
 ```
 
 ### 4. Connect real APIs
@@ -270,16 +270,16 @@ export AHREFS_TOKEN="your-ahrefs-api-token"
 ## Customization
 
 ### Objection Patterns
-Edit `OBJECTION_PATTERNS` in `gong_insight_pipeline.py` to match your industry's objection language.
+Edit `OBJECTION_PATTERNS` in `scripts/gong_insight_pipeline.py` to match your industry's objection language.
 
 ### Competitor List
-Edit `KNOWN_COMPETITORS` in `gong_insight_pipeline.py` with your actual competitive landscape.
+Edit `KNOWN_COMPETITORS` in `scripts/gong_insight_pipeline.py` with your actual competitive landscape.
 
 ### Content Type Classification
-Edit `CONTENT_TYPE_PATTERNS` in `revenue_attribution.py` to match your site's URL structure.
+Edit `CONTENT_TYPE_PATTERNS` in `scripts/revenue_attribution.py` to match your site's URL structure.
 
 ### Anomaly Thresholds
-Pass custom thresholds to `detect_anomalies()` in `client_report_generator.py`:
+Pass custom thresholds to `detect_anomalies()` in `scripts/client_report_generator.py`:
 ```python
 thresholds = {"warning": 0.15, "critical": 0.30}  # 15% = warning, 30% = critical
 ```
@@ -288,9 +288,9 @@ thresholds = {"warning": 0.15, "critical": 0.30}  # 15% = warning, 30% = critica
 
 ## How They Work Together
 
-1. **Weekly**: Run `gong_insight_pipeline.py` on recent calls → extract objections and buying signals
-2. **Monthly**: Run `revenue_attribution.py` → see which content drove deals
-3. **Monthly**: Run `client_report_generator.py` → deliver unified report to clients or leadership
+1. **Weekly**: Run `scripts/gong_insight_pipeline.py` on recent calls → extract objections and buying signals
+2. **Monthly**: Run `scripts/revenue_attribution.py` → see which content drove deals
+3. **Monthly**: Run `scripts/client_report_generator.py` → deliver unified report to clients or leadership
 4. **Quarterly**: Use Gong content topics + attribution gaps to plan next quarter's content
 
 The insight loop:
@@ -309,7 +309,8 @@ revenue-intelligence/
 ├── README.md                       # This file
 ├── SKILL.md                        # Claude Code agent skill definition
 ├── requirements.txt                # Python dependencies
-├── gong_insight_pipeline.py        # Call transcript → structured insights
-├── revenue_attribution.py          # Content → revenue mapping
-└── client_report_generator.py      # Multi-source client BI reports
+└── scripts/
+    ├── gong_insight_pipeline.py    # Call transcript → structured insights
+    ├── revenue_attribution.py      # Content → revenue mapping
+    └── client_report_generator.py  # Multi-source client BI reports
 ```

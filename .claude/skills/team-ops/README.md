@@ -68,19 +68,19 @@ The "Elon Algorithm" applied to team management. A 5-step framework that questio
 
 ```bash
 # Run with JSON input
-python3 team_performance_audit.py --input team_data.json --output report.md
+python3 scripts/team_performance_audit.py --input team_data.json --output report.md
 
 # Run with CSV input
-python3 team_performance_audit.py --input team_data.csv --output report.md
+python3 scripts/team_performance_audit.py --input team_data.csv --output report.md
 
 # JSON output
-python3 team_performance_audit.py --input team_data.json --format json --output report.json
+python3 scripts/team_performance_audit.py --input team_data.json --format json --output report.json
 
 # Dry run (quantitative only, no LLM calls)
-python3 team_performance_audit.py --input team_data.json --dry-run
+python3 scripts/team_performance_audit.py --input team_data.json --dry-run
 
 # Custom scoring weights
-python3 team_performance_audit.py --input team_data.json \
+python3 scripts/team_performance_audit.py --input team_data.json \
   --weights '{"output_velocity":0.4,"quality":0.3,"independence":0.15,"initiative":0.15}'
 ```
 
@@ -172,14 +172,14 @@ export LLM_MODEL="claude-sonnet-4-5"   # or "gpt-4o"
 
 ```bash
 # Quantitative scoring only — no LLM calls
-python3 team_performance_audit.py --input sample_team.json --dry-run
+python3 scripts/team_performance_audit.py --input sample_team.json --dry-run
 ```
 
 ### 4. Run for real
 
 ```bash
 # Full team audit
-python3 team_performance_audit.py --input team_data.json --output q1_audit.md
+python3 scripts/team_performance_audit.py --input team_data.json --output q1_audit.md
 ```
 
 ---
@@ -203,7 +203,8 @@ team-ops/
 ├── SKILL.md                        # Claude Code skill definition
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Environment variable template
-├── team_performance_audit.py       # Elon Algorithm team audit
+├── scripts/
+│   └── team_performance_audit.py   # Elon Algorithm team audit
 └── references/
     └── data-flow.md                # Data flow diagram
 ```

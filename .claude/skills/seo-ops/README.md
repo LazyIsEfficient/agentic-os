@@ -61,7 +61,7 @@ cp .env.example .env
 ### 3. Authenticate with Google Search Console
 
 ```bash
-python gsc_auth.py
+python scripts/gsc_auth.py
 ```
 
 This opens a browser for OAuth consent. Your token is saved locally for subsequent use.
@@ -70,16 +70,16 @@ This opens a browser for OAuth consent. Your token is saved locally for subseque
 
 ```bash
 # Content Attack Brief — full keyword intelligence report
-python content_attack_brief.py
+python scripts/content_attack_brief.py
 
 # GSC Keyword Optimizer — find striking distance keywords
-python gsc_client.py --striking --days 28
+python scripts/gsc_client.py --striking --days 28
 
 # GSC top queries
-python gsc_client.py --queries 50 --days 28
+python scripts/gsc_client.py --queries 50 --days 28
 
 # Trend Scout — find what's trending in your niche
-python trend_scout.py
+python scripts/trend_scout.py
 ```
 
 ## Architecture
@@ -189,10 +189,11 @@ Add this to your `.claude/skills/` directory and use the `SKILL.md` for Claude C
 seo-ops/
 ├── README.md                  # This file
 ├── SKILL.md                   # Claude Code skill definition
-├── content_attack_brief.py    # Full keyword intelligence pipeline
-├── gsc_client.py              # GSC API client (library + CLI)
-├── gsc_auth.py                # GSC OAuth setup flow
-├── trend_scout.py             # Multi-source trend detection
+├── scripts/
+│   ├── content_attack_brief.py # Full keyword intelligence pipeline
+│   ├── gsc_client.py          # GSC API client (library + CLI)
+│   ├── gsc_auth.py            # GSC OAuth setup flow
+│   └── trend_scout.py         # Multi-source trend detection
 ├── requirements.txt           # Python dependencies
 └── .env.example               # Environment variable template
 ```

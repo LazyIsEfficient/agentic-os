@@ -6,7 +6,7 @@ Most podcast teams publish an episode and maybe pull one audiogram. This pipelin
 
 ## What's Inside
 
-### 🎙️ Podcast-to-Everything Pipeline (`podcast_pipeline.py`)
+### 🎙️ Podcast-to-Everything Pipeline (`scripts/podcast_pipeline.py`)
 End-to-end pipeline that ingests podcast episodes (via RSS feed or raw transcript) and produces a full cross-platform content calendar.
 
 **Ingest modes:**
@@ -43,19 +43,19 @@ cp .env.example .env
 # Edit .env with your API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY)
 
 # 3. Process latest episode from your podcast RSS
-python podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml"
+python scripts/podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml"
 
 # 4. Or process a local transcript
-python podcast_pipeline.py --transcript episode-42.txt
+python scripts/podcast_pipeline.py --transcript episode-42.txt
 
 # 5. Batch process last 5 episodes
-python podcast_pipeline.py --batch "https://feeds.example.com/podcast.xml" --episodes 5
+python scripts/podcast_pipeline.py --batch "https://feeds.example.com/podcast.xml" --episodes 5
 
 # 6. Generate weekly content calendar
-python podcast_pipeline.py --calendar
+python scripts/podcast_pipeline.py --calendar
 
 # 7. Only keep high-scoring content
-python podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml" --min-score 80
+python scripts/podcast_pipeline.py --rss "https://feeds.example.com/podcast.xml" --min-score 80
 ```
 
 ## Configuration

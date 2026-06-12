@@ -1,4 +1,4 @@
-# CRO Audit Tool (`cro_audit.py`)
+# CRO Audit Tool (`scripts/cro_audit.py`)
 
 Fetches a landing page and scores it across 8 conversion dimensions. No headless browser needed.
 
@@ -6,22 +6,22 @@ Fetches a landing page and scores it across 8 conversion dimensions. No headless
 
 ```bash
 # Single URL audit
-python cro_audit.py --url https://example.com/landing-page
+python scripts/cro_audit.py --url https://example.com/landing-page
 
 # Batch mode — multiple URLs
-python cro_audit.py --urls https://example.com/page1 https://example.com/page2
+python scripts/cro_audit.py --urls https://example.com/page1 https://example.com/page2
 
 # URLs from a file (one per line)
-python cro_audit.py --file urls.txt
+python scripts/cro_audit.py --file urls.txt
 
 # Specify industry for benchmark comparison
-python cro_audit.py --url https://example.com --industry saas
+python scripts/cro_audit.py --url https://example.com --industry saas
 
 # JSON output
-python cro_audit.py --url https://example.com --json
+python scripts/cro_audit.py --url https://example.com --json
 
 # Save report to file
-python cro_audit.py --url https://example.com --output report.json
+python scripts/cro_audit.py --url https://example.com --output report.json
 ```
 
 ## Scoring Dimensions (each 0–100)

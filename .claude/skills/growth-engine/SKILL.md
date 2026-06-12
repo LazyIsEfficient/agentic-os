@@ -22,7 +22,7 @@ Autonomous growth experimentation framework based on Karpathy's autoresearch pat
 1. Always check the playbook before creating new content — apply proven best practices first.
 2. Winner threshold: p < 0.05 AND ≥ 15% lift. Winners auto-promote to the playbook.
 3. Use batch mode (`--batch-mode`) for 3-10 variant tests.
-4. Run `pacing-alert.py` to monitor campaign health; exit code 1 = alerts present.
+4. Run `scripts/pacing-alert.py` to monitor campaign health; exit code 1 = alerts present.
 5. Do not run this engine for one-off content creation — apply playbook output directly instead.
 
 ## References

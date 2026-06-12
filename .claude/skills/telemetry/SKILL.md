@@ -32,17 +32,17 @@ Each line in `skill-usage.jsonl` records only anonymous fields: skill name, dura
 
 | Script | Purpose | Invocation |
 |--------|---------|------------|
-| `telemetry_init.py` | Configure opt-in/out (interactive on first run) | `python3 telemetry/telemetry_init.py` (or `--yes` / `--no`) |
+| `telemetry_init.py` | Configure opt-in/out (interactive on first run) | `python3 telemetry/scripts/telemetry_init.py` (or `--yes` / `--no`) |
 | `telemetry_log.py` | Log one skill run (called by a skill's preamble) | see integration pattern below |
-| `telemetry_report.py` | View local usage stats | `python3 telemetry/telemetry_report.py` (`--json`, `--skill <name>`) |
-| `version_check.py` | Check for a newer library release | `python3 telemetry/version_check.py` |
+| `telemetry_report.py` | View local usage stats | `python3 telemetry/scripts/telemetry_report.py` (`--json`, `--skill <name>`) |
+| `version_check.py` | Check for a newer library release | `python3 telemetry/scripts/version_check.py` |
 
 ## Logging a skill's runs
 
 A skill opts into telemetry by calling `telemetry_log.py` once at the end of its run. The script always appends to the local JSONL log, and additionally POSTs to the analytics endpoint only if the user opted in. It fails silently and never blocks execution. All four flags are required:
 
 ```bash
-python3 telemetry/telemetry_log.py \
+python3 telemetry/scripts/telemetry_log.py \
   --skill my-skill-name \
   --duration 4500 \
   --success true \
@@ -54,9 +54,9 @@ Capture a start time before the work, compute `--duration` in milliseconds after
 ## Reading the stats
 
 ```bash
-python3 telemetry/telemetry_report.py            # human-readable summary
-python3 telemetry/telemetry_report.py --json      # machine-readable
-python3 telemetry/telemetry_report.py --skill seo-ops   # filter to one skill
+python3 telemetry/scripts/telemetry_report.py            # human-readable summary
+python3 telemetry/scripts/telemetry_report.py --json      # machine-readable
+python3 telemetry/scripts/telemetry_report.py --skill seo-ops   # filter to one skill
 ```
 
 Reports total runs, runs in the last 7/30 days, per-skill success rates and average durations, and the most-used skill. Reads only the local log — works the same whether or not you opted in.
@@ -64,7 +64,7 @@ Reports total runs, runs in the last 7/30 days, per-skill success rates and aver
 ## Checking for updates
 
 ```bash
-python3 telemetry/version_check.py
+python3 telemetry/scripts/version_check.py
 ```
 
 Compares a local `VERSION` file against the latest GitHub release, caches the result for 24h, and stays silent unless a newer version exists. **It needs a `VERSION` file at the repo's skills root (`.claude/skills/VERSION`) containing the current version** (e.g. `1.0.0`). If that file is absent the script has no baseline and stays silent rather than reporting a false update — create the file to enable update notices.

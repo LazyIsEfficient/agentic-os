@@ -30,7 +30,7 @@ AI-powered team performance auditing: ruthless performance audits using the "Elo
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
-| `team_performance_audit.py` | Elon Algorithm: 5-step team audit + stack rank + scorecards | `python3 team_performance_audit.py --input team_data.json --output report.md` |
+| `team_performance_audit.py` | Elon Algorithm: 5-step team audit + stack rank + scorecards | `python3 scripts/team_performance_audit.py --input team_data.json --output report.md` |
 
 See [references/data-flow.md](references/data-flow.md) for the full data-flow diagram.
 
@@ -45,16 +45,16 @@ See [references/data-flow.md](references/data-flow.md) for the full data-flow di
 
 ```bash
 # JSON input → markdown report
-python3 team_performance_audit.py --input team_data.json --output report.md
+python3 scripts/team_performance_audit.py --input team_data.json --output report.md
 
 # CSV input
-python3 team_performance_audit.py --input team_data.csv --output report.md
+python3 scripts/team_performance_audit.py --input team_data.csv --output report.md
 
 # JSON output
-python3 team_performance_audit.py --input team_data.json --format json --output report.json
+python3 scripts/team_performance_audit.py --input team_data.json --format json --output report.json
 
 # Dry run (quantitative scoring only, no LLM calls)
-python3 team_performance_audit.py --input team_data.json --dry-run
+python3 scripts/team_performance_audit.py --input team_data.json --dry-run
 ```
 
 ## Configuration

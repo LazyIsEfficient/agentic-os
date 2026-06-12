@@ -33,9 +33,9 @@ Keywords are scored on two axes:
 
 ## Recommended Workflow
 
-1. **Weekly:** Run `content_attack_brief.py` for the full intelligence report
-2. **Daily:** Run `gsc_client.py --striking` to monitor striking distance keywords
-3. **2x/week:** Run `trend_scout.py` to catch trending topics early
+1. **Weekly:** Run `scripts/content_attack_brief.py` for the full intelligence report
+2. **Daily:** Run `scripts/gsc_client.py --striking` to monitor striking distance keywords
+3. **2x/week:** Run `scripts/trend_scout.py` to catch trending topics early
 4. **Monthly:** Review competitor gaps and adjust `COMPETITORS` list
 
 ## Dependencies

@@ -35,7 +35,7 @@ pip install -r requirements.txt
 export ANTHROPIC_API_KEY="your-api-key-here"
 
 # 3. Run the optimizer
-python3 autoresearch.py --input landing-page.html --type landing_page --min-score 85
+python3 scripts/autoresearch.py --input landing-page.html --type landing_page --min-score 85
 
 # 4. Check results
 cat data/landing-page-optimization-report.md

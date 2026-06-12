@@ -1,12 +1,12 @@
 # Tool Reference
 
-## Content Attack Brief (`content_attack_brief.py`)
+## Content Attack Brief (`scripts/content_attack_brief.py`)
 
 Full keyword intelligence pipeline. Requires `AHREFS_TOKEN` and GSC auth.
 
 ```bash
 # Run the full brief
-python content_attack_brief.py
+python scripts/content_attack_brief.py
 ```
 
 **What it produces:**
@@ -21,19 +21,19 @@ python content_attack_brief.py
 
 ---
 
-## GSC Client (`gsc_client.py`)
+## GSC Client (`scripts/gsc_client.py`)
 
 Google Search Console API client. Works as CLI or importable library.
 
 ```bash
 # CLI usage
-python gsc_client.py --queries 50 --days 28
-python gsc_client.py --striking                    # Striking distance keywords (pos 4-20)
-python gsc_client.py --pages 100 --days 7
-python gsc_client.py --trend                       # Daily click/impression trend
-python gsc_client.py --devices                     # Mobile vs desktop split
-python gsc_client.py --sites                       # List verified properties
-python gsc_client.py --json --queries 25           # JSON output
+python scripts/gsc_client.py --queries 50 --days 28
+python scripts/gsc_client.py --striking                    # Striking distance keywords (pos 4-20)
+python scripts/gsc_client.py --pages 100 --days 7
+python scripts/gsc_client.py --trend                       # Daily click/impression trend
+python scripts/gsc_client.py --devices                     # Mobile vs desktop split
+python scripts/gsc_client.py --sites                       # List verified properties
+python scripts/gsc_client.py --json --queries 25           # JSON output
 ```
 
 ```python
@@ -48,23 +48,23 @@ for row in rows:
 
 ---
 
-## GSC Auth (`gsc_auth.py`)
+## GSC Auth (`scripts/gsc_auth.py`)
 
 One-time OAuth setup for Google Search Console access.
 
 ```bash
-python gsc_auth.py
+python scripts/gsc_auth.py
 # Opens browser → Google Sign-In → saves token locally
 ```
 
 ---
 
-## Trend Scout (`trend_scout.py`)
+## Trend Scout (`scripts/trend_scout.py`)
 
 Multi-source trend detection. No API keys required for basic functionality.
 
 ```bash
-python trend_scout.py
+python scripts/trend_scout.py
 ```
 
 **Sources:** Google Trends RSS, Hacker News, Reddit, X/Twitter (needs `BRAVE_API_KEY`)

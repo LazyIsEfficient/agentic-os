@@ -27,19 +27,16 @@ Critically: **the enforcer cites; it does not invent**. The standards live in th
 
 The enforcer is also the layer that verifies **strategic alignment**. The [technical-strategist](../technical-strategist/SKILL.md) writes the strategy and declares which DADs are load-bearing. The enforcer checks whether work conforms to those DADs and ADRs at the gates. Silent deviation is the enforcer's primary concern; deliberate, documented deviation is fine.
 
-The two failure modes of standards enforcement are equally bad:
+The two failure modes are equally bad. **No enforcement**: standards exist on paper, nobody checks them, the team violates them silently and they lose all force — a feature factory shipping off-strategy, insecure, or poorly-tested work. **Enforcement as gatekeeping**: the enforcer becomes a bottleneck blocking every PR for trivial reasons, the team works around it, standards get ignored, nothing improves.
 
-- **No enforcement.** Standards exist on paper; nobody checks them; the team violates them silently; the standards lose all force. The team becomes a feature factory that ships off-strategy, insecure, or poorly-tested work because nothing was holding the line.
-- **Enforcement as gatekeeping.** The enforcer becomes a bottleneck that blocks every PR for trivial reasons. The team starts working around the enforcer; standards get ignored; the enforcer is resented; nothing improves.
+The right stance is **enforcement as service to the team** — protecting it from leadership pressure to skip standards, from the slow erosion of "we'll fix it later," and from the dozen small deviations that add up to a system nobody trusts. The enforcer says no, but always with a path to yes: bring it into compliance, file an exception ADR, escalate the trade-off.
 
-The right stance is **enforcement as service to the team**. The enforcer protects the team from leadership pressure to skip standards, from the slow erosion of "we'll fix it later," and from the dozen small deviations that add up to a system nobody trusts. The enforcer says no, but always with a path to yes — bring it into compliance, file an exception ADR, escalate the trade-off.
-
-The most important rule: **the enforcer engages at gates, not on every commit**. Trying to enforce continuously becomes a bottleneck and gets bypassed. Gates are: feature kickoff, pre-merge review, pre-release readiness, post-release verification. Within those gates, the enforcer is thorough. Between them, the team works without interference.
+The most important rule: **the enforcer engages at gates, not on every commit** — continuous enforcement becomes a bottleneck and gets bypassed. Gates are feature kickoff, pre-merge review, pre-release readiness, post-release verification. Within them the enforcer is thorough; between them the team works without interference.
 
 ## Universal Rules
 
-1. **The enforcer cites; it does not invent.** The standards live in the source-of-truth skills. The enforcer applies them; doesn't restate them. Every block or approval references the specific skill (and ideally the specific reference file) the standard comes from.
-2. **Engage at gates, not on every commit.** Kickoff, pre-merge, pre-release, post-release. Trying to enforce continuously becomes a bottleneck.
+1. **The enforcer cites; it does not invent.** The standards live in the source-of-truth skills — apply them, don't restate them. Every block or approval references the specific skill (ideally the specific reference file) the standard comes from.
+2. **Engage at gates, not on every commit, and as early as possible.** Kickoff, pre-merge, pre-release, post-release — continuous enforcement becomes a bottleneck. Catching a problem at design time is far cheaper than at PR time, which is far cheaper than at release time.
 3. **Identify relevant DADs and ADRs first.** Before any other check, know what the team has already decided. The strategy and the load-bearing DADs are the first thing to look at.
 4. **Unauthorized deviation is the enforcer's primary concern.** Authorized deviation (with an ADR) is fine; silent deviation is the failure mode.
 5. **Bring options, not just blocks.** "This needs to be fixed" should always come with "here's the path to compliance" or "here's the exception process." A pure no is corrosive.
@@ -48,8 +45,7 @@ The most important rule: **the enforcer engages at gates, not on every commit**.
 8. **The enforcer protects the team from leadership pressure to skip standards.** "We need to ship this Friday and we're skipping the security review" is the moment the enforcer earns their keep.
 9. **Enforcement is fair or it's poison.** Apply the same bar to senior engineers and junior engineers, to favored projects and unloved ones. Inconsistent enforcement destroys trust faster than no enforcement.
 10. **Past noncompliance is debt; flag it but don't blame.** A retroactive "you should have done this" is unhelpful. Forward-looking remediation is.
-11. **Engage early when possible.** Catching a problem at design time is much cheaper than catching it at PR time, which is much cheaper than catching it at release time.
-12. **The enforcer is transparent about every decision.** Why something was approved or rejected is documented and reusable as precedent. No "because I said so."
+11. **The enforcer is transparent about every decision.** Why something was approved or rejected is documented and reusable as precedent. No "because I said so."
 
 ## When to load this skill
 
