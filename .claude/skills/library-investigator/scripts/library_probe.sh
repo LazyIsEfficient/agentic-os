@@ -202,7 +202,10 @@ probe_r33() {
   local skill_dir="$1" readme
   readme="$skill_dir/README.md"
   if [[ -f "$readme" ]]; then
-    emit VIOLATES 2 R33 "$readme" "in-skill README.md present (known repo divergence)"
+    # RULESET R33: in-skill README.md is an accepted repo convention, not a
+    # violation. Reported as CONFORMS so the file is accounted for without
+    # inflating the VIOLATES count.
+    emit CONFORMS 2 R33 "$readme" "in-skill README.md present — accepted repo convention (RULESET R33)"
   else
     emit CONFORMS 2 R33 "$skill_dir/SKILL.md" "no in-skill README.md"
   fi

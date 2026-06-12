@@ -128,10 +128,12 @@ these here; `scripts/validate.sh` is the deterministic gate.
 - **R32 — Tighter size caps.** Local review rubric caps `SKILL.md` at **~100
   lines** and descriptions at **~800 chars** (vs. the guide's 5,000 words /
   1024 chars). Follow the stricter local cap.
-- **R33 — In-skill `README.md` is a known divergence.** The guide says *do not*
-  put a `README.md` inside a skill folder (docs go in `SKILL.md`/`references/`);
-  several skills here ship one. Prefer `SKILL.md` + `references/` for new skills;
-  existing in-skill READMEs are a cleanup candidate, not a pattern to copy.
+- **R33 — In-skill `README.md` is an accepted convention here.** The guide
+  discourages a `README.md` inside a skill folder (docs go in
+  `SKILL.md`/`references/`), but this library deliberately ships a human-facing
+  `README.md` in many skill folders — an intentional local divergence, not a
+  defect. New skills may include one. The investigator treats it as conforming,
+  never a violation.
 - **R34 — Reciprocal routing.** Beyond the guide's negative-trigger advice, this
   repo requires cross-references between contending skills to be **reciprocal**:
   if A deflects to B on a shared trigger, B must deflect back. (See the

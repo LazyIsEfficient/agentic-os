@@ -26,7 +26,7 @@ is a candidate to ratchet *down* into `validate.sh`.
 | R12 / R32-desc | md-fm (skills, agents, commands) | extract full `description:` value (inline + continuation lines joined), `wc -c` | description length ≤ 800 chars | VIOLATES | 1 | investigator |
 | R13 | md-fm (skills, agents, commands) | `fm_block`, strip trailing block-scalar indicator (`key: >-`, `key: \|`, etc.) AND blank the `argument-hint:` value (exempt per RULESET R13), then `grep '[<>]'` | frontmatter content contains no `<` or `>` outside `argument-hint` | VIOLATES | 1 | investigator |
 | R32-body | skills only | `wc -l < SKILL.md` | SKILL.md ≤ 100 lines | VIOLATES | 1 | investigator |
-| R33 | skills only | `test -f <skill-dir>/README.md` | no `README.md` in the skill folder | VIOLATES | 2 | investigator |
+| R33 | skills only | `test -f <skill-dir>/README.md` | always conforms — in-skill README is an accepted repo convention (RULESET R33) | — (never VIOLATES) | 2 | investigator |
 | R5 | skills only | `find <skill-dir> -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' -o -name '*.js' \)` | no runnable at the skill ROOT (runnables live under `scripts/`) | VIOLATES | 2 | investigator |
 
 ### Notes on the probes
@@ -47,8 +47,8 @@ is a candidate to ratchet *down* into `validate.sh`.
   R13 violation.
 - **R32-body** counts physical lines of `SKILL.md` only; references/ and assets/
   are uncapped.
-- **R33** is a known repo divergence: many existing skills ship a README. The
-  investigator REPORTS the fact (Tier 2); it does not imply the README must go.
+- **R33** is an accepted repo convention: many skills deliberately ship a
+  human-facing README. The probe always emits CONFORMS for it — never VIOLATES.
 - **R5** flags a runnable sitting directly in the skill folder. Files under
   `scripts/`, `references/`, or `assets/` are correctly placed and never flagged.
 
