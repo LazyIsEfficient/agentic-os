@@ -17,6 +17,10 @@ when_to_use: |
   Not when the content-gap analysis is REVENUE/pipeline-driven (which content
   drives deals or revenue, buyer-journey gaps) rather than SEO/search-driven —
   use revenue-intelligence; this skill's gap analysis is keyword/search-demand-driven.
+  Not when the competitor gap analysis is STRATEGIC positioning (where we win,
+  differentiation, category framing) rather than keyword coverage — use
+  competitive-positioning; for quantifying total market demand or TAM/SAM/SOM use
+  market-sizing.
   For deep content research and optimization use [autoresearch](../autoresearch/SKILL.md).
 ---
 

@@ -12,7 +12,9 @@ when_to_use: |
 
   Not when: the task is per-SKU pricing or bundle construction — use `iap-manager`. Not when
   the in-game economy numbers need tuning — use `game-balancer`. Not when the question is
-  whether to make the game at all — use `game-design-shaper` or `game-concept-creator`.
+  whether to make the game at all — use `game-design-shaper` or `game-concept-creator`. Not when
+  the task is pricing/packaging an external SaaS or non-game product (willingness-to-pay, tiers,
+  value metric) rather than an in-game economy or IAP model — use `pricing-and-packaging`.
 ---
 
 # Game Monetization Strategist

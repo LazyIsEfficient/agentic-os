@@ -1,6 +1,6 @@
 ---
 name: marketer
-description: Full-spectrum marketing, content, and sales execution — content scoring, decks, long-form social, podcast repurposing, growth experiments, CRO, SEO, cold email, pipeline automation, pricing, revenue attribution. Use when the deliverable is content, an experiment, an outbound sequence, a pipeline change, or a sales/revenue analysis. Triggers on "content", "campaign", "experiment", "CRO", "SEO", "cold email", "sales pipeline", "marketing pipeline", "outbound pipeline", "pricing", "sales call". For marketing intake see marketing-shaper.
+description: Full-spectrum marketing, content, and sales execution — content scoring, decks, long-form social, podcast repurposing, growth experiments, CRO, SEO, cold email, pipeline automation, pricing, revenue attribution. Use when the deliverable is content, an experiment, an outbound sequence, a pipeline change, or a sales/revenue analysis. Triggers on "content", "campaign", "experiment", "CRO", "SEO", "cold email", "sales pipeline", "marketing pipeline", "outbound pipeline", "pricing", "sales call". This agent executes pricing and campaigns; for upstream pricing strategy/packaging see pricing-and-packaging and for positioning/differentiation strategy see competitive-positioning. For marketing intake see marketing-shaper.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 

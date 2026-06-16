@@ -4,7 +4,7 @@ description: Use when setting or revising the technical direction of an engineer
 when_to_use: |
   Use when setting or revising the technical direction of an engineering organization: drafting or revising the technical strategy document, making a major build vs. buy vs. adopt decision, deciding whether to invest in a shared platform, declaring or revising load-bearing DADs, communicating technical direction to engineering or leadership, pushing back on proposals that don't fit the strategy, sizing a major technical bet (refactor, rewrite, migration), or reviewing how an existing strategy has played out.
 
-  Not when: the task is enforcing the strategy at specific gates (PR review, pre-release) — use standards-enforcer. Not when the task is macro system design for a specific service (fault tolerance, capacity planning) — use system-architect. Not when the task is capturing decisions as ADRs/DADs — use team-lead. Not when the task is defining what product features to build and why — use technical-product-management.
+  Not when: the task is enforcing the strategy at specific gates (PR review, pre-release) — use standards-enforcer. Not when the task is macro system design for a specific service (fault tolerance, capacity planning) — use system-architect. Not when the task is capturing decisions as ADRs/DADs — use team-lead. Not when the task is defining what product features to build and why — use technical-product-management. Not when the task is deciding the product's market position or differentiation (where we win vs competitors) rather than its technical direction — use competitive-positioning.
 ---
 
 # Technical Strategist

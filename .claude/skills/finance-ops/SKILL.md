@@ -14,7 +14,9 @@ when_to_use: |
   game-studio-level revenue forecasting or LTV/ARPDAU strategy — use
   `game-monetization-strategist`. Not when the task is general business intelligence
   dashboards — this skill processes QuickBooks exports specifically. Not when the task is
-  team-performance evaluation or meeting action items — use `team-ops`.
+  team-performance evaluation or meeting action items — use `team-ops`. Not when the task is
+  setting the external price or packaging of a product (willingness-to-pay, tiers) rather than
+  the internal cost floor or margin — use `pricing-and-packaging`.
 ---
 
 # AI Finance Ops
