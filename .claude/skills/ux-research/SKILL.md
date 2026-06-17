@@ -4,7 +4,7 @@ description: Use when planning or running user research — discovery interviews
 when_to_use: |
   Use when planning a research study, writing a discussion guide or usability test script, synthesizing findings from interviews or observations, building or auditing personas and JTBD statements, communicating research findings to product or engineering, triaging "we need research" requests, or reviewing analytics as a complement to qualitative work.
 
-  Not when: the task is translating research findings into wireframes, prototypes, or shipped UI — use ux-design. Not when the task is making prioritization or roadmap decisions from existing research — use technical-product-management. Not when the task is writing accessibility tests — use typescript-testing-frontend.
+  Not when: the task is translating research findings into wireframes, prototypes, or shipped UI — use ux-design. Not when the task is making prioritization or roadmap decisions from existing research — use technical-product-management. Not when the task is deciding which customers or segment to target (firmographic/behavioral account fit, win-loss) rather than studying user experience — use icp-validation; for quantifying market demand or TAM/SAM/SOM use market-sizing. Not when the task is writing accessibility tests — use typescript-testing-frontend.
 ---
 
 # UX Research

@@ -4,7 +4,7 @@ description: Use when making product decisions in a technical context — defini
 when_to_use: |
   Use when making product decisions in a technical context: defining or revising product strategy or vision, prioritizing work, building or revising a roadmap, writing a PRD or one-pager, translating research findings into prioritization decisions, planning a phased launch or rollout, picking metrics for a feature or OKR, pushing back on stakeholder requests that don't fit strategy, or deciding what not to build.
 
-  Not when: the task is ticket grooming, backlog hygiene, or ADR/DAD capture — use team-lead. Not when the task is macro system design (services, fault tolerance, capacity) — use system-architect. Not when the task is running user interviews or usability studies — use ux-research. Not when the task is setting technical direction (frameworks, build vs buy, platform investments) — use technical-strategist.
+  Not when: the task is ticket grooming, backlog hygiene, or ADR/DAD capture — use team-lead. Not when the task is macro system design (services, fault tolerance, capacity) — use system-architect. Not when the task is running user interviews or usability studies — use ux-research. Not when the task is setting technical direction (frameworks, build vs buy, platform investments) — use technical-strategist. Not when the question is whether the market opportunity is real or worth pursuing ("is there a market", TAM/SAM/SOM) before committing to build — use market-sizing.
 ---
 
 # Technical Product Management
