@@ -119,6 +119,28 @@ Agents are spawned automatically when Claude Code routes a task (e.g. `engineer`
 Use the security-reviewer agent to audit this PR.
 ```
 
+### Multi-agent collaboration pod (`/v2-collab`)
+
+Run a small **pod of agents that collaborate over several rounds** on one
+deliverable: a PM frames the work, an engineer builds it, and a reviewer critiques
+each round until it is approved (or a round cap is hit). Unlike a single agent or a
+one-shot fan-out, the pod iterates — each round sees the previous round's artifact
+and the reviewer's notes. It runs **entirely in your session** as a Workflow (no
+extra services, no API keys); the produced files are written to a path you name (or
+`./v2-out/`), never into your live library.
+
+Example prompt that triggers it:
+
+```
+/v2-collab Build a single-page marketing site for an AI healthcare startup whose
+service ingests your health data, has licensed nurses and doctors analyze it, and
+returns personalized recommendations. Write it to pocs/sample.
+```
+
+The roster is configurable; by default it is `technical-pm → engineer →
+code-reviewer`, and the **last role is the approval gate** — the run ends the moment
+that reviewer approves. Pass a lower round cap for a cheaper first run.
+
 ### Skills vs Agents
 
 **Skills** are instruction playbooks — they tell Claude *how* to do a specific type of work (TDD, debugging, API design). They are stateless and composable.
@@ -275,6 +297,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `route`, and `skill-new
 | `route` | Recommend the owning skill/agent for a task |
 | `skill-new` | Scaffold a new conforming skill |
 | `triage-findings` | Tally the findings ledger and propose ratchet targets (human disposes) |
+| `v2-collab` | Run an in-session multi-agent collaboration pod (PM → engineer → reviewer) over rounds on one task |
 
 ---
 
