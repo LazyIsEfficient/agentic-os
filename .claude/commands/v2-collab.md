@@ -34,16 +34,24 @@ cheaper first run if the user is cost-sensitive. The workflow returns
 
 ## Step 3 — materialize the artifact (sanitize paths — model output is untrusted)
 
-The `artifact` keys are filenames CHOSEN BY THE AGENTS and are untrusted. Before
-writing any file, reject — fail-closed, abort the whole materialize — any key that
-is absolute, contains a `..` component, or whose resolved path would escape the
-output directory. Do not silently skip a bad key.
+The `artifact` keys are filenames CHOSEN BY THE AGENTS and are untrusted. Pick the
+output directory first — the path the user named in the task, or default
+`./v2-out/<short-slug>/` — then validate EVERY key with an allowlist, not a
+denylist, before writing anything:
 
-Write the files under a clearly-scoped output directory the user named in the task,
-or default to `./v2-out/<short-slug>/`. **Do NOT write into `.claude/skills/`,
-`.claude/agents/`, or any live library path unless the user explicitly asked for
-that** — a new library artifact must go through the normal review gate, not ride in
-on a pod run. Use `Write` for each file.
+1. **Reject and abort the WHOLE materialize (fail-closed — never silently skip a
+   key)** if a key is absolute, contains a `..` segment, or targets a sensitive
+   sink: anything under `.git/` (e.g. `.git/hooks/pre-commit`), any dot-file or
+   dot-dir, or anything under `.claude/` (skills, agents, commands, hooks,
+   workflows, settings). Writing model-generated content into an executable or
+   config location is the real risk a denylist would miss.
+2. **Canonicalize and assert containment:** resolve `outputDir + "/" + key` to an
+   absolute path and confirm it starts with the canonical output directory plus a
+   path separator. If it does not, abort.
+
+Only once every key passes both checks, `Write` the files. Never write into the live
+library or any path the user did not scope — a new library artifact must go through
+the normal review gate, not ride in on a pod run.
 
 ## Step 4 — report
 

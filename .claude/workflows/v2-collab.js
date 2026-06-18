@@ -2,11 +2,11 @@
 //
 // This is the IN-CLAUDE-CODE version of the v2 runtime: instead of a standalone
 // Rust+Redis harness driven from a terminal, the orchestration runs as a Workflow
-// the session invokes directly. A pod (PM -> engineer -> library-reviewer)
-// collaborates over a shared in-memory artifact across orchestrator-clocked rounds
-// until the reviewer approves or the round cap is hit. Each turn is a real Claude
-// Code subagent (agent() with agentType), so it runs on the subscription — no API
-// key, no Redis, no Docker, no second process.
+// the session invokes directly. A pod (technical-pm -> engineer -> code-reviewer,
+// roster configurable) collaborates over a shared in-memory artifact across
+// orchestrator-clocked rounds until the reviewer approves or the round cap is hit.
+// Each turn is a real Claude Code subagent (agent() with agentType), so it runs on
+// the subscription — no API key, no Redis, no Docker, no second process.
 //
 // What carried over from the Rust runtime: the round protocol, done-on-reviewer-
 // approve, the task-as-seed-prompt shape, and the structured Contribution interface.
@@ -25,12 +25,12 @@
 export const meta = {
   name: "v2-collab",
   description:
-    "In-session multi-agent collaboration pod: technical-pm -> engineer -> library-reviewer collaborate over a shared artifact across orchestrator-clocked rounds until the reviewer approves or the round cap is hit. Each turn is a real Claude Code subagent (subscription, no API/Redis/Docker). Returns the produced artifact for the caller to materialize and gate.",
+    "In-session multi-agent collaboration pod: technical-pm -> engineer -> code-reviewer (roster configurable) collaborate over a shared artifact across orchestrator-clocked rounds until the reviewer approves or the round cap is hit. Each turn is a real Claude Code subagent (subscription, no API/Redis/Docker). Returns the produced artifact for the caller to materialize and gate.",
   phases: [
     {
       title: "Collaborate",
       detail:
-        "Round loop: PM frames the work, the engineer produces/revises the artifact, the library-reviewer reviews and votes approve. Repeat until approved or the round cap.",
+        "Round loop: PM frames the work, the engineer produces/revises the artifact, the reviewer reviews and votes approve. Repeat until approved or the round cap.",
     },
   ],
 };
@@ -56,11 +56,14 @@ const CONTRIBUTION_SCHEMA = {
     approve: {
       type: "boolean",
       description:
-        "True ONLY if the artifact is complete and ready to ship as-is. The run ends the moment the library-reviewer returns true. PM/engineer should return false unless the work is genuinely done.",
+        "True ONLY if the artifact is complete and ready to ship as-is. The run ends the moment the final reviewer returns true. PM/engineer should return false unless the work is genuinely done.",
     },
   },
 };
 
+// Default pod — general-purpose (code-reviewer gates). For authoring a library
+// skill/agent, override the last role to `library-reviewer` via args.roles so the
+// gate judges RULESET conformance instead of code quality.
 const ROLES = [
   {
     key: "pm",
@@ -76,9 +79,9 @@ const ROLES = [
   },
   {
     key: "rev",
-    agentType: "library-reviewer",
+    agentType: "code-reviewer",
     directive:
-      "You are the reviewer. Judge the current artifact against the task's acceptance criteria and the repo's standards. If it is complete and correct, return approve=true and change nothing. Otherwise approve=false and put the specific, actionable fixes in `note` — the engineer will act on them next round. Do not rewrite the artifact yourself.",
+      "You are the reviewer and the approval gate. Judge the current artifact against the task's acceptance criteria and quality bar. If it is complete and correct, return approve=true and change nothing. Otherwise approve=false and put the specific, actionable fixes in `note` — the engineer will act on them next round. Do not rewrite the artifact yourself.",
   },
 ];
 
@@ -122,8 +125,25 @@ function buildPrompt(task, role, artifact, log, round) {
 const input = typeof args === "string" ? { task: args } : args || {};
 const task = input.task;
 const maxRounds = Number(input.maxRounds) > 0 ? Number(input.maxRounds) : 6;
-const roles =
-  Array.isArray(input.roles) && input.roles.length ? input.roles : ROLES;
+
+// roles override (optional). Validate element shape — a malformed override would
+// otherwise silently yield `agentType: undefined` / "undefined" directives.
+let roles = ROLES;
+if (Array.isArray(input.roles) && input.roles.length) {
+  const wellFormed = input.roles.every(
+    (r) =>
+      r &&
+      typeof r.key === "string" && r.key.trim() &&
+      typeof r.agentType === "string" && r.agentType.trim() &&
+      typeof r.directive === "string" && r.directive.trim()
+  );
+  if (!wellFormed) {
+    throw new Error(
+      "v2-collab: each entry in args.roles needs non-empty string key, agentType, and directive."
+    );
+  }
+  roles = input.roles;
+}
 
 if (!task || !String(task).trim()) {
   throw new Error(
@@ -154,7 +174,9 @@ for (let round = 1; round <= maxRounds && !approved; round++) {
     const edits = contrib.artifact_edits || {};
     for (const [name, content] of Object.entries(edits)) artifact[name] = content;
     logEntries.push({ round, role: role.key, note: contrib.note || "", approve: !!contrib.approve });
-    if (role === roles[roles.length - 1]) approved = !!contrib.approve;
+    // The last role in the roster is the approval gate. OR-latch so the invariant
+    // ("approved only flips true, never back to false") is local, not loop-carried.
+    if (role === roles[roles.length - 1]) approved ||= !!contrib.approve;
   }
 }
 

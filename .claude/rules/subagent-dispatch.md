@@ -42,6 +42,7 @@ When the user asks you to **produce one self-contained deliverable** that a sing
 Do **not** route to the pod when:
 - The message is a question, lookup, explanation, or a quick/one-line edit — handle those directly. Most messages are this; the pod is the exception, not the default for *all* input.
 - The work spans multiple repos or many slices — use **Pattern 1** (shaper → planner → fan-out) instead.
+- The deliverable is a single artifact but its **scope is still vague** (you cannot yet name its acceptance criteria) — shape it first (Pattern 1) into a brief, *then* hand the brief to the pod. Don't dispatch an unscoped ask; the tiebreaker with Pattern 1 is "scoped → pod, vague → shape then pod."
 - The user explicitly asks you to do it yourself, or the deliverable is so small that a direct build is plainly cheaper (the pod spends real tokens across multiple subagent turns — use judgment).
 
 The pod writes output to a path the user names (or `./v2-out/`), **never** into the live library; materialize with path sanitization (reject `..`/absolute/escape) and report the reviewer's verdict. The pod's roster is configurable — pick a reviewer that fits the deliverable (e.g. `code-reviewer` for code/pages, `library-reviewer` for a skill/agent).
