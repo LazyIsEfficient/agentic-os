@@ -1,7 +1,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.3.0/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.4.0/install.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install.ps1
