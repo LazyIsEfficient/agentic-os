@@ -151,7 +151,8 @@ awk '
     print "install_files \"commands\" \\"
     print "  \"skill-new.md\" \\"
     print "  \"agent-new.md\" \\"
-    print "  \"route.md\""
+    print "  \"route.md\" \\"
+    print "  \"v2-collab.md\""
     next
   }
   { print }
