@@ -1,12 +1,13 @@
 ---
-description: Run the in-session multi-agent collaboration pod (PM + engineer + library-reviewer) on a task via the v2-collab workflow, then materialize the result
+description: Run the in-session multi-agent collaboration pod (PM + engineer + code-reviewer) on a task via the v2-collab workflow, then materialize the result
 argument-hint: <task description, or a path to a task file>
 allowed-tools: Workflow, Read, Write, Bash
 ---
 
 You are launching the **v2-collab** in-session collaboration pod. A pod of three
-real Claude Code subagents — `technical-pm` -> `engineer` -> `library-reviewer` —
-collaborates over a shared artifact across orchestrator-clocked rounds until the
+real Claude Code subagents — `technical-pm` -> `engineer` -> `code-reviewer`
+(roster configurable) — collaborates over a shared artifact across
+orchestrator-clocked rounds until the
 reviewer approves or the round cap is hit. It runs entirely in this session on the
 subscription (no Redis, no Rust, no API key). This replaces driving the standalone
 Rust runtime from a terminal.
@@ -32,12 +33,17 @@ cheaper first run if the user is cost-sensitive. The workflow returns
 `{ approved, rounds, files, artifact, log }` where `artifact` is a map of
 `filename -> content`.
 
+If the deliverable is a library skill or agent, pass a `roles` override whose final
+(gate) role is `library-reviewer` instead of the default `code-reviewer`, so the
+gate judges RULESET conformance rather than code quality.
+
 ## Step 3 — materialize the artifact (sanitize paths — model output is untrusted)
 
 The `artifact` keys are filenames CHOSEN BY THE AGENTS and are untrusted. Pick the
 output directory first — the path the user named in the task, or default
-`./v2-out/<short-slug>/` — then validate EVERY key with an allowlist, not a
-denylist, before writing anything:
+`./v2-out/<short-slug>/`. The output dir itself must NOT be a sensitive location:
+reject it if it resolves under `.git/`, `.claude/`, or any dot-dir. Then validate
+EVERY key with an allowlist, not a denylist, before writing anything:
 
 1. **Reject and abort the WHOLE materialize (fail-closed — never silently skip a
    key)** if a key is absolute, contains a `..` segment, or targets a sensitive
@@ -45,9 +51,11 @@ denylist, before writing anything:
    dot-dir, or anything under `.claude/` (skills, agents, commands, hooks,
    workflows, settings). Writing model-generated content into an executable or
    config location is the real risk a denylist would miss.
-2. **Canonicalize and assert containment:** resolve `outputDir + "/" + key` to an
-   absolute path and confirm it starts with the canonical output directory plus a
-   path separator. If it does not, abort.
+2. **Canonicalize (resolve symlinks) and assert containment:** `realpath` BOTH the
+   output directory and `outputDir + "/" + key`, then confirm the resolved
+   destination starts with the resolved output directory plus a path separator. If
+   it does not, abort. Resolving symlinks on both sides closes a symlinked-output
+   or symlink-in-key escape.
 
 Only once every key passes both checks, `Write` the files. Never write into the live
 library or any path the user did not scope — a new library artifact must go through

@@ -124,7 +124,11 @@ function buildPrompt(task, role, artifact, log, round) {
 
 const input = typeof args === "string" ? { task: args } : args || {};
 const task = input.task;
-const maxRounds = Number(input.maxRounds) > 0 ? Number(input.maxRounds) : 6;
+
+// Round cap: positive integer only, clamped — rejects Infinity / fractional / <=0.
+const maxRoundsRaw = Number(input.maxRounds);
+const maxRounds =
+  Number.isInteger(maxRoundsRaw) && maxRoundsRaw > 0 ? Math.min(maxRoundsRaw, 20) : 6;
 
 // roles override (optional). Validate element shape — a malformed override would
 // otherwise silently yield `agentType: undefined` / "undefined" directives.
@@ -160,7 +164,9 @@ phase("Collaborate");
 for (let round = 1; round <= maxRounds && !approved; round++) {
   roundsRun = round;
   log(`Round ${round}/${maxRounds}`);
-  for (const role of roles) {
+  for (let i = 0; i < roles.length; i++) {
+    const role = roles[i];
+    const isGate = i === roles.length - 1; // last role in the roster is the approval gate
     const contrib = await agent(buildPrompt(task, role, artifact, logEntries, round), {
       agentType: role.agentType,
       schema: CONTRIBUTION_SCHEMA,
@@ -168,15 +174,22 @@ for (let round = 1; round <= maxRounds && !approved; round++) {
       phase: "Collaborate",
     });
     if (!contrib) {
+      // A failed/skipped turn never approves — including a failed gate turn.
       logEntries.push({ round, role: role.key, note: "(no contribution — agent skipped/failed)", approve: false });
       continue;
     }
-    const edits = contrib.artifact_edits || {};
+    // Apply only a well-formed edits object; ignore a schema-violating non-object.
+    const edits =
+      contrib.artifact_edits &&
+      typeof contrib.artifact_edits === "object" &&
+      !Array.isArray(contrib.artifact_edits)
+        ? contrib.artifact_edits
+        : {};
     for (const [name, content] of Object.entries(edits)) artifact[name] = content;
     logEntries.push({ round, role: role.key, note: contrib.note || "", approve: !!contrib.approve });
-    // The last role in the roster is the approval gate. OR-latch so the invariant
-    // ("approved only flips true, never back to false") is local, not loop-carried.
-    if (role === roles[roles.length - 1]) approved ||= !!contrib.approve;
+    // OR-latch by INDEX (robust even if a roster repeats the same object reference):
+    // `approved` only flips true, never back to false.
+    if (isGate) approved ||= !!contrib.approve;
   }
 }
 
