@@ -90,10 +90,11 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
-| `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/route` recommends the owning skill/agent for a task |
+| `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/route` recommends the owning skill/agent for a task; `/v2-collab` runs an in-session multi-agent collaboration pod |
+| `~/.claude/workflows/` | Workflow definitions backing shipped commands — currently the `v2-collab` workflow, resolved by `/v2-collab` |
 | `~/.claude/hooks/` | PreToolUse hooks (e.g. `block-bad-bash.sh`) |
 
-> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`, `route`) install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `plan-clean` commands and the `workflows/` (sharded library audit, routing-collision sweep) — is **not** installed, to avoid polluting your command namespace.
+> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`, `route`) and the `v2-collab` command (plus its `v2-collab` workflow) install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `plan-clean` / `triage-findings` commands and the other `workflows/` (sharded library audit, routing-collision sweep) — is **not** installed, to avoid polluting your command namespace.
 
 ---
 
@@ -286,7 +287,7 @@ opt-in rather than default.
 
 ## Commands
 
-Slash commands in `.claude/commands/`. Only `agent-new`, `route`, and `skill-new` ship to consumers; the rest are repo-local maintainer tools.
+Slash commands in `.claude/commands/`. Only `agent-new`, `route`, `skill-new`, and `v2-collab` ship to consumers (the last together with its `v2-collab` workflow); the rest are repo-local maintainer tools.
 
 | Command | Description |
 |---|---|
