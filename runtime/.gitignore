@@ -1,0 +1,6 @@
+# Real environment file — secrets/local config stay untracked. Keep .env.example tracked.
+.env
+!.env.example
+
+# Rust build output — never commit.
+/target

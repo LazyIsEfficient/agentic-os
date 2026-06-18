@@ -1,0 +1,27 @@
+# v2 runtime — Redis durable blackboard (see runtime/docs/ADR-001-v2-runtime.md).
+# Redis is the orchestrator's durable cross-round / cross-crash memory, NOT a cache:
+# state HASH, artifact HASH, log STREAM, votes:{round} HASH must survive a restart.
+# Compose auto-loads runtime/.env for ${REDIS_PORT} (run `bash setup.sh` first).
+services:
+  redis:
+    # Pinned to the 7.4 minor line — no `latest`, no floating `redis:7`.
+    image: redis:7.4-alpine
+    container_name: v2-runtime-redis
+    restart: unless-stopped
+    # --appendonly yes => AOF persistence so the blackboard replays after a crash.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Host port from env (default 6379); container always listens on 6379.
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      # Named volume for /data => AOF/RDB files outlive container recreation.
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  redis-data:
