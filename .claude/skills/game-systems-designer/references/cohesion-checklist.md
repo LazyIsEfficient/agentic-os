@@ -83,7 +83,7 @@ For each system, check against the chosen payment rails (from `game-concept-crea
 - **Web3 NFTs:** does this system require *rebalancing* characters/items? (NFT'd content is hard to nerf.)
 - **Subscription:** does this system give subscribers *ongoing reasons* to stay subscribed?
 
-Systems that fight the rails are landmines for `game-monetization-strategist` and `iap-manager` later. Surface the conflict in the design doc, don't bury it.
+Systems that fight the rails are landmines for `iap-manager` later. Surface the conflict in the design doc, don't bury it.
 
 ## The five-system limit (heuristic)
 

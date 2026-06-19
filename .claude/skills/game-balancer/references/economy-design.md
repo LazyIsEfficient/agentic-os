@@ -72,7 +72,7 @@ Live ops uses these as economy levers:
 - **Sink events** — limited-time goods that absorb excess stock (limited cosmetics, special tier-ups). Used when the economy is inflating.
 - **Source events** — bonus weekend, double XP, free pack. Used when retention is dropping or to re-engage lapsed players.
 
-These are intentional levers; they should be planned with `game-monetization-strategist` (commercial impact) and `iap-manager` (catalog impact).
+These are intentional levers; they should be planned with `iap-manager` (commercial and catalog impact).
 
 ## Web3 economy notes
 

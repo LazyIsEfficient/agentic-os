@@ -93,4 +93,4 @@ For PvP balance:
 - **Per-option WR / PR / BR table** with skill-bracket disaggregation
 - **Patch plan** — which options to touch, by how much, with what predicted impact
 - **Telemetry contract** — match outcomes, picks, bans, per-bracket
-- **Comms plan** with `game-marketer` — patch notes are content
+- **Comms plan** with the `marketer` agent — patch notes are content

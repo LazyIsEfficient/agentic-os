@@ -201,7 +201,7 @@ A quick scan for the most common Phaser anti-patterns. None of these should be p
 - [ ] If non-canvas web UI added (account page, store, landing): frontend-ui-engineering owns it, not this skill.
 - [ ] If deeper bundle/perf work needed: performance-optimization.
 - [ ] If CI/CD pipeline touched: [deployment-pipelines](../../deployment-pipelines/SKILL.md).
-- [ ] If feature warrants a launch plan: game-marketer for store-page / trailer / wishlist comms.
+- [ ] If feature warrants a launch plan: the `marketer` agent for store-page / trailer / wishlist comms.
 
 ## Version control
 

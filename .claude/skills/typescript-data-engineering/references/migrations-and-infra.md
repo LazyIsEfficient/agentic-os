@@ -2,7 +2,7 @@
 
 > **Scope:** database migrations and the **local development** stack (Docker Compose) only.
 > Cloud provisioning — GCP/AWS/Cloudflare resources, Pulumi/IaC, secrets management — is
-> out of scope here; see cloud-infrastructure. This file
+> out of scope here; see the `devops-engineer` agent. This file
 > covers how migrations run and how to stand up the stores on your machine, not how the
 > production stores are provisioned.
 
@@ -52,11 +52,11 @@ services:
     # password-protected
 ```
 
-### Cloud (provisioning lives in cloud-infrastructure)
+### Cloud (provisioning lives with the `devops-engineer` agent)
 
 The production data stores this pipeline targets — Cloud Storage buckets, the BigQuery
 warehouse, managed Postgres/Redis, secrets, DNS/CDN — are **provisioned and owned by
-cloud-infrastructure** (Pulumi/IaC). Do not author
+the `devops-engineer` agent** (Pulumi/IaC). Do not author
 provisioning here. From this skill's side, treat those stores as given and connect to them
 via environment config.
 
@@ -70,7 +70,7 @@ config referenced above). The pipeline wiring itself belongs to
 > The layout below is orientation for where pipeline/migration code lives. The repo's
 > build/deploy tooling and cloud wiring are owned by
 > [deployment-pipelines](../../deployment-pipelines/SKILL.md) and
-> cloud-infrastructure.
+> the `devops-engineer` agent.
 
 ```
 platform-monorepo/

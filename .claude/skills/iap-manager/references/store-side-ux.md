@@ -65,7 +65,7 @@ The text on the offer matters. Rules:
 - **Avoid pressure tactics** — "Last chance!" only if it's the genuine last chance; "Limited stock!" only if there's actual stock
 - **Localize** — translated text per region
 
-Coordinate with `game-marketer` for copy and `ux-design` for typography / hierarchy.
+Coordinate with the `marketer` agent for copy and `ux-design` for typography / hierarchy.
 
 ## Comparison and decoy display
 

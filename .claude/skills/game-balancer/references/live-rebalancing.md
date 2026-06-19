@@ -25,7 +25,7 @@ For any live balance change:
 2. **Magnitude.** How much. Small changes are reversible; large changes look panicked.
 3. **Rollout.** A/B if the population allows. If not, % rollout (5% → 25% → 100%) over days.
 4. **Rollback plan.** What signal triggers a rollback; how fast can you do it.
-5. **Comms plan.** Patch notes; *why*, not just *what*. Coordinate with `game-marketer`.
+5. **Comms plan.** Patch notes; *why*, not just *what*. Coordinate with the `marketer` agent.
 6. **Predicted impact** with confidence interval. From the spreadsheet model.
 7. **Re-validation cadence.** When you check the change has done what was intended.
 
@@ -49,7 +49,7 @@ When inflation or deflation has accumulated, large re-tunes are tempting. Resist
 - **Sink injection** — limited-time content that absorbs excess stock (rare cosmetics, named items, anniversary events)
 - **Source events** — for deflation, time-limited bonus weekends
 - **New tier** — extend the curve with a new prestige/season, recalibrate at the new ceiling
-- **Currency reset** — almost always a last resort; players hate it; coordinate with `game-marketer` for narrative
+- **Currency reset** — almost always a last resort; players hate it; coordinate with the `marketer` agent for narrative
 
 ## A/B testing balance
 
@@ -63,7 +63,7 @@ When the population is large enough to A/B (typically 10,000+ DAU):
 
 Coordinate with `growth-engine` for the experimental framework.
 
-## Comms (with `game-marketer`)
+## Comms (with the `marketer` agent)
 
 Patch notes are content. The community will read them more carefully than your design doc. Rules:
 
@@ -91,6 +91,6 @@ For every live re-tune:
 - Change list with magnitudes and rationale
 - Predicted impact + confidence
 - Rollout plan + rollback plan
-- Comms plan + patch notes draft (hand to `game-marketer`)
+- Comms plan + patch notes draft (hand to the `marketer` agent)
 - Updated model
 - Re-validation date and the team owner

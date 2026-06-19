@@ -55,9 +55,8 @@
 ## Cross-skill validation
 
 - [ ] **`game-systems-designer`** has reviewed and signed off that no rule changes were silently made
-- [ ] **`game-monetization-strategist`** has reviewed and signed off that the economy supports the target ARPDAU / LTV
-- [ ] **`iap-manager`** has the currency velocities needed to size starter packs and bundles
-- [ ] **`game-marketer`** has the time-to-content numbers needed for store-page promises and soft-launch KPI floors
+- [ ] **`iap-manager`** has reviewed and signed off that the economy supports the target ARPDAU / LTV, and has the currency velocities needed to size starter packs and bundles
+- [ ] The **`marketer`** agent has the time-to-content numbers needed for store-page promises and soft-launch KPI floors
 
 ## Documentation
 

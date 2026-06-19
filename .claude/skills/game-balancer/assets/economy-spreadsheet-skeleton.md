@@ -112,7 +112,7 @@ Top-line numbers the model predicts:
 - Average session length (median, p95) per profile
 - Average plays per session
 - Average days to D7, D30, D60
-- Average ARPDAU per profile (input from `game-monetization-strategist`)
+- Average ARPDAU per profile (input from `iap-manager`)
 - Predicted retention curve (D1 / D7 / D30) — calibrated against comp titles
 - Currency inflation/deflation per week per profile
 

@@ -43,4 +43,4 @@
 ## Refresh cadence
 - **Quarterly review** of all region prices vs local PPP shifts (especially high-inflation markets)
 - **On platform tier-map updates** (App Store / Google Play change tier maps periodically)
-- **On regional events** (Black Friday in US, 11.11 in CN, golden weeks in JP / KR, etc.) — coordinate with `game-marketer`
+- **On regional events** (Black Friday in US, 11.11 in CN, golden weeks in JP / KR, etc.) — coordinate with the `marketer` agent

@@ -95,8 +95,7 @@ The systems list is the *menu* of major designs. Each item has its own filled `s
 
 ## 16. Handoffs
 - **`game-balancer`:** which systems and which curves to tune first
-- **`game-monetization-strategist`:** what model the design assumes vs what model it can support
-- **`iap-manager`:** what catalog SKUs the design implies (currency packs, cosmetics, passes)
+- **`iap-manager`:** what monetization model the design assumes, and what catalog SKUs it implies (currency packs, cosmetics, passes)
 - **`godot-engineer` (or other engine team):** which systems to build first, prototype priorities, save/load expectations
 - **`ux-design`:** which screens are load-bearing, which flows need the most attention
-- **`game-marketer`:** the strongest hooks to lead with on store page and trailer
+- **the `marketer` agent:** the strongest hooks to lead with on store page and trailer

@@ -104,7 +104,7 @@ Before reporting a collision, run this check:
 
 Quote the actual "not when" line from each side as evidence (or, for the "neither" column, paste the `grep` that shows the tiebreaker is absent). "These two share a keyword" *without* checking both tiebreakers is not a finding — it is half a check, and it is the single biggest source of false-positive collision reports.
 
-Example: `iap-manager` and `game-monetization-strategist` both trigger on "battle pass", but `iap-manager`'s description says "see game-monetization-strategist" and the reverse says "see iap-manager". Reciprocal — resolved — not a finding.
+Example: `marketing-shaper` and `outbound-engine` both trigger on "outbound campaign", but `marketing-shaper`'s description says "see outbound-engine" and the reverse says "see marketing-shaper". Reciprocal — resolved — not a finding.
 
 ## Description anti-patterns
 

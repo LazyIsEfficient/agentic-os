@@ -370,6 +370,6 @@ Whatever you use, **be transparent and let players opt out**. Some jurisdictions
 - [performance-and-profiling.md](performance-and-profiling.md) — per-platform performance
 - [multiplayer-and-websockets.md](multiplayer-and-websockets.md) — server builds
 - [deployment-pipelines](../../deployment-pipelines/SKILL.md) — CI for Godot builds
-- cloud-infrastructure — hosting servers and web builds
+- the `devops-engineer` agent — hosting servers and web builds
 - [security-engineering](../../security-engineering/SKILL.md) — code signing, anti-tampering
 - [godot-anti-patterns.md](godot-anti-patterns.md) — broader patterns to avoid

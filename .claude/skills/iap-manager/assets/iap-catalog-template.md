@@ -85,8 +85,8 @@ Funnel report per SKU: view → consider → init → success → repeat.
 - **Annual:** anniversary event with limited-time SKUs returning
 
 ## Hand-off
-- **`game-marketer`:** store-page screenshots, paywall comms, sale messaging, segment-targeted ad creative
+- **the `marketer` agent:** store-page screenshots, paywall comms, sale messaging, segment-targeted ad creative
 - **`godot-engineer`:** SKU IDs, store SDKs, receipt validation, restore-purchases, IAP-event telemetry
-- **`game-monetization-strategist`:** monthly read on actual ARPDAU vs predicted ARPDAU; flag if model assumptions break
+- **Monetization strategy:** monthly read on actual ARPDAU vs predicted ARPDAU; flag if model assumptions break
 - **`growth-engine`:** running the A/B tests with proper stats
 - **`security-engineering`:** receipt validation, anti-fraud, web3 wallet security if applicable

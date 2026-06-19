@@ -243,4 +243,4 @@ Alert on hit-ratio drops in a namespace, not on absolute miss count.
 
 - system-architect/references/caching-strategy.md — strategy patterns, TTL design, multi-tier
 - [event-sourcing.md](event-sourcing.md) — outbox-driven cache invalidation
-- cloud-infrastructure/references/elasticache.md — provisioning Redis
+- the `devops-engineer` agent — provisioning Redis

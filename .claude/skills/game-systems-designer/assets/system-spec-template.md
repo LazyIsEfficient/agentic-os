@@ -43,7 +43,7 @@
 ## Pricing / monetization touchpoints
 - Does this system touch monetization? <yes/no>
 - If yes, what catalog SKUs it implies (for `iap-manager`): <e.g. "currency packs", "cosmetics for X", "skip-timer">
-- Which monetization model fits this system best (for `game-monetization-strategist`): <>
+- Which monetization model fits this system best (for `iap-manager`): <>
 
 ## UI surfaces (for `ux-design`)
 - Screens this system needs: <>

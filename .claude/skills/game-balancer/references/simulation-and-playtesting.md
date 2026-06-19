@@ -76,7 +76,7 @@ Soft launch (release to 1–3 small markets before global) is the highest-fideli
 - **Surface paywalls and quit moments** that internal playtest missed.
 - **Set the KPI floor** for global launch (D1, D7, D30, ARPDAU, ROAS).
 
-Coordinate with `game-monetization-strategist` (KPI targets), `iap-manager` (catalog testing), and `game-marketer` (CPI and acquisition channels).
+Coordinate with `iap-manager` (KPI targets and catalog testing) and the `marketer` agent (CPI and acquisition channels).
 
 ## Telemetry coverage
 

@@ -231,5 +231,5 @@ Key points:
 - [event-sourcing.md](event-sourcing.md) — outbox/inbox patterns at the database level
 - [etl-pipelines.md](etl-pipelines.md) — batch ETL flows that complement event streams
 - system-architect/references/distributed-patterns.md — broker selection, delivery semantics, ordering
-- cloud-infrastructure/references/messaging.md — provisioning brokers
+- the `devops-engineer` agent — provisioning brokers
 - [security-engineering](../../security-engineering/SKILL.md) — broker authn/authz, TLS, ACLs

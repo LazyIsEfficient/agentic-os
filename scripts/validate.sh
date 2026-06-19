@@ -482,15 +482,18 @@ check_review_tiers() {
 # deliberately the shipped scripts only — NOT settings.json config — so the scan
 # stays meaningful and false-positive-free on JSON config.
 HOOK_DENY=(
-  '\b(curl|wget|nc|ncat|netcat|telnet|scp|sftp|socat|aria2c)\b@@@network egress in a shipped hook (exfil/fetch vector)'
+  '\b(curl|wget|nc|ncat|netcat|telnet|scp|sftp|ssh|rsync|socat|aria2c)\b@@@network egress in a shipped hook (exfil/fetch vector)'
   '\bopenssl[[:space:]]+s_client\b@@@openssl s_client network connection in a shipped hook'
+  '\bopenssl[[:space:]]+enc\b@@@openssl enc (encode/encrypt obfuscation) in a shipped hook'
   '/dev/(tcp|udp)/@@@raw socket via /dev/tcp in a shipped hook'
   '\|[[:space:]]*(ba)?sh\b@@@pipe-to-shell in a shipped hook (remote-code-exec vector)'
+  '\b(ba|da|z)?sh[[:space:]]*<<@@@here-string/heredoc fed to a shell in a shipped hook (remote-code-exec vector)'
   '\bbase64[[:space:]]+(-d|-D|--decode)@@@base64-decode in a shipped hook (obfuscation)'
   '\beval[[:space:]]@@@eval in a shipped hook (dynamic code execution)'
   '\beval["'"'"']@@@no-space eval of a quoted string in a shipped hook (dynamic code execution)'
   '\bsource[[:space:]]+<\(@@@process-substitution source in a shipped hook'
-  '\b(python3?|node|perl|ruby)[[:space:]]+-(e|c)\b@@@inline interpreter one-liner in a shipped hook'
+  '\b(python[0-9.]*|node[0-9.]*|perl[0-9.]*|ruby[0-9.]*)[[:space:]]+-(e|c)\b@@@inline interpreter one-liner in a shipped hook'
+  '\bpython[0-9.]*[[:space:]]+-m@@@python -m module execution in a shipped hook (e.g. http.server; matches -m with or without a space)'
   '\b(ba|da|z)?sh[[:space:]]+-c\b@@@dynamic shell exec (sh -c) in a shipped hook'
   '\bphp[[:space:]]+-r\b@@@inline php one-liner in a shipped hook'
   '\b(g?awk)\b[^#]*system[[:space:]]*\(@@@awk system() shell-out in a shipped hook'

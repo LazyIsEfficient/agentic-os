@@ -4,7 +4,7 @@ Four flavors of catalog work. Identify which kind before opening the spreadsheet
 
 ## 1. New launch catalog
 
-**Signal:** game ships within months; the catalog has a *shape* from `game-monetization-strategist` but no SKUs.
+**Signal:** game ships within months; the catalog has a *shape* from the monetization strategy but no SKUs.
 
 **Inputs:** strategy doc, segment economics, price-tier-ladder intent, soft-launch KPI floors.
 

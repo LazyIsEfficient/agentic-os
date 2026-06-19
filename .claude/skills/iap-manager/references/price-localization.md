@@ -89,7 +89,7 @@ A small amount of arbitrage is normal; large amounts indicate prices are too far
 
 - **SKU names** — translate to local language; not just the price changes
 - **Display copy** — "Halloween Bundle" doesn't land in markets where Halloween isn't common; use local equivalents (e.g. "Spooky Festival Bundle" in less-Halloween markets, or skip)
-- **Cosmetic themes** — Lunar New Year for CN/KR/VN, Diwali for IN, etc. Coordinate with `game-marketer` for content production
+- **Cosmetic themes** — Lunar New Year for CN/KR/VN, Diwali for IN, etc. Coordinate with the `marketer` agent for content production
 - **Holiday timing** — region-specific timing for sales (Black Friday US, 11.11 CN, Golden Week JP/KR, etc.)
 
 ## Refresh cadence
@@ -104,4 +104,4 @@ A small amount of arbitrage is normal; large amounts indicate prices are too far
 - Filled `region-price-table-template.md` per major region
 - Per-region SKU display copy (translated)
 - Local payment rails plan (with `godot-engineer`)
-- Region-specific bundles (with `game-marketer` for theming)
+- Region-specific bundles (with the `marketer` agent for theming)

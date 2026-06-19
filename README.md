@@ -218,7 +218,7 @@ opt-in rather than default.
 
 ## Commands
 
-Slash commands in `.claude/commands/`. Only `agent-new` and `skill-new` ship to consumers; the rest are repo-local maintainer tools.
+Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state` (the awareness-harness writer) ship to consumers; the rest are repo-local maintainer tools.
 
 | Command | Description |
 |---|---|

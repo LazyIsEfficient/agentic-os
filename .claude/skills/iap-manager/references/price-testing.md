@@ -12,7 +12,7 @@ A/B testing prices is one of the highest-leverage live-ops activities, but only 
 
 - The SKU has too few buyers per week to reach statistical power in reasonable time
 - A platform policy change is imminent (test will be invalidated)
-- A live game with vocal community where price changes will leak and trigger comms storms — coordinate with `game-marketer` first
+- A live game with vocal community where price changes will leak and trigger comms storms — coordinate with the `marketer` agent first
 - Multiple SKUs are being changed simultaneously — you can't isolate impact
 
 ## Test design

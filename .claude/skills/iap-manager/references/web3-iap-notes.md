@@ -1,6 +1,6 @@
 # Web3 IAP notes
 
-When the rails include web3, the catalog has additional complexity. This is an *operational* layer on top of the strategy decisions made by `game-monetization-strategist`.
+When the rails include web3, the catalog has additional complexity. This is an *operational* layer on top of the underlying monetization strategy decisions.
 
 ## Token IAP
 
@@ -42,7 +42,7 @@ Players mint NFT items at primary issuance.
 **Coordinate with:**
 - `web3-smart-contract-engineering` — contract design and deployment
 - `security-engineering` — contract audit
-- `game-marketer` — mint event marketing, allowlist comms
+- the `marketer` agent — mint event marketing, allowlist comms
 
 ## Token-required content
 
