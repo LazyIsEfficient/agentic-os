@@ -28,4 +28,36 @@ eq("repeated tool calls (Read /a.txt + Bash echo x)", r.awareness_signals.repeat
 eq("no lines skipped", r.skipped_lines, 0);
 process.exit(fail);
 '
+# ── nested tool input (regression: replacer-array misuse stripped nested keys) ──
+# n1/n2 are DISTINCT nested Edits (different edits[0].old/new) and must NOT count
+# as a repeat. n3/n4 are deeply equal but with keys in different order at both the
+# top level and inside edits[0] (old/new swapped) — the canonical key must treat
+# them as one repeated call. Correct => repeated_tool_calls=1.
+nested="$(node "$DIR/session-metrics.mjs" "$DIR/fixtures/nested-input-transcript.jsonl" --json)"
+printf '%s' "$nested" | node -e '
+const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+let fail = 0;
+const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console.log(`FAIL  ${n}: expected ${b}, got ${a}`); fail = 1; } };
+eq("distinct nested Edits not counted as repeat; key-order-equal pair is (=> 1)", r.awareness_signals.repeated_tool_calls, 1);
+process.exit(fail);
+'
+
+# ── id-less assistant records each count as their own turn ──────────────────────
+# Two assistant usage blocks with NO id/requestId/uuid must not collapse under
+# seenTurns.has(undefined); each is its own turn. Correct => turns=2, output=30.
+idless="$(printf '%s\n%s\n' \
+  '{"type":"assistant","message":{"usage":{"input_tokens":5,"output_tokens":15},"content":[]}}' \
+  '{"type":"assistant","message":{"usage":{"input_tokens":5,"output_tokens":15},"content":[]}}' \
+  > "$DIR/fixtures/idless-transcript.jsonl" \
+  && node "$DIR/session-metrics.mjs" "$DIR/fixtures/idless-transcript.jsonl" --json)"
+printf '%s' "$idless" | node -e '
+const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+let fail = 0;
+const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console.log(`FAIL  ${n}: expected ${b}, got ${a}`); fail = 1; } };
+eq("id-less records each count as a turn (not collapsed)", r.turns, 2);
+eq("id-less output tokens summed (15 + 15)", r.tokens.output, 30);
+process.exit(fail);
+'
+rm -f "$DIR/fixtures/idless-transcript.jsonl"
+
 echo "session-metrics-test: OK"

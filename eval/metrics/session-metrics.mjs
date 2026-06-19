@@ -19,6 +19,21 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+// Canonical JSON: sort object keys recursively at EVERY nesting depth, so two
+// inputs serialize identically iff they are deeply equal. JSON.stringify's
+// second arg is a REPLACER ARRAY (a key allowlist applied at every depth), NOT
+// a recursive key sort — passing Object.keys(inp).sort() there strips nested
+// keys and collapsed distinct nested tool inputs into the same dedup key.
+function canonicalize(v) {
+  if (Array.isArray(v)) return v.map(canonicalize);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const k of Object.keys(v).sort()) out[k] = canonicalize(v[k]);
+    return out;
+  }
+  return v;
+}
+
 // Parse a transcript into the deterministic metric report. Exported so the
 // comparative harness (compare.mjs) reuses the EXACT same accounting.
 export function computeMetrics(path) {
@@ -37,8 +52,11 @@ export function computeMetrics(path) {
     const u = o.message.usage;
     if (u) {
       const id = o.message.id || o.requestId || o.uuid;
-      if (!seenTurns.has(id)) {
-        seenTurns.add(id);
+      // Dedup by id only when one exists; id-less usage blocks can't be matched
+      // to a known turn, so count each as its own turn rather than collapsing
+      // them all under seenTurns.has(undefined).
+      if (id == null || !seenTurns.has(id)) {
+        if (id != null) seenTurns.add(id);
         turns++;
         inTok       += u.input_tokens || 0;
         outTok      += u.output_tokens || 0;
@@ -52,7 +70,7 @@ export function computeMetrics(path) {
     for (const c of content) {
       if (c.type !== 'tool_use') continue;
       const inp = c.input || {};
-      const key = c.name + ' ' + JSON.stringify(inp, Object.keys(inp).sort());
+      const key = c.name + ' ' + JSON.stringify(canonicalize(inp));
       toolCallCounts.set(key, (toolCallCounts.get(key) || 0) + 1);
       if (c.name === 'Read' && inp.file_path) {
         readCounts.set(inp.file_path, (readCounts.get(inp.file_path) || 0) + 1);
