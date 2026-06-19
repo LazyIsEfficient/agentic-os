@@ -18,8 +18,11 @@
 // `artifact` (filename -> content) to disk with path sanitization and may gate it
 // with scripts/validate.sh. The Workflow sandbox cannot write files itself.
 //
-// args: a task string, or { task: string, maxRounds?: number, roles?: Role[] }.
-// roles (optional) overrides the default pod; each is { key, agentType, directive }.
+// args: a task string, or { task, maxRounds?, roles?, autoCompose? }.
+// roles (optional) explicitly overrides the roster; each is { key, agentType, directive }.
+// When roles is omitted, the workflow auto-composes a task-fit roster via the
+// `pod-architect` agent (set autoCompose:false to force the hard-coded default pod).
+// A composed roster that fails validation falls back to the default ROLES.
 // The LAST role in the roster is the approval gate — its `approve:true` ends the run.
 
 export const meta = {
@@ -27,6 +30,11 @@ export const meta = {
   description:
     "In-session multi-agent collaboration pod: technical-pm -> engineer -> code-reviewer (roster configurable) collaborate over a shared artifact across orchestrator-clocked rounds until the reviewer approves or the round cap is hit. Each turn is a real Claude Code subagent (subscription, no API/Redis/Docker). Returns the produced artifact for the caller to materialize and gate.",
   phases: [
+    {
+      title: "Compose",
+      detail:
+        "If no roster was supplied, the pod-architect agent reads the task + live agent registry and composes a task-fit roster (gate-last, <=5 roles). Skipped when roles are passed explicitly.",
+    },
     {
       title: "Collaborate",
       detail:
@@ -57,6 +65,47 @@ const CONTRIBUTION_SCHEMA = {
       type: "boolean",
       description:
         "True ONLY if the artifact is complete and ready to ship as-is. The run ends the moment the final reviewer returns true. PM/engineer should return false unless the work is genuinely done.",
+    },
+  },
+};
+
+// Structured roster returned by the pod-architect agent during auto-composition.
+// Flat-ish object; no top-level allOf/oneOf/anyOf (those 400 the StructuredOutput
+// schema and fail as empty). The agent enforces real-agents-only against the live
+// registry; this schema only enforces shape and size.
+const ROSTER_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["roles", "maxRounds"],
+  properties: {
+    roles: {
+      type: "array",
+      minItems: 1,
+      maxItems: 5,
+      description:
+        "Ordered roster, gate LAST. Each role is the agent for one pod turn.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["key", "agentType", "directive"],
+        properties: {
+          key: { type: "string", description: "Short stable handle, e.g. 'eng'." },
+          agentType: {
+            type: "string",
+            description: "Exact name of a real agent under .claude/agents/.",
+          },
+          directive: {
+            type: "string",
+            description: "Short role-specific instruction for this pod turn.",
+          },
+        },
+      },
+    },
+    maxRounds: {
+      type: "integer",
+      minimum: 1,
+      maximum: 20,
+      description: "Recommended round cap for this deliverable.",
     },
   },
 };
@@ -120,39 +169,99 @@ function buildPrompt(task, role, artifact, log, round) {
   ].join("\n");
 }
 
+function composePrompt(task) {
+  return [
+    "Compose the agent team (roster) that will build the following deliverable.",
+    "",
+    "## TASK",
+    task.trim(),
+    "",
+    "## WHAT TO RETURN",
+    "Survey the LIVE agent registry (.claude/agents/*.md) and return a structured roster:",
+    "an ordered `roles` array of { key, agentType, directive } (1-5 entries) plus a recommended integer `maxRounds`.",
+    "The LAST role MUST be a reviewer gate matched to the deliverable type (code-reviewer / security-reviewer / library-reviewer / adversarial-claims-reviewer).",
+    "Every agentType MUST be the exact name of a real agent under .claude/agents/. Keep each directive short and specific to THIS deliverable.",
+  ].join("\n");
+}
+
 // ---------------------------------------------------------------------------
 
 const input = typeof args === "string" ? { task: args } : args || {};
 const task = input.task;
 
-// Round cap: positive integer only, clamped — rejects Infinity / fractional / <=0.
-const maxRoundsRaw = Number(input.maxRounds);
-const maxRounds =
-  Number.isInteger(maxRoundsRaw) && maxRoundsRaw > 0 ? Math.min(maxRoundsRaw, 20) : 6;
-
-// roles override (optional). Validate element shape — a malformed override would
-// otherwise silently yield `agentType: undefined` / "undefined" directives.
-let roles = ROLES;
-if (Array.isArray(input.roles) && input.roles.length) {
-  const wellFormed = input.roles.every(
-    (r) =>
-      r &&
-      typeof r.key === "string" && r.key.trim() &&
-      typeof r.agentType === "string" && r.agentType.trim() &&
-      typeof r.directive === "string" && r.directive.trim()
+if (!task || !String(task).trim()) {
+  throw new Error(
+    "v2-collab: no task provided. Pass args as a task string or { task, maxRounds }."
   );
-  if (!wellFormed) {
+}
+
+// Caller's explicit round cap (positive integer) wins; otherwise the composer may
+// suggest one; otherwise default 6. Always clamped to [1,20].
+const maxRoundsRaw = Number(input.maxRounds);
+const callerSetMaxRounds = Number.isInteger(maxRoundsRaw) && maxRoundsRaw > 0;
+let maxRounds = callerSetMaxRounds ? Math.min(maxRoundsRaw, 20) : 6;
+
+// A role is well-formed iff it carries non-empty string key/agentType/directive.
+const wellFormedRole = (r) =>
+  r &&
+  typeof r.key === "string" && r.key.trim() &&
+  typeof r.agentType === "string" && r.agentType.trim() &&
+  typeof r.directive === "string" && r.directive.trim();
+
+// Reviewer agents permitted as the final approval gate. Safety net only — the
+// pod-architect agent is the source of truth (it reads the live registry); this
+// set just deterministically rejects a composed roster whose gate is NOT a known
+// reviewer, so a mis-composed run falls back to the default instead of running
+// with a silently-skipped (gate-less) approval turn. Keep in sync with the
+// reviewer agents under .claude/agents/.
+const KNOWN_REVIEWERS = new Set([
+  "code-reviewer",
+  "security-reviewer",
+  "library-reviewer",
+  "adversarial-claims-reviewer",
+]);
+
+// Resolve the roster. Precedence: explicit args.roles override > pod-architect
+// auto-composition (default when no override) > the hard-coded default ROLES.
+let roles = ROLES;
+let rosterSource = "default";
+if (Array.isArray(input.roles) && input.roles.length) {
+  if (!input.roles.every(wellFormedRole)) {
     throw new Error(
       "v2-collab: each entry in args.roles needs non-empty string key, agentType, and directive."
     );
   }
   roles = input.roles;
-}
-
-if (!task || !String(task).trim()) {
-  throw new Error(
-    "v2-collab: no task provided. Pass args as a task string or { task, maxRounds }."
-  );
+  rosterSource = "override";
+} else if (input.autoCompose !== false) {
+  // No roster supplied — let pod-architect compose one from the task + live registry.
+  phase("Compose");
+  log("Composing roster via pod-architect");
+  const roster = await agent(composePrompt(task), {
+    agentType: "pod-architect",
+    schema: ROSTER_SCHEMA,
+    label: "compose",
+    phase: "Compose",
+  });
+  const candidate = roster && Array.isArray(roster.roles) ? roster.roles : null;
+  const gate = candidate && candidate[candidate.length - 1];
+  const valid =
+    candidate &&
+    candidate.length >= 1 &&
+    candidate.length <= 5 &&
+    candidate.every(wellFormedRole) &&
+    gate &&
+    KNOWN_REVIEWERS.has(gate.agentType);
+  if (valid) {
+    roles = candidate;
+    rosterSource = "composed";
+    log(`Composed roster: ${candidate.map((r) => r.agentType).join(" -> ")}`);
+    if (!callerSetMaxRounds && Number.isInteger(roster.maxRounds) && roster.maxRounds > 0) {
+      maxRounds = Math.min(roster.maxRounds, 20);
+    }
+  } else {
+    log("Composition failed or violated invariants — using default roster.");
+  }
 }
 
 const artifact = {}; // filename -> content, accumulated across rounds
@@ -198,6 +307,8 @@ log(approved ? `Approved in ${roundsRun} round(s)` : `Hit round cap (${roundsRun
 return {
   approved,
   rounds: roundsRun,
+  rosterSource, // "override" | "composed" | "default"
+  roster: roles.map((r) => ({ key: r.key, agentType: r.agentType })),
   files: Object.keys(artifact),
   artifact,
   log: logEntries,

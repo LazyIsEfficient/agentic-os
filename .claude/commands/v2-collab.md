@@ -1,16 +1,17 @@
 ---
-description: Run the in-session multi-agent collaboration pod (PM + engineer + code-reviewer) on a task via the v2-collab workflow, then materialize the result
+description: Run the in-session multi-agent collaboration pod (roster auto-composed for the task by pod-architect) on a task via the v2-collab workflow, then materialize the result
 argument-hint: <task description, or a path to a task file>
 allowed-tools: Workflow, Read, Write, Bash
 ---
 
-You are launching the **v2-collab** in-session collaboration pod. A pod of three
-real Claude Code subagents — `technical-pm` -> `engineer` -> `code-reviewer`
-(roster configurable) — collaborates over a shared artifact across
-orchestrator-clocked rounds until the
-reviewer approves or the round cap is hit. It runs entirely in this session on the
-subscription (no Redis, no Rust, no API key). This replaces driving the standalone
-Rust runtime from a terminal.
+You are launching the **v2-collab** in-session collaboration pod. A pod of real
+Claude Code subagents collaborates over a shared artifact across orchestrator-clocked
+rounds until the reviewer (the last role) approves or the round cap is hit. By default
+the roster is **composed dynamically** for the task by the `pod-architect` agent — it
+reads the task plus the live agent registry and picks a task-fit team (gate-last,
+≤5 roles); you can still pass an explicit roster to force one. It runs entirely in
+this session on the subscription (no Redis, no Rust, no API key). This replaces
+driving the standalone Rust runtime from a terminal.
 
 This spends real subscription tokens (up to `maxRounds × 3` subagent turns). Tell
 the user the rough cost before launching if the cap is high.

@@ -1,0 +1,25 @@
+{
+  "name": "notes-fake-durability-bug",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plausible-but-fake notes app: POST acks optimistically before the write is durable, so notes posted while the worker is down are lost. Passes build+contract, fails chaos.",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "worker": "tsx worker/index.ts"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "rabbitmq-stream-js-client": "1.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "tsx": "4.16.2",
+    "typescript": "5.5.3"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "claims-drop-rate-ev",
+  "description": "Library can derive a probabilistic expected-value claim and back it with a simulation that confirms the math, not just assert it.",
+  "task": "Derive the expected value of a single loot-box pull given this drop table: Common 0.70 (worth 1), Rare 0.22 (worth 5), Epic 0.07 (worth 25), Legendary 0.01 (worth 100). Produce a short claims document that (1) states the closed-form expected value with the per-tier contributions shown, (2) reports the standard deviation of a single pull, and (3) validates the derivation against a Monte Carlo simulation of at least 100,000 pulls, showing the simulated mean and standard deviation and the absolute error between simulated and analytic mean. Every numeric claim must be reproducible from the stated drop table; show your work.",
+  "output_type": "claims-doc",
+  "arms": {
+    "library": {
+      "kind": "agent",
+      "agentType": "engineer",
+      "note": "Library-ON. The general engineer agent (with the full skills + subagents library, including grounding/claims discipline) authors the derivation and simulation."
+    },
+    "baseline": {
+      "kind": "agent",
+      "agentType": "general-purpose",
+      "prompt": "Write the claims document directly from your own knowledge. Do NOT read, load, or invoke any library skills. Do NOT dispatch subagents or use any /-commands or workflows. Produce the document yourself in this turn.",
+      "note": "Library-OFF baseline. Instruction-suppressed: a vanilla agent told to use none of the library's machinery."
+    }
+  },
+  "deterministic_check": {
+    "kind": "schema-match",
+    "tier": 0,
+    "gates": true,
+    "spec": "Run `run-checker.sh schema-match <artifact> <patterns...>`; PASS iff every required pattern is present in the document. Asserts the doc carries the correct analytic EV, a >=100k-pull simulation, a standard deviation, and an absolute-error report. This is the Tier-0 spine — it GATES.",
+    "patterns": ["4\\.55", "100,?000", "[Ss]tandard deviation|[Ss]td ?dev|σ", "[Ss]imulat|[Mm]onte ?[Cc]arlo", "[Aa]bsolute error|abs[_ ]?error"]
+  },
+  "rubric": {
+    "note": "Tier-2 judge layer — INFORMS only, never gates. Pairwise per-dimension winner+margin; default-reject posture (judge conservatively when evidence for a dimension is weak).",
+    "dimensions": [
+      { "key": "derivation_correctness", "max": 25, "asks": "Is the closed-form EV correct (0.70*1 + 0.22*5 + 0.07*25 + 0.01*100 = 4.55) with per-tier contributions shown, and is the stated standard deviation actually computed from E[X^2] - E[X]^2 rather than guessed?" },
+      { "key": "simulation_validity", "max": 25, "asks": "Does the simulation genuinely sample the stated drop table at >=100k pulls and report mean+stddev that converge on the analytic values, with the abs_error reported — vs a hand-waved or fabricated 'simulation' that just restates the analytic number?" },
+      { "key": "statistical_rigor", "max": 25, "asks": "Are units, definitions, and the variance/stddev distinction handled correctly, and is the convergence between simulated and analytic mean interpreted honestly (acknowledging sampling error) rather than overclaimed as exact?" },
+      { "key": "reproducibility", "max": 25, "asks": "Could a reader reproduce every number from the drop table alone — is the work shown end to end, with no unexplained constants or numbers that cannot be traced back to the inputs?" }
+    ]
+  }
+}
