@@ -204,6 +204,15 @@ fi
 # .claude/hooks/block-bad-bash.sh + settings.json, so it doubles as the
 # no-false-positive regression guard for the legitimate shipped hook.
 
+# ── Case 15: dangling-ref — bad cross-ref link inside an AGENT file (R37) ──────
+# The cross-reference convention puts body refs as markdown links; this proves a
+# dangling link in an AGENT .md (not just a SKILL.md, which case 8 covers) trips
+# Invariant 3, so the gate covers the new agent-target link form.
+c15="$(make_copy)"
+agent15="$(find "$c15/.claude/agents" -maxdepth 1 -name '*.md' -type f | sort | head -1)"
+printf '\nFor X see [missing-agent](does-not-exist-xyz.md).\n' >> "$agent15"
+assert_trips "case 15 dangling-ref (bad cross-ref link in an agent file)" "$c15" dangling-ref
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."

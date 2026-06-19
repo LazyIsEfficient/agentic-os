@@ -19,7 +19,7 @@ Then fill in every `TODO`, add supporting files, update the README tables, and r
   - `when_to_use` — expands the situation the skill owns, then a "Not when:" paragraph deflecting to every sibling skill that could plausibly fire on the same request.
 - Keep `SKILL.md` under ~100 lines. Deep content goes in `references/*.md`, fill-in templates in `assets/`, runnable helpers in `scripts/`.
 - Scripts must exit nonzero on failure so they compose with CI (convention: `0` = pass, `1` = check failed, `2` = setup error). Declare Python dependencies in a skill-local `requirements.txt`.
-- Cross-references must resolve (the validator checks relative file links in `SKILL.md` and agent files) and should be reciprocal — when you point at a sibling skill, add a back-reference in that sibling's "Related skills" section.
+- **Body cross-references are markdown links** to the target file — `[name](../other-skill/SKILL.md)` for a skill, `[name](../../agents/other-agent.md)` for an agent — so `validate.sh` Invariant 3 catches a dangling one (R37). The `## Skills available` / `## Related skills` lists are links, not bare names, and should be reciprocal (point at a sibling → add a back-reference in its `Related skills`). Sibling mentions in the `description`/`when_to_use` stay as plain-text routing hints (links would clutter the catalog) — they are **not** gated, so keep them accurate by hand.
 
 ## Agent conventions
 
