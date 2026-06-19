@@ -1,0 +1,53 @@
+# eval/metrics — measuring the awareness harness
+
+The instruments that let the awareness harness (SESSION-STATE + survey-guard) be
+**measured**, per NORTH_STAR ("tokens per high-quality outcome" + long-horizon
+coherence — not vibes). Re-aims `eval/` from single-task *correctness* (the wrong
+axis, per the effectiveness investigation) to **tokens-per-outcome + awareness drift**.
+
+## The tools
+
+| file | what | tier |
+|---|---|---|
+| `session-metrics.mjs` | parse one transcript → tokens (output/input/cache, per-turn) + awareness signals (files read >1×, repeated identical tool calls) | **Tier 0** deterministic |
+| `compare.mjs` | diff two transcripts (ON vs OFF arm) → per-metric delta `(OFF − ON)` | **Tier 0** deterministic |
+| `run-arms.sh` | run a scenario live under both arms and compare | **stochastic** (one sample) |
+
+```
+node session-metrics.mjs <transcript.jsonl> [--json]
+node compare.mjs <on.jsonl> <off.jsonl> [--json]
+bash run-arms.sh "<scenario prompt>"
+bash session-metrics-test.sh && bash compare-test.sh   # deterministic self-tests
+```
+
+## The two arms
+
+- **ON** — `claude --settings .claude/settings.json`: the awareness hooks are
+  active (SESSION-STATE injected at SessionStart + digested each turn; survey-guard).
+- **OFF** — `claude --settings '{"hooks":{}}'`: no awareness hooks, everything else
+  equal — the clean baseline. (`--bare` also strips LSP/plugins, so it confounds the
+  comparison; empty-hooks settings isolates the harness itself.)
+
+Both run the **same** scenario; the only difference is the harness. `compare.mjs`
+reports how much *more* the OFF arm spent (positive Δ / `saved%` = the harness helped).
+
+## What is and isn't proven
+
+- **Deterministic (Tier 0):** given two fixed transcripts, the metrics and the delta
+  reproduce exactly. `session-metrics-test.sh` and `compare-test.sh` pin this.
+- **NOT deterministic:** a single live `run-arms.sh` is **one stochastic sample**.
+  LLM output varies run-to-run; do not read a single delta as the effect size.
+
+### The honest caveat about the *benefit*
+
+The awareness benefit (settled facts surviving, existing infra reused) only shows up
+when the session is **long enough to cross a compaction boundary** — that's the exact
+point where the OFF arm loses the fact and the ON arm re-injects it. A short prompt
+keeps everything in context for *both* arms, so it measures plumbing, not awareness.
+
+To get a real result: use a long, multi-step scenario where a fact established early
+must be used late; run it **N times per arm**; compare the *distributions* of
+output-tokens and awareness-signal counts, not one pair. The earlier effectiveness
+investigation is the cautionary tale — single samples on tractable tasks showed null;
+the signal, if any, is in re-work avoided over long horizons. This apparatus makes
+that measurable; it does not pre-judge the result.

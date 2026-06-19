@@ -53,11 +53,12 @@
 - **Real baseline captured:** this session = 386 turns / 793K output / 137M cache-read; 5 files read >1× (run-battery.sh 5×). This is the apparatus the **measure-before-build gate** uses: capture before/after a hook and compare tokens + signal counts.
 - **Depends on:** S0 only (independent of S1/S2). Feeds S4.
 
-### Slice 4 — re-aim the eval harness
-- **Goal:** `eval/` today measures single-task ON/OFF *correctness* — the wrong axis. Re-aim it to tokens-per-outcome + long-session coherence (raw Claude Code vs harness-on).
-- **Mechanism:** extend `eval/` to run a multi-step scenario under both arms and diff the Slice-3 metrics.
+### Slice 4 — re-aim the eval harness  ✅ LANDED
+- **Delivered:** `eval/metrics/compare.mjs` — diffs two transcripts (ON arm = awareness hooks vs OFF arm = no-hooks baseline) into a per-metric delta `(OFF − ON)` + `saved%` over the S3 metrics; reuses `computeMetrics()` (refactored out of `session-metrics.mjs`). `run-arms.sh` runs both arms live via `--session-id` (ON `--settings .claude/settings.json`, OFF `--settings '{"hooks":{}}'` — *not* `--bare`, which confounds by also stripping LSP/plugins). `README.md` documents the scenario and the honest caveat.
+- **Acceptance (Tier 0):** `compare-test.sh` → 8/0 on a fixture arm-pair with a known delta (OFF re-reads config + takes an extra turn → +110 output tokens / 41% / +1 repeat-read), reproducible. The deterministic core is the *compare*; a live `run-arms.sh` is one **stochastic** sample (smoke-tested end-to-end: both arms produce clean transcripts, compare runs).
+- **Reviewed:** code-reviewer (ship) — independently recomputed the fixture deltas; fixed a latent CLI-guard bug (relative `argv[1]` via `pathToFileURL`) and dropped the `uuidgen` dependency for `node crypto.randomUUID`.
+- **The honest limit (stated, not hidden):** the awareness *benefit* only appears in sessions long enough to cross a compaction boundary; a single short run measures plumbing, not awareness. Real result = a long multi-step scenario, N runs/arm, compare distributions. This apparatus makes that measurable; it does not pre-judge it (the effectiveness investigation is the cautionary tale).
 - **Depends on:** S3.
-- **Acceptance (Tier 0):** produces a tokens-per-outcome + awareness-failure delta for one multi-step scenario; numbers reproduce.
 
 ### Slice 5 — ship + ratchet
 - **Goal:** make the mechanisms installable and guarded.

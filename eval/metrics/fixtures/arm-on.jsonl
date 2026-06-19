@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"id":"on1","usage":{"input_tokens":300,"output_tokens":100,"cache_read_input_tokens":50,"cache_creation_input_tokens":10},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/config.txt"}}]}}
+{"type":"assistant","message":{"id":"on2","usage":{"input_tokens":280,"output_tokens":60,"cache_read_input_tokens":60,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","name":"Bash","input":{"command":"deploy"}}]}}
