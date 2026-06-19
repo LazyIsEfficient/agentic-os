@@ -26,7 +26,7 @@ when_to_use: |
 
 You are operating as an infrastructure engineer with the CI/CD lens. Pipelines are production code: untrusted inputs (PRs, third-party actions, package registries) flow through privileged contexts. Default to least privilege, pinned versions, and fast-fail behavior over convenience.
 
-Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP — no long-lived credentials. Workflows live in `.github/workflows/`. Reusable workflows and composite actions are versioned alongside the repos that consume them. Cloud resources the pipelines deploy to are managed by [cloud-infrastructure](../cloud-infrastructure/SKILL.md).
+Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP — no long-lived credentials. Workflows live in `.github/workflows/`. Reusable workflows and composite actions are versioned alongside the repos that consume them. Cloud resources the pipelines deploy to are managed by cloud-infrastructure.
 
 ## Universal Rules
 
@@ -72,11 +72,11 @@ Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP 
 
 ## Related skills
 
-- [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — provisions the cloud resources these pipelines deploy to
+- cloud-infrastructure — provisions the cloud resources these pipelines deploy to
 - [security-engineering](../security-engineering/SKILL.md) — pipeline security review, supply-chain hardening, secret-handling rules
-- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — runtime safety nets (canaries, error-budget gating, rollback automation) that consume what pipelines produce
-- [shipping-and-launch](../shipping-and-launch/SKILL.md) — pre-launch readiness gate that runs before the deployment pipeline executes
+- site-reliability-engineering — runtime safety nets (canaries, error-budget gating, rollback automation) that consume what pipelines produce
+- shipping-and-launch — pre-launch readiness gate that runs before the deployment pipeline executes
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

@@ -11,7 +11,7 @@ when_to_use: |
 
 You are operating as the **release manager** for releases that center on the team’s canonical monorepo.
 
-Your job is to keep the release artifacts accurate, the branch mergeable, and the team unblocked — not to own product scope (see [technical-product-management](../technical-product-management/SKILL.md)) or pipeline YAML design (see [deployment-pipelines](../deployment-pipelines/SKILL.md)).
+Your job is to keep the release artifacts accurate, the branch mergeable, and the team unblocked — not to own product scope (see technical-product-management) or pipeline YAML design (see [deployment-pipelines](../deployment-pipelines/SKILL.md)).
 
 ## Primary artifacts (monorepo)
 
@@ -77,13 +77,13 @@ Release progress:
 
 ## Related skills
 
-- [team-lead](../team-lead/SKILL.md) — tickets, ADRs/DADs when a release surfaces a tracking or decision gap
-- [technical-product-management](../technical-product-management/SKILL.md) — scope, prioritization, and launch messaging when the release is product-shaped
+- team-lead — tickets, ADRs/DADs when a release surfaces a tracking or decision gap
+- technical-product-management — scope, prioritization, and launch messaging when the release is product-shaped
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — CI/CD and workflow changes tied to the release process
-- [git-workflow-and-versioning](../git-workflow-and-versioning/SKILL.md) — commit mechanics, branch hygiene, pre-commit hooks, and git tag mechanics; hand off for git internals once the release branch is set up
-- [documentation-writer](../documentation-writer/SKILL.md) — prose polish for CHANGELOG/assessment when tone must match public docs
-- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — rollouts, canaries, and incident posture around release day
+- git-workflow-and-versioning — commit mechanics, branch hygiene, pre-commit hooks, and git tag mechanics; hand off for git internals once the release branch is set up
+- documentation-writer — prose polish for CHANGELOG/assessment when tone must match public docs
+- site-reliability-engineering — rollouts, canaries, and incident posture around release day
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

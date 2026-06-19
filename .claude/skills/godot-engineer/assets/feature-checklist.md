@@ -186,7 +186,7 @@ A quick scan for the most common Godot anti-patterns. None of these should be pr
 - [ ] Code comments explain any non-obvious choices.
 - [ ] Public API of the feature is documented (if other team members will use it).
 - [ ] Any new conventions or patterns are documented in the project's docs.
-- [ ] If this is a notable architectural choice, an ADR is filed (see [team-lead](../../team-lead/SKILL.md)).
+- [ ] If this is a notable architectural choice, an ADR is filed (see team-lead).
 
 ## 18. Cleanup
 

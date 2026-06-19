@@ -37,14 +37,14 @@ Hard-to-test UI remains a useful design feedback signal — but **feedback belon
 
 **Examples of when to flag:** untestable or awkward seams (no stable boundary to mock/fake); heavy or nested mocks to assert one behavior; large wrapper/setup cost for a supposedly small unit; missing stable accessible names (roles, labels) so tests depend on `getByTestId` or brittle copy; business logic or I/O bundled in a component or hook so focused assertions are awkward.
 
-Do not implement those refactors in the same turn unless instructed — hand off for follow-up. This aligns with [software-design](../software-design/SKILL.md): record the signal; acting on it is a separate, explicit scope.
+Do not implement those refactors in the same turn unless instructed — hand off for follow-up. This aligns with software-design: record the signal; acting on it is a separate, explicit scope.
 
 ## Related skills
 
-- [software-design](../software-design/SKILL.md) — testability is a design feedback signal; do not game tests to hide issues. When the mandate is **tests only**, capture component- or module-level improvements under **Refactor opportunities (not in scope)** instead of refactoring production code in the same turn unless the user asked.
-- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
-- [test-driven-development](../test-driven-development/SKILL.md) — the red-green-refactor discipline that drives when these React/hook tests get written; this skill is the frontend-specific specialization of it
-- [ux-design](../ux-design/SKILL.md) — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
+- software-design — testability is a design feedback signal; do not game tests to hide issues. When the mandate is **tests only**, capture component- or module-level improvements under **Refactor opportunities (not in scope)** instead of refactoring production code in the same turn unless the user asked.
+- typescript-quality-engineering — umbrella QE skill for cross-cutting test policy
+- test-driven-development — the red-green-refactor discipline that drives when these React/hook tests get written; this skill is the frontend-specific specialization of it
+- ux-design — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
 
 ## References
 
@@ -59,4 +59,4 @@ Do not implement those refactors in the same turn unless instructed — hand off
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

@@ -43,7 +43,7 @@ For each meta loop:
 - **Loop length:** <hours / days / weeks>
 
 ## 7. Systems list (links to system specs)
-- [<System name>](./systems/<system>.md) — one-line role
+- <System name> — one-line role
 - ...
 
 The systems list is the *menu* of major designs. Each item has its own filled `system-spec-template.md`.

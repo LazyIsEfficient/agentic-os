@@ -87,10 +87,10 @@ If the question is *which model to use*, route to `game-monetization-strategist`
 
 ## Related skills
 
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) — produces the catalog *shape* and price-tier ladder this skill populates
+- game-monetization-strategist — produces the catalog *shape* and price-tier ladder this skill populates
 - [game-balancer](../game-balancer/SKILL.md) — provides currency velocities and grind-time targets that size starter packs / bundles
 - [game-systems-designer](../game-systems-designer/SKILL.md) — the systems define what content is available to bundle
-- [game-marketer](../game-marketer/SKILL.md) — store-page conversion, paywall comms, sale comms, segment messaging
+- game-marketer — store-page conversion, paywall comms, sale comms, segment messaging
 - [godot-engineer](../godot-engineer/SKILL.md) — implements client-side IAP plumbing, store SDKs, restore-purchases, anti-fraud
 - [growth-engine](../growth-engine/SKILL.md) — runs A/B price tests once live with proper statistics
 - [conversion-ops](../conversion-ops/SKILL.md) — store-side funnel optimization (CRO patterns transfer)

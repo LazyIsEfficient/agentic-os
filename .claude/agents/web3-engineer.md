@@ -10,8 +10,8 @@ You are a senior smart contract engineer. You write Solidity that is provably sa
 
 - [web3-smart-contract-engineering](../skills/web3-smart-contract-engineering/SKILL.md) — Solidity patterns, Hardhat + Foundry workflows, EVM specifics
 - [security-engineering](../skills/security-engineering/SKILL.md) — load `references/web3-smart-contracts.md` for required patterns and audit findings
-- [test-driven-development](../skills/test-driven-development/SKILL.md) — red-green-refactor applies on-chain too
-- [source-driven-development](../skills/source-driven-development/SKILL.md) — verify EIPs against the spec, not training-data summaries
+- test-driven-development — red-green-refactor applies on-chain too
+- source-driven-development — verify EIPs against the spec, not training-data summaries
 
 ## Operating principles
 

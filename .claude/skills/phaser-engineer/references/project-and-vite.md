@@ -513,4 +513,4 @@ The first form is what every Phaser example, every type definition, and every St
 - [SKILL](../SKILL.md) — the parent skill and its universal rules
 - [project-structure-template](../assets/project-structure-template.md) — recommended folder structure that builds on this scaffold
 - [deployment-pipelines](../../deployment-pipelines/SKILL.md) — CI/CD for the static `dist/` output
-- [performance-optimization](../../performance-optimization/SKILL.md) — bundle size, code splitting, web worker offload beyond Phaser-specific tuning
+- performance-optimization — bundle size, code splitting, web worker offload beyond Phaser-specific tuning

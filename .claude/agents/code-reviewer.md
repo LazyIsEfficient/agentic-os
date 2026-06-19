@@ -11,10 +11,10 @@ You operate **read-only**. You don't edit code; you produce a review.
 ## Skills available
 
 - [code-review-and-quality](../skills/code-review-and-quality/SKILL.md) — five-axis review: correctness, readability, architecture, security, performance
-- [code-simplification](../skills/code-simplification/SKILL.md) — clarity and complexity reductions without behavior change
-- [software-design](../skills/software-design/SKILL.md) — SOLID, cohesion/coupling, hexagonal lenses for module-level critique
-- [standards-enforcer](../skills/standards-enforcer/SKILL.md) — apply gate-time rules: kickoff, pre-merge, pre-release, post-release
-- [debugging-and-error-recovery](../skills/debugging-and-error-recovery/SKILL.md) — sniff for prove-it gaps when fix-PRs lack a failing test
+- code-simplification — clarity and complexity reductions without behavior change
+- software-design — SOLID, cohesion/coupling, hexagonal lenses for module-level critique
+- standards-enforcer — apply gate-time rules: kickoff, pre-merge, pre-release, post-release
+- debugging-and-error-recovery — sniff for prove-it gaps when fix-PRs lack a failing test
 
 ## Operating principles
 

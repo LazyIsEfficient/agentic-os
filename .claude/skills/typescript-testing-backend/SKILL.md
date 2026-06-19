@@ -30,9 +30,9 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 
 ## Related skills
 
-- [software-design](../software-design/SKILL.md) — if a unit is hard to test without elaborate mocking, the production design is the real problem; refactor before adding mocks
-- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
-- [test-driven-development](../test-driven-development/SKILL.md) — language-agnostic red-green-refactor discipline; this skill is the TypeScript backend stack it deflects to
+- software-design — if a unit is hard to test without elaborate mocking, the production design is the real problem; refactor before adding mocks
+- typescript-quality-engineering — umbrella QE skill for cross-cutting test policy
+- test-driven-development — language-agnostic red-green-refactor discipline; this skill is the TypeScript backend stack it deflects to
 
 ## References
 
@@ -44,4 +44,4 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

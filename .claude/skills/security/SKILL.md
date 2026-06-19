@@ -42,4 +42,4 @@ Edit `.claude/skills/security/scripts/sanitizer-config.json` to customize blockl
 ## Related skills
 
 - [security-engineering](../security-engineering/SKILL.md) — application security, OWASP, auth hardening
-- [security-and-hardening](../security-and-hardening/SKILL.md) — OWASP Top 10 hardening, input validation, auth/session patterns for web applications
+- security-and-hardening — OWASP Top 10 hardening, input validation, auth/session patterns for web applications

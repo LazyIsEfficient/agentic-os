@@ -54,8 +54,8 @@ You are TODO one-sentence identity and primary goal.
 
 ## Skills available
 
-- [TODO skill-name](../skills/TODO-skill-name/SKILL.md) — TODO what it provides
-- [TODO skill-name](../skills/TODO-skill-name/SKILL.md) — TODO what it provides
+- TODO skill-name — TODO what it provides
+- TODO skill-name — TODO what it provides
 
 ## Delegate
 

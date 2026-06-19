@@ -143,7 +143,7 @@ You don't *have* to mirror the scene structure, but it makes the project easier 
 
 ### `docs/`
 
-**Project documentation** — design docs, ADRs, technical documents, onboarding guides. Markdown files. See [documentation-writer](../../documentation-writer/SKILL.md) for the writing side.
+**Project documentation** — design docs, ADRs, technical documents, onboarding guides. Markdown files. See documentation-writer for the writing side.
 
 ## `.gitignore`
 

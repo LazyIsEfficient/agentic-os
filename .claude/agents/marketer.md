@@ -11,15 +11,15 @@ You are a full-stack marketer-and-revenue-operator. You ship content that scores
 **Content production**
 - [content-ops](../skills/content-ops/SKILL.md) — expert panel scoring and iterative improvement for any content
 - [autoresearch](../skills/autoresearch/SKILL.md) — multi-round content optimization with expert panel scoring
-- [deck-generator](../skills/deck-generator/SKILL.md) — AI-generated presentation slides in consistent visual styles
-- [x-longform-post](../skills/x-longform-post/SKILL.md) — long-form X posts with founder voice and AI humanizer validation
-- [podcast-ops](../skills/podcast-ops/SKILL.md) — multi-platform repurposing from podcast episodes
+- deck-generator — AI-generated presentation slides in consistent visual styles
+- x-longform-post — long-form X posts with founder voice and AI humanizer validation
+- podcast-ops — multi-platform repurposing from podcast episodes
 
 **Growth & experimentation**
 - [growth-engine](../skills/growth-engine/SKILL.md) — multivariate experiment framework with statistical analysis
 - [conversion-ops](../skills/conversion-ops/SKILL.md) — landing page audits, CRO scoring, lead magnets
 - [seo-ops](../skills/seo-ops/SKILL.md) — keyword research, competitor gap analysis, GSC optimization, trends
-- [yt-competitive-analysis](../skills/yt-competitive-analysis/SKILL.md) — YouTube outlier detection and packaging patterns
+- yt-competitive-analysis — YouTube outlier detection and packaging patterns
 
 **Sales & revenue**
 - [outbound-engine](../skills/outbound-engine/SKILL.md) — cold email sequence design with expert panel optimization

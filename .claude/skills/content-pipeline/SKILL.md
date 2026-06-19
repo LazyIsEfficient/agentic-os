@@ -86,5 +86,5 @@ Drafts (scorer/gate input):
 ## Related skills
 
 - [content-ops](../content-ops/SKILL.md) — interactive expert-panel scorer; the canonical quality gate for a single artifact, and the source of the panels this pipeline reuses in `content-transform`
-- [podcast-ops](../podcast-ops/SKILL.md) — episode-to-multi-format workflow; quote-mining-engine feeds its quote-card stage
+- podcast-ops — episode-to-multi-format workflow; quote-mining-engine feeds its quote-card stage
 - [autoresearch](../autoresearch/SKILL.md) — pre-launch variant generation + multi-round optimization for conversion copy

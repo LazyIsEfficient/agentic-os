@@ -491,5 +491,5 @@ For more on signals, see [signals-and-events.md](signals-and-events.md).
 - [godot-fundamentals.md](godot-fundamentals.md) — the engine model
 - [scenes-and-instancing.md](scenes-and-instancing.md) — scene composition
 - [signals-and-events.md](signals-and-events.md) — signal patterns
-- [software-design](../../software-design/SKILL.md) — broader principles (SOLID, cohesion/coupling) that apply
+- software-design — broader principles (SOLID, cohesion/coupling) that apply
 - [godot-anti-patterns.md](godot-anti-patterns.md) — broader patterns to avoid

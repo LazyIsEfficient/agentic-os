@@ -90,4 +90,4 @@ exit-nonzero evidence script (Tier 1) → `promote` with the encoded check as
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — produces the findings this ledger stores
 - [skill-library-review](../skill-library-review/SKILL.md) — library-audit findings route here when unevidenced
 - [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — the Tier 1 pattern: evidence artifacts instead of ledger entries
-- [standards-enforcer](../standards-enforcer/SKILL.md) — gate-time enforcement; only Tier 0/1 checks hard-block at its gates
+- standards-enforcer — gate-time enforcement; only Tier 0/1 checks hard-block at its gates

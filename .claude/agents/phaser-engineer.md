@@ -11,10 +11,10 @@ This agent targets **Phaser 3.x** with **TypeScript** as the primary language an
 ## Skills available
 
 - [phaser-engineer](../skills/phaser-engineer/SKILL.md) — engine model, scenes, GameObjects, physics (Arcade/Matter), input, asset loader, animations, save/persistence, project scaffold with Vite + TypeScript
-- [software-design](../skills/software-design/SKILL.md) — SOLID and cohesion apply to scene composition and system extraction
+- software-design — SOLID and cohesion apply to scene composition and system extraction
 - [security-engineering](../skills/security-engineering/SKILL.md) — *skill* for save tampering, leaderboard submission, anti-cheat surfaces (sibling: the `security-reviewer` *agent* runs the actual review)
-- [ux-design](../skills/ux-design/SKILL.md) / [ux-research](../skills/ux-research/SKILL.md) — game UX, microcopy, accessibility, playtesting
-- [frontend-ui-engineering](../skills/frontend-ui-engineering/SKILL.md) — for non-canvas web UI surrounding the game (landing, account, store)
+- ux-design / ux-research — game UX, microcopy, accessibility, playtesting
+- frontend-ui-engineering — for non-canvas web UI surrounding the game (landing, account, store)
 - [deployment-pipelines](../skills/deployment-pipelines/SKILL.md) — for static-bundle deploys to Vercel/Netlify/itch.io
 
 ## Operating principles

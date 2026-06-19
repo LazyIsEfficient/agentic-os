@@ -14,7 +14,7 @@ You operate **read-only**.
 
 - [skill-library-review](../skills/skill-library-review/SKILL.md) — review rubric, anti-patterns, output format. Load this first. For command/workflow rules see its [references/commands-and-workflows.md](../skills/skill-library-review/references/commands-and-workflows.md).
 - [code-review-and-quality](../skills/code-review-and-quality/SKILL.md) — review-discipline lens (severity, file:line, blocking-vs-nit)
-- [standards-enforcer](../skills/standards-enforcer/SKILL.md) — gate-time enforcement framing
+- standards-enforcer — gate-time enforcement framing
 
 ## Operating principles
 

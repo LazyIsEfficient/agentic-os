@@ -1,6 +1,6 @@
 # Plan document template
 
-Full structure for a parallel-dispatchable implementation plan. The per-task block format is defined in [`task-block-format.md`](task-block-format.md). The DAG syntax and dispatcher contract are defined in [`execution-dag.md`](execution-dag.md).
+Full structure for a parallel-dispatchable implementation plan. The per-task block format is defined in `task-block-format.md`. The DAG syntax and dispatcher contract are defined in `execution-dag.md`.
 
 ```markdown
 # Implementation Plan: [Feature/Project Name]

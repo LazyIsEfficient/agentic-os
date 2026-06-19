@@ -64,17 +64,17 @@ This skill targets **Godot 4.x** with **C# (.NET 8+)** as the primary language. 
 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
-- [game-marketer](../game-marketer/SKILL.md) — coordinates on capture sessions for trailer / store-page footage.
-- [game-design-shaper](../game-design-shaper/SKILL.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
-- [software-design](../software-design/SKILL.md) — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Godot anti-pattern (god scenes, tight coupling via direct paths) is the same anti-pattern as god classes, just in a different language.
-- [ux-design](../ux-design/SKILL.md) — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
-- [ux-research](../ux-research/SKILL.md) — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
-- [technical-product-management](../technical-product-management/SKILL.md) — game features need prioritization, scope decisions, launch planning, and metrics. PM principles apply, with the caveat that some game decisions are creative-led rather than data-led.
-- [team-lead](../team-lead/SKILL.md) — tickets, ADRs, and DADs work the same for a game team.
+- game-monetization-strategist and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
+- game-marketer — coordinates on capture sessions for trailer / store-page footage.
+- game-design-shaper — pipeline orchestrator for game-design intake; sits upstream of all the above.
+- software-design — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Godot anti-pattern (god scenes, tight coupling via direct paths) is the same anti-pattern as god classes, just in a different language.
+- ux-design — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
+- ux-research — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
+- technical-product-management — game features need prioritization, scope decisions, launch planning, and metrics. PM principles apply, with the caveat that some game decisions are creative-led rather than data-led.
+- team-lead — tickets, ADRs, and DADs work the same for a game team.
 - [security-engineering](../security-engineering/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
-- [system-architect](../system-architect/SKILL.md), [cloud-infrastructure](../cloud-infrastructure/SKILL.md), [deployment-pipelines](../deployment-pipelines/SKILL.md), [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — only relevant for the *backend* of a multiplayer game. If you're running a dedicated server, matchmaker, or persistent world, all four apply normally. If you're shipping a single-player or peer-to-peer game, ignore.
+- system-architect, cloud-infrastructure, [deployment-pipelines](../deployment-pipelines/SKILL.md), site-reliability-engineering — only relevant for the *backend* of a multiplayer game. If you're running a dedicated server, matchmaker, or persistent world, all four apply normally. If you're shipping a single-player or peer-to-peer game, ignore.
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

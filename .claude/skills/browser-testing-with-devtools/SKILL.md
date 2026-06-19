@@ -31,6 +31,6 @@ Use Chrome DevTools MCP to give your agent eyes into the browser. This bridges t
 
 ## Related skills
 
-- [frontend-ui-engineering](../frontend-ui-engineering/SKILL.md) — the implementation skill for the UI being tested
+- frontend-ui-engineering — the implementation skill for the UI being tested
 - [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — automated frontend test suite authoring
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md) — backend test authoring when browser tests surface API issues

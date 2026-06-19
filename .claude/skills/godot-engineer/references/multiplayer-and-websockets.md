@@ -388,9 +388,9 @@ public override void _Ready()
 
 For deployment, treat the server like any other long-running process. See:
 
-- **[cloud-infrastructure](../../cloud-infrastructure/SKILL.md)** for provisioning the host
+- **cloud-infrastructure** for provisioning the host
 - **[deployment-pipelines](../../deployment-pipelines/SKILL.md)** for the build and deploy
-- **[site-reliability-engineering](../../site-reliability-engineering/SKILL.md)** for keeping it running and observing it
+- **site-reliability-engineering** for keeping it running and observing it
 
 ## TLS / Secure WebSockets
 
@@ -590,8 +590,8 @@ When reconnection fails, the game should:
 - [godot-fundamentals.md](godot-fundamentals.md) — `Node`, `MultiplayerApi`
 - [signals-and-events.md](signals-and-events.md) — connection signals
 - [security-engineering](../../security-engineering/SKILL.md) — server-side validation, anti-cheat
-- [system-architect](../../system-architect/SKILL.md) — server architecture, scaling
-- [cloud-infrastructure](../../cloud-infrastructure/SKILL.md) — hosting the server
+- system-architect — server architecture, scaling
+- cloud-infrastructure — hosting the server
 - [deployment-pipelines](../../deployment-pipelines/SKILL.md) — building and deploying the server
-- [site-reliability-engineering](../../site-reliability-engineering/SKILL.md) — running the server in production
+- site-reliability-engineering — running the server in production
 - [godot-anti-patterns.md](godot-anti-patterns.md) — broader patterns to avoid

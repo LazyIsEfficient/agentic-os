@@ -27,6 +27,6 @@ If the user explicitly asks to "save" something on this list, push back and ask 
 
 ### Memory file mechanics
 - One memory per file under `.claude/memory/`, with frontmatter (`name`, `description`, `type`).
-- One line per entry in `.claude/memory/MEMORY.md`: `- [Title](file.md) — one-line hook`. Under ~150 chars. No frontmatter on `MEMORY.md`.
+- One line per entry in `.claude/memory/MEMORY.md`: `- Title — one-line hook`. Under ~150 chars. No frontmatter on `MEMORY.md`.
 - Update existing memories before creating new ones. Duplicates are a smell.
 - After edits, the index must still be ≤ 200 lines or it gets truncated.

@@ -160,7 +160,7 @@ See [SKILL](../SKILL.md) for the parent skill and the universal rules behind the
 - [ ] First-time-player path tested with cleared `localStorage` — onboarding is a code path.
 - [ ] Settings (volume, controls, language) persist and apply on next launch.
 - [ ] Empty / max-data states handled — zero items, full inventory, very long names, big numbers.
-- [ ] Game UX reviewed against [ux-design](../../ux-design/SKILL.md) principles — feedback, hierarchy, accessibility.
+- [ ] Game UX reviewed against ux-design principles — feedback, hierarchy, accessibility.
 
 ## Anti-pattern audit
 
@@ -190,7 +190,7 @@ A quick scan for the most common Phaser anti-patterns. None of these should be p
 
 - [ ] Public API of the new system documented (TSDoc on exports).
 - [ ] Any non-obvious choice has a comment explaining *why*, not *what*.
-- [ ] If this is a notable architectural choice, an ADR is filed (see [team-lead](../../team-lead/SKILL.md)).
+- [ ] If this is a notable architectural choice, an ADR is filed (see team-lead).
 - [ ] README updated if the project structure or run commands changed.
 
 ## Hand-off to other skills
@@ -198,10 +198,10 @@ A quick scan for the most common Phaser anti-patterns. None of these should be p
 - [ ] If new save/leaderboard surface: security review for tamper resistance — pull in [security-engineering](../../security-engineering/SKILL.md).
 - [ ] If new IAP touchpoint: catalog updated by [iap-manager](../../iap-manager/SKILL.md).
 - [ ] If new gameplay system: design doc owned by [game-systems-designer](../../game-systems-designer/SKILL.md), balance pass by [game-balancer](../../game-balancer/SKILL.md).
-- [ ] If non-canvas web UI added (account page, store, landing): [frontend-ui-engineering](../../frontend-ui-engineering/SKILL.md) owns it, not this skill.
-- [ ] If deeper bundle/perf work needed: [performance-optimization](../../performance-optimization/SKILL.md).
+- [ ] If non-canvas web UI added (account page, store, landing): frontend-ui-engineering owns it, not this skill.
+- [ ] If deeper bundle/perf work needed: performance-optimization.
 - [ ] If CI/CD pipeline touched: [deployment-pipelines](../../deployment-pipelines/SKILL.md).
-- [ ] If feature warrants a launch plan: [game-marketer](../../game-marketer/SKILL.md) for store-page / trailer / wishlist comms.
+- [ ] If feature warrants a launch plan: game-marketer for store-page / trailer / wishlist comms.
 
 ## Version control
 

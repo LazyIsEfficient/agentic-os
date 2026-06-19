@@ -13,7 +13,7 @@ when_to_use: |
 
   Not when: the task is financial reporting from accounting data — burn rate, runway, P&L,
   scenario modeling, or a CFO briefing from QuickBooks/CSV exports — use
-  [finance-ops](../finance-ops/SKILL.md) instead. Not when the task is pricing a *future*
+  finance-ops instead. Not when the task is pricing a *future*
   project from a spec rather than measuring an existing codebase (there is no code to count
   yet) — scope the spec first, then return here once code exists. Not when the task is
   game-studio revenue/LTV forecasting — use `game-monetization-strategist`.

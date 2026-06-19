@@ -90,10 +90,10 @@ If the systems themselves are wrong (no amount of tuning will fix them), stop an
 ## Related skills
 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the system specs this skill numbers; receives back balance tables
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) — sets ARPDAU / LTV targets that constrain the economy; receives the tuned economy back to validate the model
+- game-monetization-strategist — sets ARPDAU / LTV targets that constrain the economy; receives the tuned economy back to validate the model
 - [iap-manager](../iap-manager/SKILL.md) — needs currency velocities and grind-time targets to size store SKUs and bundles
-- [game-marketer](../game-marketer/SKILL.md) — uses time-to-content targets in store-page promises and soft-launch KPI floors
+- game-marketer — uses time-to-content targets in store-page promises and soft-launch KPI floors
 - [godot-engineer](../godot-engineer/SKILL.md) — implements tunable parameters as data, not magic numbers; ships the telemetry that validates the model post-launch
 - [growth-engine](../growth-engine/SKILL.md) — runs A/B tests on balance variants once the game is live
-- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — monitors balance KPIs as SLIs; alerts on drift
+- site-reliability-engineering — monitors balance KPIs as SLIs; alerts on drift
 - [content-ops](../content-ops/SKILL.md) — expert-panel scoring of the balance plan before live launch

@@ -55,11 +55,11 @@ If the concept is still open, **stop** and route to `game-concept-creator`. If s
 
 ## Related Skills
 
-- [game-concept-creator](../game-concept-creator/SKILL.md) — produces the one-pager this skill consumes
+- game-concept-creator — produces the one-pager this skill consumes
 - [game-balancer](../game-balancer/SKILL.md) — tunes the numbers in the system specs
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) — picks the model that fits the systems
+- game-monetization-strategist — picks the model that fits the systems
 - [iap-manager](../iap-manager/SKILL.md) — catalogs the SKUs the design implies
-- [game-marketer](../game-marketer/SKILL.md) — positions the game using the design's strongest hooks
+- game-marketer — positions the game using the design's strongest hooks
 - [godot-engineer](../godot-engineer/SKILL.md) — builds the design in Godot 4 + C#
-- [ux-design](../ux-design/SKILL.md) — designs the screens, flows, and microcopy on top of the systems
+- ux-design — designs the screens, flows, and microcopy on top of the systems
 - [content-ops](../content-ops/SKILL.md) — expert-panel scoring of the design doc before committing to build

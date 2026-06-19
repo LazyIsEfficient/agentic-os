@@ -52,7 +52,7 @@ This skill targets **Phaser 3.x** with **TypeScript** as the primary language. J
 - Hitting a performance wall and needing to profile and fix the actual bottleneck.
 - Reviewing a Phaser project for anti-patterns and structural problems.
 
-For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for **monetization** see [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md); for **game marketing** see [game-marketer](../game-marketer/SKILL.md). For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Phaser context, see [software-design](../software-design/SKILL.md). For **frontend work outside the Phaser canvas** — landing pages, account UI, marketing site — see [frontend-ui-engineering](../frontend-ui-engineering/SKILL.md). For **game UI as user experience** (accessibility, microcopy, hierarchy, feedback), see [ux-design](../ux-design/SKILL.md). If the project is in **Godot/C#** instead of Phaser, see [godot-engineer](../godot-engineer/SKILL.md).
+For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for **monetization** see game-monetization-strategist and [iap-manager](../iap-manager/SKILL.md); for **game marketing** see game-marketer. For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Phaser context, see software-design. For **frontend work outside the Phaser canvas** — landing pages, account UI, marketing site — see frontend-ui-engineering. For **game UI as user experience** (accessibility, microcopy, hierarchy, feedback), see ux-design. If the project is in **Godot/C#** instead of Phaser, see [godot-engineer](../godot-engineer/SKILL.md).
 
 This skill explicitly does **not** cover multiplayer/networking or web3/wallet integration in v1. Defer those surfaces and pull in the right specialist when needed.
 
@@ -73,20 +73,20 @@ This skill explicitly does **not** cover multiplayer/networking or web3/wallet i
 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad surfaces this skill plumbs into the game.
-- [game-marketer](../game-marketer/SKILL.md) — coordinates on capture sessions for trailer / store-page footage.
-- [game-design-shaper](../game-design-shaper/SKILL.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
+- game-monetization-strategist and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad surfaces this skill plumbs into the game.
+- game-marketer — coordinates on capture sessions for trailer / store-page footage.
+- game-design-shaper — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [godot-engineer](../godot-engineer/SKILL.md) — sibling skill for the same engineering concern in Godot 4 + C#. Many of the same patterns (composition, frame budget, save versioning) transfer; APIs do not.
-- [frontend-ui-engineering](../frontend-ui-engineering/SKILL.md) — for the *non-canvas* web app surrounding the game (landing page, login, store, account dashboard). The Phaser canvas is one component on the page; everything around it lives in this sibling skill.
-- [software-design](../software-design/SKILL.md) — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Phaser anti-pattern (god scenes, tight coupling via cross-scene reach-ins) is the same anti-pattern as god classes, just in a different language.
-- [ux-design](../ux-design/SKILL.md) — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
-- [ux-research](../ux-research/SKILL.md) — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
-- [technical-product-management](../technical-product-management/SKILL.md) — game features need prioritization, scope decisions, launch planning, and metrics.
-- [team-lead](../team-lead/SKILL.md) — tickets, ADRs, and DADs work the same for a game team.
+- frontend-ui-engineering — for the *non-canvas* web app surrounding the game (landing page, login, store, account dashboard). The Phaser canvas is one component on the page; everything around it lives in this sibling skill.
+- software-design — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Phaser anti-pattern (god scenes, tight coupling via cross-scene reach-ins) is the same anti-pattern as god classes, just in a different language.
+- ux-design — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
+- ux-research — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
+- technical-product-management — game features need prioritization, scope decisions, launch planning, and metrics.
+- team-lead — tickets, ADRs, and DADs work the same for a game team.
 - [security-engineering](../security-engineering/SKILL.md) — single-player browser games still have security concerns: save tampering (localStorage is plaintext), client-side score submission, anti-cheat for leaderboards. Pull this in for any game with server-side state.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — static-bundle deploy to Vercel/Netlify/itch.io, asset CDN, cache headers; these are CI/CD concerns this skill does not own.
-- [performance-optimization](../performance-optimization/SKILL.md) — for deeper Web/JS performance work that goes beyond Phaser-specific tuning (bundle size, code splitting, web worker offload).
+- performance-optimization — for deeper Web/JS performance work that goes beyond Phaser-specific tuning (bundle size, code splitting, web worker offload).
 
 ## Enforcement
 
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

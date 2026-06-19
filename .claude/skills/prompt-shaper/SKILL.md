@@ -60,4 +60,4 @@ Full question bank, per-type defaults, and exact output wording live in [referen
 ## Related Skills
 
 - [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) — consumes a multi-slice brief and decomposes it into ordered, parallel-dispatchable tasks with an execution DAG.
-- [incremental-implementation](../incremental-implementation/SKILL.md) — executes the resulting tasks in vertical slices with verification at each step.
+- incremental-implementation — executes the resulting tasks in vertical slices with verification at each step.

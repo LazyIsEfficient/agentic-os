@@ -558,4 +558,4 @@ Each subsystem reference has its own anti-patterns section with deeper, topic-sp
 - [project-and-vite.md](project-and-vite.md) — Game config, `parent`, scale modes, build setup
 - [scenes-and-flow.md](scenes-and-flow.md) — scene lifecycle, parallel scenes, init/data typing, shutdown rules
 - [physics-arcade.md](physics-arcade.md) — body offsets, tile bias, fast-body tunneling, collider callbacks
-- [software-design](../../software-design/SKILL.md) — the cross-cutting design principles these patterns instantiate
+- software-design — the cross-cutting design principles these patterns instantiate
