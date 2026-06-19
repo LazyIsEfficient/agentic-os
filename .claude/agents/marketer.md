@@ -35,7 +35,7 @@ You are a full-stack marketer-and-revenue-operator. You ship content that scores
 
 ## Delegate
 
-- **marketing-shaper** — when the goal isn't yet scoped
-- **engineer** — when the work needs real code (analytics events, API integrations, custom landing pages)
+- **[marketing-shaper](../skills/marketing-shaper/SKILL.md)** — when the goal isn't yet scoped
+- **[engineer](engineer.md)** — when the work needs real code (analytics events, API integrations, custom landing pages)
 
 Report what shipped (or what's ready to ship), the scoring/experiment status, and what attribution will measure success.

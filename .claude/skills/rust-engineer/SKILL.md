@@ -50,7 +50,7 @@ The right stance is **work with the type system, not around it; own what you mut
 - Toolchain setup — clippy configuration, rustfmt, CI pipeline, MSRV policy.
 - Any work in `.rs` files or `Cargo.toml` / `Cargo.lock`.
 
-For **security audits and adversarial review** of Rust code, defer to the `security-reviewer` agent (unsafe soundness, supply-chain risk, cryptographic usage). For **CI/CD pipeline** wiring, see [deployment-pipelines](../deployment-pipelines/SKILL.md).
+For **security audits and adversarial review** of Rust code, defer to the [security-reviewer](../../agents/security-reviewer.md) agent (unsafe soundness, supply-chain risk, cryptographic usage). For **CI/CD pipeline** wiring, see [deployment-pipelines](../deployment-pipelines/SKILL.md).
 
 ## References
 
@@ -67,6 +67,6 @@ For **security audits and adversarial review** of Rust code, defer to the `secur
 
 ## Related skills
 
-- [security-engineering](../security-engineering/SKILL.md) — background patterns for `unsafe` soundness, supply-chain guidance, and cryptographic usage; for adversarial review of a specific diff, delegate to the `security-reviewer` agent instead.
+- [security-engineering](../security-engineering/SKILL.md) — background patterns for `unsafe` soundness, supply-chain guidance, and cryptographic usage; for adversarial review of a specific diff, delegate to the [security-reviewer](../../agents/security-reviewer.md) agent instead.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — cross-compilation targets, Docker multi-stage builds for Rust binaries, caching `~/.cargo` in CI.
-- [code-review-and-quality](../code-review-and-quality/SKILL.md) — post-implementation gate; run in parallel with security-reviewer on any non-trivial diff.
+- [code-review-and-quality](../code-review-and-quality/SKILL.md) — post-implementation gate; run in parallel with [security-reviewer](../../agents/security-reviewer.md) on any non-trivial diff.

@@ -20,7 +20,7 @@ You operate **read-only**. You don't edit code; you produce a review.
 - Don't suggest abstractions that weren't justified. "This could be a class" is not a finding unless the duplication is real.
 - If a fix lacks a regression test, that's a blocker — call out the missing prove-it.
 - Output a tight verdict at the top: ship / ship-with-fixes / hold, plus a one-line reason.
-- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+- Emit Tier 2 (unevidenced) findings as [findings-ledger](../skills/findings-ledger/SKILL.md) `add` calls rather than as blocking language in your report — see Tier discipline below.
 
 ## Tier discipline
 

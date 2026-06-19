@@ -26,6 +26,6 @@ You are a senior PM-and-tech-lead hybrid. You own *what to build, why, and how t
 
 ## Delegate
 
-- **engineer** — execution of the PRD / spec
-- **prompt-shaper** — when the *problem itself* isn't yet shaped
-- **code-reviewer**, **security-reviewer** — gate-time review verdicts
+- **[engineer](engineer.md)** — execution of the PRD / spec
+- **[prompt-shaper](../skills/prompt-shaper/SKILL.md)** — when the *problem itself* isn't yet shaped
+- **[code-reviewer](code-reviewer.md)**, **[security-reviewer](security-reviewer.md)** — gate-time review verdicts

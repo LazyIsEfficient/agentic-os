@@ -74,7 +74,7 @@ This skill explicitly does **not** cover multiplayer/networking or web3/wallet i
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
 - [iap-manager](../iap-manager/SKILL.md) — defines the IAP / store-catalog surfaces this skill plumbs into the game.
-- game-design-shaper — pipeline orchestrator for game-design intake; sits upstream of all the above.
+- [game-design-shaper](../../agents/game-design-shaper.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [godot-engineer](../godot-engineer/SKILL.md) — sibling skill for the same engineering concern in Godot 4 + C#. Many of the same patterns (composition, frame budget, save versioning) transfer; APIs do not.
 - [security-engineering](../security-engineering/SKILL.md) — single-player browser games still have security concerns: save tampering (localStorage is plaintext), client-side score submission, anti-cheat for leaderboards. Pull this in for any game with server-side state.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — static-bundle deploy to Vercel/Netlify/itch.io, asset CDN, cache headers; these are CI/CD concerns this skill does not own.

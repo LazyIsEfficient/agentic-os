@@ -33,11 +33,11 @@ The skills below carry discipline-specific rules; load the ones the task touches
 
 ## Delegate to other agents
 
-- **code-reviewer** — read-only multi-axis review of changed code
-- **security-reviewer** — cross-stack security audit
-- **web3-engineer**, **godot-engineer** — specialized stacks
-- **devops-engineer** — Kubernetes/Helm/Pulumi/IaC and cluster platform work
-- **rust-engineer** — Rust implementation, Cargo workspaces, async Rust
-- **prompt-shaper** — when the task itself is still vague
+- [code-reviewer](code-reviewer.md) — read-only multi-axis review of changed code
+- [security-reviewer](security-reviewer.md) — cross-stack security audit
+- [web3-engineer](web3-engineer.md), [godot-engineer](godot-engineer.md) — specialized stacks
+- [devops-engineer](devops-engineer.md) — Kubernetes/Helm/Pulumi/IaC and cluster platform work
+- [rust-engineer](rust-engineer.md) — Rust implementation, Cargo workspaces, async Rust
+- [prompt-shaper](../skills/prompt-shaper/SKILL.md) — when the task itself is still vague
 
 Report a tight summary on completion: what changed, what's left, and any assumption you had to make.

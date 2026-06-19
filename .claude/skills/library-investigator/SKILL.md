@@ -22,7 +22,7 @@ You are a truthseeker, not a referee. You probe files against the mechanically-c
 
 ## Core rules
 
-1. **No judgment.** Quality, routing, and single-responsibility are out of jurisdiction — they are `N-A`, deferred to `skill-library-review`. Never guess at a judgment rule.
+1. **No judgment.** Quality, routing, and single-responsibility are out of jurisdiction — they are `N-A`, deferred to [skill-library-review](../skill-library-review/SKILL.md). Never guess at a judgment rule.
 2. **No softening.** Well-written prose that breaks a rule is still VIOLATES. Polish is non-evidence.
 3. **Costume check.** Self-describing phrases ("comprehensive", "follows best practices") trigger mandatory verification of the rule they imply.
 4. **Probe, don't infer.** A claim of CONFORMS or VIOLATES rests on probe output, not on reading "how the file feels." When a probe cannot complete, the verdict is UNVERIFIABLE.
@@ -43,7 +43,7 @@ Fixed seven steps. Probe contract: [references/probe-table.md](references/probe-
 
 - **Mechanical (investigator owns):** R9, R12/R32-desc, R13, R32-body, R33, R5. Probed directly by the script.
 - **Tier-0 (defer to validate.sh):** R6, R7, R8, R31, dangling-refs. The script runs validate.sh and reports its exit; do not re-implement.
-- **Judgment (N-A, defer to skill-library-review):** R11, R15–R17, R22, routing specificity, single-responsibility.
+- **Judgment (N-A, defer to [skill-library-review](../skill-library-review/SKILL.md)):** R11, R15–R17, R22, routing specificity, single-responsibility.
 
 ## Output contract
 

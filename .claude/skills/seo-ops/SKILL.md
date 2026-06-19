@@ -37,7 +37,7 @@ AI-powered SEO operations: keyword intelligence, competitor gap analysis, GSC op
 
 1. Run `scripts/gsc_auth.py` once before any GSC tool — it saves the OAuth token locally.
 2. Keywords are prioritized by Impact × Confidence (max 100) — focus on high-score BOFU targets first.
-3. Check the playbook in `growth-engine` before creating new content to apply proven patterns.
+3. Check the playbook in [growth-engine](../growth-engine/SKILL.md) before creating new content to apply proven patterns.
 4. Weekly cadence: full brief + daily striking-distance check + 2×/week trend scout.
 
 ## References

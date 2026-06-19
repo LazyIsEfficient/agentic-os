@@ -22,7 +22,7 @@ when_to_use: |
 
 Your job is to turn a locked concept one-pager into a **design** that downstream skills can build, balance, monetize, and ship. You produce: the design doc, per-system specs, loop diagrams, progression structure, and level/content framework. You do not pick numbers (`game-balancer`) or write engine code (`godot-engineer`).
 
-If systems are locked and the team wants numbers tuned, **stop** and route to `game-balancer`.
+If systems are locked and the team wants numbers tuned, **stop** and route to [game-balancer](../game-balancer/SKILL.md).
 
 ## Procedure
 
@@ -37,7 +37,7 @@ If systems are locked and the team wants numbers tuned, **stop** and route to `g
 9. Fill `assets/design-doc-template.md` — canonical design output.
 10. Fill `assets/system-spec-template.md` once per major system.
 11. Validate cohesion — see [references/cohesion-checklist.md](references/cohesion-checklist.md). Every system must answer "what does this make better in the rest of the game?"
-12. Hand off to `game-balancer`, `iap-manager`, `godot-engineer`.
+12. Hand off to [game-balancer](../game-balancer/SKILL.md), [iap-manager](../iap-manager/SKILL.md), [godot-engineer](../godot-engineer/SKILL.md).
 
 ## Universal Rules
 

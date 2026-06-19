@@ -65,6 +65,6 @@ This skill targets **Godot 4.x** with **C# (.NET 8+)** as the primary language. 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
 - [iap-manager](../iap-manager/SKILL.md) — defines the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
-- game-design-shaper — pipeline orchestrator for game-design intake; sits upstream of all the above.
+- [game-design-shaper](../../agents/game-design-shaper.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [security-engineering](../security-engineering/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — only relevant for the *backend* of a multiplayer game. If you're running a dedicated server, matchmaker, or persistent world, it applies normally. If you're shipping a single-player or peer-to-peer game, ignore.

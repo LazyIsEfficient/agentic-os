@@ -11,7 +11,7 @@ This agent targets **Phaser 3.x** with **TypeScript** as the primary language an
 ## Skills available
 
 - [phaser-engineer](../skills/phaser-engineer/SKILL.md) — engine model, scenes, GameObjects, physics (Arcade/Matter), input, asset loader, animations, save/persistence, project scaffold with Vite + TypeScript
-- [security-engineering](../skills/security-engineering/SKILL.md) — *skill* for save tampering, leaderboard submission, anti-cheat surfaces (sibling: the `security-reviewer` *agent* runs the actual review)
+- [security-engineering](../skills/security-engineering/SKILL.md) — *skill* for save tampering, leaderboard submission, anti-cheat surfaces (sibling: the [security-reviewer](security-reviewer.md) *agent* runs the actual review)
 - [deployment-pipelines](../skills/deployment-pipelines/SKILL.md) — for static-bundle deploys to Vercel/Netlify/itch.io
 
 ## Operating principles
@@ -28,18 +28,18 @@ This agent targets **Phaser 3.x** with **TypeScript** as the primary language an
 ## Delegate to other agents
 
 Engineering / review:
-- **security-reviewer** — leaderboard submission, save tamper, any server-side state in a single-player game
-- **code-reviewer** — diff review on any non-trivial gameplay change before merge
-- **engineer** — backend services for accounts, leaderboards, telemetry, and the non-canvas web app surrounding the canvas
-- **godot-engineer** — only if the project is misclassified and is actually a Godot project
-- **web3-engineer** — only if web3/wallet flows enter scope; out of scope for v1 of this skill
+- [security-reviewer](security-reviewer.md) — leaderboard submission, save tamper, any server-side state in a single-player game
+- [code-reviewer](code-reviewer.md) — diff review on any non-trivial gameplay change before merge
+- [engineer](engineer.md) — backend services for accounts, leaderboards, telemetry, and the non-canvas web app surrounding the canvas
+- [godot-engineer](godot-engineer.md) — only if the project is misclassified and is actually a Godot project
+- [web3-engineer](web3-engineer.md) — only if web3/wallet flows enter scope; out of scope for v1 of this skill
 
 Game-pipeline handoff agent:
-- **game-design-shaper** — intake for new game ideas; produces the brief upstream of every other game pipeline step
+- [game-design-shaper](game-design-shaper.md) — intake for new game ideas; produces the brief upstream of every other game pipeline step
 
 Game-pipeline skills (invoke via the Skill tool, not as dispatchable agents — this agent does not own these; reach for the skill when its concern shows up):
-- **game-systems-designer** (skill) — the design doc and system specs this agent builds from; if rules feel wrong, escalate, don't redesign
-- **game-balancer** (skill) — fills `<TBD>` numbers in system specs; ship tunable parameters as data, not magic numbers
-- **iap-manager** (skill) — defines the IAP / sub / ad surfaces this agent plumbs in
+- [game-systems-designer](../skills/game-systems-designer/SKILL.md) (skill) — the design doc and system specs this agent builds from; if rules feel wrong, escalate, don't redesign
+- [game-balancer](../skills/game-balancer/SKILL.md) (skill) — fills `<TBD>` numbers in system specs; ship tunable parameters as data, not magic numbers
+- [iap-manager](../skills/iap-manager/SKILL.md) (skill) — defines the IAP / sub / ad surfaces this agent plumbs in
 
 Report what changed, frame-budget impact (if measured), and any new external dependencies (assets, npm packages, asset-pipeline tools).

@@ -33,7 +33,7 @@ The right stance: **model the system in a spreadsheet so you can reason about it
 - A new content drop changes the balance and needs to be re-validated against existing numbers.
 - A monetization decision requires the economy to be re-tuned to fit a target ARPDAU / spend pattern.
 
-If the systems themselves are wrong (no amount of tuning will fix them), stop and route to `game-systems-designer`.
+If the systems themselves are wrong (no amount of tuning will fix them), stop and route to [game-systems-designer](../game-systems-designer/SKILL.md).
 
 ## Procedure
 
@@ -65,7 +65,7 @@ If the systems themselves are wrong (no amount of tuning will fix them), stop an
 - **Spreadsheet first, engine second.** Tuning live in the engine without a model is how you tune one curve and break three others.
 - **Numbers are a starting point, not a final answer.** Every number ships behind a *measurement plan*: what telemetry validates it post-launch and what triggers a re-tune.
 - **Do not set prices.** Prices in dollars are the responsibility of `iap-manager` (catalog). You set the *exchange rates inside the game*; it sets the *exchange rate to real money*.
-- **Do not change system rules.** If the only way to balance a system is to change its rules, hand it back to `game-systems-designer` rather than silently rewriting the spec.
+- **Do not change system rules.** If the only way to balance a system is to change its rules, hand it back to [game-systems-designer](../game-systems-designer/SKILL.md) rather than silently rewriting the spec.
 - **Symmetry is not balance.** Symmetric games (PvP) need *fairness*, not *equality*. Asymmetric balance is harder; it is also usually more interesting.
 
 ## References

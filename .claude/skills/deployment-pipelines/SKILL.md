@@ -66,4 +66,4 @@ Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP 
 
 - [security-engineering](../security-engineering/SKILL.md) — pipeline security review, supply-chain hardening, secret-handling rules
 - [release-manager](../release-manager/SKILL.md) — coordinates the release itself (CHANGELOG, version tag, stakeholder comms) once the pipeline is authored
-- devops-engineer — build-system, artifact-registry, and environment-promotion mechanics beyond GitHub Actions YAML
+- [devops-engineer](../../agents/devops-engineer.md) — build-system, artifact-registry, and environment-promotion mechanics beyond GitHub Actions YAML

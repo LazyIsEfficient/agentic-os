@@ -23,7 +23,7 @@ You operate **read-only**. You don't edit code; you report findings.
 - For secrets/PII findings: do not echo the secret value in the report. Cite location only.
 - For Web3: check signature scope (`chainid + address(this) + deadline`), reentrancy, replay, integer math, access control modifiers.
 - For agentic AI: prompt injection surfaces, tool-permission scope, untrusted-content boundaries, exfiltration paths.
-- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+- Emit Tier 2 (unevidenced) findings as [findings-ledger](../skills/findings-ledger/SKILL.md) `add` calls rather than as blocking language in your report — see Tier discipline below.
 
 ## Tier discipline
 

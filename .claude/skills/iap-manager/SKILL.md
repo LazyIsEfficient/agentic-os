@@ -26,7 +26,7 @@ The right stance: **populate the price-tier ladder deliberately, design SKUs tha
 - A new region is being added and needs price localization.
 - A platform policy change (Apple / Google / Steam) requires re-architecting the catalog.
 
-If the question is *in-game economy rates*, route to `game-balancer`.
+If the question is *in-game economy rates*, route to [game-balancer](../game-balancer/SKILL.md).
 
 ## Procedure
 
@@ -46,7 +46,7 @@ If the question is *in-game economy rates*, route to `game-balancer`.
 
 8. **Localize prices** per region. Use [references/price-localization.md](references/price-localization.md). Don't just convert USD → local — anchor to local price psychology and platform tier maps.
 
-9. **Configure storefronts.** App Store Connect, Google Play Console, Steam Partner, Stripe, web3 marketplaces if applicable. Use [references/store-config-checklist.md](references/store-config-checklist.md). Coordinate with `godot-engineer` for client-side IAP plumbing.
+9. **Configure storefronts.** App Store Connect, Google Play Console, Steam Partner, Stripe, web3 marketplaces if applicable. Use [references/store-config-checklist.md](references/store-config-checklist.md). Coordinate with [godot-engineer](../godot-engineer/SKILL.md) for client-side IAP plumbing.
 
 10. **Hand off the live operations plan.** What to monitor, when to refresh the catalog (cadence), kill triggers for bad-performing SKUs.
 
@@ -60,7 +60,7 @@ If the question is *in-game economy rates*, route to `game-balancer`.
 - **Don't lie about value.** Bundle comparisons must be honest. "$50 of value for $20" is fine if the parts genuinely add to $50 in the game's pricing. Inflated comparisons are detected and trust is hard to rebuild.
 - **Don't manipulate scarcity.** Real limited-time offers are fine. Fake countdowns that reset are dark patterns.
 - **Localize prices, don't translate.** Local price psychology differs (e.g. ¥120 in JP is a "small" price; $1.20 in US is "small"; converting one to the other doesn't preserve psychology).
-- **Do not change in-game economy rates.** If a SKU implies an in-game rate change, hand back to `game-balancer`.
+- **Do not change in-game economy rates.** If a SKU implies an in-game rate change, hand back to [game-balancer](../game-balancer/SKILL.md).
 - **Coordinate trust on monetized content changes.** Re-pricing or re-composing existing paid bundles requires player comms and often compensation.
 
 ## References

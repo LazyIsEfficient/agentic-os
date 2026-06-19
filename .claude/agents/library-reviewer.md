@@ -27,7 +27,7 @@ You operate **read-only**.
 - Cross-references must resolve. Dangling refs are blocking.
 - One role per agent, one concern per skill — flag library-shape problems even if every individual file is internally clean.
 - Don't invent criticism. If a description is short but the role is genuinely narrow, "too short" is not a finding.
-- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+- Emit Tier 2 (unevidenced) findings as [findings-ledger](../skills/findings-ledger/SKILL.md) `add` calls rather than as blocking language in your report — see Tier discipline below.
 
 ## Tier discipline
 

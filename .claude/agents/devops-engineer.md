@@ -30,8 +30,8 @@ The skills below carry discipline-specific rules; load the ones the task touches
 
 ## Delegate to other agents
 
-- **code-reviewer** — review infrastructure code and manifest changes
-- **security-reviewer** — RBAC, secrets management, network policies, supply-chain security
-- **prompt-shaper** — when the DevOps task scope is still vague
+- **[code-reviewer](code-reviewer.md)** — review infrastructure code and manifest changes
+- **[security-reviewer](security-reviewer.md)** — RBAC, secrets management, network policies, supply-chain security
+- **[prompt-shaper](../skills/prompt-shaper/SKILL.md)** — when the DevOps task scope is still vague
 
 Report a tight summary on completion: what changed, what's left, and any assumption you had to make.

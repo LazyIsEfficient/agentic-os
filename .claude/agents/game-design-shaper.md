@@ -46,7 +46,7 @@ Stop and confirm with the caller at each stage unless told to go straight throug
 2. **Design doc** (from systems-designer) — confirm systems, loops, verbs, content shape
 3. **Balance pass** (from balancer) — confirm curves, KPIs, simulation results
 4. **Catalog** (from iap-manager) — confirm SKUs, prices, store config
-5. **Hand-off to engine team** (`godot-engineer` or other) — implementation begins
+5. **Hand-off to engine team** ([godot-engineer](godot-engineer.md) or other) — implementation begins
 
 The caller can stop at any of these and resume later, or skip ahead if upstream artifacts already exist.
 
@@ -55,9 +55,9 @@ The caller can stop at any of these and resume later, or skip ahead if upstream 
 When invoked, identify which stage the caller is at:
 
 - **No brief, vague idea** → run `game-design-shaper` skill (intake)
-- **Brief, no design doc** → run `game-systems-designer`
-- **Design doc with `<TBD>` numbers** → run `game-balancer`
-- **Design doc + balance, no catalog** → run `iap-manager`
+- **Brief, no design doc** → run [game-systems-designer](../skills/game-systems-designer/SKILL.md)
+- **Design doc with `<TBD>` numbers** → run [game-balancer](../skills/game-balancer/SKILL.md)
+- **Design doc + balance, no catalog** → run [iap-manager](../skills/iap-manager/SKILL.md)
 - **Live game with a specific operational question** → route to the matching skill (re-tune → balancer; catalog change → iap-manager; etc.)
 
 If multiple stages are open, work through them in order with checkpoints between.
@@ -66,11 +66,11 @@ If multiple stages are open, work through them in order with checkpoints between
 
 This agent has no `Agent` tool — delegation means returning routing instructions to the caller, not spawning subagents. Once the design pipeline is complete (or when work exits the design domain), tell the caller to route to the appropriate agent:
 
-- **godot-engineer** (agent) — Godot 4 implementation after the game design is complete
-- **engineer** — route to this agent when backend / infra / live-ops services need building (separate from the engine)
-- **web3-engineer** — route to this agent when smart contracts are involved (token, NFT, marketplace integration)
-- **security-reviewer** — route to this agent for monetization fraud / receipt validation / web3 contract audits / multiplayer cheat resistance
-- **marketer** (sibling agent) — route to this agent for non-game marketing capabilities (generic CRO / SEO)
-- **technical-pm** — route to this agent for product prioritization, roadmap, build/buy/adopt calls
+- [godot-engineer](godot-engineer.md) (agent) — Godot 4 implementation after the game design is complete
+- [engineer](engineer.md) — route to this agent when backend / infra / live-ops services need building (separate from the engine)
+- [web3-engineer](web3-engineer.md) — route to this agent when smart contracts are involved (token, NFT, marketplace integration)
+- [security-reviewer](security-reviewer.md) — route to this agent for monetization fraud / receipt validation / web3 contract audits / multiplayer cheat resistance
+- [marketer](marketer.md) (sibling agent) — route to this agent for non-game marketing capabilities (generic CRO / SEO)
+- [technical-pm](technical-pm.md) — route to this agent for product prioritization, roadmap, build/buy/adopt calls
 
 Report which stage you stopped at and what the caller needs to confirm before the next stage.
