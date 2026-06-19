@@ -139,7 +139,7 @@ assert_trips "case 8 dangling-ref (bad SKILL relative link)" "$c8" dangling-ref
 
 # ── Case 9: ship-manifest — drop a ship-tagged command (missing expected) ──────
 c9="$(make_copy)"
-sed -E 's/[[:space:]]*"route\.md"//' "$c9/install.sh" > "$c9/install.sh.tmp" && mv "$c9/install.sh.tmp" "$c9/install.sh"
+sed -E 's/[[:space:]]*"agent-new\.md"//' "$c9/install.sh" > "$c9/install.sh.tmp" && mv "$c9/install.sh.tmp" "$c9/install.sh"
 assert_trips "case 9 ship-manifest (missing command)" "$c9" ship-manifest
 
 # ── Case 10: ship-manifest — line-continuation reflow must STAY clean ───────────
@@ -150,9 +150,7 @@ awk '
   /^install_files "commands"/ {
     print "install_files \"commands\" \\"
     print "  \"skill-new.md\" \\"
-    print "  \"agent-new.md\" \\"
-    print "  \"route.md\" \\"
-    print "  \"v2-collab.md\""
+    print "  \"agent-new.md\""
     next
   }
   { print }
