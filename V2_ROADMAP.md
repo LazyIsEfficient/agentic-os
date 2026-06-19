@@ -16,7 +16,7 @@
 
 - **Token measurement is feasible.** The session transcript JSONL carries per-turn `usage` (input / cache_creation / cache_read / output) — 645 records in the session that produced this. Tokens-per-outcome is a transcript-parsing job, not new infrastructure.
 - **Hook capability (verified via claude-code-guide):** context injection, conditional `PreToolUse` deny-with-reason, and arbitrary script file-I/O are all SUPPORTED. `.claude/settings.json` is the shippable config; hooks run with the user's shell behind a workspace-trust gate.
-- **UNVERIFIED — `PreCompact` hook existence.** Disputed. Slice 0 confirms; if absent, fall back to a `Stop`-hook flush. Do not build on its assumed presence.
+- **RESOLVED (S0) — `PreCompact` exists.** The disputed fact is settled: the official hooks reference documents 32 events incl. `PreCompact`+`PostCompact` (matcher `manual`/`auto`, fires on auto + manual `/compact`). The agent that said "no" was wrong. No `Stop`-hook fallback needed. See [eval/spikes/s0-hook-capability.md](eval/spikes/s0-hook-capability.md).
 - **Hooks already ship.** `install.sh`/`install.ps1` already distribute `.claude/hooks/*.sh` (chmod +x) — currently the benign `block-bad-bash.sh`. The supply-chain surface is *present*, not future. So the security gate had to land **before** any new hook (gate-before-artifact), not as a Slice-5 afterthought — see S-sec below.
 
 ---
@@ -28,12 +28,10 @@
 - **Delivered:** `SECURITY.md` (threat model + shipped-hook policy); `validate.sh` **Invariant 8 (`hook-safety`)** — Tier 0, denies network/exec/obfuscation/credential/persistence patterns in shipped hook scripts and forces hook commands to call vendored `.claude/hooks/` scripts; `validate-test.sh` cases 11–12 prove it trips, Case 0 proves no false-positive on `block-bad-bash.sh`. Runs in CI via the existing `validate.yml` (no new workflow).
 - **Limit (stated, not hidden):** a static scan is a tripwire, not a sandbox. Human `security-reviewer` sign-off on every new/changed shipped hook remains the S5 gate.
 
-### Slice 0 — Hook capability spike (de-risk the whole approach)
-- **Goal:** turn the disputed/asserted hook facts into demonstrated ones before anything is built on them.
-- **Mechanism:** a throwaway `.claude/settings.json` in this repo proving, end-to-end: (a) `SessionStart` injects `additionalContext` the model reads; (b) `PreToolUse` denies a `Write` with a reason the model receives; (c) whether `PreCompact` fires on both auto- and `/compact`.
-- **Depends on:** nothing. Day-zero ready.
-- **Acceptance (Tier 0):** a script/transcript artifact showing each capability fired or didn't. Each missing capability has a chosen, documented fallback before Slice 1 starts.
-- **Gate:** if context-injection or conditional-deny prove unreliable, the deterministic-guards decision is revisited *here*, not after building on sand.
+### Slice 0 — Hook capability spike  ✅ LANDED (de-risked)
+- **Result:** all three capabilities confirmed on Claude Code `2.1.168`. `SessionStart` injection and `PreToolUse` deny-with-reason are **proven live** (headless run: sentinel injected; Write blocked, file never created). `PreCompact` **exists** (authoritative doc + unit-tested flush script; live-fire deferred to Slice 1's first task). Full evidence + reproduction: [eval/spikes/s0-hook-capability.md](eval/spikes/s0-hook-capability.md); throwaway harness in `eval/spikes/s0-hook-capability/` (`unit-test.sh` → 6/0).
+- **Gate cleared:** context-injection and conditional-deny are reliable → the deterministic-guards decision stands; Slice 1 proceeds.
+- **Carry-forward:** the headless `--include-hook-events --settings <file>` recipe is the regression harness for Slice 1/2 hooks; `--bare` gives the eval harness a clean hooks-off arm (Slice 4).
 
 ### Slice 1 — `SESSION-STATE.md` mechanism (the core awareness win)
 - **Goal:** a live, re-read constraints/state doc so settled facts survive compaction instead of being re-derived.
