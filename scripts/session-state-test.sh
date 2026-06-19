@@ -74,5 +74,12 @@ else
   no "backslash preservation" "got: $(grep -i windows "$T/SESSION-STATE.md")"
 fi
 
+# drop: prune a stale bullet by substring; leaves other bullets intact.
+bash "$SS" thread "TEMP-DROP-ME stale thread" >/dev/null
+bash "$SS" drop "TEMP-DROP-ME" >/dev/null
+dropped="$(cat "$T/SESSION-STATE.md")"
+hasnt "drop removes the matching bullet" "$dropped" "TEMP-DROP-ME"
+has "drop leaves other bullets intact" "$dropped" "Confirm PreCompact live-fire"
+
 echo "session-state-test: $P passed, $F failed."
 [ "$F" -eq 0 ]

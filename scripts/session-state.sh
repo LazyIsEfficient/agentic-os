@@ -21,7 +21,7 @@ ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 LIVE="$ROOT/SESSION-STATE.md"
 TPL="$ROOT/SESSION-STATE.template.md"
 
-usage() { echo "usage: session-state.sh {init|show|constraint|decision|infra|thread} [<text>]" >&2; exit 2; }
+usage() { echo "usage: session-state.sh {init|show|constraint|decision|infra|thread|drop} [<text>]" >&2; exit 2; }
 
 ensure() {
   if [ ! -f "$LIVE" ]; then
@@ -46,10 +46,23 @@ append_under() {  # $1 = section heading text (without '## '), $2 = full bullet 
   printf 'added under %s: %s\n' "$1" "$bullet"
 }
 
+drop_matching() {  # $1 = literal substring; remove bullet lines containing it
+  ensure
+  local needle="$1"
+  # NOTE: awk stdout is redirected INTO the file, so the summary must go to
+  # stderr — otherwise the "dropped N" line gets written into SESSION-STATE.md.
+  SS_NEEDLE="$needle" awk '
+    /^- / && index($0, ENVIRON["SS_NEEDLE"]) { dropped++; next }
+    { print }
+    END { printf "dropped %d bullet(s) matching: %s\n", dropped+0, ENVIRON["SS_NEEDLE"] > "/dev/stderr" }
+  ' "$LIVE" > "$LIVE.tmp" && mv "$LIVE.tmp" "$LIVE"
+}
+
 cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 case "$cmd" in
   init) ensure; echo "initialized $LIVE" ;;
   show) ensure; cat "$LIVE" ;;
+  drop) [ $# -ge 1 ] || usage; drop_matching "$*" ;;
   constraint) [ $# -ge 1 ] || usage; append_under "Constraints" "- $*" ;;
   decision)   [ $# -ge 1 ] || usage; append_under "Decisions" "- [$(date +%F)] $*" ;;
   infra)      [ $# -ge 1 ] || usage; append_under "Existing infrastructure" "- $*" ;;
