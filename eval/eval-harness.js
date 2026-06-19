@@ -250,7 +250,7 @@ function aggregateVotes(armVotes, marginsByArm, panelSize) {
 // --- run -------------------------------------------------------------------
 
 // args may arrive as an object or, depending on the invocation path, as a
-// JSON-encoded string — parse the latter (mirrors v2-collab's string handling).
+// JSON-encoded string — parse the latter.
 let input = args || {};
 if (typeof input === "string") {
   try {
@@ -303,73 +303,14 @@ async function fixtureStage(fixture, _orig, _index) {
       arm.prompt
     );
 
-    if (arm.kind === "pod") {
-      // A pod arm runs the v2-collab collaboration pod (one level of nesting is
-      // allowed from a top-level workflow). Pass the CLEAN task — NOT the
-      // disk-write produce prompt: the pod accumulates its deliverable in an
-      // in-memory artifact map (artifact_edits), it does not write files itself.
-      // Feeding it "write to <dir> and return a path" confuses the pod's agents
-      // and was the cause of the empty-artifact capture bug.
-      const podTask = [
-        fixture.task.trim(),
-        arm.prompt && arm.prompt.trim() ? `\n${arm.prompt.trim()}` : "",
-        "",
-        "Produce the COMPLETE deliverable as file(s) in your artifact (artifact_edits)",
-        "— e.g. a single index.html for a web page, or SKILL.md for a skill. The",
-        "reviewer gates on the finished file content; put the real content in the file.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-      const podResult = await workflow("v2-collab", { task: podTask, maxRounds: 4 });
-      const podArtifact =
-        podResult && podResult.artifact && typeof podResult.artifact === "object"
-          ? podResult.artifact
-          : {};
-      const fileNames = Object.keys(podArtifact);
-      if (fileNames.length === 0) {
-        // Genuine produce FAILURE. Record no artifact — do NOT substitute a
-        // placeholder, which would then be judged as if it were the library's
-        // real output (the corpus-1 false-baseline-sweep bug).
-        artifactPath[armName] = null;
-        log(`[${fixtureId}] ${armName} pod returned NO artifact — recording produce failure`);
-      } else {
-        // The pod cannot write to disk; a sub-agent (has Bash/Write) materializes
-        // the map faithfully and reports the primary file's path.
-        const materialize = await agent(
-          [
-            `A collaboration pod produced the file(s) below for arm "${armName}".`,
-            `Create ${armDir} (mkdir -p) and write EACH file faithfully under it at`,
-            `its given filename — its EXACT bytes, do not edit or summarize content.`,
-            `If a filename contains a slash, create the subdirectories. Then RETURN`,
-            `the path to the PRIMARY deliverable (the main entry — the .html page, the`,
-            `SKILL.md, or the top-level source file). Do not write anywhere else; do`,
-            `not invent content.`,
-            "",
-            "## ARTIFACT (filename -> content)",
-            JSON.stringify(podArtifact),
-            "",
-            "Return ONLY { artifact_path } — the exact path of the primary file written.",
-          ].join("\n"),
-          {
-            agentType: "general-purpose",
-            schema: PRODUCE_SCHEMA,
-            label: `produce:${fixtureId}:${armName}`,
-            phase: "Produce",
-          }
-        );
-        artifactPath[armName] =
-          materialize && materialize.artifact_path ? materialize.artifact_path : null;
-      }
-    } else {
-      // kind === "agent": dispatch the single named producer agent.
-      const produced = await agent(producePrompt, {
-        agentType: arm.agentType,
-        schema: PRODUCE_SCHEMA,
-        label: `produce:${fixtureId}:${armName}`,
-        phase: "Produce",
-      });
-      artifactPath[armName] = produced ? produced.artifact_path : null;
-    }
+    // Dispatch the single named producer agent (every arm is kind === "agent").
+    const produced = await agent(producePrompt, {
+      agentType: arm.agentType,
+      schema: PRODUCE_SCHEMA,
+      label: `produce:${fixtureId}:${armName}`,
+      phase: "Produce",
+    });
+    artifactPath[armName] = produced ? produced.artifact_path : null;
     log(`[${fixtureId}] ${armName} artifact: ${artifactPath[armName] || "(none)"}`);
   }
 

@@ -28,6 +28,10 @@ scores them identically:
 - **self-review (control)** — a single agent told to produce, critique its own work, and
   revise once. Isolates "independent reviewer" from "just iterate."
 
+> Note: the **`pod` arm was retired** after the v2 prune removed the `v2-collab` pod; the
+> harness now runs **agent-vs-baseline** (and reliability runs **baseline-vs-self-review**).
+> This section records the investigation as originally run.
+
 Two measurement layers, per the repo's tier doctrine:
 - **Deterministic (Tier 0, gates):** the produced artifact must pass `validate.sh` /
   compile / a hidden test suite / a chaos test. Reproducible; this is the headline.

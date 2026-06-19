@@ -2,7 +2,7 @@
 
 Proves whether this library produces **better outcomes than not using it**, locally, on
 demand. For each fixture the harness runs the same task through two arms — **library-ON**
-(a specialist agent or an auto-composed `v2-collab` pod) and **library-OFF baseline** (a
+(a specialist agent) and **library-OFF baseline** (a
 vanilla `general-purpose` agent told to use no skills/subagents) — applies a Tier-0
 deterministic check to each, then a **blind pairwise judge panel** picks a per-dimension
 winner. The output is a per-dimension × output-type comparison report.
@@ -16,8 +16,8 @@ winner. The output is a per-dimension × output-type comparison report.
 
 The command reads the fixtures, runs the `eval-harness` workflow, writes results to
 `eval/results/<runId>.jsonl`, and renders `eval/results/report-<runId>.md` via the
-aggregator. **Cost:** each fixture = 2 produce + 2 check + 3 judge dispatches (a `pod`
-arm is multi-turn). Run a single fixture first if cost-sensitive.
+aggregator. **Cost:** each fixture = 2 produce + 2 check + 3 judge dispatches. Run a
+single fixture first if cost-sensitive.
 
 To exercise the `cargo-test` checker you must opt in (it compiles/runs model-generated
 code — see Security): `EVAL_ALLOW_CODE_EXEC=1 /eval-harness code-slugify-rust`.

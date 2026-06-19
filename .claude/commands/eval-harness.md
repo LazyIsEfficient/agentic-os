@@ -10,10 +10,8 @@ Tier-0 deterministic checker to each, runs a blind position-randomized pairwise
 judge panel, and writes a results JSONL plus an aggregated Markdown report.
 
 This spends **real subscription tokens**. Per fixture the workflow dispatches
-**2 produce + 2 check + 3 judge** subagent turns (7 minimum), and any arm with
-`kind: "pod"` is a **multi-turn v2-collab pod** (up to 4 rounds × its roster) on
-top of that. State the rough cost to the user before launching, especially when
-running the whole corpus.
+**2 produce + 2 check + 3 judge** subagent turns (7 minimum). State the rough
+cost to the user before launching, especially when running the whole corpus.
 
 ## Step 1 — resolve which fixtures to run
 

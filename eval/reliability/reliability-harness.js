@@ -11,12 +11,11 @@
 // (fixture, arm, repeat) trial. Repeats let the aggregator measure variance —
 // the floor and defect-rate that single-pass-vs-review actually move.
 //
-// The three arms:
+// The two arms:
 //   - "baseline"     — one-pass general-purpose producer, no library/skills.
 //   - "self-review"  — general-purpose producer that implements, then critiques
 //                      its OWN code once and revises. Still no library/skills.
-//   - "pod"          — the v2-collab collaboration pod (technical-pm → engineer
-//                      → reviewer), maxRounds 4. The review-loop arm under test.
+//                      The review-loop arm under test.
 //
 // Sandbox constraints honored here (mirrors eval-harness.js):
 //   - NO filesystem access from the workflow itself. Every write/exec is
@@ -25,11 +24,11 @@
 //   - Math.random() and Date.now() THROW in this sandbox. ALL variation
 //     (per-unit artifact paths) is derived from indices — fixtureId/arm/repeat —
 //     never RNG, never wall-clock.
-//   - args may arrive as an object OR a JSON-encoded string (mirrors v2-collab).
+//   - args may arrive as an object OR a JSON-encoded string.
 //
 // args: {
 //   fixtures: [<fixture object>...],   // { id, signature, crate_name, task }
-//   arms?: ["baseline","self-review","pod"],
+//   arms?: ["baseline","self-review"],
 //   repeats?: 5,
 //   runId: string,
 // }
@@ -37,15 +36,15 @@
 export const meta = {
   name: "reliability-harness",
   description:
-    "Reliability experiment runner: for each (fixture, arm, repeat) unit it produces a Cargo library crate named `solution` (baseline one-pass, self-review one-pass-plus-revise, or the v2-collab review-loop pod), then runs the HIDDEN held-out test suite via check-hidden-tests.sh and records the deterministic per-unit score (total/passed/failed/failures). No LLM judge — the checker JSON is the verdict. Returns one record per unit for the command to materialize and aggregate into defect-rate / clean-rate / floor.",
+    "Reliability experiment runner: for each (fixture, arm, repeat) unit it produces a Cargo library crate named `solution` (baseline one-pass, or self-review one-pass-plus-revise), then runs the HIDDEN held-out test suite via check-hidden-tests.sh and records the deterministic per-unit score (total/passed/failed/failures). No LLM judge — the checker JSON is the verdict. Returns one record per unit for the command to materialize and aggregate into defect-rate / clean-rate / floor.",
   phases: [{ title: "Produce" }, { title: "Check" }],
 };
 
 // --- StructuredOutput schemas (flat objects; NO top-level allOf/oneOf/anyOf,
 //     which 400 the StructuredOutput endpoint and come back empty). -----------
 
-// A producer (or the pod-materializer) returns the crate ROOT DIR it wrote —
-// the directory containing Cargo.toml, so the checker can run cargo test.
+// A producer returns the crate ROOT DIR it wrote — the directory containing
+// Cargo.toml, so the checker can run cargo test.
 const PRODUCE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -147,7 +146,7 @@ const fixtures = Array.isArray(input.fixtures) ? input.fixtures : null;
 const arms =
   Array.isArray(input.arms) && input.arms.length > 0
     ? input.arms
-    : ["baseline", "self-review", "pod"];
+    : ["baseline", "self-review"];
 const repeats =
   Number.isInteger(input.repeats) && input.repeats > 0 ? input.repeats : 5;
 const runId = input.runId;
@@ -174,11 +173,11 @@ for (const f of fixtures) {
     );
   }
 }
-const KNOWN_ARMS = new Set(["baseline", "self-review", "pod"]);
+const KNOWN_ARMS = new Set(["baseline", "self-review"]);
 for (const a of arms) {
   if (!KNOWN_ARMS.has(a)) {
     throw new Error(
-      `reliability-harness: unknown arm "${a}"; expected one of baseline | self-review | pod.`
+      `reliability-harness: unknown arm "${a}"; expected one of baseline | self-review.`
     );
   }
 }
@@ -205,69 +204,6 @@ async function produceStage(unit, _orig, _index) {
   const crateDir = `/private/tmp/eval-run/reliability-${runId}/${fixture.id}/${arm}/r${repeat}`;
   const label = `produce:${fixture.id}:${arm}:r${repeat}`;
   const convention = crateConvention(fixture, crateDir);
-
-  if (arm === "pod") {
-    // The review-loop arm: run the v2-collab pod (one level of nesting is
-    // allowed from a top-level workflow). Pass the CLEAN task + crate
-    // convention — NOT a disk-write instruction: the pod accumulates its
-    // deliverable in an in-memory artifact map and does not write files. (A
-    // disk-write prompt confuses the pod's agents — the empty-artifact bug.)
-    const podTask = [
-      fixture.task.trim(),
-      "",
-      convention,
-      "",
-      "Produce the COMPLETE crate as file(s) in your artifact (artifact_edits):",
-      "Cargo.toml and src/lib.rs (use those exact relative filenames). The",
-      "reviewer gates on the finished file content; put the real content in the files.",
-    ].join("\n");
-
-    const podResult = await workflow("v2-collab", { task: podTask, maxRounds: 4 });
-    const podArtifact =
-      podResult && podResult.artifact && typeof podResult.artifact === "object"
-        ? podResult.artifact
-        : {};
-    const fileNames = Object.keys(podArtifact);
-
-    if (fileNames.length === 0) {
-      // Genuine produce FAILURE. Record no artifact — do NOT substitute a
-      // placeholder, which would then be scored as if it were the pod's real
-      // output (this was a real bug — never substitute).
-      log(`[${fixture.id}/${arm}/r${repeat}] pod returned NO artifact — produce failure`);
-      return { unit, crateDir: null };
-    }
-
-    // The pod cannot write to disk; a sub-agent (has Write/Bash) materializes
-    // the map faithfully under crateDir and reports the crate root.
-    const materialize = await agent(
-      [
-        `The v2-collab pod produced the crate file(s) below for fixture "${fixture.id}",`,
-        `arm "pod", repeat r${repeat}.`,
-        `Create ${crateDir} (mkdir -p) and write EACH file faithfully under it at its`,
-        `given relative filename — its EXACT bytes, do not edit, reformat, or`,
-        `summarize. If a filename contains a slash (e.g. src/lib.rs) create the`,
-        `subdirectories. The crate must end up with Cargo.toml at ${crateDir}/Cargo.toml`,
-        `and src/lib.rs at ${crateDir}/src/lib.rs.`,
-        `Then RETURN the crate ROOT DIRECTORY: ${crateDir}. Do not write anywhere`,
-        `else; do not invent or add content not in the artifact.`,
-        "",
-        "## ARTIFACT (filename -> content)",
-        JSON.stringify(podArtifact),
-        "",
-        "Return ONLY { artifact_path } — the crate root directory you wrote into.",
-      ].join("\n"),
-      {
-        agentType: "general-purpose",
-        schema: PRODUCE_SCHEMA,
-        label,
-        phase: "Produce",
-      }
-    );
-    const dir =
-      materialize && materialize.artifact_path ? materialize.artifact_path : null;
-    log(`[${fixture.id}/${arm}/r${repeat}] crate: ${dir || "(none)"}`);
-    return { unit, crateDir: dir };
-  }
 
   // baseline / self-review: a single general-purpose producer writes the crate.
   const producePrompt = [

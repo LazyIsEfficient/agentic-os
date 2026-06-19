@@ -96,13 +96,13 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["agent", "pod"],
-          "description": "'agent' dispatches a single named agent; 'pod' runs a v2-collab collaboration pod."
+          "enum": ["agent"],
+          "description": "'agent' dispatches a single named agent."
         },
         "agentType": {
           "type": "string",
           "minLength": 1,
-          "description": "For kind=agent: the agent to dispatch (e.g. 'engineer' for library-ON, 'general-purpose' for baseline). Omitted for kind=pod."
+          "description": "The agent to dispatch (e.g. 'engineer' for library-ON, 'general-purpose' for baseline)."
         },
         "prompt": {
           "type": "string",

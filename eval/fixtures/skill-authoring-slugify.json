@@ -7,7 +7,7 @@
     "library": {
       "kind": "agent",
       "agentType": "engineer",
-      "note": "Library-ON. Pluggable: the harness can swap this for a v2-collab pod (kind=pod) to measure the pod's output quality instead of a single agent's."
+      "note": "Library-ON: a specialist `engineer` agent with the full skills + subagents library available."
     },
     "baseline": {
       "kind": "agent",

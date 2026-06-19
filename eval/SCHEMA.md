@@ -16,7 +16,7 @@ where present, lives inside `$defs`).
 
 Each fixture runs through **two arms**:
 
-- **`library`** (library-ON) — a specialist agent or an auto-composed `v2-collab` pod, with the
+- **`library`** (library-ON) — a specialist agent, with the
   full skills + subagents library available.
 - **`baseline`** (library-OFF) — a vanilla `general-purpose` agent explicitly instructed to use
   **no** skills, subagents, or workflows.
@@ -45,9 +45,9 @@ A fixture is a single object with these top-level fields:
 
 An **arm** = `{ kind, agentType?, prompt?, note? }`:
 
-- `kind` — `agent` (dispatch one named agent) or `pod` (run a `v2-collab` pod).
-- `agentType` — for `kind: agent`, the agent to dispatch (`engineer` for library-ON,
-  `general-purpose` for baseline). Omit for `kind: pod`.
+- `kind` — `agent` (dispatch one named agent).
+- `agentType` — the agent to dispatch (`engineer` for library-ON,
+  `general-purpose` for baseline).
 - `prompt` — optional arm-specific instruction prepended to the shared `task`. The baseline arm
   uses this to forbid skills/subagents.
 - `note` — maintainer rationale; **not** handed to the producer.
@@ -81,7 +81,7 @@ This is the worked reference fixture, [`fixtures/skill-authoring-slugify.json`](
     "library": {
       "kind": "agent",
       "agentType": "engineer",
-      "note": "Library-ON. Pluggable: the harness can swap this for a v2-collab pod (kind=pod) to measure the pod's output quality instead of a single agent's."
+      "note": "Library-ON: a specialist `engineer` agent with the full skills + subagents library available."
     },
     "baseline": {
       "kind": "agent",
