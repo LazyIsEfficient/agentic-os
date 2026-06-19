@@ -13,13 +13,17 @@
 #   session-state.sh infra      "<text>"   # add an existing-infra (survey) finding
 #   session-state.sh thread     "<text>"   # add an open thread / next step
 #
-# Pure Bash + coreutils. Repo root resolves from CLAUDE_PROJECT_DIR or this
-# script's location, so it works in-session and from install targets.
+# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR),
+# gitignored and per-developer. The template is SKILL-LOCAL (ships with the skill),
+# resolved relative to this script — so `init` works on a consumer where only the
+# skill directory is installed, not the repo root. This script lives at
+# .claude/skills/session-state/scripts/, so the project-root fallback is four up.
 set -euo pipefail
 
-ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}"
 LIVE="$ROOT/SESSION-STATE.md"
-TPL="$ROOT/SESSION-STATE.template.md"
+TPL="$SELF_DIR/../assets/SESSION-STATE.template.md"
 
 usage() { echo "usage: session-state.sh {init|show|constraint|decision|infra|thread|drop} [<text>]" >&2; exit 2; }
 

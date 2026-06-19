@@ -3,7 +3,7 @@
 # context from turn one, surviving the compaction that would otherwise drift them.
 # Plain stdout reaches Claude for SessionStart (per the hooks reference), so no
 # JSON building/escaping of arbitrary markdown is needed. No-ops cleanly when the
-# live doc does not exist yet (run: scripts/session-state.sh init).
+# live doc does not exist yet (run: /state init).
 set -uo pipefail
 f="${CLAUDE_PROJECT_DIR:-.}/SESSION-STATE.md"
 [ -r "$f" ] || exit 0

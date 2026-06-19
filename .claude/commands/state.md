@@ -12,8 +12,8 @@ The user invoked `/state $ARGUMENTS`.
 2. The remaining arguments (`$2` onward) are the entry text (required for constraint/decision/infra/thread).
 3. Run the writer. `init` and `show` take **no** text; the four entry types take the text as one quoted argument:
    ```
-   bash scripts/session-state.sh init           # or: show
-   bash scripts/session-state.sh $1 "<entry text>"   # constraint | decision | infra | thread
+   bash .claude/skills/session-state/scripts/session-state.sh init           # or: show
+   bash .claude/skills/session-state/scripts/session-state.sh $1 "<entry text>"   # constraint | decision | infra | thread
    ```
 4. Report the single line that was added (or, for `show`/`init`, the command's output).
 

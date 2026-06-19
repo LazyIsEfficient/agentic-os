@@ -17,8 +17,10 @@ The only barrier in front of a freshly pulled hook is Claude Code's **workspace-
 
 ### What ships today
 - `install.sh` / `install.ps1` ship `.claude/hooks/*.sh` and mark them executable.
-- The repo's own `.claude/settings.json` (dev permissions + autoMode config) is **not** shipped. So a shipped hook script is dormant on a consumer until it is registered in a `settings.json` — but the executable code is already on disk.
-- Current shipped hook: `.claude/hooks/block-bad-bash.sh` — a `jq`-gated ergonomics nudge, explicitly self-labeled *not a security control*. It is benign and minimal by design.
+- **No `settings.json` ships.** The repo's own `.claude/settings.json` (dev permissions + autoMode config) is **not** shipped, and S5-C deliberately did not add a shipped one. So every shipped hook script is **dormant** on a consumer until they register it in their own `settings.json` — the executable code is on disk but nothing runs it automatically. This is the opt-in posture: the library never auto-executes a hook on a consumer.
+- Shipped hooks:
+  - `.claude/hooks/block-bad-bash.sh` — a `jq`-gated ergonomics nudge, explicitly self-labeled *not a security control*. Benign and minimal.
+  - The awareness-harness hooks — `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — ship **dormant** (S5-C). The `session-state` skill documents the opt-in registration; `SESSION-STATE.md` is governed by rule 7 below.
 
 ## Policy for shipped hooks
 
@@ -38,34 +40,42 @@ Every hook that ships to consumers MUST:
 
 **This is a tripwire, not a sandbox.** A static scan denies the *obvious* exfil / destructive / obfuscation patterns; it cannot *prove* a hook is safe, and a determined attacker can evade a regex. It is one layer. The real defenses are layered: minimal auditable scripts (rule 5) + the no-runtime-fetch policy (rule 2) + human review (rule 6) + the workspace-trust gate. Do not treat a green Invariant 8 as proof of safety.
 
-## Shipping the awareness harness (planned — V2_ROADMAP S5-C)
+## Shipping the awareness harness (V2_ROADMAP S5-C — opt-in shipped)
 
 The awareness harness (the `session-state-*` and `survey-before-act` hooks, the
-`/state` command, the `session-state` skill, and the writer) is **dogfooded in
-this repo but not yet a consumer feature**. Current branch state, by design:
+`/state` command, the `session-state` skill, and the writer) ships to consumers
+**opt-in / dormant** as of S5-C. The tooling is self-contained and installs; the
+hooks are on disk but **inert** until a consumer registers them. No active
+`settings.json` ships — that (auto-firing the hooks on every consumer session) is
+a separate, still-gated step.
 
-- The hook *scripts* already ship (`install_dir "hooks"`) but land **dormant** —
-  no shipped `settings.json` registers them, so they never run on a consumer
-  until C wires a registration. Dormant + Invariant-8-clean = safe.
-- Shipping them *active* is the supply-chain step and is **gated** on a security
-  review of the actual `install.sh` change, per the policy above.
+**Shipped in S5-C (opt-in mode) — done:**
+1. **Writer + template are skill-local.** The writer lives at
+   `.claude/skills/session-state/scripts/session-state.sh` and the schema template
+   at `.claude/skills/session-state/assets/SESSION-STATE.template.md`; both ship via
+   `install_dir "skills"` recursion. The writer resolves the template relative to
+   itself and the live `SESSION-STATE.md` at the project root (`CLAUDE_PROJECT_DIR`),
+   so `init` works on a consumer with no repo-root dependency. Both call sites
+   (`.claude/commands/state.md`, `.claude/skills/session-state/SKILL.md`) point at
+   the shipped path.
+2. **`/state` is in the command ship allowlist** in `install.sh` AND `install.ps1`
+   (parity), with `EXPECTED_CMDS` in `validate.sh` and the `validate-test.sh`
+   manifest fixture updated in lockstep.
+3. **The opt-in registration is documented, not shipped.** `session-state/SKILL.md`
+   carries the `settings.json` snippet a consumer pastes to activate; the command
+   entries invoke vendored `.claude/hooks/` scripts (no inline shell).
+4. **Untrusted-data framing (rule 7)** is carried in the skill and the template;
+   `SESSION-STATE.md` stays gitignored / per-developer on the consumer side.
 
-When C ships the harness, it MUST:
-1. **Co-locate the writer with what ships.** `/state` calls `scripts/session-state.sh`,
-   which is repo-root and not shipped; relocate it under the skill's own
-   `scripts/` subdir (skill-local scripts ship) so the shipped skill/command is
-   self-contained — no reference to an unshipped path. This means rewriting **both**
-   call sites — `.claude/commands/state.md` and `.claude/skills/session-state/SKILL.md` —
-   not just moving the file.
-2. **Register hooks through a shipped, Invariant-8-checked settings file** — the
-   command entries must call vendored `.claude/hooks/` scripts, and the shipped
-   settings file is subjected to **Invariant 8(b) on the consumer path**.
-3. **Ship through both installers in parity** — update `install.sh` AND `install.ps1`
-   together (the ship-manifest invariant checks they agree), and extend the
-   `validate-test.sh` fixtures for the new manifest entries.
-4. **Carry the untrusted-data framing** (rule 7) for `SESSION-STATE.md`, and keep
-   it gitignored / never-committed on the consumer side.
-5. **Re-run `security-reviewer`** on the install diff before merge.
+**Still gated — shipping the hooks *active* (a registered `settings.json`):**
+- Register hooks through a shipped, **Invariant-8(b)**-checked settings file and
+  re-run `security-reviewer` on that install diff before merge. Until then the
+  consumer opts in by hand, which keeps auto-execution off the supply chain.
+
+**Note for review:** the writer ships as a **skill-local script**, which is *not*
+covered by Invariant 8 (that gate scans `.claude/hooks/*.sh` only). It is benign by
+construction (pure bash/awk/coreutils; no network, exec, persistence, or credential
+access), but its safety rests on review + minimality, not the static gate.
 
 ## Reporting a vulnerability
 

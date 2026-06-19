@@ -165,11 +165,12 @@ Write-Host "Installing to $Dest"
 Install-Dir "skills"
 Install-Dir "agents"
 # Commands: ship-tagged allowlist ONLY — list each file that installs into a
-# consumer's global namespace. Only the author-facing scaffolds ship;
-# maintainer-only commands (audit-library, review-gate, triage-findings,
-# eval-harness) stay in-repo and are never installed, to avoid polluting the
-# consumer's command namespace.
-Install-Files "commands" @("skill-new.md", "agent-new.md")
+# consumer's global namespace. The author-facing scaffolds plus /state (the
+# awareness-harness writer command — its skill + hooks ship alongside) are the
+# only consumer commands; maintainer-only commands (audit-library, review-gate,
+# triage-findings, eval-harness) stay in-repo and are never installed, to avoid
+# polluting the consumer's command namespace.
+Install-Files "commands" @("skill-new.md", "agent-new.md", "state.md")
 # Workflows: NOTHING ships. The only workflow (audit-skill-library) is a
 # maintainer-only tool that stays in-repo and is never installed.
 

@@ -150,7 +150,8 @@ awk '
   /^install_files "commands"/ {
     print "install_files \"commands\" \\"
     print "  \"skill-new.md\" \\"
-    print "  \"agent-new.md\""
+    print "  \"agent-new.md\" \\"
+    print "  \"state.md\""
     next
   }
   { print }

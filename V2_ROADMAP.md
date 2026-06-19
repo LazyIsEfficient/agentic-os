@@ -34,7 +34,7 @@
 - **Carry-forward:** the headless `--include-hook-events --settings <file>` recipe is the regression harness for Slice 1/2 hooks; `--bare` gives the eval harness a clean hooks-off arm (Slice 4).
 
 ### Slice 1 — `SESSION-STATE.md` mechanism  ✅ LANDED (core awareness win, dogfooded)
-- **Delivered:** `SESSION-STATE.template.md` schema (Constraints / Decisions / Existing-infra / Open-threads; live `SESSION-STATE.md` gitignored). Three hooks in `.claude/hooks/`: `session-state-inject` (SessionStart → whole doc), `session-state-digest` (UserPromptSubmit → Constraints + Open-threads only, token-disciplined), `session-state-checkpoint` (PreCompact, `auto`+`manual`). Deterministic writer `scripts/session-state.sh` + `/state` command + `session-state` skill (writes go through the script, never hand-edits — capture doesn't depend on attention). **Wired live** into `.claude/settings.json` (dogfooded from next session).
+- **Delivered:** `SESSION-STATE.template.md` schema (Constraints / Decisions / Existing-infra / Open-threads; live `SESSION-STATE.md` gitignored). Three hooks in `.claude/hooks/`: `session-state-inject` (SessionStart → whole doc), `session-state-digest` (UserPromptSubmit → Constraints + Open-threads only, token-disciplined), `session-state-checkpoint` (PreCompact, `auto`+`manual`). Deterministic writer (skill-local `.claude/skills/session-state/scripts/session-state.sh` after S5-C; was repo-root at S1) + `/state` command + `session-state` skill (writes go through the script, never hand-edits — capture doesn't depend on attention). **Wired live** into `.claude/settings.json` (dogfooded from next session).
 - **Acceptance (Tier 0):** `scripts/session-state-test.sh` → 15/0 (writer, all three hooks, token-discipline, empty-template safety, backslash + mixed-case regressions). Invariant 8 passes the new hooks; settings commands vendored. **Live-proven:** SessionStart *and* UserPromptSubmit stdout injection both reach the model (headless `--include-hook-events` runs; the model echoed an injected sentinel verbatim).
 - **Reviewed:** code-reviewer (2 Tier-1 bugs fixed: `awk -v` backslash mangling → `ENVIRON`; lowercase-only trigger regex), security-reviewer (pass; prompt-injection-at-ship advisory → SECURITY.md rule 7 + data-not-instructions banner), library-reviewer (pass; `/state` init/show arg tightened).
 - **Carry-forward to S2/S5:** (1) confirm `PreCompact` *live*-fire (deferred from S0 — a one-shot can't compact); (2) S5 must register these hooks in a *shipped* settings file (the dev `settings.json` doesn't ship), newly subjecting it to Invariant 8(b) on the consumer path; (3) **conflict edge with S2** — both touch SESSION-STATE + settings.json; S2's survey-guard writes `infra` entries via the same writer.
@@ -64,14 +64,14 @@
 Split because S5 bundles three *different* risk tracks. On the branch all are
 reversible; the gradient is what each enables **once merged/released**.
 
-**Branch-state finding (the reason chunking matters):** `install.sh` ships via
-whole-dir globs (`install_dir "hooks"`, `install_dir "skills"`), so the harness
-already ships **incoherently**: the awareness hooks ship (dormant — safe, no
-shipped `settings.json` registers them, Invariant 8 clean); the `session-state`
-**skill ships but references the repo-root `scripts/session-state.sh`, which is
-NOT shipped**; the `/state` command (not in the command allowlist) and the writer
-do **not** ship. So a consumer today would get dormant hooks + a skill pointing at
-a missing writer. Not dangerous, but incoherent — must be made coherent in C.
+**Branch-state finding (the reason chunking matters) — RESOLVED in C:** before
+C, `install.sh` shipped via whole-dir globs (`install_dir "hooks"`, `install_dir
+"skills"`), so the harness shipped **incoherently**: hooks shipped dormant, but the
+`session-state` skill referenced the repo-root `scripts/session-state.sh` (NOT
+shipped) and `/state` + the writer did not ship — a consumer got dormant hooks + a
+skill pointing at a missing writer. C made it coherent: the writer + template are
+now skill-local (ship), `/state` is in the allowlist, and the hooks remain dormant
+(opt-in). Coherent + dormant = shippable; auto-registration stays gated.
 
 - **A — docs + ship decision  ✅ DONE.** README documents the harness; NORTH_STAR
   ↔ ROADMAP ↔ SECURITY cross-linked. Ship boundary decided (below).
@@ -80,22 +80,32 @@ a missing writer. Not dangerous, but incoherent — must be made coherent in C.
   `validate.sh` rule: most "scripts/" refs are skill-local (they ship), so a
   blanket "references scripts/" guard would false-positive — the repo-root-writer
   case is handled by the C plan instead.
-- **C — wire `install.sh`/`install.ps1` to ship the harness  ⏸ HELD.** The
-  supply-chain step (executable code on consumer machines). Gated on a GitHub
-  branch review + explicit go. Plan: relocate the writer into the skill's own
-  shippable `scripts/` subdir (skill-local scripts DO ship → coherent), add
-  `/state` to the command allowlist, ship a `settings.json` hook registration,
-  extend the ship-manifest + `validate-test.sh` fixtures, re-run security-reviewer.
+- **C — wire `install.sh`/`install.ps1` to ship the harness  ✅ DONE (opt-in mode).**
+  Shipped the harness as a coherent, self-contained, **dormant/opt-in** unit
+  (issue #144, branch `feat/s5c-ship-harness`): writer relocated to the skill's own
+  `scripts/` subdir + template to `assets/` (both ship via `install_dir "skills"`);
+  writer resolves the template script-relative and the live doc at the project root;
+  both call sites repointed; `/state` added to the command allowlist in `install.sh`
+  AND `install.ps1` with `EXPECTED_CMDS` + `validate-test.sh` case 10 updated in
+  lockstep; the opt-in `settings.json` snippet is **documented in the skill, not
+  shipped active**; rule-7 untrusted-data framing carried. **Deliberately NOT
+  shipped:** an active `settings.json` that auto-registers the hooks — that remains
+  the still-gated supply-chain step (auto-execution on every consumer session),
+  requiring an Invariant-8(b) shipped settings file + a fresh `security-reviewer`
+  pass on that install diff.
 - **D — S2 deny-ratchet  ⛔ DEFERRED.** Flip survey-guard warn→deny. Needs real
   `survey-guard.warns` false-positive evidence (requires real use first), a
   structured survey record (not the current substring match), and a documented
   fail-closed/open posture. No data yet → parked.
 
-**Ship boundary (decided in A):** the harness ships as ONE coherent unit in C —
-awareness hooks + shipped settings registration + `/state` command + `session-state`
-skill + the writer (relocated to a shipped path). `eval/metrics/*` and `scripts/`
-validators are repo tooling and never ship. Until C: hooks may ship dormant (safe);
-the branch is not release-ready (the incoherent skill ref) — enforced by branch review.
+**Ship boundary (decided in A; refined in C):** the harness ships as ONE coherent
+unit — awareness hooks (dormant) + `/state` command + `session-state` skill + the
+skill-local writer + template. The one piece held back from the original boundary is
+the **active settings registration**: C ships the harness coherent + opt-in, and a
+shipped `settings.json` that auto-registers the hooks is split out as a separate,
+still-gated step. `eval/metrics/*` and `scripts/` validators are repo tooling and
+never ship. The incoherent-skill-ref blocker is resolved; auto-registration remains
+enforced by branch + security review.
 
 ---
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # session-state-test.sh — deterministic test of the SESSION-STATE mechanism:
-# the writer (scripts/session-state.sh) and the three hooks. No live Claude
+# the writer (.claude/skills/session-state/scripts/session-state.sh) and the three
+# hooks. The temp dir mirrors the SHIPPED layout (skill-local writer + assets) so
+# the script-relative template resolution is exercised exactly as a consumer hits
+# it. No live Claude
 # needed (the platform-invocation contract is proven by eval/spikes/s0-*). Runs
 # everything in a temp dir via CLAUDE_PROJECT_DIR so it never touches the repo's
 # own SESSION-STATE.md.
@@ -9,15 +12,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-cp "$REPO/SESSION-STATE.template.md" "$T/SESSION-STATE.template.md"
-mkdir -p "$T/.claude/hooks" "$T/scripts"
-cp "$REPO/scripts/session-state.sh" "$T/scripts/"
+SKILL_SRC="$REPO/.claude/skills/session-state"
+SKILL="$T/.claude/skills/session-state"
+mkdir -p "$T/.claude/hooks" "$SKILL/scripts" "$SKILL/assets"
+cp "$SKILL_SRC/assets/SESSION-STATE.template.md" "$SKILL/assets/"
+cp "$SKILL_SRC/scripts/session-state.sh" "$SKILL/scripts/"
 cp "$REPO/.claude/hooks/session-state-inject.sh" "$T/.claude/hooks/"
 cp "$REPO/.claude/hooks/session-state-digest.sh" "$T/.claude/hooks/"
 cp "$REPO/.claude/hooks/session-state-checkpoint.sh" "$T/.claude/hooks/"
 
 export CLAUDE_PROJECT_DIR="$T"
-SS="$T/scripts/session-state.sh"
+SS="$SKILL/scripts/session-state.sh"
 P=0; F=0
 ok(){ printf 'PASS  %s\n' "$1"; P=$((P+1)); }
 no(){ printf 'FAIL  %s — %s\n' "$1" "$2"; F=$((F+1)); }
@@ -26,6 +31,20 @@ hasnt(){ printf '%s' "$2" | grep -q -- "$3" && no "$1" "unexpected: $3" || ok "$
 
 bash "$SS" init >/dev/null
 [ -f "$T/SESSION-STATE.md" ] && ok "init creates live doc from template" || no "init" "no file"
+
+# Fallback resolution: with NO CLAUDE_PROJECT_DIR (a consumer invoking the writer
+# directly), ROOT must resolve four-up from the script to the project root, AND the
+# template must still be found script-relative. Run in a fresh tree so it can't
+# alias the main $T live doc.
+fb="$(mktemp -d)"
+mkdir -p "$fb/.claude/skills/session-state/scripts" "$fb/.claude/skills/session-state/assets"
+cp "$SKILL_SRC/scripts/session-state.sh"             "$fb/.claude/skills/session-state/scripts/"
+cp "$SKILL_SRC/assets/SESSION-STATE.template.md"     "$fb/.claude/skills/session-state/assets/"
+env -u CLAUDE_PROJECT_DIR bash "$fb/.claude/skills/session-state/scripts/session-state.sh" init >/dev/null 2>&1
+[ -f "$fb/SESSION-STATE.md" ] \
+  && ok "init resolves project root via four-up fallback (no CLAUDE_PROJECT_DIR)" \
+  || no "fallback init" "live doc not created at four-up project root"
+rm -rf "$fb"
 
 bash "$SS" constraint "No Python — Rust only" >/dev/null
 bash "$SS" decision "Awareness via deterministic hooks" >/dev/null
@@ -50,7 +69,7 @@ hasnt "digest EXCLUDES decisions (token discipline)" "$dig" "Awareness via deter
 hasnt "digest EXCLUDES infra (token discipline)" "$dig" "RabbitMQ broker already running"
 
 # Digest on a FRESH (unedited) template injects nothing (placeholders skipped)
-fresh="$(mktemp -d)"; cp "$REPO/SESSION-STATE.template.md" "$fresh/SESSION-STATE.md"
+fresh="$(mktemp -d)"; cp "$SKILL_SRC/assets/SESSION-STATE.template.md" "$fresh/SESSION-STATE.md"
 empty="$(CLAUDE_PROJECT_DIR="$fresh" bash "$T/.claude/hooks/session-state-digest.sh" </dev/null)"
 [ -z "$empty" ] && ok "digest is empty on uninitialized template (no placeholder noise)" || no "empty digest" "got: $empty"
 rm -rf "$fresh"

@@ -355,7 +355,7 @@ check_memory_length() {
 # ── Invariant 6: ship-manifest ─────────────────────────────────────────────────
 # Allowlist of what install scripts MUST ship — exact equality, any drift fails.
 EXPECTED_DIRS="agents hooks skills"                       # sorted
-EXPECTED_CMDS="agent-new.md skill-new.md"  # sorted
+EXPECTED_CMDS="agent-new.md skill-new.md state.md"  # sorted
 
 check_ship_manifest() {
   local sh="$ROOT/install.sh"

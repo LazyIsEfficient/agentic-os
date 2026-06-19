@@ -6,7 +6,7 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 
 # Session State
 
-`SESSION-STATE.md` (repo root, gitignored; schema in `SESSION-STATE.template.md`) is the harness's live external memory — NORTH_STAR Lever 3. A model's context compresses over a long session and settled facts drift; this file is the durable copy, re-surfaced by hooks:
+`SESSION-STATE.md` (project root, gitignored; schema in this skill's `assets/SESSION-STATE.template.md`) is the harness's live external memory — NORTH_STAR Lever 3. A model's context compresses over a long session and settled facts drift; this file is the durable copy, re-surfaced by hooks:
 
 - **SessionStart** injects the whole file (turn one of every session).
 - **UserPromptSubmit** injects a compact digest — **Constraints + Open threads** — each turn.
@@ -14,7 +14,7 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 
 ## How to record (never hand-edit)
 
-Use the `/state` command, which calls the deterministic writer `scripts/session-state.sh`. Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full.
+Use the `/state` command, which calls the deterministic writer in this skill's `scripts/session-state.sh`. Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full.
 
 | Type | Use for | Re-injected each turn? |
 |---|---|---|
@@ -29,6 +29,23 @@ Use the `/state` command, which calls the deterministic writer `scripts/session-
 - You made or were given a settled decision → `/state decision`.
 - You surveyed and found existing infrastructure (a running service, an existing config) → `/state infra`, so a later step reuses it instead of rebuilding.
 - You are leaving a thread unfinished → `/state thread`.
+
+## Activation (opt-in — hooks ship dormant)
+
+The `/state` command and writer work as soon as the skill is installed. The **hooks that auto-surface the file ship dormant** — the scripts land in `.claude/hooks/` but nothing registers them, so they never run until you opt in. To activate, add this to your project `.claude/settings.json` (the commands invoke the vendored scripts — no inline shell):
+
+```json
+{
+  "hooks": {
+    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
+    "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
+                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }]
+  }
+}
+```
+
+**Security (untrusted data).** `SESSION-STATE.md` is injected into the model's context every session/turn with no tool call — whoever can write it controls injected text. So keep it **gitignored and per-developer** (never commit it, never use it in a shared/multi-writer checkout); the inject hook frames the block as DATA, not instructions. See `SECURITY.md` rule 7.
 
 ## Discipline
 

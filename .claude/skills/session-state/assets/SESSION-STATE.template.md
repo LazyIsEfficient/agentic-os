@@ -9,10 +9,10 @@ durable copy. Hooks re-surface it so awareness survives compaction:
   - PreCompact    → checkpoints a marker before context is compressed
 
 HOW it stays current: do NOT hand-edit during work — use `/state` (the command writes
-deterministically via scripts/session-state.sh, so entries are captured even when
-attention is full). The live copy is SESSION-STATE.md (gitignored, per-session);
-this .template.md is the committed schema. `scripts/session-state.sh init` creates
-the live copy from this template.
+deterministically via the skill-local writer scripts/session-state.sh, so entries are
+captured even when attention is full). The live copy is SESSION-STATE.md at the project
+root (gitignored, per-session); this template is the committed schema and ships in the
+skill's assets/. `/state init` creates the live copy from this template.
 
 Keep it SHORT. Every line here is re-injected each session and the digest is
 re-injected each turn — bloat re-creates the token tax. Prune stale lines.
