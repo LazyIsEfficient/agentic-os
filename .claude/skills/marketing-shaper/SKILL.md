@@ -8,12 +8,11 @@ description: >-
   (campaign, content, optimization, research, or pipeline) that downstream
   marketing skills can act on. Do not use for work already well-defined — go
   straight to execution. For engineering task shaping see prompt-shaper; for
-  course intake see course-shaper; for game-design intake see game-design-shaper;
-  for a blog post see blog-post-shaper.
+  game-design intake see game-design-shaper.
 when_to_use: |
   Use when the user has a marketing goal but the brief is missing the load-bearing pieces — audience, channels, success metric, or timeline — and the work cannot start without them. The signal is an under-specified ask, not a keyword: if you cannot name the audience and the one number that defines success, shape it first.
 
-  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the launch or marketing is for a GAME — store-page conversion, trailers, wishlist campaigns, soft-launch CPI/ROAS, community programs, or launch/live-ops comms — use `game-marketer`. Not when the outbound campaign is already scoped and the task is executing sequences/copy/infrastructure — use `outbound-engine`. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. Not when the intake is for a blog post — use `blog-post-shaper`. Not when the task is producing the strategic inputs a marketing brief consumes — competitive positioning/differentiation (`competitive-positioning`), which segment to target (`icp-validation`), or market sizing/TAM-SAM-SOM (`market-sizing`).
+  Not when: the marketing request is already well-defined — go straight to execution with the relevant skill. Not when the outbound campaign is already scoped and the task is executing sequences/copy/infrastructure — use `outbound-engine`. Not when the intake is for engineering work — use `prompt-shaper`. Not when the intake is for game design — use `game-design-shaper`.
 ---
 
 # Marketing Shaper

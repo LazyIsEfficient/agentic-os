@@ -1,10 +1,10 @@
 ---
 name: typescript-testing-backend
-description: Use when writing or reviewing TypeScript backend tests — Jest unit tests for services/controllers (mocked Prisma) or Supertest integration tests against a real isolated PostgreSQL test database. Triggers on edits to `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts`, service/controller/API test files (`.ts`, not `.tsx`) under `**/__tests__/`, or mentions of "backend test", "service test", "API test", "database test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
+description: Use when writing or reviewing TypeScript backend tests — Jest unit tests for services/controllers (mocked Prisma) or Supertest integration tests against a real isolated PostgreSQL test database. Triggers on edits to `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts`, service/controller/API test files (`.ts`, not `.tsx`) under `**/__tests__/`, or mentions of "backend test", "service test", "API test", "database test".
 when_to_use: |
   Use when writing or reviewing TypeScript backend tests: Jest unit tests for services and controllers (with mocked Prisma), or Supertest integration tests against a real isolated PostgreSQL test database. The key signals are `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts` files, or any request to test backend service logic or HTTP routes.
 
-  Not when: the task is writing tests for React components or hooks — use typescript-testing-frontend. Not when the task is E2E flows, smart contract tests, or cross-cutting test policy — use typescript-quality-engineering. Not when the task is writing the production service/controller code itself — use the appropriate implementation skill.
+  Not when: the task is writing tests for React components or hooks — use typescript-testing-frontend. Not when the task is writing the production service/controller code itself — use the appropriate implementation skill.
 ---
 
 # TypeScript Testing — Backend
@@ -28,12 +28,6 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 9. **Real DB for integration tests**, mocked Prisma for unit tests.
 10. **Internal utils stay real** — only mock external boundaries.
 
-## Related skills
-
-- software-design — if a unit is hard to test without elaborate mocking, the production design is the real problem; refactor before adding mocks
-- typescript-quality-engineering — umbrella QE skill for cross-cutting test policy
-- test-driven-development — language-agnostic red-green-refactor discipline; this skill is the TypeScript backend stack it deflects to
-
 ## References
 
 - [references/framework-and-structure.md](references/framework-and-structure.md) — Jest config, test scripts, directory layout, file naming conventions, coverage
@@ -41,7 +35,3 @@ Unit tests mock the Prisma client at the module boundary; integration tests use 
 - [references/integration-testing.md](references/integration-testing.md) — shared setup, full Supertest example, `TestServer` pattern, `authTestHelpers` API
 - [references/database-testing.md](references/database-testing.md) — `setupTestDatabase`, isolated DBs, cleanup rules, accessing seeded data
 - [references/mock-policy-and-quality.md](references/mock-policy-and-quality.md) — mock scope table, quality criteria, test failure triage
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

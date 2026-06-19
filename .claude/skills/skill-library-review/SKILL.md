@@ -12,8 +12,7 @@ when_to_use: |
   anti-patterns like keyword bloat or dangling references.
 
   Not when: reviewing application source code for bugs or design problems — use
-  code-review-and-quality instead. For applying skill standards at gates use
-  standards-enforcer.
+  code-review-and-quality instead.
 ---
 
 # Skill Library Review
@@ -71,6 +70,4 @@ Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment propos
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — applies the same review discipline to source code rather than agent definitions
 - [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — applies adversarial verification to formal/technical claims in documents rather than library definitions
 - [library-investigator](../library-investigator/SKILL.md) — the mechanical, evidence-only counterpart: probes files against RULESET and reports CONFORMS/VIOLATES counts with no quality verdict; this skill owns the judgment axis (routing, specificity, single-responsibility) it defers back
-- standards-enforcer — gate-time enforcement; this skill is the source-of-truth for the agent-library standard
-- using-agent-skills — meta-skill for skill discovery and invocation; this skill keeps that machinery healthy
 - [findings-ledger](../findings-ledger/SKILL.md) — where this skill's Tier 2 (unevidenced) findings get recorded and tallied for recurrence

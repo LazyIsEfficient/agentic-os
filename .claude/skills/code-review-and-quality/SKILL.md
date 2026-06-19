@@ -1,10 +1,10 @@
 ---
 name: code-review-and-quality
-description: Conducts multi-axis code review across correctness, readability, architecture, security, and performance. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Triggers on "review my PR", "review this diff", "code review", "review this changeset", "is this ready to merge", "pre-merge review". For design-only review (cohesion, coupling, where logic belongs) see software-design. For standards/ADR/strategy-compliance gates see standards-enforcer. For complexity reduction without behavior change see code-simplification.
+description: Conducts multi-axis code review across correctness, readability, architecture, security, and performance. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Triggers on "review my PR", "review this diff", "code review", "review this changeset", "is this ready to merge", "pre-merge review".
 when_to_use: |
   Use before merging any PR or change, after a feature implementation or bug fix, when evaluating code produced by another agent or model, when refactoring existing code, or when a change needs assessment across correctness, readability, architecture, security, and performance.
 
-  Not when: you only want to reduce complexity in working code without changing behavior — use `code-simplification`. Not when the review is purely about internal design (cohesion, coupling, where logic belongs, domain modeling) rather than multi-axis quality — use `software-design`. Not when the review is a standards/ADR/strategy-compliance gate rather than a code-quality pass — use `standards-enforcer`. Not when the sole concern is a security audit: for web-app security (OWASP Top 10, input validation) use `security-and-hardening`; for cross-stack security audits (infra, CI/CD, Web3, agentic AI) use `security-engineering`.
+  Not when: the sole concern is a security audit — for cross-stack security audits (infra, CI/CD, Web3, agentic AI) use `security-engineering`.
 ---
 
 # Code Review and Quality
@@ -69,7 +69,4 @@ Tier definitions: `.claude/rules/review-tiers.md` — stochastic judgment propos
 
 - [skill-library-review](../skill-library-review/SKILL.md) — applies the same review discipline to agent and skill definitions rather than source code
 - [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — applies the same adversarial discipline to formal/technical claims in documents rather than source code
-- software-design — for review focused solely on internal design (cohesion, coupling, where logic belongs)
-- standards-enforcer — the gate-time standards/ADR/strategy-compliance lens that sits on top of this multi-axis review
-- source-driven-development — grounds implementation in official docs upstream; its source citations feed into the correctness axis of this review
 - [findings-ledger](../findings-ledger/SKILL.md) — where this skill's Tier 2 (unevidenced) findings get recorded and tallied for recurrence

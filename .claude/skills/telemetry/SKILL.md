@@ -9,7 +9,7 @@ description: >-
 when_to_use: |
   Use when the user wants to instrument or inspect the skills library's own usage: viewing local skill-usage stats, configuring telemetry opt-in/opt-out, wiring a skill's preamble to log its runs, or checking whether a newer release of the skills repo is available.
 
-  Not when: the task is product or event analytics in an application — capturing user events, feature flags, A/B tests, or API lifecycle telemetry with PostHog — use typescript-analytics. Not when the task is production observability — SLIs/SLOs, alerting, burn-rate, or infrastructure metrics for a running service — use site-reliability-engineering. This skill instruments the skill library, not your app and not your infrastructure.
+  Not when: the task is product or event analytics in an application — capturing user events, feature flags, A/B tests, or API lifecycle telemetry with PostHog — use typescript-analytics. This skill instruments the skill library, not your app and not your infrastructure.
 ---
 
 # Telemetry

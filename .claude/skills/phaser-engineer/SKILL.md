@@ -1,10 +1,10 @@
 ---
 name: phaser-engineer
-description: Use when building games or interactive software in Phaser 3 with TypeScript — scenes, gameplay code, input, Arcade physics, animations, audio, tweens, asset preloading, save systems, performance work, or scaffolding with Vite. Triggers on "Phaser", "Phaser 3", "Phaser.Scene", "Phaser.Game", "Arcade physics", "Matter physics", "tilemap", "Tiled", "GameObject", "Container", "Group", "Vite + Phaser", or any `.ts`/`.js` file in a Phaser project. For game design/balance/monetization/marketing see game-systems-designer, game-balancer, game-monetization-strategist, game-marketer; for game intake see game-design-shaper. For non-canvas frontend see frontend-ui-engineering; for Godot/C# see godot-engineer.
+description: Use when building games or interactive software in Phaser 3 with TypeScript — scenes, gameplay code, input, Arcade physics, animations, audio, tweens, asset preloading, save systems, performance work, or scaffolding with Vite. Triggers on "Phaser", "Phaser 3", "Phaser.Scene", "Phaser.Game", "Arcade physics", "Matter physics", "tilemap", "Tiled", "GameObject", "Container", "Group", "Vite + Phaser", or any `.ts`/`.js` file in a Phaser project. For game design and balance see game-systems-designer, game-balancer; for game intake see game-design-shaper. For Godot/C# see godot-engineer.
 when_to_use: |
   Use when scaffolding a Phaser 3 + TypeScript + Vite project, designing or restructuring scenes, writing gameplay code (controllers, state machines, AI, physics), handling input, working with Arcade physics (Matter is covered for the Arcade-vs-Matter decision only; the Matter implementation deep-dive is not yet documented here), building animations or tweens, importing Tiled tilemaps, managing assets (atlases, audio sprites, dynamic loading), implementing save/load with versioning, profiling frame-budget issues, or reviewing a Phaser project for anti-patterns.
 
-  Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the work is on the non-canvas web app surrounding the game (landing page, login, store) — use `frontend-ui-engineering`. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`. Not when the task is a general profiling or optimization methodology outside the Phaser engine — use `performance-optimization`.
+  Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`.
 ---
 
 # Phaser Engineer
@@ -52,7 +52,7 @@ This skill targets **Phaser 3.x** with **TypeScript** as the primary language. J
 - Hitting a performance wall and needing to profile and fix the actual bottleneck.
 - Reviewing a Phaser project for anti-patterns and structural problems.
 
-For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for **monetization** see game-monetization-strategist and [iap-manager](../iap-manager/SKILL.md); for **game marketing** see game-marketer. For **software-design principles** (SOLID, hexagonal, DDD) that still apply but in a Phaser context, see software-design. For **frontend work outside the Phaser canvas** — landing pages, account UI, marketing site — see frontend-ui-engineering. For **game UI as user experience** (accessibility, microcopy, hierarchy, feedback), see ux-design. If the project is in **Godot/C#** instead of Phaser, see [godot-engineer](../godot-engineer/SKILL.md).
+For **game design** (mechanics, narrative, level design), defer to [game-systems-designer](../game-systems-designer/SKILL.md); for **balance** see [game-balancer](../game-balancer/SKILL.md); for the **IAP / store catalog** see [iap-manager](../iap-manager/SKILL.md). If the project is in **Godot/C#** instead of Phaser, see [godot-engineer](../godot-engineer/SKILL.md).
 
 This skill explicitly does **not** cover multiplayer/networking or web3/wallet integration in v1. Defer those surfaces and pull in the right specialist when needed.
 
@@ -73,20 +73,8 @@ This skill explicitly does **not** cover multiplayer/networking or web3/wallet i
 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
-- game-monetization-strategist and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad surfaces this skill plumbs into the game.
-- game-marketer — coordinates on capture sessions for trailer / store-page footage.
+- [iap-manager](../iap-manager/SKILL.md) — defines the IAP / store-catalog surfaces this skill plumbs into the game.
 - game-design-shaper — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [godot-engineer](../godot-engineer/SKILL.md) — sibling skill for the same engineering concern in Godot 4 + C#. Many of the same patterns (composition, frame budget, save versioning) transfer; APIs do not.
-- frontend-ui-engineering — for the *non-canvas* web app surrounding the game (landing page, login, store, account dashboard). The Phaser canvas is one component on the page; everything around it lives in this sibling skill.
-- software-design — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Phaser anti-pattern (god scenes, tight coupling via cross-scene reach-ins) is the same anti-pattern as god classes, just in a different language.
-- ux-design — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
-- ux-research — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
-- technical-product-management — game features need prioritization, scope decisions, launch planning, and metrics.
-- team-lead — tickets, ADRs, and DADs work the same for a game team.
 - [security-engineering](../security-engineering/SKILL.md) — single-player browser games still have security concerns: save tampering (localStorage is plaintext), client-side score submission, anti-cheat for leaderboards. Pull this in for any game with server-side state.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — static-bundle deploy to Vercel/Netlify/itch.io, asset CDN, cache headers; these are CI/CD concerns this skill does not own.
-- performance-optimization — for deeper Web/JS performance work that goes beyond Phaser-specific tuning (bundle size, code splitting, web worker offload).
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

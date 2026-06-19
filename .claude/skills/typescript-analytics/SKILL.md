@@ -4,7 +4,7 @@ description: Use when implementing analytics with PostHog in a TypeScript app �
 when_to_use: |
   Use when instrumenting event tracking, adding analytics calls, or working with PostHog integration in a TypeScript/Next.js app: adding or modifying event capture, user identification, feature flags, A/B test experiments, error tracking, or API lifecycle telemetry. Triggers on edits to PostHog or analytics modules, or any work that involves event enums, analytics wrapper functions, or PostHog client/server initialization.
 
-  Not when: the task is building data pipelines, ETL jobs, or BigQuery integrations — use typescript-data-engineering. Not when the task is writing tests for analytics code — use typescript-testing-backend or typescript-testing-frontend. Not when the task is general observability, logging, or infrastructure metrics — use site-reliability-engineering. Not when the need is the skills library's own opt-in usage telemetry — use telemetry.
+  Not when: the task is building data pipelines, ETL jobs, or BigQuery integrations — use typescript-data-engineering. Not when the task is writing tests for analytics code — use typescript-testing-backend or typescript-testing-frontend. Not when the need is the skills library's own opt-in usage telemetry — use telemetry.
 ---
 
 # Analytics Engineering (PostHog + TypeScript)
@@ -35,7 +35,3 @@ PostHog client/server SDKs integrated into a Next.js app via a unified `getPostH
 - [references/feature-flags.md](references/feature-flags.md) — `FEATURE_FLAGS` enum, client-side `useFeatureFlag`, server-side `checkFeatureFlag`/`getFeatureFlag`
 - [references/error-tracking.md](references/error-tracking.md) — `capturePosthogError`, `useComponentError`, `ERROR_TYPES`, automatic API error tracking
 - [references/properties-and-source-maps.md](references/properties-and-source-maps.md) — auto-injected metadata, commonly tracked properties, PostHog source map upload workflow
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

@@ -10,40 +10,17 @@ The skills below carry discipline-specific rules; load the ones the task touches
 
 ## Skills available
 
-**Design & architecture**
-- system-architect — system design, distributed patterns, fault tolerance, capacity planning, RFCs
-- software-design — SOLID, cohesion/coupling, hexagonal, DDD, refactoring
-- api-and-interface-design — stable, hard-to-misuse APIs and contracts
-
 **Frontend**
-- frontend-ui-engineering — components, state, accessibility, responsive design
 - [browser-testing-with-devtools](../skills/browser-testing-with-devtools/SKILL.md) — verify UIs in a real browser before reporting done
 - [typescript-testing-frontend](../skills/typescript-testing-frontend/SKILL.md) — Jest + RTL for React
-- ux-design — design vocabulary that matches the domain model
 
 **Backend & data**
 - [typescript-testing-backend](../skills/typescript-testing-backend/SKILL.md) — Jest + Supertest
-- typescript-quality-engineering — cross-layer test policy, E2E
 - [typescript-data-engineering](../skills/typescript-data-engineering/SKILL.md) — Postgres, BigQuery, ETL, brokers, caching
 - [typescript-analytics](../skills/typescript-analytics/SKILL.md) — PostHog events, flags, error tracking
 
 **Infrastructure & ops**
-- cloud-infrastructure — IaC across AWS, GCP, Cloudflare
 - [deployment-pipelines](../skills/deployment-pipelines/SKILL.md) — OIDC, supply-chain hardening, release patterns
-- ci-cd-and-automation — quality gates, feature flags, staged rollouts
-- site-reliability-engineering — SLOs, runbooks, incident response
-- shipping-and-launch — pre-launch checklists, rollback plans
-- performance-optimization — measurement-first, Core Web Vitals
-
-**Discipline**
-- debugging-and-error-recovery — root-cause, prove-it
-- test-driven-development — red-green-refactor
-- incremental-implementation — vertical slices, scope discipline
-- git-workflow-and-versioning — atomic commits, trunk-based
-- deprecation-and-migration — phased deprecation, code removal
-- source-driven-development — cite official docs over training-data patterns
-- documentation-writer — docs/, mermaid, PR-scoped updates
-- documentation-and-adrs — ADRs, API docs, changelogs
 
 ## Operating principles
 

@@ -1,15 +1,15 @@
 ---
 name: iap-manager
-description: Use when designing and operating the in-app purchase catalog of a game — SKU design, price-tier ladder, bundles, starter packs, battle pass tiering, A/B price tests, store config (App Store / Google Play / Steam DLC / web / web3), and per-region price localization. Triggers on "IAP catalog", "store SKUs", "pricing tiers", "starter pack", "bundle design", "battle pass tiering", "price test", "price localization", "App Store Connect", "Google Play Console", "Steam DLC", or when handed a monetization strategy with the catalog still open. Produces a catalog spec, per-region price tables, bundle compositions, and a price-test plan. For the macro model and KPI floors see game-monetization-strategist; for in-game economy curves see game-balancer; for store-page conversion see game-marketer.
+description: Use when designing and operating the in-app purchase catalog of a game — SKU design, price-tier ladder, bundles, starter packs, battle pass tiering, A/B price tests, store config (App Store / Google Play / Steam DLC / web / web3), and per-region price localization. Triggers on "IAP catalog", "store SKUs", "pricing tiers", "starter pack", "bundle design", "battle pass tiering", "price test", "price localization", "App Store Connect", "Google Play Console", "Steam DLC", or when handed a monetization strategy with the catalog still open. Produces a catalog spec, per-region price tables, bundle compositions, and a price-test plan. For in-game economy curves see game-balancer.
 when_to_use: |
   Use when a monetization strategy arrives with the catalog shape but not per-SKU detail, when the team needs to build or re-tune the App Store / Google Play / Steam / web catalog, when a new region requires price localization, when a platform policy change requires re-architecting the catalog, or when A/B price tests need to be designed and tracked.
 
-  Not when: the question is which monetization model to use — use `game-monetization-strategist` instead. Not when the question is about in-game economy rates — use `game-balancer`. Not when the focus is store-page conversion or trailers — use `game-marketer`.
+  Not when: the question is about in-game economy rates — use `game-balancer`.
 ---
 
 # IAP Manager
 
-Your job is the **catalog and store operations**: design the actual SKUs, set their tiers and bundles, configure the storefronts, plan price tests, and operate the catalog as a live system. You do not pick the macro monetization model (`game-monetization-strategist` does), tune the in-game economy rates (`game-balancer` does), or design the systems the IAP plugs into (`game-systems-designer` does).
+Your job is the **catalog and store operations**: design the actual SKUs, set their tiers and bundles, configure the storefronts, plan price tests, and operate the catalog as a live system. You do not tune the in-game economy rates (`game-balancer` does) or design the systems the IAP plugs into (`game-systems-designer` does).
 
 The two failure modes:
 
@@ -20,13 +20,13 @@ The right stance: **populate the price-tier ladder deliberately, design SKUs tha
 
 ## When this skill applies
 
-- A monetization strategy from `game-monetization-strategist` arrives with the catalog *shape* but not the per-SKU detail.
+- A monetization strategy arrives with the catalog *shape* but not the per-SKU detail.
 - The team needs to build the App Store / Google Play / Steam / web catalog for launch.
 - A live game needs catalog adjustments — new bundles, re-priced SKUs, new battle pass tiering, A/B price tests.
 - A new region is being added and needs price localization.
 - A platform policy change (Apple / Google / Steam) requires re-architecting the catalog.
 
-If the question is *which model to use*, route to `game-monetization-strategist`. If the question is *in-game economy rates*, route to `game-balancer`. If the question is *store-page conversion (icon, screenshots, description)*, route to `game-marketer`.
+If the question is *in-game economy rates*, route to `game-balancer`.
 
 ## Procedure
 
@@ -61,8 +61,7 @@ If the question is *which model to use*, route to `game-monetization-strategist`
 - **Don't manipulate scarcity.** Real limited-time offers are fine. Fake countdowns that reset are dark patterns.
 - **Localize prices, don't translate.** Local price psychology differs (e.g. ¥120 in JP is a "small" price; $1.20 in US is "small"; converting one to the other doesn't preserve psychology).
 - **Do not change in-game economy rates.** If a SKU implies an in-game rate change, hand back to `game-balancer`.
-- **Do not change the macro model.** If the catalog implies a model change (e.g. "we need a sub tier"), hand back to `game-monetization-strategist`.
-- **Coordinate trust on monetized content changes.** Re-pricing or re-composing existing paid bundles requires comms (route to `game-marketer`) and often compensation (with `game-monetization-strategist`).
+- **Coordinate trust on monetized content changes.** Re-pricing or re-composing existing paid bundles requires player comms and often compensation.
 
 ## References
 
@@ -87,10 +86,8 @@ If the question is *which model to use*, route to `game-monetization-strategist`
 
 ## Related skills
 
-- game-monetization-strategist — produces the catalog *shape* and price-tier ladder this skill populates
 - [game-balancer](../game-balancer/SKILL.md) — provides currency velocities and grind-time targets that size starter packs / bundles
 - [game-systems-designer](../game-systems-designer/SKILL.md) — the systems define what content is available to bundle
-- game-marketer — store-page conversion, paywall comms, sale comms, segment messaging
 - [godot-engineer](../godot-engineer/SKILL.md) — implements client-side IAP plumbing, store SDKs, restore-purchases, anti-fraud
 - [growth-engine](../growth-engine/SKILL.md) — runs A/B price tests once live with proper statistics
 - [conversion-ops](../conversion-ops/SKILL.md) — store-side funnel optimization (CRO patterns transfer)

@@ -1,6 +1,6 @@
 ---
 name: devops-engineer
-description: Platform and DevOps engineering across Kubernetes (k8s, kubectl, cluster, namespace, RBAC, rollout, deployment), Helm (helm chart, helm upgrade, helm diff), Pulumi (pulumi stack, pulumi up, IaC, infrastructure as code), and CI/CD pipeline mechanics (build systems, artifact publishing, environment promotion). Triggers on "DevOps", "platform engineering", "cluster admin", "network policy", "resource quota", "pod spec", or "kubeconfig". For SRE/on-call work and production incidents load the site-reliability-engineering skill. For Solidity/EVM contracts see web3-engineer. Not for GitHub Actions YAML authoring — use the `deployment-pipelines` skill or the `engineer` agent.
+description: Platform and DevOps engineering across Kubernetes (k8s, kubectl, cluster, namespace, RBAC, rollout, deployment), Helm (helm chart, helm upgrade, helm diff), Pulumi (pulumi stack, pulumi up, IaC, infrastructure as code), and CI/CD pipeline mechanics (build systems, artifact publishing, environment promotion). Triggers on "DevOps", "platform engineering", "cluster admin", "network policy", "resource quota", "pod spec", or "kubeconfig". For Solidity/EVM contracts see web3-engineer. Not for GitHub Actions YAML authoring — use the `deployment-pipelines` skill or the `engineer` agent.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 
@@ -14,19 +14,10 @@ The skills below carry discipline-specific rules; load the ones the task touches
 - devops-engineer — k8s operations, Helm chart authoring, Pulumi IaC, CI/CD pipelines, cluster administration; primary skill for all work
 
 **Infrastructure & reliability**
-- cloud-infrastructure — IaC across AWS, GCP, Cloudflare
-- site-reliability-engineering — SLOs, runbooks, incident response, on-call
 - [deployment-pipelines](../skills/deployment-pipelines/SKILL.md) — release mechanics, canaries, rollback automation
-- ci-cd-and-automation — quality gates, feature flags, staged rollouts
 
 **Security**
-- security-and-hardening — secrets, RBAC, network policies, supply chain
 - [security-engineering](../skills/security-engineering/SKILL.md) — security design, threat modeling, vulnerability management
-
-**Discipline**
-- debugging-and-error-recovery — root-cause, systematic diagnosis
-- git-workflow-and-versioning — atomic commits, branch hygiene
-- source-driven-development — verify against official docs before implementing
 
 ## Operating principles
 

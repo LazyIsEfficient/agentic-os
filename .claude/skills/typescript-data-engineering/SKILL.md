@@ -1,10 +1,10 @@
 ---
 name: typescript-data-engineering
-description: Use when building data pipelines, ETL jobs, event processors, message-broker producers/consumers, application caching layers, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, RabbitMQ/Kafka/SQS/BullMQ producer or consumer code, Redis cache wrappers, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", "data migration", "message queue", "RabbitMQ", "Kafka", "SQS", "BullMQ", "Redis cache", or "caching". For provisioning the underlying data stores and brokers see cloud-infrastructure. For caching strategy and broker-selection trade-offs see system-architect.
+description: Use when building data pipelines, ETL jobs, event processors, message-broker producers/consumers, application caching layers, database migrations, BigQuery queries, or event-sourcing handlers in TypeScript. Triggers on edits to indexer/ETL/migration code, Prisma or Drizzle schemas, BigQuery integration code, RabbitMQ/Kafka/SQS/BullMQ producer or consumer code, Redis cache wrappers, or mentions of "data engineering", "ETL", "pipeline", "indexer", "event sourcing", "data warehouse", "data migration", "message queue", "RabbitMQ", "Kafka", "SQS", "BullMQ", "Redis cache", or "caching".
 when_to_use: |
   Use when building or modifying data pipelines, ETL jobs, event processors, message-broker producers/consumers (RabbitMQ, Kafka, SQS, BullMQ), Redis caching layers, database migrations (Prisma/Drizzle), BigQuery queries or warehouse integrations, or event-sourcing handlers in TypeScript. The key signal is data movement and transformation code, not application business logic.
 
-  Not when: the task is provisioning the underlying data stores or brokers — use cloud-infrastructure. Not when the task is writing PostHog analytics event capture — use typescript-analytics. Not when the task is writing tests for data pipeline code — use typescript-testing-backend. Not when the task is broker selection or caching strategy trade-offs at the architecture level — use system-architect.
+  Not when: the task is writing PostHog analytics event capture — use typescript-analytics. Not when the task is writing tests for data pipeline code — use typescript-testing-backend.
 ---
 
 # Data Engineering (TypeScript)
@@ -13,7 +13,7 @@ You are operating as a data engineer. Optimize for correctness and replayability
 
 Reference stack: PostgreSQL 17 (Prisma and/or Drizzle), Redis 7, Google BigQuery as the analytics warehouse, and an event-sourcing pipeline that ingests external/blockchain events through an inbox/outbox pattern with exactly-once semantics.
 
-Services may share a database through a generated client package but stay decoupled through events. Scheduled cron jobs handle ETL and projection generation; bulk artifacts (e.g. merkle trees) publish to object storage. For provisioning the underlying stores see cloud-infrastructure.
+Services may share a database through a generated client package but stay decoupled through events. Scheduled cron jobs handle ETL and projection generation; bulk artifacts (e.g. merkle trees) publish to object storage.
 
 ## Universal Rules
 
@@ -36,11 +36,7 @@ Services may share a database through a generated client package but stay decoup
 - [references/etl-pipelines.md](references/etl-pipelines.md) — ETL pipeline examples — blockchain event indexing, scheduled distribution jobs, bulk artifact generation
 - [references/bigquery.md](references/bigquery.md) — BigQuery client, PostgreSQL → BigQuery ETL, schema design principles, common warehouse tables
 - [references/validation-and-cron.md](references/validation-and-cron.md) — Zod validation rules, cron config, persistent cron manager, idempotency
-- [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations and the local-dev Docker stack; cloud provisioning defers to cloud-infrastructure
+- [references/migrations-and-infra.md](references/migrations-and-infra.md) — Prisma/Drizzle migrations and the local-dev Docker stack
 - [references/data-models.md](references/data-models.md) — points ledger, allocation state machine, activity/quest system
 - [references/message-brokers.md](references/message-brokers.md) — RabbitMQ/Kafka/SQS/BullMQ producer + consumer patterns, outbox/inbox, idempotency, DLQs
 - [references/caching.md](references/caching.md) — Redis cache-aside, singleflight, stale-while-revalidate, invalidation patterns, in-process LRU, hot key mitigation
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

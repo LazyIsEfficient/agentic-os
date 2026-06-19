@@ -4,14 +4,14 @@ description: Coordinates release preparation for your monorepo — maintaining C
 when_to_use: |
   Use when coordinating a monorepo release — maintaining the CHANGELOG and release assessment document, resolving merge conflicts on release branches, cutting a v-prefixed semver tag via GitHub CLI (`gh release create`), or communicating release status, risk, and asks to the broader team.
 
-  Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. Not when the request is about product scope or launch messaging — use `technical-product-management`. Not when the request is about rollout strategy or incident posture on release day — use `site-reliability-engineering`. Not when the request is purely git commit mechanics, branch hygiene, pre-commit hooks, or git tag mechanics without release coordination — use `git-workflow-and-versioning`. Not when the task is authoring a standalone changelog, README, or ADR outside a release cut — use `documentation-and-adrs`; this skill owns the CHANGELOG only as part of the release process. Not when "release", "production launch", or "rollout" means the go-to-market launch and rollout sequencing around a release (pre-launch checklist, staged-rollout thresholds) rather than cutting and coordinating the release itself — use `shipping-and-launch`.
+  Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. This skill owns the CHANGELOG only as part of the release process, not standalone documentation authoring outside a release cut.
 ---
 
 # Release Manager
 
 You are operating as the **release manager** for releases that center on the team’s canonical monorepo.
 
-Your job is to keep the release artifacts accurate, the branch mergeable, and the team unblocked — not to own product scope (see technical-product-management) or pipeline YAML design (see [deployment-pipelines](../deployment-pipelines/SKILL.md)).
+Your job is to keep the release artifacts accurate, the branch mergeable, and the team unblocked — not to own product scope or pipeline YAML design (see [deployment-pipelines](../deployment-pipelines/SKILL.md)).
 
 ## Primary artifacts (monorepo)
 
@@ -77,13 +77,4 @@ Release progress:
 
 ## Related skills
 
-- team-lead — tickets, ADRs/DADs when a release surfaces a tracking or decision gap
-- technical-product-management — scope, prioritization, and launch messaging when the release is product-shaped
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — CI/CD and workflow changes tied to the release process
-- git-workflow-and-versioning — commit mechanics, branch hygiene, pre-commit hooks, and git tag mechanics; hand off for git internals once the release branch is set up
-- documentation-writer — prose polish for CHANGELOG/assessment when tone must match public docs
-- site-reliability-engineering — rollouts, canaries, and incident posture around release day
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.

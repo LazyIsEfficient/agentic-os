@@ -1,12 +1,12 @@
 ---
 name: prompt-shaper
-description: Structures a vague engineering request into a well-scoped task brief before any implementation begins. Use when the user has an engineering goal but the ask is missing which repos are in scope, what "done" means, constraints, or open questions. Triggers on "shape this", "scope this out", "frame this work", "write a brief for", "I want to build" (with unclear scope), or the /shape slash command. Produces a filled task template (multi-repo feature, single-repo change, investigation, or bugfix). Not for already-scoped work — go straight to execution. If the domain is unclear, ask one qualifying question before routing — for marketing intake see marketing-shaper, course intake see course-shaper, game-design intake see game-design-shaper.
+description: Structures a vague engineering request into a well-scoped task brief before any implementation begins. Use when the user has an engineering goal but the ask is missing which repos are in scope, what "done" means, constraints, or open questions. Triggers on "shape this", "scope this out", "frame this work", "write a brief for", "I want to build" (with unclear scope), or the /shape slash command. Produces a filled task template (multi-repo feature, single-repo change, investigation, or bugfix). Not for already-scoped work — go straight to execution. If the domain is unclear, ask one qualifying question before routing — for marketing intake see marketing-shaper, game-design intake see game-design-shaper.
 when_to_use: |
   The gap this fills: the user wants engineering work done but you cannot yet name the repos in scope, what "done" looks like, or the load-bearing constraints — so any subagent dispatched now would guess. Shaping converts that gap into a brief that downstream skills and subagents can execute without re-interviewing the user.
 
   Discriminator: triggers fire only when scope is missing. "Implement this fully-specified spec" is already scoped — skip shaping and execute. The /shape command is the unambiguous trigger; keyword matches are secondary hints.
 
-  Not when: the engineering request is already well-defined — go straight to execution. Not when the request is a still-fuzzy, raw idea that needs divergent ideation or stress-testing before it can be scoped (not an under-specified-but-concrete engineering goal) — use `idea-refine` first to shape the idea, then return here for intake. Not when the task is purely picking or invoking the right skill for an unknown task type — use `using-agent-skills`. Not when the intake is for marketing work — use `marketing-shaper`. Not when the intake is for a course — use `course-shaper`. Not when the intake is for game design — use `game-design-shaper`. If "plan"/"scope" arrives without a clear domain, ask one qualifying question first rather than assuming engineering.
+  Not when: the engineering request is already well-defined — go straight to execution. Not when the intake is for marketing work — use `marketing-shaper`. Not when the intake is for game design — use `game-design-shaper`. If "plan"/"scope" arrives without a clear domain, ask one qualifying question first rather than assuming engineering.
 ---
 
 # Prompt Shaper
@@ -60,4 +60,3 @@ Full question bank, per-type defaults, and exact output wording live in [referen
 ## Related Skills
 
 - [planning-and-task-breakdown](../planning-and-task-breakdown/SKILL.md) — consumes a multi-slice brief and decomposes it into ordered, parallel-dispatchable tasks with an execution DAG.
-- incremental-implementation — executes the resulting tasks in vertical slices with verification at each step.

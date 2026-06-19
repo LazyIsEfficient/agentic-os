@@ -1,6 +1,6 @@
 ---
 name: deployment-pipelines
-description: Use when authoring or reviewing CI/CD pipelines — GitHub Actions workflows, reusable workflows, composite actions, OIDC federation to AWS/GCP, caching, artifacts, and pipeline security hardening. Triggers on edits to .github/workflows/**, action.yml, composite action definitions, or mentions of "CI", "CD", "pipeline", "GitHub Actions", "workflow", "OIDC", "runner", "deploy script", "release", or "build pipeline". For provisioning the cloud resources these pipelines deploy to, see cloud-infrastructure.
+description: Use when authoring or reviewing CI/CD pipelines — GitHub Actions workflows, reusable workflows, composite actions, OIDC federation to AWS/GCP, caching, artifacts, and pipeline security hardening. Triggers on edits to .github/workflows/**, action.yml, composite action definitions, or mentions of "CI", "CD", "pipeline", "GitHub Actions", "workflow", "OIDC", "runner", "deploy script", "release", or "build pipeline".
 when_to_use: |
   Use when authoring or reviewing GitHub Actions workflows, reusable workflows, composite actions,
   OIDC federation to AWS/GCP, artifact handling, caching strategies, or pipeline security
@@ -8,25 +8,17 @@ when_to_use: |
   definitions, or when "CI", "CD", "pipeline", "GitHub Actions", "OIDC", "runner", "deploy
   script", "release", or "build pipeline" are mentioned.
 
-  Not when: the task is provisioning or managing the cloud resources the pipeline deploys to —
-  use `cloud-infrastructure` instead. Not when the task is runtime reliability (SLOs, canaries,
-  rollback triggers) after the pipeline has run — use `site-reliability-engineering` instead.
-  Not when "release" means coordinating the release itself (CHANGELOG, release assessment,
+  Not when: "release" means coordinating the release itself (CHANGELOG, release assessment,
   version tag, stakeholder comms) rather than the pipeline YAML — use `release-manager`.
-  Not when the task is designing the CI/CD gate structure, quality-gate strategy, or
-  preview/staging/production promotion flow (rather than authoring the workflow YAML or
-  doing pipeline security hardening) — use `ci-cd-and-automation`. Not when the task is
-  DevOps build-system, artifact-registry, or environment-promotion mechanics (rather than
-  GitHub Actions YAML authoring) — use `devops-engineer`. Not when "release" or "rollout" means
-  coordinating the launch/rollout — pre-launch checklist, staged-rollout decision, rollback
-  planning — rather than authoring the workflow YAML — use `shipping-and-launch`.
+  Not when the task is DevOps build-system, artifact-registry, or environment-promotion
+  mechanics (rather than GitHub Actions YAML authoring) — use `devops-engineer`.
 ---
 
 # Deployment Pipelines
 
 You are operating as an infrastructure engineer with the CI/CD lens. Pipelines are production code: untrusted inputs (PRs, third-party actions, package registries) flow through privileged contexts. Default to least privilege, pinned versions, and fast-fail behavior over convenience.
 
-Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP — no long-lived credentials. Workflows live in `.github/workflows/`. Reusable workflows and composite actions are versioned alongside the repos that consume them. Cloud resources the pipelines deploy to are managed by cloud-infrastructure.
+Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP — no long-lived credentials. Workflows live in `.github/workflows/`. Reusable workflows and composite actions are versioned alongside the repos that consume them.
 
 ## Universal Rules
 
@@ -72,11 +64,6 @@ Currently implemented on **GitHub Actions** with OIDC federation to AWS and GCP 
 
 ## Related skills
 
-- cloud-infrastructure — provisions the cloud resources these pipelines deploy to
 - [security-engineering](../security-engineering/SKILL.md) — pipeline security review, supply-chain hardening, secret-handling rules
-- site-reliability-engineering — runtime safety nets (canaries, error-budget gating, rollback automation) that consume what pipelines produce
-- shipping-and-launch — pre-launch readiness gate that runs before the deployment pipeline executes
-
-## Enforcement
-
-Work in this domain is subject to review by standards-enforcer at the gates defined in the-gates.md. Significant or non-default decisions become DADs or ADRs (see team-lead) and become part of the strategy maintained by technical-strategist.
+- [release-manager](../release-manager/SKILL.md) — coordinates the release itself (CHANGELOG, version tag, stakeholder comms) once the pipeline is authored
+- devops-engineer — build-system, artifact-registry, and environment-promotion mechanics beyond GitHub Actions YAML
