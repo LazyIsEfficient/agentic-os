@@ -10,10 +10,12 @@ The user invoked `/state $ARGUMENTS`.
 
 1. Read `$1` as the entry type. Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `show`. If `$1` is empty or not one of these, STOP and list the valid types — do not guess.
 2. The remaining arguments (`$2` onward) are the entry text (required for constraint/decision/infra/thread).
-3. Run the writer. `init` and `show` take **no** text; the four entry types take the text as one quoted argument:
+3. Run the writer. Resolve its path project-first, then fall back to the global install (the skill ships to `~/.claude/` on a global install). `init` and `show` take **no** text; the four entry types take the text as one quoted argument:
    ```
-   bash .claude/skills/session-state/scripts/session-state.sh init           # or: show
-   bash .claude/skills/session-state/scripts/session-state.sh $1 "<entry text>"   # constraint | decision | infra | thread
+   SS="${CLAUDE_PROJECT_DIR:-.}/.claude/skills/session-state/scripts/session-state.sh"
+   [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
+   bash "$SS" init           # or: show
+   bash "$SS" "$1" "<entry text>"   # constraint | decision | infra | thread
    ```
 4. Report the single line that was added (or, for `show`/`init`, the command's output).
 

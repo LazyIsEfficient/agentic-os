@@ -90,10 +90,10 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
-| `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent |
+| `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
 | `~/.claude/hooks/` | Hook scripts (e.g. `block-bad-bash.sh`). The awareness-harness hooks also land here but stay **dormant** until a `settings.json` registers them — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`) install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
+> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`) plus the `/state` awareness-harness writer command install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
 ---
 
