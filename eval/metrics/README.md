@@ -41,13 +41,19 @@ reports how much *more* the OFF arm spent (positive Δ / `saved%` = the harness 
 ### The honest caveat about the *benefit*
 
 The awareness benefit (settled facts surviving, existing infra reused) only shows up
-when the session is **long enough to cross a compaction boundary** — that's the exact
-point where the OFF arm loses the fact and the ON arm re-injects it. A short prompt
-keeps everything in context for *both* arms, so it measures plumbing, not awareness.
+when the session crosses a **compaction boundary** — the exact point where the OFF arm
+loses the fact and the ON arm re-injects it.
 
-To get a real result: use a long, multi-step scenario where a fact established early
-must be used late; run it **N times per arm**; compare the *distributions* of
-output-tokens and awareness-signal counts, not one pair. The earlier effectiveness
-investigation is the cautionary tale — single samples on tractable tasks showed null;
-the signal, if any, is in re-work avoided over long horizons. This apparatus makes
-that measurable; it does not pre-judge the result.
+**Stronger than "use a longer prompt":** a one-shot `claude -p` turn **never
+compacts** (S0, reconfirmed in #146), so `run-arms.sh` — and any N-run *headless*
+loop built on it — can **never reach that boundary**. Headless therefore measures only
+the harness's per-turn token **tax**, with the benefit structurally absent: the ON arm
+can only look equal-or-worse. Do **not** report a headless ON−OFF delta as the
+benefit result; it answers a benefit question with a cost-only instrument.
+
+Measuring the benefit needs a real **interactive** multi-turn session that crosses
+compaction — the by-hand procedure, the pre-registered interpretation, and the
+automation prerequisite are in **[AB-PROTOCOL.md](AB-PROTOCOL.md)** (issue #147). The
+earlier effectiveness investigation is the cautionary tale — single samples on
+tractable tasks showed null; the signal, if any, is re-work avoided over long
+horizons. This apparatus makes that measurable; it does not pre-judge the result.
