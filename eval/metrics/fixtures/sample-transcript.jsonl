@@ -1,0 +1,5 @@
+{"type":"assistant","message":{"id":"m1","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":10,"cache_creation_input_tokens":5},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.txt"}}]}}
+{"type":"user","message":{"content":"a user turn with no usage — must be ignored"}}
+{"type":"assistant","message":{"id":"m2","usage":{"input_tokens":200,"output_tokens":80,"cache_read_input_tokens":20,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.txt"}}]}}
+{"type":"assistant","message":{"id":"m2","usage":{"input_tokens":200,"output_tokens":80,"cache_read_input_tokens":20,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","name":"Bash","input":{"command":"echo x"}}]}}
+{"type":"assistant","message":{"id":"m3","usage":{"input_tokens":50,"output_tokens":20,"cache_read_input_tokens":5,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","name":"Bash","input":{"command":"echo x"}},{"type":"tool_use","name":"Read","input":{"file_path":"/b.txt"}}]}}

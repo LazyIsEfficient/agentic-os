@@ -46,11 +46,12 @@
 - **Ratchet-to-deny requirements (before flipping `allow`→`deny`, per no-stochastic-gating):** (1) exact command parse — `jq` path already in place; (2) the "already surveyed" check must key off a **structured survey record**, not the current fuzzy ≥4-char substring match (a coincidental token like `broker`/`data` can wrongly suppress — fine for an advisory, a bypass for a block); (3) decide and document the **fail-closed vs fail-open** posture when SESSION-STATE is unreadable or `jq` is missing; (4) only flip once the `survey-guard.warns` log shows a near-zero false-positive rate in real use.
 - **Depends on:** S0 + S1 (shares SESSION-STATE; reads the Existing-infrastructure section S1's `/state infra` writes).
 
-### Slice 3 — measurement baseline (closes the proof loop)
-- **Goal:** the instrument that lets S1–S2 be *proven*, per NORTH_STAR's "measure before build" guardrail — without making measurement the lead.
-- **Mechanism:** a script over the transcript JSONL emitting tokens-per-session/turn + awareness-failure signals (same-file re-reads, re-derivation of settled facts, ignored existing state).
-- **Depends on:** S0 (independent of S1/S2 otherwise — can develop in parallel). **Its baseline-capture sub-step is the merge gate below.**
-- **Acceptance (Tier 0):** given a fixed transcript, emits stable token totals + a re-work signal count; same input → same numbers.
+### Slice 3 — measurement baseline  ✅ LANDED (closes the proof loop)
+- **Delivered:** `eval/metrics/session-metrics.mjs` — deterministic transcript-JSONL parser emitting token accounting (output/input/cache, per-turn) + **Tier-0** awareness signals: files read >1× and repeated identical tool calls. The fuzzy signals NORTH_STAR also names ("re-derivation", "ignored existing state") need LLM judgment (**Tier 2**) and are deferred to S4's comparative eval — stated, not smuggled in.
+- **Acceptance (Tier 0):** `eval/metrics/session-metrics-test.sh` → 10/0 against a fixed fixture, asserting determinism (run twice, identical) and exact counts.
+- **Caught by review (and why the gate matters):** the first cut counted `turns`/tokens per assistant *record*, but one logical turn is emitted as several records with the **same usage repeated** — a 2.85× output-token inflation (919→386 turns, 2.26M→793K output). Fixed by deduping on `message.id`; the fixture now pins the dedup so it can't regress. Plus: stable-key tool-call comparison, raw "repeat" (not "redundant") naming to keep the Tier-2/0 line honest.
+- **Real baseline captured:** this session = 386 turns / 793K output / 137M cache-read; 5 files read >1× (run-battery.sh 5×). This is the apparatus the **measure-before-build gate** uses: capture before/after a hook and compare tokens + signal counts.
+- **Depends on:** S0 only (independent of S1/S2). Feeds S4.
 
 ### Slice 4 — re-aim the eval harness
 - **Goal:** `eval/` today measures single-task ON/OFF *correctness* — the wrong axis. Re-aim it to tokens-per-outcome + long-session coherence (raw Claude Code vs harness-on).
