@@ -7,9 +7,7 @@ Any vague request goes through a shaper before code is touched.
 
 - Engineering work → `/shape` (`prompt-shaper`)
 - Marketing work → `/mshape` (`marketing-shaper`)
-- Course work → `/course-shape` (`course-shaper`)
 - Game work → `/game-shape` (`game-design-shaper`)
-- Blog work → `/blog-shape` (`blog-post-shaper`)
 
 The shaper produces a scoped brief. Feed the brief to `planning-and-task-breakdown` to produce a DAG with stable task IDs, declared file writes, conflict edges, and branch suffixes. Dispatch the DAG in parallel waves. Skip the shaper only when the request is already a fully-scoped brief — and say so explicitly when you skip.
 
