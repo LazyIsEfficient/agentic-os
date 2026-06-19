@@ -33,11 +33,11 @@
 - **Gate cleared:** context-injection and conditional-deny are reliable → the deterministic-guards decision stands; Slice 1 proceeds.
 - **Carry-forward:** the headless `--include-hook-events --settings <file>` recipe is the regression harness for Slice 1/2 hooks; `--bare` gives the eval harness a clean hooks-off arm (Slice 4).
 
-### Slice 1 — `SESSION-STATE.md` mechanism (the core awareness win)
-- **Goal:** a live, re-read constraints/state doc so settled facts survive compaction instead of being re-derived.
-- **Mechanism:** a defined schema (constraints, decisions-made, existing-infra, open-threads) + a `SessionStart` hook that injects it + a `UserPromptSubmit` hook that injects a compact digest each turn + a compaction-time flush (`PreCompact` or `Stop` fallback from Slice 0).
-- **Depends on:** S0. **Conflict edge with S2** (both touch the SESSION-STATE artifact + settings.json).
-- **Acceptance (Tier 0):** a scripted long session asserts a seeded fact (e.g. "broker already running on :5552") is present in context *after* a compaction boundary. Deterministic test: settings.json valid, hook injects the file, digest non-empty.
+### Slice 1 — `SESSION-STATE.md` mechanism  ✅ LANDED (core awareness win, dogfooded)
+- **Delivered:** `SESSION-STATE.template.md` schema (Constraints / Decisions / Existing-infra / Open-threads; live `SESSION-STATE.md` gitignored). Three hooks in `.claude/hooks/`: `session-state-inject` (SessionStart → whole doc), `session-state-digest` (UserPromptSubmit → Constraints + Open-threads only, token-disciplined), `session-state-checkpoint` (PreCompact, `auto`+`manual`). Deterministic writer `scripts/session-state.sh` + `/state` command + `session-state` skill (writes go through the script, never hand-edits — capture doesn't depend on attention). **Wired live** into `.claude/settings.json` (dogfooded from next session).
+- **Acceptance (Tier 0):** `scripts/session-state-test.sh` → 15/0 (writer, all three hooks, token-discipline, empty-template safety, backslash + mixed-case regressions). Invariant 8 passes the new hooks; settings commands vendored. **Live-proven:** SessionStart *and* UserPromptSubmit stdout injection both reach the model (headless `--include-hook-events` runs; the model echoed an injected sentinel verbatim).
+- **Reviewed:** code-reviewer (2 Tier-1 bugs fixed: `awk -v` backslash mangling → `ENVIRON`; lowercase-only trigger regex), security-reviewer (pass; prompt-injection-at-ship advisory → SECURITY.md rule 7 + data-not-instructions banner), library-reviewer (pass; `/state` init/show arg tightened).
+- **Carry-forward to S2/S5:** (1) confirm `PreCompact` *live*-fire (deferred from S0 — a one-shot can't compact); (2) S5 must register these hooks in a *shipped* settings file (the dev `settings.json` doesn't ship), newly subjecting it to Invariant 8(b) on the consumer path; (3) **conflict edge with S2** — both touch SESSION-STATE + settings.json; S2's survey-guard writes `infra` entries via the same writer.
 
 ### Slice 2 — survey-before-act guard
 - **Goal:** make "what already exists?" a structural precondition of building, not a habit the model must remember.

@@ -8,6 +8,12 @@ Thumbs.db
 # Claude Code — persistent memory (machine-local, contains personal context)
 .claude/memory/
 
+# AgenticOS — live session-state doc (per-session working state; the committed
+# schema is SESSION-STATE.template.md). Created from the template by
+# scripts/session-state.sh init.
+SESSION-STATE.md
+.claude/session-state.checkpoints
+
 # Claude Code — agent worktrees (ephemeral, machine-local)
 .claude/worktrees/
 

@@ -10,6 +10,18 @@
       "Edit(pocs/**)"
     ]
   },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" } ] }
+    ],
+    "PreCompact": [
+      { "matcher": "auto",   "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" } ] },
+      { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" } ] }
+    ]
+  },
   "autoMode": {
     "environment": [
       "$defaults",
