@@ -36,9 +36,9 @@ Every hook that ships to consumers MUST:
 
 ## Enforcement — and its limits
 
-`scripts/validate.sh` **Invariant 8 (`hook-safety`)** enforces rules 1–4 deterministically (Tier 0) and runs in CI on every PR and push (`.github/workflows/validate.yml`). `scripts/validate-test.sh` proves the invariant trips on a malicious hook and stays clean on the legitimate one.
+`scripts/validate.sh` **Invariant 8 (`hook-safety`)** is a **defense-in-depth tripwire** for rules 1–4 — it is **NOT the safety boundary**, and nothing here should be read as "Invariant 8 makes shipping a hook safe." It runs in CI on every PR and push (`.github/workflows/validate.yml`); `scripts/validate-test.sh` pins each covered idiom as a Tier-0 regression. It has two halves: (a) a denylist scan of shipped hook *scripts* for obvious egress/exec/obfuscation idioms, and (b) a **strict-shape allowlist** for a hook *command* in `settings.json`: it must match exactly `<interpreter> .claude/hooks/<name>.sh [simple args]` — anything else (a chained `; curl…|bash`, a literal-newline statement, an `env` prefix, a `../` path traversal, a `$(…)` subshell) fails the shape and is rejected. This is an allowlist of *shape*, not a denylist of metacharacters (which is incompletable — an early denylist version missed the newline separator), so a single vendored call cannot become a chain.
 
-**This is a tripwire, not a sandbox.** A static scan denies the *obvious* exfil / destructive / obfuscation patterns; it cannot *prove* a hook is safe, and a determined attacker can evade a regex. It is one layer. The real defenses are layered: minimal auditable scripts (rule 5) + the no-runtime-fetch policy (rule 2) + human review (rule 6) + the workspace-trust gate. Do not treat a green Invariant 8 as proof of safety.
+**This is a tripwire, not a sandbox — and the denylist half is fundamentally incompletable.** A static denylist of egress idioms cannot be finished by enumeration (resolver-based DNS exfil, variable-indirection, string-rebuild, and the next idiom nobody listed all evade it). So **the denylist catches the obvious and the accidental; it does not stop a determined attacker.** What actually makes a hook safe is the *layered* controls, of which the regex is the weakest: **(rule 5) minimal scripts a human reads in full + (rule 6) human security review of every shipped hook + (rule 2) the no-runtime-fetch policy + the workspace-trust gate.** The strict-shape half (b), by contrast, IS completable — it is an allowlist of command *shape*, not a denylist of idioms — and is the load-bearing deterministic check. **Any future active install (S5-C active registration, S5-D) is gated on human review + strict-shape, never on the egress denylist being "complete."**
 
 **Accepted, by-design limits of the regex denylist (NOT bugs — defended by the other layers):** the scan matches *literal* command idioms, so it cannot catch a payload assembled to defeat pattern-matching — most notably **variable indirection** (`A=cu; B=rl; "$A$B" http://…` reconstructs `curl` from fragments no single token matches), and equally string-reversal, `printf`-built command names, or an `IFS`/brace-expansion trick. Chasing these pattern-by-pattern is a losing game against a regex; they are out of scope for the tripwire and are caught instead by **rule 5 (minimal, auditable scripts a human reads in full)** and **rule 6 (human security review of every shipped hook)**. What the denylist *does* cover is the high-signal direct idioms — network tools (incl. `ssh`/`rsync`), version-suffixed and space-or-no-space `-m` interpreter invocations (python/node/perl/ruby), `openssl s_client`/`enc`, here-strings/heredocs and pipes fed to a shell, `eval`/`base64`/process-substitution — so an *accidental* or low-effort-malicious direct use trips the gate. `validate-test.sh` cases 11–26 pin each covered idiom as a Tier-0 regression. The covered set is "the idioms we've seen tried," not a closed enumeration — new direct idioms get added as they're found (the ratchet), but the layered defenses above, not the regex, are what make a hook safe.
 
@@ -70,9 +70,15 @@ a separate, still-gated step.
    `SESSION-STATE.md` stays gitignored / per-developer on the consumer side.
 
 **Still gated — shipping the hooks *active* (a registered `settings.json`):**
-- Register hooks through a shipped, **Invariant-8(b)**-checked settings file and
-  re-run `security-reviewer` on that install diff before merge. Until then the
-  consumer opts in by hand, which keeps auto-execution off the supply chain.
+- The gate is **human security review + the strict-shape command check (Invariant
+  8(b))**, **not** the egress denylist being "complete" (it never is — see
+  Enforcement). A shipped active `settings.json` must register only single
+  vendored-`.claude/hooks/`-script commands with no shell metacharacter, and a
+  `security-reviewer` pass on the actual install diff is required before merge.
+- Until then the consumer opts in by hand, which keeps auto-execution off the
+  supply chain. **Recommendation (review #2): keep the harness dogfood-only / opt-in;
+  do not flip to active** — an active install would rest on the tripwire that has
+  already been stepped over, so the dormant posture is the one to ship.
 
 **Note for review:** the writer ships as a **skill-local script**, which is *not*
 covered by Invariant 8 (that gate scans `.claude/hooks/*.sh` only). It is benign by

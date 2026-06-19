@@ -482,7 +482,7 @@ check_review_tiers() {
 # deliberately the shipped scripts only — NOT settings.json config — so the scan
 # stays meaningful and false-positive-free on JSON config.
 HOOK_DENY=(
-  '\b(curl|wget|nc|ncat|netcat|telnet|scp|sftp|ssh|rsync|socat|aria2c)\b@@@network egress in a shipped hook (exfil/fetch vector)'
+  '\b(curl|wget|nc|ncat|netcat|telnet|scp|sftp|ssh|rsync|socat|aria2c|getent|nslookup|dig|drill|kdig)\b@@@network egress or DNS-resolver exfil in a shipped hook (exfil/fetch vector)'
   '\bopenssl[[:space:]]+s_client\b@@@openssl s_client network connection in a shipped hook'
   '\bopenssl[[:space:]]+enc\b@@@openssl enc (encode/encrypt obfuscation) in a shipped hook'
   '/dev/(tcp|udp)/@@@raw socket via /dev/tcp in a shipped hook'
@@ -545,11 +545,53 @@ check_hook_safety() {
       # the vendored-path rule when extraction actually succeeded — otherwise a
       # line-wrapped/oddly-quoted value would false-positive (block a legit config).
       cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
-      if [[ "$cmdval" != "$cline" ]] && ! printf '%s' "$cmdval" | grep -q '\.claude/hooks/'; then
-        fail hook-safety "$sj" "hook command does not call a vendored .claude/hooks/ script: $cmdval"
+      if [[ "$cmdval" != "$cline" ]]; then
+        if ! printf '%s' "$cmdval" | grep -q '\.claude/hooks/'; then
+          fail hook-safety "$sj" "hook command does not call a vendored .claude/hooks/ script: $cmdval"
+        elif ! printf '%s' "$cmdval" | grep -qE '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$'; then
+          # STRICT SHAPE — an ALLOWLIST, not a metacharacter denylist (a denylist is
+          # incompletable: it missed the newline separator). The command MUST be
+          # exactly: <interpreter> .claude/hooks/<name>.sh [simple args]. Anything
+          # else — a chained `; curl|bash`, a literal-newline statement, an `env`
+          # prefix, a `../` traversal in the path, a subshell — fails to match the
+          # shape and is rejected. The arg charset excludes every shell metachar,
+          # backslash, and whitespace-separator, so a single call cannot become a chain.
+          fail hook-safety "$sj" "hook command is not a single strict-shape vendored-script call (<interpreter> .claude/hooks/<name>.sh [simple args]) — no chaining/newlines/subshells/traversal: $cmdval"
+        fi
       fi
     done < <(grep -E '"command"[[:space:]]*:' "$sj" || true)
   fi
+}
+
+# ── Invariant 9: tombstones ────────────────────────────────────────────────────
+# Bare-name PROSE references to a pruned skill/agent/command route to a target that
+# no longer exists. Invariant 3 only sees markdown LINKS; a backtick `slug`, a
+# `/command`, or a `slug/path` ref is invisible to it — that gap let ~30 dead refs
+# survive a prune with validate green (PR #143 review). This is the deterministic
+# ratchet for that class: an explicit TOMBSTONES list of removed artifact slugs;
+# fail if any appears as `slug` / `/slug` / slug/path / slug.md in a shipped body.
+#
+# MAINTENANCE: when you delete a skill/agent/command, add its slug here. When you
+# (re)add one, remove it. The list is exact slugs — no enumeration of idioms — so
+# it is FP-free except for a deleted name reused as ordinary backticked prose
+# (reword it: don't backtick a removed artifact's name).
+TOMBSTONES="api-and-interface-design bigquery-ai-agent blog-post-author blog-post-shaper ci-cd-and-automation cloud-infrastructure code-simplification competitive-positioning context-engineering course-author course-design course-shaper debugging-and-error-recovery deck-generator deprecation-and-migration documentation-and-adrs documentation-writer elevenlabs-tts finance-ops frontend-ui-engineering game-concept-creator game-marketer game-monetization-strategist git-workflow-and-versioning icp-validation idea-refine incremental-implementation market-sizing meeting-intelligence ops-analyst performance-optimization plan-clean podcast-ops pricing-and-packaging route security-and-hardening shipping-and-launch site-reliability-engineering social-growth software-design source-driven-development spec-driven-development standards-enforcer system-architect team-lead team-ops technical-product-management technical-strategist test-driven-development typescript-quality-engineering using-agent-skills ux-design ux-research ux-specialist v2-collab x-longform-post yt-competitive-analysis yt-shorts-pipeline yt-shorts-script"
+
+check_tombstones() {
+  local alt; alt="$(printf '%s' "$TOMBSTONES" | tr ' ' '|')"
+  # Forms a library cross-reference takes: `slug` / `/slug` (backtick), slug/ (dir
+  # path), slug.md (file path). Plain prose without one of these is NOT matched, so
+  # an English word that happens to collide (e.g. "route") is not flagged.
+  local re="\`/?(${alt})\`|\b(${alt})/|\b(${alt})\.md\b"
+  local f ln
+  for dir in skills agents commands; do
+    [[ -d "$CLAUDE/$dir" ]] || continue
+    while IFS= read -r f; do
+      while IFS=: read -r ln _; do
+        [[ -n "$ln" ]] && fail tombstone "$f" "reference to a pruned artifact (line $ln) — repoint to a live successor or drop"
+      done < <(grep -nE "$re" "$f" 2>/dev/null)
+    done < <(find "$CLAUDE/$dir" -name '*.md' -type f)
+  done
 }
 
 # ── Run all checks ─────────────────────────────────────────────────────────────
@@ -560,6 +602,7 @@ check_memory_length
 check_ship_manifest
 check_review_tiers
 check_hook_safety
+check_tombstones
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

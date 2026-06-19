@@ -1,6 +1,6 @@
 # Application Caching (Redis + In-Process)
 
-Implementation patterns for caching at the application tier in TypeScript services. For caching strategy and trade-offs see system-architect/references/caching-strategy.md.
+Implementation patterns for caching at the application tier in TypeScript services. For caching strategy and trade-offs see the `engineer` agent.
 
 ## Universal Rules
 
@@ -241,6 +241,6 @@ Alert on hit-ratio drops in a namespace, not on absolute miss count.
 
 ## Related
 
-- system-architect/references/caching-strategy.md — strategy patterns, TTL design, multi-tier
+- the `engineer` agent — strategy patterns, TTL design, multi-tier
 - [event-sourcing.md](event-sourcing.md) — outbox-driven cache invalidation
 - the `devops-engineer` agent — provisioning Redis

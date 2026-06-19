@@ -37,7 +37,7 @@ Decompose work into small, verifiable tasks with a parallel-dispatchable structu
 - **Day-zero ready set must be non-empty.** At least one task has `depends_on: []`. If none do, the plan is malformed.
 - **`scope: L` must be split before dispatch.** Agents perform best on XS / S / M.
 - **Plan, do not implement.** This skill never writes code. The output is a plan document; execution is a separate step.
-- **Every plan carries a `**Status:**` line.** Lifecycle `proposed` → `in-progress` → `shipped` | `superseded`. A fresh plan starts at `proposed`; keep it current as the work moves. It is the signal the `/plan-clean` command uses to retire completed plans, so an unmarked plan never gets cleaned up. See [`assets/plan-document-template.md`](assets/plan-document-template.md).
+- **Every plan carries a `**Status:**` line.** Lifecycle `proposed` → `in-progress` → `shipped` | `superseded`. A fresh plan starts at `proposed`; keep it current as the work moves. It is the signal for retiring completed plans (prune `shipped`/`superseded` plans manually), so an unmarked plan never gets recognized as done. See [`assets/plan-document-template.md`](assets/plan-document-template.md).
 
 ## References
 

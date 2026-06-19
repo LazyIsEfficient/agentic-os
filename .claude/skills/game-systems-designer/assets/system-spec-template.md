@@ -45,7 +45,7 @@
 - If yes, what catalog SKUs it implies (for `iap-manager`): <e.g. "currency packs", "cosmetics for X", "skip-timer">
 - Which monetization model fits this system best (for `iap-manager`): <>
 
-## UI surfaces (for `ux-design`)
+## UI surfaces (screen-level UX / accessibility)
 - Screens this system needs: <>
 - Critical states the UI must convey: <>
 - Microcopy load: <heavy / light>

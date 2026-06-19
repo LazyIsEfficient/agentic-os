@@ -430,7 +430,7 @@ For more than a single fixed server, you need a lobby/matchmaking system. WebSoc
 
 The HTTP API can be:
 
-- A custom backend (Node, Go, Python, .NET) — pair with `system-architect`, the `devops-engineer` agent, etc.
+- A custom backend (Node, Go, Python, .NET) — pair with the `engineer` agent, the `devops-engineer` agent, etc.
 - A managed service (PlayFab, Nakama, Heroic Labs).
 - The game server itself (one server handles both lobby and game; simpler but doesn't scale to many concurrent rooms).
 

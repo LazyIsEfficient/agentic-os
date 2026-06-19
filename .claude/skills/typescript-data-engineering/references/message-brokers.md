@@ -1,6 +1,6 @@
 # Message Brokers — Implementation Patterns
 
-Implementation guide for producers, consumers, and operational concerns when integrating with RabbitMQ, Kafka, SQS, or BullMQ from a TypeScript service. For broker selection and design-level trade-offs see system-architect/references/distributed-patterns.md.
+Implementation guide for producers, consumers, and operational concerns when integrating with RabbitMQ, Kafka, SQS, or BullMQ from a TypeScript service. For broker selection and design-level trade-offs see the `engineer` agent.
 
 ## Universal Rules
 
@@ -230,6 +230,6 @@ Key points:
 
 - [event-sourcing.md](event-sourcing.md) — outbox/inbox patterns at the database level
 - [etl-pipelines.md](etl-pipelines.md) — batch ETL flows that complement event streams
-- system-architect/references/distributed-patterns.md — broker selection, delivery semantics, ordering
+- the `engineer` agent — broker selection, delivery semantics, ordering
 - the `devops-engineer` agent — provisioning brokers
 - [security-engineering](../../security-engineering/SKILL.md) — broker authn/authz, TLS, ACLs

@@ -59,7 +59,7 @@ Format: pick one of:
 - **Diary studies** — give playtesters builds for 1–2 weeks, capture daily journals. Best for retention / engagement signals.
 - **Surveys + telemetry** — large-N, lower depth. Use to validate hypotheses, not to discover them.
 
-Pair with `ux-research` for protocol design and synthesis.
+Use player-research / usability-testing methods for protocol design and synthesis.
 
 ## What playtest is *not* for
 
@@ -93,7 +93,7 @@ Every metric the model predicts must have a corresponding event:
 - `match_end(result, win_rate_so_far)` (for PvP balance)
 - `loot_drop(table, rarity, attempts_since_last)` (for drop table balance)
 
-Hand the event list to `godot-engineer` (or other engine team) for instrumentation and to `site-reliability-engineering` for ingestion / alerting.
+Hand the event list to `godot-engineer` (or other engine team) for instrumentation and to the `devops-engineer` agent for ingestion / alerting.
 
 ## Output
 

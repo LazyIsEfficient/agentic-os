@@ -141,4 +141,4 @@ What needs to be measured in soft launch / live to validate this model:
 | Time to chapter 2 (free) | `content_unlock` | Daily cohort | >150% of model |
 | Conversion to first IAP | `iap_purchase` (first) | Daily | <50% of model |
 
-Hand this contract to `godot-engineer` (or other engine team) for instrumentation, and to `site-reliability-engineering` for alerting.
+Hand this contract to `godot-engineer` (or other engine team) for instrumentation, and to the `devops-engineer` agent for alerting.

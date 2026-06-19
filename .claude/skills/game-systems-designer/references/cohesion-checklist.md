@@ -75,7 +75,7 @@ A design with 8 systems where each needs months of engineering and ongoing maint
 
 ## The rails-fit test
 
-For each system, check against the chosen payment rails (from `game-concept-creator`):
+For each system, check against the chosen payment rails (from the `game-design-shaper` agent):
 
 - **F2P / IAP-heavy:** does this system create a *fair, optional* spending opportunity, or does it create paywalls?
 - **Premium:** does this system require live-ops to feel complete? If yes, the model is wrong, not the system.
