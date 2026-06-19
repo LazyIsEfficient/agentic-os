@@ -465,6 +465,85 @@ check_review_tiers() {
   done < "$lf"
 }
 
+# ── Invariant 8: hook-safety ───────────────────────────────────────────────────
+# Shipped hooks are the library's ONE piece of distributed executable code:
+# install.sh runs `install_dir "hooks"` and `chmod +x` on .claude/hooks/*.sh, so
+# they land and run on CONSUMER machines. That is a supply-chain surface — a bug
+# or an upstream compromise in a shipped hook executes arbitrary shell downstream.
+#
+# This invariant is a TRIPWIRE, not a sandbox. A static scan cannot PROVE a hook
+# is safe; it denies the obvious exfil / destructive / obfuscation patterns in
+# shipped hook scripts, and forces hook *commands* to call a vendored
+# .claude/hooks/ script rather than carry inline shell. The real defenses are
+# layered (minimal auditable scripts + no runtime fetch + human security review +
+# the workspace-trust gate). See SECURITY.md for the threat model and limits.
+#
+# Pattern@@@reason. `@@@` is the delimiter (no regex here contains it). Scope is
+# deliberately the shipped scripts only — NOT settings.json config — so the scan
+# stays meaningful and false-positive-free on JSON config.
+HOOK_DENY=(
+  '\b(curl|wget|nc|ncat|netcat|telnet|scp|sftp|socat|aria2c)\b@@@network egress in a shipped hook (exfil/fetch vector)'
+  '\bopenssl[[:space:]]+s_client\b@@@openssl s_client network connection in a shipped hook'
+  '/dev/(tcp|udp)/@@@raw socket via /dev/tcp in a shipped hook'
+  '\|[[:space:]]*(ba)?sh\b@@@pipe-to-shell in a shipped hook (remote-code-exec vector)'
+  '\bbase64[[:space:]]+(-d|-D|--decode)@@@base64-decode in a shipped hook (obfuscation)'
+  '\beval[[:space:]]@@@eval in a shipped hook (dynamic code execution)'
+  '\bsource[[:space:]]+<\(@@@process-substitution source in a shipped hook'
+  '\b(python3?|node|perl|ruby)[[:space:]]+-(e|c)\b@@@inline interpreter one-liner in a shipped hook'
+  'rm[[:space:]]+-[a-z]*r[a-z]*f?[[:space:]]+(/|~|\$HOME|\$\{HOME)@@@recursive delete of HOME/root in a shipped hook'
+  '\bsudo[[:space:]]@@@privilege escalation (sudo) in a shipped hook'
+  '\bchmod[[:space:]]+([a-z-]+[[:space:]]+)*777\b@@@chmod 777 in a shipped hook'
+  '\b(crontab|launchctl|systemctl)\b@@@persistence mechanism in a shipped hook'
+  'LaunchAgents|LaunchDaemons@@@macOS persistence path in a shipped hook'
+  '(~|\$HOME|\$\{HOME\})/\.(ssh|aws|gnupg)/@@@credential-store access in a shipped hook'
+  '\b(id_rsa|\.git-credentials|\.npmrc)\b@@@credential-file access in a shipped hook'
+)
+
+check_hook_safety() {
+  # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
+  # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
+  # would evade it entirely — restrict shipped hooks to *.sh and reject the rest.
+  if [[ -d "$CLAUDE/hooks" ]]; then
+    local f entry re reason ln
+    while IFS= read -r f; do
+      case "$f" in
+        *.sh) ;;             # shell hook — scan it below
+        *.md) continue ;;    # in-tree docs (e.g. a README) — not executable, skip
+        *) fail hook-safety "$f" "non-.sh file in .claude/hooks/ — only vendored *.sh shell hooks may ship (other interpreters evade the shell-idiom denylist)"; continue ;;
+      esac
+      for entry in "${HOOK_DENY[@]}"; do
+        re="${entry%%@@@*}"; reason="${entry##*@@@}"
+        if grep -qE "$re" "$f"; then
+          ln=$(grep -nE "$re" "$f" | head -1 | cut -d: -f1)
+          fail hook-safety "$f" "$reason (line $ln)"
+        fi
+      done
+    done < <(find "$CLAUDE/hooks" -type f | sort)
+  fi
+
+  # (b) Every hook "command" in settings.json must invoke a vendored
+  # .claude/hooks/ script — no inline shell. Crude line-based JSON scan (no jq),
+  # consistent with this script's other crude parses. No-ops when there is no
+  # hooks block. Catches an inline `curl … | bash` smuggled into a command field.
+  local sj="$CLAUDE/settings.json"
+  if [[ -f "$sj" ]]; then
+    local cline cmdval
+    while IFS= read -r cline; do
+      # Extract the JSON string value of "command". The bracket expression
+      # [^"\] means "any char that is not a quote or a backslash" (inside an ERE
+      # bracket `\` is literal on both BSD and GNU) — paired with \\. to consume
+      # escaped chars, this is the standard JSON-string idiom. On no match sed
+      # echoes the line UNCHANGED, so guard on cmdval != cline below: only assert
+      # the vendored-path rule when extraction actually succeeded — otherwise a
+      # line-wrapped/oddly-quoted value would false-positive (block a legit config).
+      cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
+      if [[ "$cmdval" != "$cline" ]] && ! printf '%s' "$cmdval" | grep -q '\.claude/hooks/'; then
+        fail hook-safety "$sj" "hook command does not call a vendored .claude/hooks/ script: $cmdval"
+      fi
+    done < <(grep -E '"command"[[:space:]]*:' "$sj" || true)
+  fi
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
@@ -472,6 +551,7 @@ check_claude_imports
 check_memory_length
 check_ship_manifest
 check_review_tiers
+check_hook_safety
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
