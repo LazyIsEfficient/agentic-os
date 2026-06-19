@@ -60,11 +60,42 @@
 - **The honest limit (stated, not hidden):** the awareness *benefit* only appears in sessions long enough to cross a compaction boundary; a single short run measures plumbing, not awareness. Real result = a long multi-step scenario, N runs/arm, compare distributions. This apparatus makes that measurable; it does not pre-judge it (the effectiveness investigation is the cautionary tale).
 - **Depends on:** S3.
 
-### Slice 5 — ship + ratchet
-- **Goal:** make the mechanisms installable and guarded.
-- **Mechanism:** wire hooks into `install.sh`/`install.ps1` (ship `.claude/settings.json`); add a `validate.sh` rule for hook/settings integrity; cross-link NORTH_STAR ↔ RULESET ↔ README.
-- **Depends on:** S1, S2 (hooks must exist), S3 (validate rule).
-- **Acceptance (Tier 0):** `install.sh` ships the hooks, `validate.sh` + `validate-test.sh` green, **security-reviewer signs off on shipping executable hooks to consumers** (see Risks).
+### Slice 5 — ship + ratchet  (chunked by risk; A+B done, C held, D deferred)
+Split because S5 bundles three *different* risk tracks. On the branch all are
+reversible; the gradient is what each enables **once merged/released**.
+
+**Branch-state finding (the reason chunking matters):** `install.sh` ships via
+whole-dir globs (`install_dir "hooks"`, `install_dir "skills"`), so the harness
+already ships **incoherently**: the awareness hooks ship (dormant — safe, no
+shipped `settings.json` registers them, Invariant 8 clean); the `session-state`
+**skill ships but references the repo-root `scripts/session-state.sh`, which is
+NOT shipped**; the `/state` command (not in the command allowlist) and the writer
+do **not** ship. So a consumer today would get dormant hooks + a skill pointing at
+a missing writer. Not dangerous, but incoherent — must be made coherent in C.
+
+- **A — docs + ship decision  ✅ DONE.** README documents the harness; NORTH_STAR
+  ↔ ROADMAP ↔ SECURITY cross-linked. Ship boundary decided (below).
+- **B — ship-safety + security review  ✅ DONE.** SECURITY.md ship-time plan;
+  `security-reviewer` signed off on the *plan* (not shipping yet). No new
+  `validate.sh` rule: most "scripts/" refs are skill-local (they ship), so a
+  blanket "references scripts/" guard would false-positive — the repo-root-writer
+  case is handled by the C plan instead.
+- **C — wire `install.sh`/`install.ps1` to ship the harness  ⏸ HELD.** The
+  supply-chain step (executable code on consumer machines). Gated on a GitHub
+  branch review + explicit go. Plan: relocate the writer into the skill's own
+  shippable `scripts/` subdir (skill-local scripts DO ship → coherent), add
+  `/state` to the command allowlist, ship a `settings.json` hook registration,
+  extend the ship-manifest + `validate-test.sh` fixtures, re-run security-reviewer.
+- **D — S2 deny-ratchet  ⛔ DEFERRED.** Flip survey-guard warn→deny. Needs real
+  `survey-guard.warns` false-positive evidence (requires real use first), a
+  structured survey record (not the current substring match), and a documented
+  fail-closed/open posture. No data yet → parked.
+
+**Ship boundary (decided in A):** the harness ships as ONE coherent unit in C —
+awareness hooks + shipped settings registration + `/state` command + `session-state`
+skill + the writer (relocated to a shipped path). `eval/metrics/*` and `scripts/`
+validators are repo tooling and never ship. Until C: hooks may ship dormant (safe);
+the branch is not release-ready (the incoherent skill ref) — enforced by branch review.
 
 ---
 

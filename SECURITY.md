@@ -38,6 +38,35 @@ Every hook that ships to consumers MUST:
 
 **This is a tripwire, not a sandbox.** A static scan denies the *obvious* exfil / destructive / obfuscation patterns; it cannot *prove* a hook is safe, and a determined attacker can evade a regex. It is one layer. The real defenses are layered: minimal auditable scripts (rule 5) + the no-runtime-fetch policy (rule 2) + human review (rule 6) + the workspace-trust gate. Do not treat a green Invariant 8 as proof of safety.
 
+## Shipping the awareness harness (planned — V2_ROADMAP S5-C)
+
+The awareness harness (the `session-state-*` and `survey-before-act` hooks, the
+`/state` command, the `session-state` skill, and the writer) is **dogfooded in
+this repo but not yet a consumer feature**. Current branch state, by design:
+
+- The hook *scripts* already ship (`install_dir "hooks"`) but land **dormant** —
+  no shipped `settings.json` registers them, so they never run on a consumer
+  until C wires a registration. Dormant + Invariant-8-clean = safe.
+- Shipping them *active* is the supply-chain step and is **gated** on a security
+  review of the actual `install.sh` change, per the policy above.
+
+When C ships the harness, it MUST:
+1. **Co-locate the writer with what ships.** `/state` calls `scripts/session-state.sh`,
+   which is repo-root and not shipped; relocate it under the skill's own
+   `scripts/` subdir (skill-local scripts ship) so the shipped skill/command is
+   self-contained — no reference to an unshipped path. This means rewriting **both**
+   call sites — `.claude/commands/state.md` and `.claude/skills/session-state/SKILL.md` —
+   not just moving the file.
+2. **Register hooks through a shipped, Invariant-8-checked settings file** — the
+   command entries must call vendored `.claude/hooks/` scripts, and the shipped
+   settings file is subjected to **Invariant 8(b) on the consumer path**.
+3. **Ship through both installers in parity** — update `install.sh` AND `install.ps1`
+   together (the ship-manifest invariant checks they agree), and extend the
+   `validate-test.sh` fixtures for the new manifest entries.
+4. **Carry the untrusted-data framing** (rule 7) for `SESSION-STATE.md`, and keep
+   it gitignored / never-committed on the consumer side.
+5. **Re-run `security-reviewer`** on the install diff before merge.
+
 ## Reporting a vulnerability
 
 Report privately via a **GitHub Security Advisory** on the repository (`LazyIsEfficient/agentic-os`) rather than a public issue. Please include the affected file(s), the execution path, and a proof-of-concept if you have one. Do not open a public issue for an unfixed vulnerability.

@@ -91,7 +91,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent |
-| `~/.claude/hooks/` | PreToolUse hooks (e.g. `block-bad-bash.sh`) |
+| `~/.claude/hooks/` | Hook scripts (e.g. `block-bad-bash.sh`). The awareness-harness hooks also land here but stay **dormant** until a `settings.json` registers them — see [Awareness harness](#awareness-harness-experimental) |
 
 > **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`) install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
@@ -124,6 +124,16 @@ Use the security-reviewer agent to audit this PR.
 **Skills** are instruction playbooks — they tell Claude *how* to do a specific type of work (code review, Rust engineering, smart-contract development). They are stateless and composable.
 
 **Agents** are role definitions — they give Claude a persona, a tool allowlist, and a mandate (e.g. a full-stack engineer, a security auditor). Agents can invoke skills.
+
+### Awareness harness (experimental)
+
+An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V2_ROADMAP.md)) that fights the dominant failure mode of long agent sessions: **awareness drift** — finite context compresses, so settled facts get re-derived and existing infrastructure gets rebuilt. It externalizes state and re-surfaces it deterministically via Claude Code hooks:
+
+- **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. A `SessionStart` hook injects it; a `UserPromptSubmit` hook injects a compact digest each turn; a `PreCompact` hook checkpoints before compaction. Maintained only through the `/state` command (a deterministic writer), never hand-edited.
+- **survey-before-act** — a `PreToolUse` hook that, on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
+- **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
+
+**Status:** dogfooded in this repo, **not yet installed to consumers** — the hook *scripts* ship but stay dormant (nothing registers them), and full consumer shipping is gated (V2_ROADMAP S5-C) behind a security review. Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md).
 
 ### Configure ~/.claude/CLAUDE.md
 
