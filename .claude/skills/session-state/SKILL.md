@@ -20,7 +20,7 @@ Use the `/state` command, which calls the deterministic writer in this skill's `
 |---|---|---|
 | `constraint` | hard rules in force (e.g. "Rust only, no Python") | **yes** |
 | `decision` | settled choices, date-stamped (so they're not re-litigated) | no (session start only) |
-| `infra` | survey-before-act findings — what already exists, to reuse | no |
+| `infra` | survey-before-act findings — what already exists, to reuse (lead with a `[subject]` token, e.g. `[rabbitmq]`) | no |
 | `thread` | in-flight items / next steps | **yes** |
 
 ## When to reach for it (proactively, not only on /state)

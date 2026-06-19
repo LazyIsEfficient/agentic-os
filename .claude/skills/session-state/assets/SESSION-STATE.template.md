@@ -29,8 +29,11 @@ re-injected each turn — bloat re-creates the token tax. Prune stale lines.
 - <!-- e.g. [2026-06-19] Awareness mechanisms use deterministic hooks, not prompt rules -->
 
 ## Existing infrastructure
-<!-- Survey-before-act results: what already exists, so it is reused not rebuilt. -->
-- <!-- e.g. RabbitMQ broker already running on :5552 (docker-compose at repo root) -->
+<!-- Survey-before-act results: what already exists, so it is reused not rebuilt.
+     Lead each entry with a [subject] token — the canonical name of the thing. The
+     survey-before-act guard suppresses its provisioning warning only when a command
+     names that EXACT subject, so a coincidental word elsewhere can't silence it. -->
+- <!-- e.g. [rabbitmq] broker already running on :5552 (docker-compose at repo root) -->
 
 ## Open threads
 <!-- In-flight items / next steps. Re-injected each turn alongside Constraints. -->

@@ -14,6 +14,15 @@
 # does NOT name service-manager or scheduler commands by their literal names,
 # since those are Invariant-8 denylist tokens that must not appear in a shipped
 # hook's source (even in a comment — the scanner can't tell comment from code).
+#
+# FAIL POSTURE (governs the future warn->deny ratchet, S5-D):
+#  - Detector/environment failure — jq missing, SESSION-STATE.md unreadable, or
+#    the command unparseable — FAILS OPEN (allow, silently). An environment gap is
+#    not the user's fault and must never block work, in warn OR deny mode.
+#  - Guard POSITIVE — provisioning detected AND no recorded [subject] matches the
+#    command — is the ONLY condition that escalates: warn now, deny after the
+#    evidence gate. Blocking is tied strictly to the guard's real signal, never to
+#    incidental failure, so a future deny can never fail closed on a missing tool.
 set -uo pipefail
 dir="${CLAUDE_PROJECT_DIR:-.}"
 input="$(cat)"
@@ -34,19 +43,27 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-# Already surveyed? If the Existing-infrastructure section names a subject token
-# from the command, assume the survey happened and allow silently.
+# Already surveyed? Suppress ONLY when a recorded survey SUBJECT — a bracketed
+# token [name] leading an Existing-infrastructure entry — appears as a whole token
+# in the command. This structured record replaced an earlier fuzzy substring scan:
+# a coincidental word (e.g. "broker" inside a *different* service's name) no longer
+# aliases a surveyed subject, and the deny-time evasion surface shrinks to "name
+# your service EXACTLY like an already-surveyed subject". Matching is whole-token
+# and case-insensitive; tokens keep internal . _ - so a dashed subject stays whole.
+# No recorded subjects (legacy free-text infra, or unreadable state) => no match =>
+# warn (fail-open).
 state="$dir/SESSION-STATE.md"
 surveyed=0
 if [ -r "$state" ]; then
-  infra="$(awk '/^## Existing infrastructure/{s=1;next} /^## /{s=0} s&&/^- /&&!/<!--/{print}' "$state")"
-  if [ -n "$infra" ]; then
-    for tok in $(printf '%s\n' "$cmd" | tr -cs 'A-Za-z0-9' ' '); do
-      case "$tok" in
-        docker|compose|podman|nerdctl|run|exec|build|image|images|container|name|port|ports|detach|env|volume|volumes|network|networks|restart|always|pull) continue ;;
-      esac
-      [ "${#tok}" -ge 4 ] || continue
-      if printf '%s' "$infra" | grep -qiF -- "$tok"; then surveyed=1; break; fi
+  subjects="$(awk '/^## Existing infrastructure/{s=1;next} /^## /{s=0} s&&/^- /&&!/<!--/{print}' "$state" \
+    | grep -oE '\[[A-Za-z0-9._-]+\]' | tr -d '[]' | tr 'A-Z' 'a-z' | sort -u)"
+  if [ -n "$subjects" ]; then
+    cmdtokens="$(printf '%s' "$cmd" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9._-' '\n')"
+    # Word-split is safe: subjects are charset-filtered to [a-z0-9._-] above, so a
+    # token can hold no whitespace or glob metacharacter. A for-loop keeps the
+    # match in the current shell (no pipe-to-while subshell that would lose the flag).
+    for subj in $subjects; do
+      if printf '%s\n' "$cmdtokens" | grep -qxF -- "$subj"; then surveyed=1; break; fi
     done
   fi
 fi

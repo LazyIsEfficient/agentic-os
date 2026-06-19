@@ -17,4 +17,4 @@ The user invoked `/state $ARGUMENTS`.
    ```
 4. Report the single line that was added (or, for `show`/`init`, the command's output).
 
-Keep entries terse. **Constraints** and **Open threads** are re-injected every turn, so reserve them for high-value, time-sensitive facts. Use **Decisions** for settled choices (the writer stamps the date) and **Existing infrastructure** for survey-before-act findings (what already exists, so it is reused not rebuilt).
+Keep entries terse. **Constraints** and **Open threads** are re-injected every turn, so reserve them for high-value, time-sensitive facts. Use **Decisions** for settled choices (the writer stamps the date) and **Existing infrastructure** for survey-before-act findings (what already exists, so it is reused not rebuilt). Lead an `infra` entry with a `[subject]` token — the canonical name of the thing surveyed, e.g. `/state infra "[rabbitmq] broker on :5552 (docker-compose) — reuse"` — so the survey-before-act guard suppresses its warning only when a command names that exact subject.

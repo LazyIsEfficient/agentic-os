@@ -93,10 +93,17 @@ now skill-local (ship), `/state` is in the allowlist, and the hooks remain dorma
   the still-gated supply-chain step (auto-execution on every consumer session),
   requiring an Invariant-8(b) shipped settings file + a fresh `security-reviewer`
   pass on that install diff.
-- **D — S2 deny-ratchet  ⛔ DEFERRED.** Flip survey-guard warn→deny. Needs real
-  `survey-guard.warns` false-positive evidence (requires real use first), a
-  structured survey record (not the current substring match), and a documented
-  fail-closed/open posture. No data yet → parked.
+- **D — S2 deny-ratchet  ⏸ PREP DONE, FLIP DATA-BLOCKED (#145).** The hardening
+  prerequisites are built (warn-mode unchanged): the fuzzy ≥4-char substring scan
+  is replaced by a **structured `[subject]` survey record** — the guard suppresses
+  only when a command names the exact bracketed subject of a surveyed entry, fixing
+  a demonstrated false-negative (a coincidental word like "broker" in a different
+  service no longer aliases a survey) and shrinking the deny-time evasion surface;
+  and the **fail posture is documented** (environment failure → fail-open; only a
+  true guard-positive escalates). **Still deferred:** the warn→deny flip itself —
+  it needs real `survey-guard.warns` false-positive evidence from actual use (we
+  have none), and flipping a stochastic gate without it violates the
+  no-stochastic-gating rule (`.claude/rules/review-tiers.md`).
 
 **Ship boundary (decided in A; refined in C):** the harness ships as ONE coherent
 unit — awareness hooks (dormant) + `/state` command + `session-state` skill + the

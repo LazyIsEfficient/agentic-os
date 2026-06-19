@@ -15,7 +15,7 @@ cat > "$T/SESSION-STATE.md" <<'MD'
 ## Constraints
 ## Decisions
 ## Existing infrastructure
-- RabbitMQ broker runs via docker-compose at repo root (ports 5552/5672)
+- [rabbitmq] broker runs via docker-compose at repo root (ports 5552/5672)
 ## Open threads
 MD
 export CLAUDE_PROJECT_DIR="$T"
@@ -29,10 +29,29 @@ out="$(run 'docker run -d postgres:16')"
 printf '%s' "$out" | grep -q 'additionalContext' && ok "warns on UNsurveyed provisioning (postgres)" || no "warn unsurveyed" "got: $out"
 
 out="$(run 'docker run -d rabbitmq:3.13-management')"
-[ -z "$out" ] && ok "silent on SURVEYED provisioning (rabbitmq in infra)" || no "silent surveyed" "got: $out"
+[ -z "$out" ] && ok "silent on SURVEYED provisioning ([rabbitmq] subject matches)" || no "silent surveyed" "got: $out"
+
+# Structured-subject fix (the false-negative the fuzzy substring scan had): a
+# DIFFERENT service whose name coincidentally contains a word from the surveyed
+# entry's free text ("broker") must still WARN — it is not the [rabbitmq] subject.
+out="$(run 'docker run -d --name kafka-broker apache/kafka:latest')"
+printf '%s' "$out" | grep -q 'additionalContext' \
+  && ok "warns on coincidental token (kafka-broker != [rabbitmq] subject)" \
+  || no "false-negative regression" "coincidental 'broker' wrongly suppressed: $out"
 
 out="$(run 'docker ps')"
 [ -z "$out" ] && ok "no warn on a survey command (docker ps)" || no "docker ps" "got: $out"
+
+# Legacy / fail-open: a free-text infra entry with NO [subject] token records no
+# survey subject, so provisioning warns (degrades safe, never silently suppresses).
+legacy="$(mktemp -d)"; mkdir -p "$legacy/.claude/hooks"
+cp "$REPO/.claude/hooks/survey-before-act.sh" "$legacy/.claude/hooks/"
+printf '# Session State\n## Existing infrastructure\n- rabbitmq broker, no subject token\n## Open threads\n' > "$legacy/SESSION-STATE.md"
+lout="$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"docker run -d rabbitmq:3.13"}}' | CLAUDE_PROJECT_DIR="$legacy" bash "$legacy/.claude/hooks/survey-before-act.sh")"
+printf '%s' "$lout" | grep -q 'additionalContext' \
+  && ok "fail-open: bracket-less (legacy) infra warns, never silently suppresses" \
+  || no "legacy suppression" "bracket-less infra wrongly suppressed: $lout"
+rm -rf "$legacy"
 
 for c in "git status" "ls -la" "npm install left-pad" "cargo build --release" "echo hello world"; do
   out="$(run "$c")"
