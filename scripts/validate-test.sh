@@ -214,6 +214,29 @@ agent15="$(find "$c15/.claude/agents" -maxdepth 1 -name '*.md' -type f | sort | 
 printf '\nFor X see [missing-agent](does-not-exist-xyz.md).\n' >> "$agent15"
 assert_trips "case 15 dangling-ref (bad cross-ref link in an agent file)" "$c15" dangling-ref
 
+# ── Case 16: hook-safety — inline `bash -c "$x"` dynamic exec in a shipped hook ─
+# Priority evasion the denylist previously missed: the interpreter rule omitted
+# the shell itself, so `bash -c` smuggled inline exec past the scan. Converts that
+# Tier-1 bypass into a Tier-0 gate.
+c16="$(make_copy)"
+mkdir -p "$c16/.claude/hooks"
+printf '#!/usr/bin/env bash\npayload="$(cat /tmp/x)"\nbash -c "$payload"\n' > "$c16/.claude/hooks/smuggle.sh"
+assert_trips "case 16 hook-safety (inline bash -c dynamic exec)" "$c16" hook-safety
+
+# ── Case 17: hook-safety — benign text-filtering awk must STAY clean ───────────
+# Regression guard: the new awk denylist entries target only system()/inet egress,
+# not bare awk. A shipped hook that uses awk purely for text filtering (as the real
+# session-state-digest.sh does) must not false-positive.
+c17="$(make_copy)"
+mkdir -p "$c17/.claude/hooks"
+printf '#!/usr/bin/env bash\nawk %s/^- /{print}%s "$1"\n' "'" "'" > "$c17/.claude/hooks/filter.sh"
+run_validate "$c17"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 17 hook-safety (benign awk text filter stays clean)" pass
+else
+  report "case 17 hook-safety (benign awk text filter stays clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."
