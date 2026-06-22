@@ -75,6 +75,32 @@ The net verdict NORTH_STAR cares about is `benefit − tax`. Headless gives you 
   marker the PreCompact hook writes).
 - Capture each transcript from `~/.claude/projects/<proj>/<session-id>.jsonl`.
 
+### Cursor arms (same scenario, different capture path)
+
+- **ON arm:** interactive Agent session with project `.cursor/hooks.json` active
+  (awareness hooks: `sessionStart` inject + `beforeSubmitPrompt` digest).
+- **OFF arm:** same setup with awareness hooks disabled — empty/rename project
+  `.cursor/hooks.json`, or a throwaway clone without hook registration. Isolate
+  the harness; do not change model or rules bundle.
+- Paste the **identical** scripted prompt sequence into each.
+- Drive each session until **≥ 1 context compaction boundary** (auto-compaction
+  preferred; manual compaction is a controlled fallback — log which).
+- Capture each transcript from
+  `~/.cursor/projects/<workspace-slug>/agent-transcripts/<session-id>/<session-id>.jsonl`.
+
+#### Cursor compaction — honest limit (same structural constraint as #147)
+
+Cursor headless / single-shot agent runs **do not** cross a compaction boundary
+any more than `claude -p` does. Headless measurement is **tax only** (inject +
+digest per turn), not post-compaction **benefit**. Benefit requires an interactive
+multi-turn session crossing a real compaction event (manual procedure or a future
+multi-turn driver — same deferral as #147). Do **not** report a headless Cursor
+ON−OFF delta as the benefit result.
+
+Cursor transcripts omit token `usage` today; `compare.mjs` still diffs **turns**,
+**`repeat_read_files`**, and **`repeated_tool_calls`**. Treat token columns as
+**N/A (zero in export)** for Cursor pairs.
+
 ### Metrics
 
 Feed each transcript pair to the existing instrument:
@@ -125,8 +151,9 @@ transcript. That is new tooling, not built here, and is the prerequisite for an 
 
 ## Status for #147
 
-- **Apparatus (instruments): done** — `session-metrics.mjs` / `compare.mjs` are Tier-0
-  and self-tested; `run-arms.sh` produces one stochastic sample.
+- **Apparatus (instruments): done** — `session-metrics.mjs` / `session-metrics-cursor.mjs`
+  / `compare.mjs` are Tier-0 and self-tested; `compare.mjs` auto-detects platform per
+  file; `run-arms.sh` produces one stochastic sample (Claude Code only).
 - **Benefit measurement: not runnable with current headless tooling** — structural
   (`-p` never compacts). This protocol is the by-hand path; the multi-turn driver is
   the automatable path.
