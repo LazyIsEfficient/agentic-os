@@ -135,9 +135,9 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
-| `~/.cursor/hooks/` | Hook scripts copied from the shared `.claude/hooks/` tree (dormant until registered). For Cursor-native JSON hooks, use the project `.cursor/hooks/` scripts — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.cursor/hooks/` | Cursor-native hook scripts from `.cursor/hooks/` (JSON stdout; spike `*-probe.sh` excluded; dormant until registered) — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The Cursor installer copies a curated allowlist of skills, agents, and hook scripts — not whole directories. Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
+> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
 ### Claude Code (`install.sh`)
 
@@ -148,7 +148,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
 | `~/.claude/hooks/` | Hook scripts (e.g. `block-bad-bash.sh`). The awareness-harness hooks also land here but stay **dormant** until a `settings.json` registers them — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The installer copies a curated allowlist, not whole directories. Only the author-facing commands (`skill-new`, `agent-new`) plus the `/state` awareness-harness writer command install into your global namespace. Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
+> **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
 ---
 
@@ -218,7 +218,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 }
 ```
 
-Per-turn digest live surfacing is not yet confirmed on Cursor — see [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` still copies dormant `.claude/hooks/` scripts; use project `.cursor/hooks/` for Cursor-native hooks.
+Per-turn digest live surfacing is not yet confirmed on Cursor — see [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 
@@ -238,6 +238,23 @@ If there is even a 1% chance a skill might apply, invoke it first.
 
 This is the single most impactful configuration step — without it, Claude treats skills as
 opt-in rather than default.
+
+### Configure Cursor rules + skill discipline
+
+Operating doctrine for this repo lives in `.cursor/rules/` (YAML frontmatter with `alwaysApply: true`). Clone the repo into a project to use it, or copy the rules into your project's `.cursor/rules/`.
+
+To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
+
+```markdown
+## Skills
+
+You have a library of skills installed at `~/.cursor/skills/`. Before responding to any task,
+check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
+
+If there is even a 1% chance a skill might apply, load the skill first.
+```
+
+Repo maintainers: `CURSOR.md` at the repo root `@`-imports `.cursor/rules/*` (parallel to `CLAUDE.md`).
 
 ---
 
@@ -335,7 +352,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 └── workflows/            # multi-agent orchestration scripts
 ```
 
-> Only a curated allowlist ships to consumers (see [What gets installed](#what-gets-installed)); `CLAUDE.md` and `rules/` are repo-local and are never installed.
+> Installers copy full `skills/`, `agents/`, and `hooks/` directories (commands are file-allowlisted on Claude Code only). `CLAUDE.md`, `CURSOR.md`, and `rules/` are repo-local and never installed.
 
 ---
 
@@ -347,7 +364,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions
 
 ## Validating the library
 
-A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the curated allowlist.
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports (`CLAUDE.md` and `CURSOR.md`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 

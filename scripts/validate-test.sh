@@ -32,6 +32,11 @@ make_copy() {
   # memory/ is gitignored; drop any local copy so the baseline matches CI/tarball
   rm -rf "$dst/.claude/memory"
   cp "$REPO_ROOT/CLAUDE.md" "$dst/CLAUDE.md"
+  [[ -f "$REPO_ROOT/CURSOR.md" ]] && cp "$REPO_ROOT/CURSOR.md" "$dst/CURSOR.md"
+  if [[ -d "$REPO_ROOT/.cursor/rules" ]]; then
+    mkdir -p "$dst/.cursor/rules"
+    cp "$REPO_ROOT/.cursor/rules/"*.md "$dst/.cursor/rules/" 2>/dev/null || true
+  fi
   cp "$REPO_ROOT/install.sh" "$dst/install.sh"
   cp "$REPO_ROOT/install.ps1" "$dst/install.ps1"
   cp "$REPO_ROOT/install-cursor.sh" "$dst/install-cursor.sh"
@@ -119,6 +124,11 @@ assert_trips "case 3 dangling-ref (bad wikilink)" "$c3" dangling-ref
 c4="$(make_copy)"
 printf '@.claude/rules/nonexistent.md\n' >> "$c4/CLAUDE.md"
 assert_trips "case 4 claude-imports (missing import)" "$c4" claude-imports
+
+# ── Case 4b: cursor-imports — append a nonexistent @-import ────────────────────
+c4b="$(make_copy)"
+printf '@.cursor/rules/nonexistent.md\n' >> "$c4b/CURSOR.md"
+assert_trips "case 4b cursor-imports (missing import)" "$c4b" cursor-imports
 
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"

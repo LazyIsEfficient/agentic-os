@@ -3,8 +3,9 @@
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
 # copies the consumer allowlist into ~/.cursor/ (skills, agents, dormant hooks).
-# Hooks land as scripts only — no hooks.json activation doc ships yet
-# (checkpoint:cursor-go NO-GO; register hooks manually when T-cursor-hooks lands).
+# Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
+# *-probe.sh fixtures are dev-only and excluded. No hooks.json activation doc
+# ships — register hooks manually in your project or global Cursor config.
 #
 # Usage — pipe from GitHub (no clone required):
 #   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.sh | bash
@@ -126,24 +127,31 @@ fi
 
 install_dir() {
   local name="$1"
-  local src_dir="$SRC/$name"
+  local src_dir="${2:-$SRC/$name}"
+  local exclude_glob="${3:-}"
   local dest_dir="$DEST/$name"
+  local find_args=("$src_dir" -type f)
 
   [[ -d "$src_dir" ]] || return 0
 
   mkdir -p "$dest_dir"
 
-  if [[ "$FORCE" == "true" ]]; then
+  if [[ -n "$exclude_glob" ]]; then
+    find_args+=(! -name "$exclude_glob")
+  fi
+  find_args+=(-print0)
+
+  if [[ "$FORCE" == "true" && -z "$exclude_glob" ]]; then
     cp -r "$src_dir/." "$dest_dir/"
   else
     while IFS= read -r -d '' file; do
       local rel="${file#"$src_dir"/}"
       local target="$dest_dir/$rel"
-      if [[ ! -e "$target" ]]; then
+      if [[ "$FORCE" == "true" || ! -e "$target" ]]; then
         mkdir -p "$(dirname "$target")"
         cp "$file" "$target"
       fi
-    done < <(find "$src_dir" -type f -print0)
+    done < <(find "${find_args[@]}")
   fi
 
   echo "  ✓ $name → $dest_dir"
@@ -154,9 +162,8 @@ echo "Installing to $DEST"
 
 install_dir "skills"
 install_dir "agents"
-# Hooks: ship scripts dormant — awareness harness scripts land in ~/.cursor/hooks/
-# but no hooks.json activation doc ships (opt-in registration is a follow-up task).
-install_dir "hooks"
+# Hooks: Cursor-native JSON scripts from .cursor/hooks/ (exclude spike *-probe.sh).
+install_dir "hooks" "$REPO_ROOT/.cursor/hooks" '*-probe.sh'
 
 if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;

@@ -2,8 +2,9 @@
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
 # copies the consumer allowlist into $env:USERPROFILE\.cursor\ (skills, agents,
-# dormant hooks). Hooks land as scripts only — no hooks.json activation doc ships
-# yet (checkpoint:cursor-go NO-GO; register hooks manually when T-cursor-hooks lands).
+# dormant hooks). Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout
+# contract); spike *-probe.sh fixtures are dev-only and excluded. No hooks.json
+# activation doc ships — register hooks manually in your project or global config.
 #
 # Usage — pipe from GitHub (no clone required):
 #   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.ps1 | iex
@@ -130,6 +131,25 @@ function Install-Dir {
   Write-Host "  OK $Name -> $DestDir"
 }
 
+function Install-CursorHooks {
+  $SrcDir  = Join-Path $RepoRoot ".cursor\hooks"
+  $DestDir = Join-Path $Dest "hooks"
+  if (-not (Test-Path $SrcDir)) { return }
+  New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
+
+  Get-ChildItem -Path $SrcDir -Recurse -File | Where-Object { $_.Name -notlike '*-probe.sh' } | ForEach-Object {
+    $rel    = $_.FullName.Substring($SrcDir.Length + 1)
+    $target = Join-Path $DestDir $rel
+    if ($Force -or -not (Test-Path $target)) {
+      $targetParent = Split-Path $target
+      New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
+      Copy-Item -Path $_.FullName -Destination $target
+    }
+  }
+
+  Write-Host "  OK hooks -> $DestDir"
+}
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 Write-Host ""
@@ -137,8 +157,7 @@ Write-Host "Installing to $Dest"
 
 Install-Dir "skills"
 Install-Dir "agents"
-# Hooks: ship scripts dormant — no hooks.json activation doc ships.
-Install-Dir "hooks"
+Install-CursorHooks
 
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
