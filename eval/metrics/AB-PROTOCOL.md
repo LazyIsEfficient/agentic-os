@@ -42,77 +42,109 @@ actually measure the benefit.
 The net verdict NORTH_STAR cares about is `benefit − tax`. Headless gives you only
 `tax`; you must reach a compaction boundary to see `benefit`.
 
-## The interactive benefit protocol (human-in-the-loop)
+## Interactive long-session procedure
 
-### Scenario design rules
+Operator runbook for the benefit A/B. **Do not start runs until pre-registered.**
 
-1. **One long, multi-step task in a single interactive session** (not `-p`).
-2. **An anchor fact established early** that must be **used correctly late** — e.g.
-   "the broker already runs at `:5552`, reuse it" or "the contract field is `userId`,
-   not `uid`". Pick a fact whose loss is *observable*: losing it forces re-work
-   (re-read / re-survey) or causes a wrong value.
-3. **Enough intervening steps to cross an auto-compaction boundary** between the
-   early establish and the late use. Auto-compaction is the faithful trigger; a
-   manual `/compact` at a fixed point is the controlled fallback (note which you used —
-   they are not identical conditions).
-4. **The late step is the probe:** in the OFF arm, the early fact is gone from context
-   after compaction, so the model must re-derive it (re-work) or err; in the ON arm,
-   `SESSION-STATE.md` re-injects it, so it shouldn't.
-5. **Same scripted prompt sequence for both arms** — same wording, same order, same
-   model, same starting repo state. The only variable is the harness.
+**Canonical scenario:** [scenarios/long-session-awareness.md](scenarios/long-session-awareness.md)
+— multi-step batch-metrics task with three anchor facts (constraint, decision, infra)
+established early and probed on prompts 9–10 after compaction.
 
-### Run procedure (per arm, repeat for N)
+**Pre-register:** `bash pre-register.sh long-session-awareness` writes
+`runs/<timestamp>-long-session-awareness/hypothesis.md` with the interpretation template.
+Fill N, compaction trigger, and decision rule **before** any session or `compare.mjs` run.
 
-- **ON arm:** interactive session with `--settings .claude/settings.json` (awareness
-  hooks active). Before starting, record the anchor fact via `/state` so it is in
-  `SESSION-STATE.md`.
-- **OFF arm:** interactive session with `--settings '{"hooks":{}}'` (no awareness
-  hooks; everything else equal — *not* `--bare`, which also strips LSP/plugins and
-  confounds the comparison).
-- Paste the **identical** scripted prompt sequence into each.
-- Drive each session until **at least one compaction boundary is crossed** — confirm
-  via the compaction event (and, ON arm, the `.claude/session-state.checkpoints`
-  marker the PreCompact hook writes).
-- Capture each transcript from `~/.claude/projects/<proj>/<session-id>.jsonl`.
+### 1. Choose N and arms
 
-### Metrics
+| Arm | Invocation | Harness |
+|---|---|---|
+| **ON** | `claude --settings .claude/settings.json` (interactive, not `-p`) | SessionStart inject + UserPromptSubmit digest + PreCompact checkpoint |
+| **OFF** | `claude --settings '{"hooks":{}}'` (interactive, not `-p`) | No awareness hooks; **not** `--bare` (confounds LSP/plugins) |
 
-Feed each transcript pair to the existing instrument:
+- **N ≥ 3** sessions per arm (6+ runs total). N is an expensive, opt-in spend.
+- Same model, same repo SHA, same scripted prompts — only the harness differs.
+- ON arm: record anchor facts via `/state` before prompt 1 (see scenario).
 
+### 2. Run each session (repeat N times per arm)
+
+1. Start a **fresh interactive** session with the arm's settings from the repo root.
+2. Paste the scenario's scripted prompts **one at a time** — identical wording for both arms.
+3. Drive until **≥ 1 compaction boundary** (auto-compaction preferred; manual `/compact`
+   is a controlled fallback — log which).
+4. Confirm compaction: compaction event in transcript; ON arm may show
+   `.claude/session-state.checkpoints` from the PreCompact hook.
+5. **Capture transcript** when the session ends:
+
+   ```text
+   ~/.claude/projects/<proj-slug>/<session-id>.jsonl
+   ```
+
+   `<proj-slug>` is derived from the absolute repo path. Save each file under
+   `eval/metrics/runs/<run-id>/` as `on-01.jsonl`, `off-01.jsonl`, etc.
+
+### 3. Compare pairs with `compare.mjs`
+
+For each run index *i* (same scenario completion, different arms):
+
+```bash
+node eval/metrics/compare.mjs runs/<run-id>/on-0i.jsonl runs/<run-id>/off-0i.jsonl --json \
+  >> runs/<run-id>/compare-results.jsonl
 ```
-node compare.mjs <on-session>.jsonl <off-session>.jsonl
+
+Positive `delta.*.abs` / `saved%` = ON arm spent less (harness helped). One pair is
+**one stochastic sample** — never the headline result.
+
+### 4. Analyze the **distribution**, not a point estimate
+
+Across all N pairs:
+
+- **Median + spread** (min/max or IQR) for `output_tokens`, `repeat_read_files`,
+  `repeated_tool_calls` deltas.
+- Weight re-work signals toward the **post-compaction** region (eyeball transcripts).
+- **Anchor-fact correctness** (manual) — late prompts vs scenario expected values.
+
+```bash
+# Example: median output-token delta from collected --json lines
+node -e '
+const rows = require("fs").readFileSync("runs/<run-id>/compare-results.jsonl","utf8")
+  .trim().split("\n").map(JSON.parse);
+const med = k => { const v = rows.map(r=>r.delta[k].abs).sort((a,b)=>a-b);
+  return v[Math.floor(v.length/2)]; };
+console.log({ n: rows.length, median: {
+  output_tokens: med("output_tokens"),
+  repeat_read_files: med("repeat_read_files"),
+  repeated_tool_calls: med("repeated_tool_calls"),
+}});
+'
 ```
 
-Read, **comparing the distribution across the N pairs, never a single delta**:
+Look for a **consistent direction** across pairs. LLM variance means a single ON/OFF
+pair proves nothing.
 
-- **output tokens to completion** — total work spent.
-- **`repeat_read_files`** and **`repeated_tool_calls`**, weighted toward the
-  **post-compaction** region — the raw re-work signal. (These are Tier-0 mechanical
-  counts; "wasteful" is a Tier-2 judgement the instrument deliberately does not make —
-  a re-read after a file changed is legitimate, so eyeball the cause.)
-- **anchor-fact correctness** (manual) — did the late step use the right value?
+### 5. Pre-registered interpretation (decide before running)
 
-### N and analysis
+| Verdict | Condition |
+|---|---|
+| **BENEFIT CONFIRMED** | ON post-compaction re-work consistently lower **and** tokens-to-completion not worse, across the distribution. NORTH_STAR thesis supported *on this scenario*. |
+| **NULL** | No consistent difference beyond run-to-run noise. Tax not repaid across compaction. |
+| **COST-DOMINATED** | ON consistently spends more with no re-work reduction. |
 
-- N is a deliberate, expensive, **opt-in** spend (interactive sessions, can't be
-  scripted headlessly — see Automation note). Even N=3–5/arm gives a first read;
-  report **median + spread**, not a point estimate.
-- LLM runs vary; a single pair proves nothing. Look for a **consistent** shift across
-  the distribution.
+The [effectiveness investigation](../INVESTIGATION.md) found **null** on tractable
+single tasks — the honest null prior for this A/B. Pre-register because that prior
+makes motivated reading easy. This apparatus measures; it does not pre-judge.
 
-### Pre-registered interpretation (decide before running, to avoid post-hoc spin)
+Full template: scenario doc § Pre-registration interpretation template, or output of
+`pre-register.sh`.
 
-- **BENEFIT CONFIRMED** — ON's post-compaction re-work signals are consistently lower
-  than OFF's **and** ON's tokens-to-completion are not worse, across the distribution.
-  NORTH_STAR's thesis is supported *on this scenario*.
-- **NULL** — no consistent difference beyond run-to-run noise. The tax isn't repaid
-  even across compaction; the harness's value is not demonstrated here.
-- **COST-DOMINATED** — ON spends consistently more with no re-work reduction. The
-  harness is net overhead on this scenario.
+### Scenario design rules (when authoring new scenarios)
 
-The effectiveness investigation found **null** on tractable single tasks; pre-register
-because that prior makes motivated reading easy. This apparatus measures; it does not
-pre-judge.
+1. **One long, multi-step task** in a single interactive session (not `-p`).
+2. **Anchor fact(s) established early**, used correctly late — loss is *observable*
+   (re-work or wrong value).
+3. **Enough intervening steps** to cross auto-compaction between establish and probe.
+4. **Late step is the probe** — OFF must re-derive or err; ON re-injects via
+   `SESSION-STATE.md`.
+5. **Identical scripted sequence** for both arms.
 
 ## Automation note (the only way to make this headless/repeatable)
 
@@ -126,10 +158,14 @@ transcript. That is new tooling, not built here, and is the prerequisite for an 
 ## Status for #147
 
 - **Apparatus (instruments): done** — `session-metrics.mjs` / `compare.mjs` are Tier-0
-  and self-tested; `run-arms.sh` produces one stochastic sample.
+  and self-tested for **Claude Code and Cursor** JSONL (`--platform auto` default);
+  `run-arms.sh` produces one stochastic sample (Claude Code only).
 - **Benefit measurement: not runnable with current headless tooling** — structural
   (`-p` never compacts). This protocol is the by-hand path; the multi-turn driver is
   the automatable path.
-- **Executing it (N interactive sessions) is a deliberate, expensive, opt-in spend
-  with a null prior** — deferred until someone chooses to invest. The honest deliverable
-  for #147 is this protocol + the structural finding, not a biased cost-only number.
+- **Scenario doc: done** — [scenarios/long-session-awareness.md](scenarios/long-session-awareness.md)
+  + `pre-register.sh` for hypothesis stamping.
+- **Executing N interactive sessions** is a deliberate, expensive, opt-in spend with a
+  [null prior](../INVESTIGATION.md) — **operator follow-up**, not part of this PR.
+  The honest deliverable for #147 is protocol + scenario + structural finding, not a
+  biased cost-only number from headless runs.
