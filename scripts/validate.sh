@@ -506,10 +506,12 @@ check_review_tiers() {
 #
 # This invariant is a TRIPWIRE, not a sandbox. A static scan cannot PROVE a hook
 # is safe; it denies the obvious exfil / destructive / obfuscation patterns in
-# shipped hook scripts, and forces hook *commands* to call a vendored
-# .claude/hooks/ script rather than carry inline shell. The real defenses are
-# layered (minimal auditable scripts + no runtime fetch + human security review +
-# the workspace-trust gate). See SECURITY.md for the threat model and limits.
+# shipped hook scripts, and forces hook *commands* to call a vendored hooks/
+# script rather than carry inline shell. Surfaces: `.claude/hooks/` + optional
+# dev `settings.json` (Claude Code), and `.cursor/hooks/` + optional
+# `hooks.json` (Cursor). The real defenses are layered (minimal auditable scripts
+# + no runtime fetch + human security review + the workspace-trust gate). See
+# SECURITY.md for the threat model and limits.
 #
 # Pattern@@@reason. `@@@` is the delimiter (no regex here contains it). Scope is
 # deliberately the shipped scripts only — NOT settings.json config — so the scan
@@ -540,60 +542,74 @@ HOOK_DENY=(
   '\b(id_rsa|\.git-credentials|\.npmrc)\b@@@credential-file access in a shipped hook'
 )
 
+# Scan a hooks directory for denylisted shell idioms. Shared by Claude and Cursor
+# surfaces (Invariant 8(a)). $2 is a human label for error messages (e.g. the
+# relative path ".claude/hooks/"). When $3 is "skip-probe", *-probe.sh files are
+# skipped: spike live-fire fixtures under .cursor/hooks/ are throwaway dev artifacts
+# (eval/spikes/cursor-hook-capability) — not the consumer ship surface (install-cursor
+# copies .claude/hooks). Production Cursor-native hooks land without the -probe suffix
+# in T-cursor-hooks and are fully scanned.
+scan_hook_scripts_dir() {
+  local hooks_dir="$1" label="$2" skip_probe="${3:-}"
+  [[ -d "$hooks_dir" ]] || return 0
+  local f entry re reason ln
+  while IFS= read -r f; do
+    case "$f" in
+      *.sh) ;;
+      *.md) continue ;;
+      *) fail hook-safety "$f" "non-.sh file in $label — only vendored *.sh shell hooks may ship (other interpreters evade the shell-idiom denylist)"; continue ;;
+    esac
+    if [[ "$skip_probe" == "skip-probe" && "$f" == *-probe.sh ]]; then
+      continue
+    fi
+    for entry in "${HOOK_DENY[@]}"; do
+      re="${entry%%@@@*}"; reason="${entry##*@@@}"
+      if grep -qE "$re" "$f"; then
+        ln=$(grep -nE "$re" "$f" | head -1 | cut -d: -f1)
+        fail hook-safety "$f" "$reason (line $ln)"
+      fi
+    done
+  done < <(find "$hooks_dir" -type f | sort)
+}
+
+# Crude line-based JSON scan (no jq): extract "command" string values, require a
+# vendored hooks/ path prefix, then assert strict-shape allowlist match.
+check_hook_commands_in_file() {
+  local json_file="$1" path_needle="$2" shape_re="$3" shape_desc="$4"
+  [[ -f "$json_file" ]] || return 0
+  local cline cmdval
+  while IFS= read -r cline; do
+    cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
+    if [[ "$cmdval" == "$cline" ]]; then
+      continue
+    fi
+    if ! printf '%s' "$cmdval" | grep -qF "$path_needle"; then
+      fail hook-safety "$json_file" "hook command does not call a vendored ${path_needle} script: $cmdval"
+    elif ! printf '%s' "$cmdval" | grep -qE "$shape_re"; then
+      fail hook-safety "$json_file" "hook command is not a single strict-shape vendored-script call ($shape_desc) — no chaining/newlines/subshells/traversal: $cmdval"
+    fi
+  done < <(grep -E '"command"[[:space:]]*:' "$json_file" || true)
+}
+
 check_hook_safety() {
   # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
   # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
   # would evade it entirely — restrict shipped hooks to *.sh and reject the rest.
-  if [[ -d "$CLAUDE/hooks" ]]; then
-    local f entry re reason ln
-    while IFS= read -r f; do
-      case "$f" in
-        *.sh) ;;             # shell hook — scan it below
-        *.md) continue ;;    # in-tree docs (e.g. a README) — not executable, skip
-        *) fail hook-safety "$f" "non-.sh file in .claude/hooks/ — only vendored *.sh shell hooks may ship (other interpreters evade the shell-idiom denylist)"; continue ;;
-      esac
-      for entry in "${HOOK_DENY[@]}"; do
-        re="${entry%%@@@*}"; reason="${entry##*@@@}"
-        if grep -qE "$re" "$f"; then
-          ln=$(grep -nE "$re" "$f" | head -1 | cut -d: -f1)
-          fail hook-safety "$f" "$reason (line $ln)"
-        fi
-      done
-    done < <(find "$CLAUDE/hooks" -type f | sort)
-  fi
+  scan_hook_scripts_dir "$CLAUDE/hooks" ".claude/hooks/"
+  scan_hook_scripts_dir "$ROOT/.cursor/hooks" ".cursor/hooks/" skip-probe
 
-  # (b) Every hook "command" in settings.json must invoke a vendored
-  # .claude/hooks/ script — no inline shell. Crude line-based JSON scan (no jq),
-  # consistent with this script's other crude parses. No-ops when there is no
-  # hooks block. Catches an inline `curl … | bash` smuggled into a command field.
-  local sj="$CLAUDE/settings.json"
-  if [[ -f "$sj" ]]; then
-    local cline cmdval
-    while IFS= read -r cline; do
-      # Extract the JSON string value of "command". The bracket expression
-      # [^"\] means "any char that is not a quote or a backslash" (inside an ERE
-      # bracket `\` is literal on both BSD and GNU) — paired with \\. to consume
-      # escaped chars, this is the standard JSON-string idiom. On no match sed
-      # echoes the line UNCHANGED, so guard on cmdval != cline below: only assert
-      # the vendored-path rule when extraction actually succeeded — otherwise a
-      # line-wrapped/oddly-quoted value would false-positive (block a legit config).
-      cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
-      if [[ "$cmdval" != "$cline" ]]; then
-        if ! printf '%s' "$cmdval" | grep -q '\.claude/hooks/'; then
-          fail hook-safety "$sj" "hook command does not call a vendored .claude/hooks/ script: $cmdval"
-        elif ! printf '%s' "$cmdval" | grep -qE '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$'; then
-          # STRICT SHAPE — an ALLOWLIST, not a metacharacter denylist (a denylist is
-          # incompletable: it missed the newline separator). The command MUST be
-          # exactly: <interpreter> .claude/hooks/<name>.sh [simple args]. Anything
-          # else — a chained `; curl|bash`, a literal-newline statement, an `env`
-          # prefix, a `../` traversal in the path, a subshell — fails to match the
-          # shape and is rejected. The arg charset excludes every shell metachar,
-          # backslash, and whitespace-separator, so a single call cannot become a chain.
-          fail hook-safety "$sj" "hook command is not a single strict-shape vendored-script call (<interpreter> .claude/hooks/<name>.sh [simple args]) — no chaining/newlines/subshells/traversal: $cmdval"
-        fi
-      fi
-    done < <(grep -E '"command"[[:space:]]*:' "$sj" || true)
-  fi
+  # (b) Every hook "command" must invoke a vendored hooks/ script — no inline shell.
+  check_hook_commands_in_file "$CLAUDE/settings.json" \
+    '.claude/hooks/' \
+    '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
+    '<interpreter> .claude/hooks/<name>.sh [simple args]'
+
+  # Cursor hooks.json v1 schema — .cursor/hooks/<name>.sh [simple args] (no interpreter
+  # prefix; Cursor invokes the script path directly).
+  check_hook_commands_in_file "$ROOT/.cursor/hooks.json" \
+    '.cursor/hooks/' \
+    '^\.cursor/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
+    '.cursor/hooks/<name>.sh [simple args]'
 }
 
 # ── Invariant 9: tombstones ────────────────────────────────────────────────────
