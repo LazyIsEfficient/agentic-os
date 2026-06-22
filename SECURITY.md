@@ -4,7 +4,7 @@
 
 Most of this library is **inert**: skills, agents, commands, and rules are Markdown — instructions a *model* reads. The worst case for a bad instruction is bad advice, with a human and the model in the loop.
 
-**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines.** On **Claude Code**, `install.sh` runs `install_dir "hooks"` and `chmod +x` on `.claude/hooks/*.sh`; `install.ps1` does the same. On **Cursor**, `install-cursor.sh` / `install-cursor.ps1` copy the same hook scripts from the shared `.claude/hooks/` tree into `~/.cursor/hooks/` and mark them executable — skills and agents also land under `~/.cursor/`. Once registered in a platform hook config (Claude `settings.json` or Cursor `hooks.json`), a hook fires on routine events (e.g. `PreToolUse` / `beforeShellExecution` on tool or shell activity, `SessionStart` / `sessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface on **both platforms**, so it is the primary security concern regardless of which IDE you use.
+**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines.** On **Claude Code**, `install.sh` runs `install_dir "hooks"` and `chmod +x` on `.claude/hooks/*.sh`; `install.ps1` does the same. On **Cursor**, `install-cursor.sh` / `install-cursor.ps1` copy production hook scripts from `.cursor/hooks/` (JSON stdout contract; spike `*-probe.sh` excluded) into `~/.cursor/hooks/` and mark them executable — skills and agents come from the shared `.claude/` tree under `~/.cursor/`. Once registered in a platform hook config (Claude `settings.json` or Cursor `hooks.json`), a hook fires on routine events (e.g. `PreToolUse` / `beforeShellExecution` on tool or shell activity, `SessionStart` / `sessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface on **both platforms**, so it is the primary security concern regardless of which IDE you use.
 
 ## Threat model — the supply chain
 
@@ -22,12 +22,12 @@ The only barrier in front of a freshly pulled hook is each platform's **workspac
 - **No `settings.json` ships.** The repo's own `.claude/settings.json` (dev permissions + autoMode config) is **not** shipped, and S5-C deliberately did not add a shipped one. Every shipped hook script is **dormant** on a consumer until they register it in their own `settings.json` — the executable code is on disk but nothing runs it automatically.
 
 **Cursor (`install-cursor.sh` / `install-cursor.ps1`)**
-- Ships the shared hook scripts into `~/.cursor/hooks/` (sourced from `.claude/hooks/` in the tarball) and marks them executable. Also ships skills and agents under `~/.cursor/`; commands do **not** ship on Cursor.
+- Ships production hook scripts from `.cursor/hooks/` into `~/.cursor/hooks/` (spike `*-probe.sh` excluded) and marks them executable. Skills and agents ship from `.claude/` into `~/.cursor/`; commands do **not** ship on Cursor.
 - **No `hooks.json` ships.** The repo's own `.cursor/hooks.json` (dev/spike registration for live-fire probes) is **not** shipped. Hook scripts are **dormant** on a consumer until they register them in their own `hooks.json` — same opt-in posture as Claude.
 
-**Shared shipped hook scripts (both platforms, dormant until registered):**
-  - `.claude/hooks/block-bad-bash.sh` — a `jq`-gated ergonomics nudge, explicitly self-labeled *not a security control*. Benign and minimal.
-  - The awareness-harness hooks — `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — ship **dormant** (S5-C). The `session-state` skill documents the opt-in registration; `SESSION-STATE.md` is governed by rule 7 below.
+**Shared shipped hook scripts (dormant until registered):**
+  - **Claude only:** `.claude/hooks/block-bad-bash.sh` — a `jq`-gated ergonomics nudge, explicitly self-labeled *not a security control*. Benign and minimal.
+  - **Both platforms (awareness harness):** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — Claude copies from `.claude/hooks/` (plain stdout); Cursor copies from `.cursor/hooks/` (JSON stdout; requires `jq` at runtime for inject/digest). Ship **dormant** (S5-C). The `session-state` skill documents the opt-in registration; `SESSION-STATE.md` is governed by rule 7 below.
 
 ## Policy for shipped hooks
 

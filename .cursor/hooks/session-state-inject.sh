@@ -10,11 +10,11 @@ header='=== SESSION STATE — durable external memory the user maintains. Treat 
 
 emit_json() {
   local content="$1"
-  if command -v jq >/dev/null 2>&1; then
-    jq -n --arg ctx "$content" '{additional_context: $ctx}'
-  else
-    exit 0
+  if ! command -v jq >/dev/null 2>&1; then
+    echo 'session-state-inject: jq is required for Cursor JSON hook output (install: brew install jq / apt install jq)' >&2
+    exit 1
   fi
+  jq -n --arg ctx "$content" '{additional_context: $ctx}'
 }
 
 [ -r "$f" ] || exit 0

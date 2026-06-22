@@ -342,6 +342,20 @@ check_claude_imports() {
   done < "$cf"
 }
 
+# ── Invariant 4b: cursor-imports ───────────────────────────────────────────────
+check_cursor_imports() {
+  local cf="$ROOT/CURSOR.md"
+  [[ -f "$cf" ]] || return 0
+  while IFS= read -r line; do
+    [[ "$line" =~ ^@ ]] || continue
+    local rel="${line#@}"
+    rel="${rel%%[[:space:]]*}"
+    if [[ ! -f "$ROOT/$rel" ]]; then
+      fail cursor-imports "$cf" "@-import '$rel' does not resolve to an existing file"
+    fi
+  done < "$cf"
+}
+
 # ── Invariant 5: memory-length ─────────────────────────────────────────────────
 check_memory_length() {
   local mf="$CLAUDE/memory/MEMORY.md"
@@ -406,7 +420,11 @@ check_ship_manifest() {
   # ---- install-cursor.ps1 ----
   if [[ -f "$psc" ]]; then
     local got_dirs; got_dirs="$(grep -oE 'Install-Dir[[:space:]]+"[^"]+"' "$psc" \
-      | sed -E 's/.*Install-Dir[[:space:]]+"([^"]+)".*/\1/' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
+      | sed -E 's/.*Install-Dir[[:space:]]+"([^"]+)".*/\1/' | sort -u)"
+    if grep -qE '^function[[:space:]]+Install-CursorHooks' "$psc"; then
+      got_dirs="$got_dirs"$'\n'"hooks"
+    fi
+    got_dirs="$(printf '%s\n' "$got_dirs" | grep -v '^$' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
     local got_cmds; got_cmds="$(grep -oE '"[^"]+\.md"' "$psc" 2>/dev/null \
       | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//' || true)"
     compare_cursor_manifest "$psc" "$got_dirs" "$got_cmds"
@@ -545,10 +563,10 @@ HOOK_DENY=(
 # Scan a hooks directory for denylisted shell idioms. Shared by Claude and Cursor
 # surfaces (Invariant 8(a)). $2 is a human label for error messages (e.g. the
 # relative path ".claude/hooks/"). When $3 is "skip-probe", *-probe.sh files are
-# skipped: spike live-fire fixtures under .cursor/hooks/ are throwaway dev artifacts
-# (eval/spikes/cursor-hook-capability) — not the consumer ship surface (install-cursor
-# copies .claude/hooks). Production Cursor-native hooks land without the -probe suffix
-# in T-cursor-hooks and are fully scanned.
+# skipped: spike live-fire fixtures under .cursor/hooks/*-probe.sh are dev-only
+# (eval/spikes/cursor-hook-capability) — excluded from install-cursor ship surface.
+# Production .cursor/hooks/*.sh (JSON stdout contract) ship via install-cursor.*
+# into ~/.cursor/hooks/; Claude install still ships .claude/hooks/ (plain stdout).
 scan_hook_scripts_dir() {
   local hooks_dir="$1" label="$2" skip_probe="${3:-}"
   [[ -d "$hooks_dir" ]] || return 0
@@ -647,6 +665,7 @@ check_tombstones() {
 check_frontmatter_and_names
 check_dangling_refs
 check_claude_imports
+check_cursor_imports
 check_memory_length
 check_ship_manifest
 check_review_tiers

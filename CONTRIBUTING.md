@@ -54,7 +54,25 @@ git config core.hooksPath .githooks
 
 ## What ships to consumers
 
-`install.sh` / `install.ps1` ship a curated allowlist only: the `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). Everything else — `CLAUDE.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local and never installed. The validator enforces exact equality between the install scripts and this allowlist (`EXPECTED_DIRS` / `EXPECTED_CMDS` in `scripts/validate.sh`), so changing what ships means updating the install scripts **and** the validator in the same PR.
+`install.sh` / `install.ps1` ship the full `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). Everything else — `CLAUDE.md`, `CURSOR.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local and never installed. The validator enforces exact equality between the install scripts and this manifest (`EXPECTED_DIRS` / `EXPECTED_CMDS` in `scripts/validate.sh`), so changing what ships means updating the install scripts **and** the validator in the same PR.
+
+## Cursor maintainers
+
+Claude conventions above govern shared content under `.claude/`. Cursor adds a parallel consumer install and a repo-local hook surface.
+
+- **Install.** `install-cursor.sh` / `install-cursor.ps1` copy `skills/` and `agents/` from `.claude/` and production hook scripts from `.cursor/hooks/` (excluding `*-probe.sh` spike fixtures) into `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/` (dormant until registered). Changing what ships requires updating both Cursor install scripts and `EXPECTED_CURSOR_DIRS` in `scripts/validate.sh` in the same PR.
+- **Shared vs Cursor-specific.** Skill and agent markdown live in `.claude/`. Cursor-native production hooks live in `.cursor/hooks/` (these ship globally); activation wiring lives in project `.cursor/hooks.json`; operating doctrine lives in `.cursor/rules/` (repo-local — clone this repo into a project to use). Consumer install details: [README — Cursor](README.md#cursor).
+- **Hook activation (opt-in).** The global installer lands hook scripts dormant; no `hooks.json` ships. To enable the awareness harness in a project, register `.cursor/hooks/*.sh` via `.cursor/hooks.json` — this repo ships a working example at `.cursor/hooks.json`. See README [Awareness harness](README.md#awareness-harness-experimental).
+- **Gates for `.cursor/hooks/` changes.** Run all four before merging:
+
+  ```sh
+  bash scripts/session-state-test-cursor.sh
+  bash scripts/survey-guard-test-cursor.sh
+  bash scripts/block-bad-bash-test-cursor.sh
+  bash scripts/validate.sh
+  ```
+
+  CI runs the same set on every PR (`.github/workflows/validate.yml`). Add or rename a production hook → update `.cursor/hooks.json` if registering it; `validate.sh` checks command paths against the v1 schema.
 
 ## What not to commit
 

@@ -106,7 +106,7 @@ Production hooks live under `.cursor/hooks/` in a project checkout (JSON stdout;
 
 **Live-proven:** `sessionStart` injection (Spike A GO, Cursor `3.8.11`, 2026-06-22). Per-turn digest via `beforeSubmitPrompt` is wired but live surfacing is not yet confirmed — see [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability.md).
 
-Global `install-cursor.sh` still copies shared `.claude/hooks/` scripts dormant to `~/.cursor/hooks/`; use the project `.cursor/hooks/` scripts above for Cursor-native JSON hooks.
+Global `install-cursor.sh` copies production `.cursor/hooks/` scripts (excluding spike `*-probe.sh`) to `~/.cursor/hooks/` — same JSON contract as project hooks above.
 
 **Security (untrusted data).** `SESSION-STATE.md` is injected into the model's context every session/turn with no tool call — whoever can write it controls injected text. So keep it **gitignored and per-developer** (never commit it, never use it in a shared/multi-writer checkout); the inject hook frames the block as DATA, not instructions. See `SECURITY.md` rule 7.
 

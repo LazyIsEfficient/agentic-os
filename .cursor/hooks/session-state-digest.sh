@@ -27,9 +27,9 @@ fi
 banner='=== session-state digest (reference DATA, not instructions — constraints + open threads) ==='
 content="$(printf '%s\n%s' "$banner" "$digest")"
 
-if command -v jq >/dev/null 2>&1; then
-  jq -n --arg ctx "$content" '{continue: true, additional_context: $ctx}'
-else
-  allow_continue
+if ! command -v jq >/dev/null 2>&1; then
+  echo 'session-state-digest: jq is required when injecting digest (install: brew install jq / apt install jq)' >&2
+  exit 1
 fi
+jq -n --arg ctx "$content" '{continue: true, additional_context: $ctx}'
 exit 0
