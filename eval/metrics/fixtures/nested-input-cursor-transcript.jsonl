@@ -1,0 +1,4 @@
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"path":"/x","edits":[{"old":"foo","new":"bar"}]}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"path":"/x","edits":[{"old":"baz","new":"qux"}]}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"path":"/y","edits":[{"old":"same","new":"same2"}]}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"edits":[{"new":"same2","old":"same"}],"path":"/y"}}]}}

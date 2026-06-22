@@ -1,0 +1,5 @@
+{"role":"user","message":{"content":[{"type":"text","text":"user turn — no tool calls, must be ignored for metrics"}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"first inference"},{"type":"tool_use","name":"Read","input":{"path":"/a.txt"}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"path":"/a.txt"}},{"type":"tool_use","name":"Shell","input":{"command":"echo x","description":"say x"}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Shell","input":{"description":"say x","command":"echo x"}},{"type":"tool_use","name":"Read","input":{"path":"/b.txt"}}]}}
+{"type":"turn_ended","status":"success"}

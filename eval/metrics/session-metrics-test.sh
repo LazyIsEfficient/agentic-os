@@ -60,4 +60,6 @@ process.exit(fail);
 '
 rm -f "$DIR/fixtures/idless-transcript.jsonl"
 
+bash "$DIR/session-metrics-cursor-test.sh"
+
 echo "session-metrics-test: OK"
