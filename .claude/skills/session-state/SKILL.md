@@ -71,7 +71,11 @@ Keep entries terse. Lead `infra` with a `[subject]` token — e.g. `"[rabbitmq] 
 
 ## Activation (opt-in — hooks ship dormant)
 
-The `/state` command and writer work as soon as the skill is installed. The **hooks that auto-surface the file ship dormant** — the scripts land in `.claude/hooks/` but nothing registers them, so they never run until you opt in. To activate, add this to your project `.claude/settings.json` (the commands invoke the vendored scripts — no inline shell):
+The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). The **hooks that auto-surface the file ship dormant** — scripts land on disk but nothing registers them until you opt in.
+
+### Claude Code
+
+Add this to your project `.claude/settings.json` (commands invoke vendored scripts — no inline shell):
 
 ```json
 {
@@ -83,6 +87,10 @@ The `/state` command and writer work as soon as the skill is installed. The **ho
   }
 }
 ```
+
+### Cursor — hook activation deferred (NO-GO)
+
+Do **not** register `hooks.json` from consumer docs yet. The [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/v2-cursor/eval/spikes/cursor-hook-capability.md) recorded **NO-GO** for live `sessionStart` injection into Agent context; hook scripts ship dormant to `~/.cursor/hooks/` until `T-cursor-hooks` lands and live-fire passes. Use the writer + this skill without hooks on Cursor for now.
 
 **Security (untrusted data).** `SESSION-STATE.md` is injected into the model's context every session/turn with no tool call — whoever can write it controls injected text. So keep it **gitignored and per-developer** (never commit it, never use it in a shared/multi-writer checkout); the inject hook frames the block as DATA, not instructions. See `SECURITY.md` rule 7.
 
