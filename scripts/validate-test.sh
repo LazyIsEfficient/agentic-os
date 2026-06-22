@@ -34,6 +34,8 @@ make_copy() {
   cp "$REPO_ROOT/CLAUDE.md" "$dst/CLAUDE.md"
   cp "$REPO_ROOT/install.sh" "$dst/install.sh"
   cp "$REPO_ROOT/install.ps1" "$dst/install.ps1"
+  cp "$REPO_ROOT/install-cursor.sh" "$dst/install-cursor.sh"
+  cp "$REPO_ROOT/install-cursor.ps1" "$dst/install-cursor.ps1"
   printf '%s' "$dst"
 }
 
@@ -141,6 +143,16 @@ assert_trips "case 8 dangling-ref (bad SKILL relative link)" "$c8" dangling-ref
 c9="$(make_copy)"
 sed -E 's/[[:space:]]*"agent-new\.md"//' "$c9/install.sh" > "$c9/install.sh.tmp" && mv "$c9/install.sh.tmp" "$c9/install.sh"
 assert_trips "case 9 ship-manifest (missing command)" "$c9" ship-manifest
+
+# ── Case 10a: ship-manifest — unexpected dir in install-cursor.sh ─────────────
+c10a="$(make_copy)"
+printf 'install_dir "rules"\n' >> "$c10a/install-cursor.sh"
+assert_trips "case 10a ship-manifest (cursor unexpected dir)" "$c10a" ship-manifest
+
+# ── Case 10b: ship-manifest — Cursor install must not ship commands ───────────
+c10b="$(make_copy)"
+printf 'install_files "commands" "state.md"\n' >> "$c10b/install-cursor.sh"
+assert_trips "case 10b ship-manifest (cursor must not ship commands)" "$c10b" ship-manifest
 
 # ── Case 10: ship-manifest — line-continuation reflow must STAY clean ───────────
 # Regression guard for the whole-file token scan: rewriting the single-line
