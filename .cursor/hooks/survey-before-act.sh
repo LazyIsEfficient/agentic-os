@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Cursor beforeShellExecution — survey-before-act guard (NORTH_STAR Lever 4).
+# Structured survey record design (S5-D deny prep): eval/spikes/survey-structured-record.md
 # Mirrors .claude/hooks/survey-before-act.sh. WARN-FIRST: always allow; agent_message
 # carries the advisory. See SECURITY.md and survey-guard-test-cursor.sh.
 set -uo pipefail

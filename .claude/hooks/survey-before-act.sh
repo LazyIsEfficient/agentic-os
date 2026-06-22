@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) hook — survey-before-act guard (NORTH_STAR Lever 4).
+# Structured survey record design (S5-D deny prep): eval/spikes/survey-structured-record.md
 #
 # Service-provisioning commands (docker/podman/nerdctl run, docker compose up) are
 # the canonical "did I check whether this already exists?" failure (the broker
