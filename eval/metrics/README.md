@@ -72,8 +72,17 @@ can only look equal-or-worse. Do **not** report a headless ON−OFF delta as the
 benefit result; it answers a benefit question with a cost-only instrument.
 
 Measuring the benefit needs a real **interactive** multi-turn session that crosses
-compaction — the by-hand procedure, the pre-registered interpretation, and the
-automation prerequisite are in **[AB-PROTOCOL.md](AB-PROTOCOL.md)** (issue #147). The
-earlier effectiveness investigation is the cautionary tale — single samples on
-tractable tasks showed null; the signal, if any, is re-work avoided over long
-horizons. This apparatus makes that measurable; it does not pre-judge the result.
+compaction:
+
+| Resource | Role |
+|---|---|
+| **[AB-PROTOCOL.md](AB-PROTOCOL.md)** | Interactive long-session procedure — N runs/arm, ON vs OFF, transcript capture, `compare.mjs`, distribution analysis |
+| **[scenarios/long-session-awareness.md](scenarios/long-session-awareness.md)** | Canonical multi-step scenario (anchor facts → compaction → late probe) |
+| **`pre-register.sh`** | Stamp `runs/<timestamp>/hypothesis.md` before sessions |
+
+**Null prior:** the [effectiveness investigation](../INVESTIGATION.md) found **null**
+on tractable single-task work (no measurable correctness lift where the base model
+already one-shotted). The analogous prior here: compaction-boundary benefit is **not
+guaranteed** — the signal, if any, is re-work avoided over long horizons. Pre-register
+interpretation before runs; this apparatus makes the question measurable without
+pre-judging the answer.
