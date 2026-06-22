@@ -27,7 +27,7 @@ SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
 |---|---|---|
 | `constraint` | hard rules in force (e.g. "Rust only, no Python") | **yes** |
 | `decision` | settled choices, date-stamped (so they're not re-litigated) | **yes** |
-| `infra` | survey-before-act findings — what already exists, to reuse (lead with a `[subject]` token, e.g. `[rabbitmq]`) | no |
+| `infra` | survey-before-act findings — what already exists, to reuse (writer emits `[surveyed:name]` from first token) | no |
 | `thread` | in-flight items / next steps | **yes** |
 
 ### Claude Code — `/state` slash command
@@ -60,7 +60,7 @@ bash "$SS" thread     "<entry text>"
 
 4. Report the single line the script prints (or, for `show`/`init`, the command output).
 
-Keep entries terse. Lead `infra` with a `[subject]` token — e.g. `"[rabbitmq] broker on :5552 (docker-compose) — reuse"` — so survey-before-act guards suppress warnings only when a command names that exact subject.
+Keep entries terse. For `infra`, lead with the service name as the first word — e.g. `"rabbitmq broker on :5552 (docker-compose) — reuse"` — the writer stores `[surveyed:rabbitmq] …` so survey guards suppress only when a command names that exact surveyed subject.
 
 ## When to reach for it (proactively)
 

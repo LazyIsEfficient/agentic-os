@@ -12,7 +12,7 @@ cat > "$T/SESSION-STATE.md" <<'MD'
 ## Constraints
 ## Decisions
 ## Existing infrastructure
-- [rabbitmq] broker runs via docker-compose at repo root (ports 5552/5672)
+- [surveyed:rabbitmq] broker runs via docker-compose at repo root (ports 5552/5672)
 ## Open threads
 MD
 export CURSOR_PROJECT_DIR="$T"
@@ -29,12 +29,12 @@ out="$(run 'docker run -d rabbitmq:3.13-management')"
 if printf '%s' "$out" | grep -q 'survey-before-act'; then
   no "silent surveyed" "got: $out"
 else
-  ok "silent on SURVEYED provisioning ([rabbitmq] subject matches)"
+  ok "silent on SURVEYED provisioning ([surveyed:rabbitmq] matches)"
 fi
 
 out="$(run 'docker run -d --name kafka-broker apache/kafka:latest')"
 printf '%s' "$out" | grep -q 'agent_message' \
-  && ok "warns on coincidental token (kafka-broker != [rabbitmq] subject)" \
+  && ok "warns on coincidental token (kafka-broker != [surveyed:rabbitmq])" \
   || no "false-negative regression" "coincidental 'broker' wrongly suppressed: $out"
 
 out="$(run 'docker ps')"
@@ -46,12 +46,21 @@ fi
 
 legacy="$(mktemp -d)"; mkdir -p "$legacy/.cursor/hooks"
 cp "$REPO/.cursor/hooks/survey-before-act.sh" "$legacy/.cursor/hooks/"
-printf '# Session State\n## Existing infrastructure\n- rabbitmq broker, no subject token\n## Open threads\n' > "$legacy/SESSION-STATE.md"
+printf '# Session State\n## Existing infrastructure\n- [rabbitmq] legacy subject without surveyed prefix\n## Open threads\n' > "$legacy/SESSION-STATE.md"
 lout="$(printf '%s' "{\"command\":\"docker run -d rabbitmq:3.13\",\"cwd\":\"$legacy\",\"sandbox\":false}" | CURSOR_PROJECT_DIR="$legacy" bash "$legacy/.cursor/hooks/survey-before-act.sh")"
 printf '%s' "$lout" | grep -q 'agent_message' \
-  && ok "fail-open: bracket-less (legacy) infra warns, never silently suppresses" \
-  || no "legacy suppression" "bracket-less infra wrongly suppressed: $lout"
+  && ok "Option B: plain [rabbitmq] without surveyed prefix warns (no suppress)" \
+  || no "legacy [subject] suppression" "plain bracket wrongly suppressed: $lout"
 rm -rf "$legacy"
+
+legacy2="$(mktemp -d)"; mkdir -p "$legacy2/.cursor/hooks"
+cp "$REPO/.cursor/hooks/survey-before-act.sh" "$legacy2/.cursor/hooks/"
+printf '# Session State\n## Existing infrastructure\n- rabbitmq broker, no subject token\n## Open threads\n' > "$legacy2/SESSION-STATE.md"
+lout2="$(printf '%s' "{\"command\":\"docker run -d rabbitmq:3.13\",\"cwd\":\"$legacy2\",\"sandbox\":false}" | CURSOR_PROJECT_DIR="$legacy2" bash "$legacy2/.cursor/hooks/survey-before-act.sh")"
+printf '%s' "$lout2" | grep -q 'agent_message' \
+  && ok "fail-open: bracket-less infra warns, never silently suppresses" \
+  || no "legacy suppression" "bracket-less infra wrongly suppressed: $lout2"
+rm -rf "$legacy2"
 
 for c in "git status" "ls -la" "npm install left-pad" "cargo build --release" "echo hello world"; do
   out="$(run "$c")"

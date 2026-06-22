@@ -15,7 +15,7 @@ cat > "$T/SESSION-STATE.md" <<'MD'
 ## Constraints
 ## Decisions
 ## Existing infrastructure
-- [rabbitmq] broker runs via docker-compose at repo root (ports 5552/5672)
+- [surveyed:rabbitmq] broker runs via docker-compose at repo root (ports 5552/5672)
 ## Open threads
 MD
 export CLAUDE_PROJECT_DIR="$T"
@@ -29,14 +29,14 @@ out="$(run 'docker run -d postgres:16')"
 printf '%s' "$out" | grep -q 'additionalContext' && ok "warns on UNsurveyed provisioning (postgres)" || no "warn unsurveyed" "got: $out"
 
 out="$(run 'docker run -d rabbitmq:3.13-management')"
-[ -z "$out" ] && ok "silent on SURVEYED provisioning ([rabbitmq] subject matches)" || no "silent surveyed" "got: $out"
+[ -z "$out" ] && ok "silent on SURVEYED provisioning ([surveyed:rabbitmq] matches)" || no "silent surveyed" "got: $out"
 
 # Structured-subject fix (the false-negative the fuzzy substring scan had): a
 # DIFFERENT service whose name coincidentally contains a word from the surveyed
 # entry's free text ("broker") must still WARN — it is not the [rabbitmq] subject.
 out="$(run 'docker run -d --name kafka-broker apache/kafka:latest')"
 printf '%s' "$out" | grep -q 'additionalContext' \
-  && ok "warns on coincidental token (kafka-broker != [rabbitmq] subject)" \
+  && ok "warns on coincidental token (kafka-broker != [surveyed:rabbitmq])" \
   || no "false-negative regression" "coincidental 'broker' wrongly suppressed: $out"
 
 out="$(run 'docker ps')"
@@ -46,12 +46,21 @@ out="$(run 'docker ps')"
 # survey subject, so provisioning warns (degrades safe, never silently suppresses).
 legacy="$(mktemp -d)"; mkdir -p "$legacy/.claude/hooks"
 cp "$REPO/.claude/hooks/survey-before-act.sh" "$legacy/.claude/hooks/"
-printf '# Session State\n## Existing infrastructure\n- rabbitmq broker, no subject token\n## Open threads\n' > "$legacy/SESSION-STATE.md"
+printf '# Session State\n## Existing infrastructure\n- [rabbitmq] legacy subject without surveyed prefix\n## Open threads\n' > "$legacy/SESSION-STATE.md"
 lout="$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"docker run -d rabbitmq:3.13"}}' | CLAUDE_PROJECT_DIR="$legacy" bash "$legacy/.claude/hooks/survey-before-act.sh")"
 printf '%s' "$lout" | grep -q 'additionalContext' \
-  && ok "fail-open: bracket-less (legacy) infra warns, never silently suppresses" \
-  || no "legacy suppression" "bracket-less infra wrongly suppressed: $lout"
+  && ok "Option B: plain [rabbitmq] without surveyed prefix warns (no suppress)" \
+  || no "legacy [subject] suppression" "plain bracket wrongly suppressed: $lout"
 rm -rf "$legacy"
+
+legacy2="$(mktemp -d)"; mkdir -p "$legacy2/.claude/hooks"
+cp "$REPO/.claude/hooks/survey-before-act.sh" "$legacy2/.claude/hooks/"
+printf '# Session State\n## Existing infrastructure\n- rabbitmq broker, no subject token\n## Open threads\n' > "$legacy2/SESSION-STATE.md"
+lout2="$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"docker run -d rabbitmq:3.13"}}' | CLAUDE_PROJECT_DIR="$legacy2" bash "$legacy2/.claude/hooks/survey-before-act.sh")"
+printf '%s' "$lout2" | grep -q 'additionalContext' \
+  && ok "fail-open: bracket-less infra warns, never silently suppresses" \
+  || no "legacy suppression" "bracket-less infra wrongly suppressed: $lout2"
+rm -rf "$legacy2"
 
 for c in "git status" "ls -la" "npm install left-pad" "cargo build --release" "echo hello world"; do
   out="$(run "$c")"

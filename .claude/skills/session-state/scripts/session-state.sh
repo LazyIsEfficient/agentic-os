@@ -13,15 +13,15 @@
 #   session-state.sh infra      "<text>"   # add an existing-infra (survey) finding
 #   session-state.sh thread     "<text>"   # add an open thread / next step
 #
-# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR),
-# gitignored and per-developer. The template is SKILL-LOCAL (ships with the skill),
+# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR or
+# CURSOR_PROJECT_DIR), gitignored and per-developer. The template is SKILL-LOCAL (ships
 # resolved relative to this script — so `init` works on a consumer where only the
 # skill directory is installed, not the repo root. This script lives at
 # .claude/skills/session-state/scripts/, so the project-root fallback is four up.
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}"
+ROOT="${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}}"
 LIVE="$ROOT/SESSION-STATE.md"
 TPL="$SELF_DIR/../assets/SESSION-STATE.template.md"
 
@@ -69,7 +69,26 @@ case "$cmd" in
   drop) [ $# -ge 1 ] || usage; drop_matching "$*" ;;
   constraint) [ $# -ge 1 ] || usage; append_under "Constraints" "- $*" ;;
   decision)   [ $# -ge 1 ] || usage; append_under "Decisions" "- [$(date +%F)] $*" ;;
-  infra)      [ $# -ge 1 ] || usage; append_under "Existing infrastructure" "- $*" ;;
+  infra)      [ $# -ge 1 ] || usage
+  text="$*"
+  if [[ "$text" =~ ^\[surveyed:[A-Za-z0-9._-]+\] ]]; then
+    bullet="- $text"
+  elif [[ "$text" =~ ^\[([A-Za-z0-9._-]+)\] ]]; then
+    subj="${BASH_REMATCH[1]}"
+    rest="${text#\[${subj}\]}"
+    rest="${rest# }"
+    bullet="- [surveyed:${subj}]${rest:+ $rest}"
+  else
+    first="${text%% *}"
+    if [[ "$first" =~ ^[A-Za-z0-9._-]+$ ]]; then
+      rest="${text#"$first"}"
+      rest="${rest# }"
+      bullet="- [surveyed:${first}]${rest:+ $rest}"
+    else
+      bullet="- $text"
+    fi
+  fi
+  append_under "Existing infrastructure" "$bullet" ;;
   thread)     [ $# -ge 1 ] || usage; append_under "Open threads" "- $*" ;;
   *) usage ;;
 esac
