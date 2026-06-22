@@ -10,14 +10,57 @@ Install once, use in any project.
 
 ## Install
 
-The one-liners install a **pinned release** and verify its SHA-256 before
-extracting anything — see [Verifying the download](#verifying-the-download).
+Two consumer paths — **Cursor** and **Claude Code** — share the same skill/agent markdown from this repo but install to different global config dirs. Each section below is self-contained; you do not need to read the other platform's section.
+
+Both remote one-liners install a **pinned release** and verify its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
 - **Current release:** `v2.0.0`
 - **Asset:** `agentic-os-v2.0.0.tar.gz`
 - **SHA-256:** `9f436e14530ffbce9332e42263b6b1242d5636360058db4718ad24203c6dd617`
 
-### macOS / Linux
+### Cursor
+
+Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/` (clone the repo into a project to use them — they are not copied by the global installer).
+
+**macOS / Linux — one-liner (no clone required):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.4.0/install-cursor.sh | bash
+```
+
+**Or from a local clone:**
+
+```bash
+git clone https://github.com/LazyIsEfficient/agentic-os.git
+cd agentic-os
+./install-cursor.sh
+```
+
+Files are copied to `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/`. Existing files are not overwritten by default. Add `--force` to update everything.
+
+**Custom install path:**
+
+```bash
+CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
+```
+
+**Windows:** use `install-cursor.ps1` for parity (or run `install-cursor.sh` from Git Bash/WSL).
+
+**Session-state writer** (after install — project-first, then global):
+
+```bash
+SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+bash "$SS" init
+```
+
+There is no `/state` slash command on Cursor. Invoke the `session-state` skill (or ask the agent to record a session fact) and it runs the writer via Bash — see [.claude/skills/session-state/SKILL.md](.claude/skills/session-state/SKILL.md).
+
+Restart Cursor after install so new skills and agents load.
+
+### Claude Code
+
+#### macOS / Linux
 
 **One-liner (no clone required):**
 
@@ -35,7 +78,7 @@ cd agentic-os
 
 Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/commands/`. Existing files are not overwritten by default. Add `--force` to update everything.
 
-### Windows (PowerShell)
+#### Windows (PowerShell)
 
 **One-liner (no clone required):**
 
@@ -53,7 +96,7 @@ cd agentic-os
 
 Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files. (The remote install uses `tar`, which ships with Windows 10 1803+.)
 
-### Verifying the download
+#### Verifying the download
 
 The remote install path downloads the pinned release asset and aborts if its
 SHA-256 does not match the digest embedded in the installer. To verify
@@ -72,7 +115,7 @@ There is intentionally no "track `main`" remote install path — to install
 unreleased changes, clone the repo and run `./install.sh` from the clone.
 Maintainers: see [RELEASING.md](RELEASING.md) for how the pin is produced.
 
-### Custom install path
+#### Custom install path
 
 ```bash
 CLAUDE_DIR=/path/to/.claude ./install.sh
@@ -85,6 +128,18 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 ---
 
 ## What gets installed
+
+### Cursor (`install-cursor.sh`)
+
+| Directory | Contents |
+|---|---|
+| `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
+| `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
+| `~/.cursor/hooks/` | Hook scripts copied from the shared `.claude/hooks/` tree (e.g. `block-bad-bash.sh`, awareness-harness scripts). **Dormant** — no `hooks.json` ships; nothing runs until you register hooks yourself. Cursor hook activation is **deferred** (spike NO-GO) — see [Awareness harness](#awareness-harness-experimental) |
+
+> **Ship vs. in-repo-only.** The Cursor installer copies a curated allowlist of skills, agents, and hook scripts — not whole directories. Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
+
+### Claude Code (`install.sh`)
 
 | Directory | Contents |
 |---|---|
@@ -127,13 +182,31 @@ Use the security-reviewer agent to audit this PR.
 
 ### Awareness harness (experimental)
 
-An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V2_ROADMAP.md)) that fights the dominant failure mode of long agent sessions: **awareness drift** — finite context compresses, so settled facts get re-derived and existing infrastructure gets rebuilt. It externalizes state and re-surfaces it deterministically via Claude Code hooks:
+An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V2_ROADMAP.md)) that fights the dominant failure mode of long agent sessions: **awareness drift** — finite context compresses, so settled facts get re-derived and existing infrastructure gets rebuilt. It externalizes state and re-surfaces it deterministically via IDE hooks:
 
-- **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. A `SessionStart` hook injects it; a `UserPromptSubmit` hook injects a compact digest each turn; a `PreCompact` hook checkpoints before compaction. Maintained only through the `/state` command (a deterministic writer), never hand-edited.
-- **survey-before-act** — a `PreToolUse` hook that, on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
+- **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. Hooks inject it at session start, inject a compact digest each turn, and checkpoint before compaction. Maintained only through the deterministic writer (Claude: `/state`; Cursor: `session-state` skill + Bash), never hand-edited.
+- **survey-before-act** — on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Status:** shipped to consumers **opt-in / dormant** (V2_ROADMAP S5-C) — the `/state` command, `session-state` skill, and hook scripts install, but hooks stay **inert** until you register them in `settings.json` (dogfooded live in this repo). Active auto-registration remains gated behind security review. Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md).
+**Ship posture:** hook **scripts** install on both platforms but stay **dormant** until you opt in — no shipped `settings.json` (Claude) or `hooks.json` (Cursor). The writer and `session-state` skill work without hooks.
+
+**Claude Code activation** — add to your project `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
+    "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
+                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
+    "PreToolUse":       [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }] }]
+  }
+}
+```
+
+**Cursor hook activation — deferred (NO-GO).** The [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/v2-cursor/eval/spikes/cursor-hook-capability.md) recorded **NO-GO** for `checkpoint:cursor-go`: probe scripts emit valid JSON, but live model surfacing of `sessionStart` injection was not proven. Hook scripts still ship dormant to `~/.cursor/hooks/`; do not register `hooks.json` from consumer docs until `T-cursor-hooks` lands and live-fire passes. Use the writer + `session-state` skill on Cursor without hooks for now.
+
+Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 
 ### Configure ~/.claude/CLAUDE.md
 
