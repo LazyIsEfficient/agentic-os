@@ -133,7 +133,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 - **survey-before-act** — a `PreToolUse` hook that, on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Status:** dogfooded in this repo, **not yet installed to consumers** — the hook *scripts* ship but stay dormant (nothing registers them), and full consumer shipping is gated (V2_ROADMAP S5-C) behind a security review. Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md).
+**Status:** shipped to consumers **opt-in / dormant** (V2_ROADMAP S5-C) — the `/state` command, `session-state` skill, and hook scripts install, but hooks stay **inert** until you register them in `settings.json` (dogfooded live in this repo). Active auto-registration remains gated behind security review. Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md).
 
 ### Configure ~/.claude/CLAUDE.md
 
@@ -203,7 +203,7 @@ opt-in rather than default.
 | `code-reviewer` | Read-only multi-axis code review |
 | `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `engineer` | Full-stack implementation across architecture and shipping |
-| `game-design-shaper` | Game design pipeline — intake through marketing end-to-end |
+| `game-design-shaper` | Game design pipeline — intake → design → balance → catalog; marketing → marketer agent |
 | `godot-engineer` | Godot 4 + C# game development |
 | `library-investigator` | Read-only forensic library audit against RULESET.md — evidence-only counts, no verdict |
 | `library-reviewer` | Read-only audit of a skill and agent library |
@@ -227,6 +227,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 | `eval-harness` | Run the comparative eval harness over fixtures with a blind pairwise judge panel |
 | `review-gate` | Run the Pattern-3 review gate (code-reviewer + security/library-reviewer) on the current diff |
 | `skill-new` | Scaffold a new conforming skill |
+| `state` | Record a durable session fact to SESSION-STATE.md via the deterministic writer |
 | `triage-findings` | Tally the findings ledger and propose ratchet targets (human disposes) |
 
 ---
