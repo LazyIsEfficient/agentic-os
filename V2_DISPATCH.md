@@ -15,17 +15,55 @@ This document is the **single dispatch source** for async agents working the v2 
 | **Lane 2** — Cursor port | **`v2-cursor`** | **`v2-cursor`** | #150–#155, epic #149 |
 
 - **`v2-cursor`** is branched from post-#143 `main`. All Cursor work lands here until **checkpoint:cursor-v1**, then merges to `main`.
-- Lane 1 and Lane 2 may run **in parallel** on their respective branches.
+- Lane 1 and Lane 2 may run **in parallel** on their respective branches — **each lane MUST use its own git worktree** (see below).
+
+### Worktree isolation (mandatory for parallel lanes)
+
+Two lanes on two branches in one working directory will collide. **Never dispatch Lane 1 and Lane 2 agents against the same checkout.**
+
+| Lane | Branch | Worktree path | Task branch suffix |
+|---|---|---|---|
+| **Lane 1** | `main` | `../skills-db-lane-main` | `lane-main/<branch_suffix>` |
+| **Lane 2** | `v2-cursor` | `../skills-db` (primary) or `../skills-db-lane-cursor` | `lane-cursor/<branch_suffix>` |
+
+**One-time setup** (from any checkout of this repo):
+
+```bash
+# Lane 1 — release work on main
+git fetch origin main
+git worktree add ../skills-db-lane-main main
+
+# Lane 2 — already on v2-cursor at ../skills-db (primary checkout)
+# Optional second cursor worktree if you want primary clean:
+# git worktree add ../skills-db-lane-cursor v2-cursor
+```
+
+**Per-task isolation** (when two tasks in the *same* lane overlap on `files_write`, e.g. #156 then #157 both touch `README.md`):
+
+```bash
+# Example: T-156 on Lane 1
+cd ../skills-db-lane-main
+git checkout main && git pull
+git checkout -b lane-main/readme-drift
+# dispatch agent with Full Repository Path pointing HERE
+```
+
+**Within-lane parallel** (e.g. W2 `T-cursor-install` || `T-cursor-rules`): use **separate task worktrees** under `.claude/worktrees/` or sibling dirs — the `conflicts_with` matrix marks file overlap; do not rely on agents sharing one checkout.
+
+**Agent prompt:** always set `Full Repository Path` to the **lane worktree**, not the repo root generically.
+
+**Merge order:** finish + merge Lane 1 PRs to `main` first when both touch shared files (README, SECURITY); rebase `v2-cursor` onto `main` before W6 `T-cursor-docs` if README drift landed on main.
 
 ---
 
 ## How orchestrators use this
 
 1. Read the **Execution DAG** and find the **ready set** (tasks whose `depends_on` are verified complete).
-2. Filter out tasks that **conflict** with agents already in flight (`conflicts_with` + overlapping `files_write`).
-3. Dispatch **one wave** (max 3–5 parallel agents). Use worktree isolation when `files_write` might overlap.
-4. After each wave: run verification, apply **Pattern 3 review gate** (see below), mark task complete here + close/link the GitHub issue.
-5. **Stop at checkpoints** until clearance criteria pass. Do not dispatch downstream tasks early.
+2. Assign each dispatch to the **lane worktree** (see Worktree isolation — mandatory).
+3. Filter out tasks that **conflict** with agents already in flight (`conflicts_with` + overlapping `files_write`).
+4. Dispatch **one wave** (max 3–5 parallel agents). **Different branches = different worktrees, always.** Same-lane overlapping `files_write` = task branch + separate worktree or serialize.
+5. After each wave: run verification, apply **Pattern 3 review gate** (see below), mark task complete here + close/link the GitHub issue.
+6. **Stop at checkpoints** until clearance criteria pass. Do not dispatch downstream tasks early.
 
 ### Review gate (Pattern 3 — mandatory after every implementation task)
 
@@ -40,9 +78,12 @@ Tier doctrine: fix Tier 0/1 findings before marking complete; log Tier 2 to find
 ### Agent prompt wrapper (prepend to any task block)
 
 ```text
-Full Repository Path: /Users/glenneggleton/Documents/Clients/YGG/skills-db
+Full Repository Path: <lane worktree — see Worktree isolation table>
+  Lane 1 (main):     /Users/glenneggleton/Documents/Clients/YGG/skills-db-lane-main
+  Lane 2 (v2-cursor): /Users/glenneggleton/Documents/Clients/YGG/skills-db
 GitHub repo: LazyIsEfficient/agentic-os
 Base branch: <main | v2-cursor — see task block>
+Task branch: <lane-main|lane-cursor>/<branch_suffix> — create before dispatch; do not commit to base branch directly
 PR target: same as base branch
 GitHub issue: #<issue>
 Task ID: T-<slug>
@@ -554,10 +595,10 @@ Dispatch only when the **trigger** fires. Orchestrator opens a focused session; 
 
 ## Wave planner (orchestrator cheat sheet)
 
-| Wave | Branch | Ready after | Dispatch together | Max agents |
-|---|---|---|---|---|
-| W0a | `main` | PR #143 merged ✅ | `T-156-readme-drift` | 1 |
-| W0b | `v2-cursor` | branch exists | `T-cursor-spike` | 1 |
+| Wave | Branch | Worktree | Ready after | Dispatch together | Max agents |
+|---|---|---|---|---|---|
+| W0a | `main` | `../skills-db-lane-main` | PR #143 merged ✅ | `T-156-readme-drift` | 1 |
+| W0b | `v2-cursor` | `../skills-db` | branch pushed ✅ | `T-cursor-spike` | 1 |
 | W1 | `main` | T-156 done | `T-157-release-v2` | 1 |
 | W2 | `v2-cursor` | cursor-go | `T-cursor-install` \|\| `T-cursor-rules` | 2 |
 | W3 | `v2-cursor` | install done | `T-cursor-security` | 1 |
