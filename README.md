@@ -218,7 +218,16 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 }
 ```
 
-Per-turn digest live surfacing is not yet confirmed on Cursor — see [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
+**Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
+
+| Hook | Status |
+|---|---|
+| `sessionStart` inject | **PROVEN** — model receives full `SESSION-STATE.md` |
+| `beforeSubmitPrompt` digest | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md); official docs do not list `additional_context` for this event (likely no-op until Cursor adds it); fallback: session-start inject + decisions via [#158](https://github.com/LazyIsEfficient/agentic-os/issues/158) |
+| `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
+| `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
+
+See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 

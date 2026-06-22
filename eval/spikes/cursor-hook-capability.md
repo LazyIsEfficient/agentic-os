@@ -22,6 +22,9 @@
 2. **No headless runner** — still true; regression remains interactive-only for inject (unlike Claude S0).
 3. **Reported platform gaps** — may still affect other Cursor versions; **3.8.11** confirmed working for Spike A in this repo.
 4. **Spike B live-fire** — `beforeShellExecution` agent_message surfacing still unconfirmed interactively.
+5. **Production digest + survey live-fire** — [#170](https://github.com/LazyIsEfficient/agentic-os/issues/170): manual repro protocol shipped; operator confirmation pending.
+
+**Interactive repro (digest + survey):** [LIVE-FIRE-PROTOCOL.md](cursor-hook-capability/LIVE-FIRE-PROTOCOL.md)
 
 ---
 
@@ -126,9 +129,9 @@ Statuses: **script** = probe/unit-test verified; **doc** = Cursor docs only; **l
 | Claude event | Claude inject / gate mechanism | Cursor event | Cursor output fields | Status |
 |---|---|---|---|---|
 | `SessionStart` | plain stdout **or** `hookSpecificOutput.additionalContext` | `sessionStart` | `additional_context`, `env` | **script ✓**, **live ✓** (2026-06-22) |
-| `UserPromptSubmit` | plain stdout digest | `beforeSubmitPrompt` (matcher `UserPromptSubmit`) | `continue`, `user_message` only — **no context inject** | **doc** — gap for per-turn digest |
+| `UserPromptSubmit` | plain stdout digest | `beforeSubmitPrompt` (matcher `UserPromptSubmit`) | docs: `continue`, `user_message` only; script emits `additional_context` | **script ✓**, **live pending** — [manual repro required](cursor-hook-capability/LIVE-FIRE-PROTOCOL.md#test-a--beforesubmitprompt-digest-per-turn); likely **LIMITATION** (no documented `additional_context`) |
 | `PreCompact` (`auto`/`manual`) | side-effect flush script | `preCompact` | `user_message` (observational) | **doc** — live deferred (same as S0) |
-| `PreToolUse` + `Bash` matcher | `permissionDecision` + `additionalContext` | `beforeShellExecution` | `permission`, `user_message`, `agent_message` | **script ✓** (Spike B), **live ✗** |
+| `PreToolUse` + `Bash` matcher | `permissionDecision` + `additionalContext` | `beforeShellExecution` | `permission`, `user_message`, `agent_message` | **script ✓** (Spike B + production), **live pending** — [manual repro required](cursor-hook-capability/LIVE-FIRE-PROTOCOL.md#test-b--beforeshellexecution-survey-provisioning-advisory) |
 | `PreToolUse` + `Bash` matcher | `permissionDecision: deny` | `beforeShellExecution` or `preToolUse`/`Shell` | `permission: deny` or exit code `2` | **doc** — not spike-tested |
 | `PreToolUse` + `Write` matcher | deny + reason | `preToolUse` matcher `Write` | `permission`, `user_message`, `agent_message` | **doc** — not spike-tested |
 | N/A | N/A | `postToolUse` | `additional_context` | **doc** — post-hoc inject; not a SessionStart substitute |
@@ -145,6 +148,7 @@ Statuses: **script** = probe/unit-test verified; **doc** = Cursor docs only; **l
 | `.cursor/hooks/session-state-inject-probe.sh` | Spike A probe |
 | `.cursor/hooks/survey-before-act-probe.sh` | Spike B probe |
 | `eval/spikes/cursor-hook-capability/unit-test.sh` | Deterministic script tests |
+| `eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md` | Interactive digest + survey repro ([#170](https://github.com/LazyIsEfficient/agentic-os/issues/170)) |
 | `eval/spikes/cursor-hook-capability.md` | This report |
 
 ---
@@ -163,6 +167,7 @@ printf '%s' '{"command":"docker run -d redis","cwd":"'"$PWD"'","sandbox":false}'
   | CURSOR_PROJECT_DIR="$PWD" bash .cursor/hooks/survey-before-act-probe.sh
 
 # Live-fire: see Spike A / B sections above (new Agent chat required).
+# Production digest + survey: eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md
 ```
 
 ---
