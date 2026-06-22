@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ygg.skills-db/eval/fixture.schema.json",
+  "title": "Eval fixture (two-arm comparative)",
+  "description": "One comparative eval case. Runs the same task through TWO arms (library-ON, library-OFF baseline), applies a Tier-0 deterministic check to each, then a blind pairwise judge panel scores per-dimension. This schema defines the INPUT contract; result.schema.json defines the OUTPUT.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "description", "task", "output_type", "arms", "deterministic_check", "rubric"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable kebab-case identifier; also the fixture filename stem and the join key into result records."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-line statement of the capability this fixture probes."
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The verbatim instruction handed to BOTH arms. Arm-specific framing lives in arms.*.prompt, not here."
+    },
+    "output_type": {
+      "type": "string",
+      "enum": ["library-skill", "code", "claims-doc", "pod-deliverable"],
+      "description": "What kind of artifact the task produces. Drives checker selection and report bucketing."
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["library", "baseline"],
+      "description": "The two producers compared. 'library' is library-ON; 'baseline' is library-OFF (vanilla agent told to use no skills/subagents).",
+      "properties": {
+        "library": { "$ref": "#/$defs/arm" },
+        "baseline": { "$ref": "#/$defs/arm" }
+      }
+    },
+    "deterministic_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "tier", "gates"],
+      "description": "Tier-0 deterministic verification applied identically to BOTH arms' artifacts.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Checker identifier the runner dispatches, e.g. 'validate.sh', 'cargo-test', 'schema-match'. Must resolve to a checker in eval/checkers/."
+        },
+        "tier": {
+          "type": "integer",
+          "const": 0,
+          "description": "Deterministic checks are Tier 0 by definition; this is the only tier permitted to gate."
+        },
+        "gates": {
+          "type": "boolean",
+          "description": "Whether a deterministic failure disqualifies the arm. Tier-0 checks may gate; the comparative report still records both arms' pass/fail regardless."
+        },
+        "spec": {
+          "type": "string",
+          "description": "Optional human-readable description of how the checker is staged and what PASS means."
+        },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "For kind=schema-match: required grep -E patterns (or jq:<filter>) the artifact must contain. The runner passes these to the checker; without them schema-match exits 2 (skip)."
+        }
+      }
+    },
+    "rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimensions"],
+      "description": "The per-dimension scoring rubric the blind pairwise judge panel applies. Tier-2: informs the report, never gates.",
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "Posture note for judges, e.g. default-reject / score conservatively when evidence is weak."
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/dimension" },
+          "description": "Independent quality axes. Each is judged as a pairwise winner+margin between the two arms."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "One producer. 'kind' says how the artifact is produced; agentType/prompt configure it.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["agent"],
+          "description": "'agent' dispatches a single named agent."
+        },
+        "agentType": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The agent to dispatch (e.g. 'engineer' for library-ON, 'general-purpose' for baseline)."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Optional arm-specific instruction prepended to the shared task. The baseline arm uses this to forbid skills/subagents."
+        },
+        "note": {
+          "type": "string",
+          "description": "Rationale / pluggability note for maintainers. Not handed to the producer."
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "max", "asks"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$",
+          "description": "snake_case dimension identifier; the join key into the judge's per_dimension results."
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum points for this dimension. Used to normalize margins into a comparable scale."
+        },
+        "asks": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The concrete question the judge answers for this dimension — specific enough to discriminate, not trigger-soup."
+        }
+      }
+    }
+  }
+}

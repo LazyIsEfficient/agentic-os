@@ -1,0 +1,1 @@
+{"fixture":"skill-authoring-slugify","commit":"36c844b","ts":"2026-06-18T18:52:36Z","producer":"engineer","deterministic":{"check":"validate.sh","pass":true,"tier":0,"gates":true},"judge":{"scores":{"frontmatter_quality":24,"routing_clarity":24,"body_actionability":25,"single_responsibility":25},"total":98,"verdict":"strong","tier":2,"gates":false}}

@@ -4,7 +4,7 @@ argument-hint: <agent-name>
 allowed-tools: Glob, Write, Agent
 ---
 
-You are scaffolding a new agent definition for this skills+agents library so a maintainer gets a conforming starting point in one step. A conforming agent file matches the shape used by `.claude/agents/code-reviewer.md` and `.claude/agents/bigquery-ai-agent.md`: YAML frontmatter with `name`, `description` (trigger vocabulary + "For X see Y" cross-refs), and `tools` (comma-separated allowlist), then a body, ending with a "## Skills available" link section.
+You are scaffolding a new agent definition for this skills+agents library so a maintainer gets a conforming starting point in one step. A conforming agent file matches the shape used by `.claude/agents/code-reviewer.md` and `.claude/agents/engineer.md`: YAML frontmatter with `name`, `description` (trigger vocabulary + "For X see Y" cross-refs), and `tools` (comma-separated allowlist), then a body, ending with a "## Skills available" link section.
 
 ## Step 1 — resolve the agent name
 
@@ -54,8 +54,8 @@ You are TODO one-sentence identity and primary goal.
 
 ## Skills available
 
-- [TODO skill-name](../skills/TODO-skill-name/SKILL.md) — TODO what it provides
-- [TODO skill-name](../skills/TODO-skill-name/SKILL.md) — TODO what it provides
+- TODO skill-name — TODO what it provides
+- TODO skill-name — TODO what it provides
 
 ## Delegate
 

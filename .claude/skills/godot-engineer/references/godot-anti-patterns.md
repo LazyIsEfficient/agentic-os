@@ -490,4 +490,4 @@ Every other reference file in this skill has its own anti-patterns section. This
 - [performance-and-profiling.md](performance-and-profiling.md) — performance anti-patterns
 - [save-load-and-persistence.md](save-load-and-persistence.md) — save anti-patterns
 - [multiplayer-and-websockets.md](multiplayer-and-websockets.md) — networking anti-patterns
-- [software-design](../../software-design/SKILL.md) — broader software design principles
+- software-design — broader software design principles

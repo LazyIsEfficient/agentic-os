@@ -112,7 +112,7 @@ Top-line numbers the model predicts:
 - Average session length (median, p95) per profile
 - Average plays per session
 - Average days to D7, D30, D60
-- Average ARPDAU per profile (input from `game-monetization-strategist`)
+- Average ARPDAU per profile (input from `iap-manager`)
 - Predicted retention curve (D1 / D7 / D30) — calibrated against comp titles
 - Currency inflation/deflation per week per profile
 
@@ -141,4 +141,4 @@ What needs to be measured in soft launch / live to validate this model:
 | Time to chapter 2 (free) | `content_unlock` | Daily cohort | >150% of model |
 | Conversion to first IAP | `iap_purchase` (first) | Daily | <50% of model |
 
-Hand this contract to `godot-engineer` (or other engine team) for instrumentation, and to `site-reliability-engineering` for alerting.
+Hand this contract to `godot-engineer` (or other engine team) for instrumentation, and to the `devops-engineer` agent for alerting.

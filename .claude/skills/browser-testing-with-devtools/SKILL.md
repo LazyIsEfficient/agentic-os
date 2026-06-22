@@ -4,7 +4,7 @@ description: Tests in real browsers. Use when building or debugging anything tha
 when_to_use: |
   Use when building or modifying anything that renders in a browser: debugging UI layout or interaction issues, diagnosing console errors or network failures, profiling Core Web Vitals, verifying a fix works in a real browser, or running automated UI tests through an agent.
 
-  Not when: the change is backend-only, a CLI tool, or code that never runs in a browser — no DevTools session needed for those. Not when the task is building or fixing the UI implementation itself (components, layout, styling) — use `frontend-ui-engineering`. Not when the task is authoring the automated frontend unit/component test suite (Jest + React Testing Library) — use `typescript-testing-frontend`. Not when the task is profiling or optimizing performance or Core Web Vitals (LCP, INP) as an engineering effort rather than driving the browser to observe or verify behavior — use `performance-optimization`.
+  Not when: the change is backend-only, a CLI tool, or code that never runs in a browser — no DevTools session needed for those. Not when the task is authoring the automated frontend unit/component test suite (Jest + React Testing Library) — use `typescript-testing-frontend`.
 ---
 
 # Browser Testing with DevTools
@@ -31,6 +31,5 @@ Use Chrome DevTools MCP to give your agent eyes into the browser. This bridges t
 
 ## Related skills
 
-- [frontend-ui-engineering](../frontend-ui-engineering/SKILL.md) — the implementation skill for the UI being tested
 - [typescript-testing-frontend](../typescript-testing-frontend/SKILL.md) — automated frontend test suite authoring
 - [typescript-testing-backend](../typescript-testing-backend/SKILL.md) — backend test authoring when browser tests surface API issues

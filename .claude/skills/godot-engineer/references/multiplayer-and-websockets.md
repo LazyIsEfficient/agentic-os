@@ -388,9 +388,9 @@ public override void _Ready()
 
 For deployment, treat the server like any other long-running process. See:
 
-- **[cloud-infrastructure](../../cloud-infrastructure/SKILL.md)** for provisioning the host
+- **the `devops-engineer` agent** for provisioning the host
 - **[deployment-pipelines](../../deployment-pipelines/SKILL.md)** for the build and deploy
-- **[site-reliability-engineering](../../site-reliability-engineering/SKILL.md)** for keeping it running and observing it
+- **site-reliability-engineering** for keeping it running and observing it
 
 ## TLS / Secure WebSockets
 
@@ -430,7 +430,7 @@ For more than a single fixed server, you need a lobby/matchmaking system. WebSoc
 
 The HTTP API can be:
 
-- A custom backend (Node, Go, Python, .NET) — pair with `system-architect`, `cloud-infrastructure`, etc.
+- A custom backend (Node, Go, Python, .NET) — pair with the `engineer` agent, the `devops-engineer` agent, etc.
 - A managed service (PlayFab, Nakama, Heroic Labs).
 - The game server itself (one server handles both lobby and game; simpler but doesn't scale to many concurrent rooms).
 
@@ -590,8 +590,8 @@ When reconnection fails, the game should:
 - [godot-fundamentals.md](godot-fundamentals.md) — `Node`, `MultiplayerApi`
 - [signals-and-events.md](signals-and-events.md) — connection signals
 - [security-engineering](../../security-engineering/SKILL.md) — server-side validation, anti-cheat
-- [system-architect](../../system-architect/SKILL.md) — server architecture, scaling
-- [cloud-infrastructure](../../cloud-infrastructure/SKILL.md) — hosting the server
+- system-architect — server architecture, scaling
+- the `devops-engineer` agent — hosting the server
 - [deployment-pipelines](../../deployment-pipelines/SKILL.md) — building and deploying the server
-- [site-reliability-engineering](../../site-reliability-engineering/SKILL.md) — running the server in production
+- site-reliability-engineering — running the server in production
 - [godot-anti-patterns.md](godot-anti-patterns.md) — broader patterns to avoid

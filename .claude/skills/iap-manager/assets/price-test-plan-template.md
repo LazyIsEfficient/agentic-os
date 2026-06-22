@@ -1,6 +1,6 @@
 # Price test plan — <test name>
 
-> One per A/B price test. Coordinate with `growth-engine` for stats and `game-marketer` for comms if user-facing.
+> One per A/B price test. Coordinate with `growth-engine` for stats and the `marketer` agent for comms if user-facing.
 
 ## Test identity
 - **SKU under test:** <e.g. `starter_pack_v1`>

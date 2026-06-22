@@ -4,7 +4,7 @@ description: Breaks work into ordered, parallel-dispatchable tasks with an execu
 when_to_use: |
   Use after a `prompt-shaper` or `marketing-shaper` brief when the work spans multiple repos, multiple weeks, or needs parallel agent execution — specifically when the implementation order is not obvious or tasks can safely be dispatched concurrently. Use when a spec or task feels too large to start in one session.
 
-  Not when: the change is single-file with obvious scope — implement directly using `incremental-implementation`. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first. Not when there is no spec yet and requirements are unclear — use `spec-driven-development` to produce the spec, then return to decompose it.
+  Not when: the change is single-file with obvious scope — implement it directly. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first. Not when there is no spec yet and requirements are unclear — produce the spec first, then return to decompose it.
 ---
 
 # Planning and Task Breakdown
@@ -36,8 +36,8 @@ Decompose work into small, verifiable tasks with a parallel-dispatchable structu
 - **The DAG is a summary, not the source of truth.** Per-task `depends_on` is authoritative. The verification checklist enforces that they agree.
 - **Day-zero ready set must be non-empty.** At least one task has `depends_on: []`. If none do, the plan is malformed.
 - **`scope: L` must be split before dispatch.** Agents perform best on XS / S / M.
-- **Plan, do not implement.** This skill never writes code. The output is a plan document; execution is a separate skill (`incremental-implementation`).
-- **Every plan carries a `**Status:**` line.** Lifecycle `proposed` → `in-progress` → `shipped` | `superseded`. A fresh plan starts at `proposed`; keep it current as the work moves. It is the signal the `/plan-clean` command uses to retire completed plans, so an unmarked plan never gets cleaned up. See [`assets/plan-document-template.md`](assets/plan-document-template.md).
+- **Plan, do not implement.** This skill never writes code. The output is a plan document; execution is a separate step.
+- **Every plan carries a `**Status:**` line.** Lifecycle `proposed` → `in-progress` → `shipped` | `superseded`. A fresh plan starts at `proposed`; keep it current as the work moves. It is the signal for retiring completed plans (prune `shipped`/`superseded` plans manually), so an unmarked plan never gets recognized as done. See [`assets/plan-document-template.md`](assets/plan-document-template.md).
 
 ## References
 

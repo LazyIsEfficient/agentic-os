@@ -75,7 +75,7 @@ A design with 8 systems where each needs months of engineering and ongoing maint
 
 ## The rails-fit test
 
-For each system, check against the chosen payment rails (from `game-concept-creator`):
+For each system, check against the chosen payment rails (from the `game-design-shaper` agent):
 
 - **F2P / IAP-heavy:** does this system create a *fair, optional* spending opportunity, or does it create paywalls?
 - **Premium:** does this system require live-ops to feel complete? If yes, the model is wrong, not the system.
@@ -83,7 +83,7 @@ For each system, check against the chosen payment rails (from `game-concept-crea
 - **Web3 NFTs:** does this system require *rebalancing* characters/items? (NFT'd content is hard to nerf.)
 - **Subscription:** does this system give subscribers *ongoing reasons* to stay subscribed?
 
-Systems that fight the rails are landmines for `game-monetization-strategist` and `iap-manager` later. Surface the conflict in the design doc, don't bury it.
+Systems that fight the rails are landmines for `iap-manager` later. Surface the conflict in the design doc, don't bury it.
 
 ## The five-system limit (heuristic)
 

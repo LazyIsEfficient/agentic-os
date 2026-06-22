@@ -59,7 +59,7 @@ Format: pick one of:
 - **Diary studies** — give playtesters builds for 1–2 weeks, capture daily journals. Best for retention / engagement signals.
 - **Surveys + telemetry** — large-N, lower depth. Use to validate hypotheses, not to discover them.
 
-Pair with `ux-research` for protocol design and synthesis.
+Use player-research / usability-testing methods for protocol design and synthesis.
 
 ## What playtest is *not* for
 
@@ -76,7 +76,7 @@ Soft launch (release to 1–3 small markets before global) is the highest-fideli
 - **Surface paywalls and quit moments** that internal playtest missed.
 - **Set the KPI floor** for global launch (D1, D7, D30, ARPDAU, ROAS).
 
-Coordinate with `game-monetization-strategist` (KPI targets), `iap-manager` (catalog testing), and `game-marketer` (CPI and acquisition channels).
+Coordinate with `iap-manager` (KPI targets and catalog testing) and the `marketer` agent (CPI and acquisition channels).
 
 ## Telemetry coverage
 
@@ -93,7 +93,7 @@ Every metric the model predicts must have a corresponding event:
 - `match_end(result, win_rate_so_far)` (for PvP balance)
 - `loot_drop(table, rarity, attempts_since_last)` (for drop table balance)
 
-Hand the event list to `godot-engineer` (or other engine team) for instrumentation and to `site-reliability-engineering` for ingestion / alerting.
+Hand the event list to `godot-engineer` (or other engine team) for instrumentation and to the `devops-engineer` agent for ingestion / alerting.
 
 ## Output
 

@@ -9,8 +9,8 @@ The frontmatter is the loader's primary input. Errors here cause silent misrouti
 - Must match the directory name (skills) or file basename (agents)
 - Mismatch is a **blocking** error — the loader uses the field, not the path
 
-Valid: `system-architect`, `code-reviewer`, `web3-smart-contract-engineering`
-Invalid: `SystemArchitect`, `system_architect`, `system architect`, `SystemArchitect`
+Valid: `release-manager`, `code-reviewer`, `web3-smart-contract-engineering`
+Invalid: `ReleaseManager`, `release_manager`, `release manager`, `Release-Manager`
 
 ### `description`
 - Third person, written for the loader — not the human reader

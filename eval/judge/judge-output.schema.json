@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ygg.skills-db/eval/judge-output.schema.json",
+  "title": "Single blind pairwise judge output",
+  "description": "The StructuredOutput one independent judge returns for ONE fixture. The judge saw the task, the rubric dimensions, and TWO neutrally labelled artifacts 'Output A' / 'Output B' — it was NOT told which arm (library/baseline) is which. For each rubric dimension it picks a blind winner (A|B|tie), a normalized 0..1 margin, and a one-line quoted-evidence justification; then an overall winner+margin. The runner collects N=3 of these (position randomized per judge), aggregates per dimension by MAJORITY winner + MEDIAN margin into result.schema.json's judge block, and records the A<->arm map in blinding_map AFTER judging. per_dimension[*].{dimension,winner,margin} binds exactly to result.schema.json#/$defs/dimensionVerdict (plus the extra evidence string); overall binds to #/$defs/verdict. Top level is a plain object with NO allOf/oneOf/anyOf — a workflow StructuredOutput constraint; composition lives only inside $defs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["per_dimension", "overall"],
+  "properties": {
+    "per_dimension": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One verdict per rubric dimension, in the order the dimensions were presented. dimension keys must join to fixture.rubric.dimensions[].key.",
+      "items": { "$ref": "#/$defs/judgeDimensionVerdict" }
+    },
+    "overall": {
+      "$ref": "#/$defs/judgeVerdict",
+      "description": "This judge's overall winner+margin across all dimensions. Lean 'tie' when the per-dimension picks do not point clearly one way."
+    }
+  },
+  "$defs": {
+    "judgeVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["winner", "margin"],
+      "description": "Blind winner+margin. Binds to result.schema.json#/$defs/verdict.",
+      "properties": {
+        "winner": {
+          "type": "string",
+          "enum": ["A", "B", "tie"],
+          "description": "Blind winner in A/B terms only. The judge never knows which arm A or B is. 'tie' is a first-class answer — pick it under weak evidence, never to break it."
+        },
+        "margin": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized strength of the win, 0..1. MUST be 0 when winner is 'tie'. Small margins (<=0.2) are correct when one side is only marginally ahead."
+        }
+      }
+    },
+    "judgeDimensionVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "winner", "margin", "evidence"],
+      "description": "Per-dimension blind verdict. The dimension/winner/margin triple binds to result.schema.json#/$defs/dimensionVerdict; 'evidence' is the extra quoted-justification string this single-judge layer carries (the aggregator drops it when collapsing the panel into the result's dimensionVerdict).",
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$",
+          "description": "Rubric dimension key this verdict scores; joins to fixture.rubric.dimensions[].key."
+        },
+        "winner": {
+          "type": "string",
+          "enum": ["A", "B", "tie"],
+          "description": "Blind winner for this dimension. Default to 'tie' when the quoted evidence does not clearly favor one side."
+        },
+        "margin": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized 0..1 margin for this dimension; MUST be 0 when winner is 'tie'."
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line justification that QUOTES the deciding text from the winning (or, for a tie, each) output. Must reference the artifact content, not restate the rubric. A verdict without a quote is unevidenced — record 'tie'."
+        }
+      }
+    }
+  }
+}

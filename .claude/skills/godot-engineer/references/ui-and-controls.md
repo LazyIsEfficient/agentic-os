@@ -451,5 +451,5 @@ Settings (PanelContainer)
 - [signals-and-events.md](signals-and-events.md) — connecting game state to UI via signals
 - [animation-and-tweens.md](animation-and-tweens.md) — animating UI elements
 - [input-and-controls.md](input-and-controls.md) — input handling in UI
-- [ux-design](../../ux-design/SKILL.md) — broader UX principles that apply to game UI
+- ux-design — broader UX principles that apply to game UI
 - [godot-anti-patterns.md](godot-anti-patterns.md) — broader patterns to avoid

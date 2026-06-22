@@ -1,19 +1,17 @@
 ---
 name: security-engineering
-description: Cross-stack security review — auditing vulnerabilities across infrastructure, smart contracts, CI/CD pipelines, and AI agent systems, plus auth/sessions/crypto and validating user input at API and infrastructure boundaries. Triggers on mentions of "vulnerability", "pentest", "OWASP", "access control", "injection", "CSRF", "JWT", "smart contract audit", "supply chain", "OIDC", or any review of security-sensitive code paths spanning more than one layer. For developer-focused web app hardening (OWASP Top 10 patterns, XSS, input validation in TypeScript/Node app code) see [security-and-hardening](../security-and-hardening/SKILL.md). For PII sanitization see [security](../security/SKILL.md).
+description: Cross-stack security review — auditing vulnerabilities across infrastructure, smart contracts, CI/CD pipelines, and AI agent systems, plus auth/sessions/crypto and validating user input at API and infrastructure boundaries. Triggers on mentions of "vulnerability", "pentest", "OWASP", "access control", "injection", "CSRF", "JWT", "smart contract audit", "supply chain", "OIDC", or any review of security-sensitive code paths spanning more than one layer. For PII sanitization see [security](../security/SKILL.md).
 when_to_use: |
   Use for cross-stack security review covering API security, infrastructure
   hardening, Web3 smart contract auditing, CI/CD pipeline security (OIDC, supply
   chain), and agentic AI risk (OWASP ASI 2026). Load when a diff touches auth,
   sessions, crypto, smart contracts, CI/CD secrets, or any user-input-to-sensitive-
-  sink path. Also the source-of-truth skill that standards-enforcer cites for
-  security baseline checks at every gate.
+  sink path.
 
-  Not when: the need is narrowly web-app input validation and OWASP Top 10
-  patterns for a TypeScript developer — use [security-and-hardening](../security-and-hardening/SKILL.md) instead. For
-  scanning files for committed PII use [security](../security/SKILL.md). Not when the task is a
+  Not when: the task is scanning files for committed PII — use
+  [security](../security/SKILL.md). Not when the task is a
   general multi-axis code review (correctness, readability, architecture,
-  performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md). Not when the task is provisioning or building infrastructure (Pulumi/Terraform/CDK, standing up a cluster) rather than auditing its security posture — use [cloud-infrastructure](../cloud-infrastructure/SKILL.md).
+  performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md).
 ---
 
 # Security Engineering
@@ -52,15 +50,5 @@ When reviewing code, think like a senior security researcher: trace user input t
 ## Related skills
 
 - [web3-smart-contract-engineering](../web3-smart-contract-engineering/SKILL.md) — Solidity patterns, signature verification, replay protection (consult alongside `references/web3-smart-contracts.md` when auditing contracts)
-- [cloud-infrastructure](../cloud-infrastructure/SKILL.md) — VPC, IAM, Secrets Manager, encryption-at-rest implementation
-- [system-architect](../system-architect/SKILL.md) — folds security requirements into the design from the start; this skill provides the rules that design must satisfy
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — pipeline hardening, OIDC, untrusted-input handling in CI
-- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — security incidents follow the same incident-response and postmortem process as reliability incidents
-- [ux-design](../ux-design/SKILL.md) — auth UX, consent flows, and dark patterns intersect with security and privacy
 - [godot-engineer](../godot-engineer/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
-- [technical-strategist](../technical-strategist/SKILL.md) — security posture is a strategic choice; the strategist names the bar; this skill provides the rules.
-- [standards-enforcer](../standards-enforcer/SKILL.md) — applies the security baseline at every gate, citing this skill as the non-negotiable source of truth.
-
-## Enforcement
-
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

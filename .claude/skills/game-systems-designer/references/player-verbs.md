@@ -37,7 +37,7 @@ If the design has more than three "core" verbs, some are actually:
 - **System interactions** (the player isn't doing them; they're picking what the system does)
 - **Meta-verbs** (between sessions — "build a deck" is meta-verb to "play a card" core verb)
 
-Refactor until you have three. If you can't, the concept has too many ideas in it (back to `game-concept-creator`).
+Refactor until you have three. If you can't, the concept has too many ideas in it (back to the `game-design-shaper` agent).
 
 ## Verbs vs features
 
@@ -77,7 +77,7 @@ Specify accessibility for each verb:
 - **Sensory channel** — does the verb require seeing color / hearing audio / fine motor control
 - **Cognitive load** — does the verb require remembering hidden state, holding multiple things in mind
 
-Accessibility decisions belong in the verb spec, not in a separate accessibility pass at the end. See `ux-design` for screen-level accessibility.
+Accessibility decisions belong in the verb spec, not in a separate accessibility pass at the end. Address screen-level UX / accessibility alongside the verb spec.
 
 ## Output for system specs
 

@@ -59,7 +59,8 @@ codebase-cost-estimator/
 ## Related
 
 For financial reporting from accounting exports — CFO briefings, burn rate, runway, and
-scenario modeling from QuickBooks/CSV data — see [`finance-ops`](../finance-ops/README.md).
+scenario modeling from QuickBooks/CSV data — that is a separate concern from this skill, which
+estimates build cost from measured lines of code.
 
 ## License
 

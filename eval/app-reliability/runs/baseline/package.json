@@ -1,0 +1,24 @@
+{
+  "name": "notes-app-baseline",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx worker/index.ts"
+  },
+  "dependencies": {
+    "next": "15.5.19",
+    "rabbitmq-stream-js-client": "1.0.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.0",
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "tsx": "4.20.3",
+    "typescript": "5.7.3"
+  }
+}

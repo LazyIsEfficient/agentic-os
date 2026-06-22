@@ -1,0 +1,34 @@
+{
+  "id": "skill-routing-cache",
+  "description": "Library can author a well-routed library skill on a subtler, easily-confused topic (cache invalidation) without trigger soup or scope creep.",
+  "task": "Author a minimal library skill `cache-invalidation` (a single SKILL.md, no reference files) that teaches how to decide on and implement a cache-invalidation strategy: when to use TTL/expiry vs explicit/event-driven invalidation vs versioned keys, the stampede/thundering-herd problem and its mitigations, and the cache-aside read-through/write-through trade-offs. The skill teaches the decision technique and when to reach for each strategy; it is not code to execute. Its routing must clearly distinguish it from a generic 'caching' or 'performance' skill so a router picks it only for invalidation/coherence problems.",
+  "output_type": "library-skill",
+  "arms": {
+    "library": {
+      "kind": "agent",
+      "agentType": "engineer",
+      "note": "Library-ON. The engineer agent authors the SKILL.md, with the full skills + subagents library (including the skill-authoring conventions) available."
+    },
+    "baseline": {
+      "kind": "agent",
+      "agentType": "general-purpose",
+      "prompt": "Author the SKILL.md directly from your own knowledge. Do NOT read, load, or invoke any library skills. Do NOT dispatch subagents or use any /-commands or workflows. Produce the file yourself in this turn.",
+      "note": "Library-OFF baseline. Instruction-suppressed: a vanilla agent told to use none of the library's machinery."
+    }
+  },
+  "deterministic_check": {
+    "kind": "validate-library-artifact",
+    "tier": 0,
+    "gates": true,
+    "spec": "Stage the produced SKILL.md into a copy of the live .claude tree at <dir>/.claude/skills/cache-invalidation/SKILL.md, then run `run-checker.sh validate-library-artifact <dir>`, which runs the repo's `scripts/validate.sh` against the staged tree. PASS iff exit code 0. This is the Tier-0 spine — it GATES."
+  },
+  "rubric": {
+    "note": "Tier-2 judge layer — INFORMS only, never gates. Pairwise per-dimension winner+margin; default-reject posture (judge conservatively when evidence for a dimension is weak).",
+    "dimensions": [
+      { "key": "frontmatter_quality", "max": 25, "asks": "name matches `cache-invalidation`; description carries concrete invalidation triggers AND 'For X see Y' cross-refs; tools allowlist coherent for a teaching skill." },
+      { "key": "routing_clarity", "max": 25, "asks": "Unambiguous when-to-use and not-when; a router picks this for invalidation/coherence problems and rejects look-alike generic 'caching' or 'performance' asks. No vague trigger soup." },
+      { "key": "body_actionability", "max": 25, "asks": "Concrete decision guidance (TTL vs event-driven vs versioned keys, stampede mitigations, aside/through trade-offs) usable on a real problem, vs generic filler an LLM could emit about anything." },
+      { "key": "single_responsibility", "max": 25, "asks": "Focused on the invalidation/coherence decision; no scope creep into eviction-policy essays, generic perf tuning, or vendor-specific cache-product tutorials." }
+    ]
+  }
+}

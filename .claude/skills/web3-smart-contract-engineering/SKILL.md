@@ -4,7 +4,7 @@ description: Use when writing, reviewing, or deploying Solidity smart contracts 
 when_to_use: |
   Use when writing, reviewing, testing, or deploying Solidity smart contracts: token contracts (ERC20/721/1155), signature-gated payout systems, merkle-gated staking vaults, allocation modules, role-based proxies, factory patterns, or Hardhat/Foundry contract test suites. The key signal is any edit to `*.sol` files, `hardhat.config.*`, `foundry.toml`, or deploy scripts.
 
-  Not when: the task is a security audit or adversarial review of contract logic — use security-engineering. Not when the task is TypeScript data pipelines that consume on-chain events — use typescript-data-engineering. Not when the task is cross-cutting contract test strategy or CI configuration for the test suite — use typescript-quality-engineering. Not when the work is general TypeScript test policy, E2E, or coverage strategy (not on-chain contract tests) — use typescript-quality-engineering.
+  Not when: the task is a security audit or adversarial review of contract logic — use security-engineering. Not when the task is TypeScript data pipelines that consume on-chain events — use typescript-data-engineering.
 ---
 
 # Web3 / Smart Contract Engineering
@@ -40,7 +40,3 @@ Reference stack: Hardhat + Foundry hybrid environment using Solidity 0.8.2–0.8
 - [references/testing-patterns.md](references/testing-patterns.md) — Hardhat + Chai + Ethers v6 examples, time manipulation, signature + merkle test patterns
 - [references/deployment.md](references/deployment.md) — deploy commands per chain, verification, deployment tracking in `deploys.ts`
 - [references/security-rules.md](references/security-rules.md) — required patterns, rate limiting, access control, token safety, gas optimization
-
-## Enforcement
-
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

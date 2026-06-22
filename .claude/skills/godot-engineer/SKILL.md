@@ -1,10 +1,10 @@
 ---
 name: godot-engineer
-description: Use when building games or interactive software in Godot 4 with C# — designing scenes and nodes, writing gameplay code, handling input, physics, animation, UI, rendering, save systems, performance work, WebSocket-based multiplayer, or exporting to platforms. Triggers on "Godot", "GDScript", "C# Godot", "scene tree", Godot node types (Node2D, Node3D, Control, CharacterBody), "_Process", "_PhysicsProcess", "signal", "autoload", "RPC", "WebSocketMultiplayerPeer", "shader", "export preset", or any Godot 4 project files. For game design see game-systems-designer; for balance see game-balancer; for monetization see game-monetization-strategist; for marketing see game-marketer; for game-specific intake see game-design-shaper. For broader software design principles see software-design.
+description: Use when building games or interactive software in Godot 4 with C# — designing scenes and nodes, writing gameplay code, handling input, physics, animation, UI, rendering, save systems, performance work, WebSocket-based multiplayer, or exporting to platforms. Triggers on "Godot", "GDScript", "C# Godot", "scene tree", Godot node types (Node2D, Node3D, Control, CharacterBody), "_Process", "_PhysicsProcess", "signal", "autoload", "RPC", "WebSocketMultiplayerPeer", "shader", "export preset", or any Godot 4 project files. For game design see game-systems-designer; for balance see game-balancer; for game-specific intake see game-design-shaper.
 when_to_use: |
   Use when designing or restructuring Godot scenes, writing gameplay code in C#, handling input or physics, building UI with Control nodes, animating with AnimationPlayer/AnimationTree/Tween, implementing save/load systems, profiling and optimizing frame budgets, implementing WebSocket-based multiplayer, configuring export presets, or reviewing a Godot project for anti-patterns. Triggers on any work inside `.tscn`, `.tres`, `.gd`, or `.cs` files in a Godot project.
 
-  Not when: the request is about game mechanics, balance, or narrative — use `game-systems-designer` or `game-balancer` instead. Not when the project is Phaser/TypeScript — use `phaser-engineer`. Not when the question is about monetization strategy — use `game-monetization-strategist`. Not when the task is a general (non-Godot-specific) profiling or optimization methodology — use `performance-optimization`.
+  Not when: the request is about game mechanics, balance, or narrative — use `game-systems-designer` or `game-balancer` instead. Not when the project is Phaser/TypeScript — use `phaser-engineer`.
 ---
 
 # Godot Engineer
@@ -64,17 +64,7 @@ This skill targets **Godot 4.x** with **C# (.NET 8+)** as the primary language. 
 
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the design doc + system specs this skill builds from. The natural "what to build" upstream of "how to build."
 - [game-balancer](../game-balancer/SKILL.md) — fills the `<TBD>` numbers in system specs; engineering ships tunable parameters as data, not magic numbers.
-- [game-monetization-strategist](../game-monetization-strategist/SKILL.md) and [iap-manager](../iap-manager/SKILL.md) — define the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
-- [game-marketer](../game-marketer/SKILL.md) — coordinates on capture sessions for trailer / store-page footage.
-- [game-design-shaper](../game-design-shaper/SKILL.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
-- [software-design](../software-design/SKILL.md) — SOLID, cohesion/coupling, separation-of-concerns principles still apply; the most common Godot anti-pattern (god scenes, tight coupling via direct paths) is the same anti-pattern as god classes, just in a different language.
-- [ux-design](../ux-design/SKILL.md) — game UI is UX; accessibility, microcopy, hierarchy, and feedback principles transfer directly. Game *feel* (juice, screen shake, hit-pause) overlaps with interaction design.
-- [ux-research](../ux-research/SKILL.md) — playtesting is usability testing with extra constraints; the research methods (interviews, observation, synthesis) apply directly.
-- [technical-product-management](../technical-product-management/SKILL.md) — game features need prioritization, scope decisions, launch planning, and metrics. PM principles apply, with the caveat that some game decisions are creative-led rather than data-led.
-- [team-lead](../team-lead/SKILL.md) — tickets, ADRs, and DADs work the same for a game team.
+- [iap-manager](../iap-manager/SKILL.md) — defines the IAP / sub / ad / web3 surfaces this skill plumbs into the engine.
+- [game-design-shaper](../../agents/game-design-shaper.md) — pipeline orchestrator for game-design intake; sits upstream of all the above.
 - [security-engineering](../security-engineering/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
-- [system-architect](../system-architect/SKILL.md), [cloud-infrastructure](../cloud-infrastructure/SKILL.md), [deployment-pipelines](../deployment-pipelines/SKILL.md), [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — only relevant for the *backend* of a multiplayer game. If you're running a dedicated server, matchmaker, or persistent world, all four apply normally. If you're shipping a single-player or peer-to-peer game, ignore.
-
-## Enforcement
-
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+- [deployment-pipelines](../deployment-pipelines/SKILL.md) — only relevant for the *backend* of a multiplayer game. If you're running a dedicated server, matchmaker, or persistent world, it applies normally. If you're shipping a single-player or peer-to-peer game, ignore.

@@ -1,0 +1,34 @@
+{
+  "id": "skill-authoring-slugify",
+  "description": "Library can author a small, well-formed, well-routed library skill from a one-line ask.",
+  "task": "Author a minimal library skill `slugify-text` (a single SKILL.md, no reference files) that documents how to convert arbitrary text into a URL-safe slug: lowercase, replace runs of non-alphanumerics with a single hyphen, trim leading/trailing hyphens. The skill teaches the technique and when to reach for it; it is not code to execute.",
+  "output_type": "library-skill",
+  "arms": {
+    "library": {
+      "kind": "agent",
+      "agentType": "engineer",
+      "note": "Library-ON: a specialist `engineer` agent with the full skills + subagents library available."
+    },
+    "baseline": {
+      "kind": "agent",
+      "agentType": "general-purpose",
+      "prompt": "Author the SKILL.md directly from your own knowledge. Do NOT read, load, or invoke any library skills. Do NOT dispatch subagents or use any /-commands or workflows. Produce the file yourself in this turn.",
+      "note": "Library-OFF baseline. Instruction-suppressed: a vanilla agent told to use none of the library's machinery."
+    }
+  },
+  "deterministic_check": {
+    "kind": "validate.sh",
+    "tier": 0,
+    "gates": true,
+    "spec": "Stage the produced SKILL.md into a copy of the live .claude tree at <stage>/.claude/skills/slugify-text/SKILL.md, then run `bash scripts/validate.sh <stage>`. PASS iff exit code 0. This is the Tier-0 spine — it GATES."
+  },
+  "rubric": {
+    "note": "Tier-2 judge layer — INFORMS only, never gates. Pairwise per-dimension winner+margin; default-reject posture (judge conservatively when evidence for a dimension is weak).",
+    "dimensions": [
+      { "key": "frontmatter_quality", "max": 25, "asks": "name matches; description carries concrete triggers AND 'For X see Y' cross-refs; tools allowlist coherent for a teaching skill." },
+      { "key": "routing_clarity", "max": 25, "asks": "Unambiguous when-to-use and not-when; a router could pick this correctly and reject look-alikes. No vague trigger soup." },
+      { "key": "body_actionability", "max": 25, "asks": "Concrete, usable guidance (the actual slugify steps, edge cases) vs generic filler an LLM could emit about anything." },
+      { "key": "single_responsibility", "max": 25, "asks": "Focused on slugify; no scope creep into unrelated string ops, i18n essays, or code dumps." }
+    ]
+  }
+}

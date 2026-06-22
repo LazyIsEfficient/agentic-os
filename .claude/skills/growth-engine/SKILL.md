@@ -10,7 +10,7 @@ description: >-
 when_to_use: |
   Use when creating or managing A/B or multivariate experiments across any marketing channel, logging experiment data points after content is published, scoring experiments to determine statistical winners, checking a living playbook for proven best practices, generating weekly scorecards across all channels, or monitoring campaign pacing and health.
 
-  Not when: the request is one-off content creation without an experiment framing — apply playbook output directly instead of running the engine. Not when the task is generating or scoring CONTENT/COPY VARIANTS pre-launch (e.g. "A/B test this copy", "score these variants" of a headline or page) rather than running a real experiment with logged data and statistical winners — use `autoresearch`. Not when the focus is SEO-specific experiments — use `seo-ops`. Not when building cold outbound sequences — use `outbound-engine`. Not when the task is establishing or validating which segment to target before experiments assume an ICP — use `icp-validation`.
+  Not when: the request is one-off content creation without an experiment framing — apply playbook output directly instead of running the engine. Not when the task is generating or scoring CONTENT/COPY VARIANTS pre-launch (e.g. "A/B test this copy", "score these variants" of a headline or page) rather than running a real experiment with logged data and statistical winners — use `autoresearch`. Not when the focus is SEO-specific experiments — use `seo-ops`. Not when building cold outbound sequences — use `outbound-engine`.
 ---
 
 # Growth Engine

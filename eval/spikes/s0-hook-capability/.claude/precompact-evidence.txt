@@ -1,0 +1,1 @@
+S0_SENTINEL_PRECOMPACT_FIRED {"hook_event_name":"PreCompact","trigger":"manual"}

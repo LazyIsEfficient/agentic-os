@@ -12,7 +12,7 @@ description: >-
   for live-URL CRO auditing see conversion-ops; for the scripted content-production
   pipeline see content-pipeline.
 when_to_use: |
-  Use when any single content or strategy artifact needs a quality gate before publishing or handoff — scoring copy, landing-page drafts, email sequences, strategy docs, charts, or candidate evaluations against an assembled panel of domain experts. Triggers on "expert panel this", "score this", "rate these variants", "quality check this", or when another skill (blog-post-author, course-author, outbound-engine) needs a final review gate.
+  Use when any single content or strategy artifact needs a quality gate before publishing or handoff — scoring copy, landing-page drafts, email sequences, strategy docs, charts, or candidate evaluations against an assembled panel of domain experts. Triggers on "expert panel this", "score this", "rate these variants", "quality check this", or when another skill (e.g. outbound-engine) needs a final review gate.
 
   Not when: the goal is pre-launch variant generation and multi-round optimization of conversion copy — use `autoresearch`. Not when the focus is CRO auditing of a live URL (fetch + conversion-dimension scoring) — use `conversion-ops`; use content-ops when the artifact is a draft landing page being quality-gated before publish. Not when the job is running the content-production pipeline as scripts (RSS quote mining, video-clip discovery, repurposing, batch draft gating) — use `content-pipeline`.
 ---
@@ -42,9 +42,6 @@ General-purpose scoring and iterative improvement engine. Auto-assembles the rig
 
 ## Related skills
 
-- [blog-post-author](../blog-post-author/SKILL.md) — produces blog post drafts that content-ops scores
-- [blog-post-shaper](../blog-post-shaper/SKILL.md) — blog intake skill whose output feeds into content-ops scoring
-- [course-author](../course-author/SKILL.md) — produces lesson drafts that content-ops scores
 - [autoresearch](../autoresearch/SKILL.md) — pre-launch variant generation + multi-round optimization of conversion copy; run before content-ops's final gate
 - [conversion-ops](../conversion-ops/SKILL.md) — post-publish conversion layer; run after content-ops quality gate
 - [adversarial-claims-reviewer](../adversarial-claims-reviewer/SKILL.md) — judges whether formal/technical claims are true; content-ops judges whether the prose is good

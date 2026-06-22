@@ -1,6 +1,6 @@
 ---
 name: codebase-cost-estimator
-description: "Estimate the full development cost of an existing codebase from lines of code, architectural complexity, and team-composition overhead. Use for 'how much would this cost to build', 'what did this codebase cost', development-cost or build-cost estimates, calendar-time estimates, and Claude/AI ROI on a delivered codebase. Estimates by measured LOC and complexity, not by ticket volume. For financial reporting from accounting exports (CFO briefings, burn rate, runway) see finance-ops."
+description: "Estimate the full development cost of an existing codebase from lines of code, architectural complexity, and team-composition overhead. Use for 'how much would this cost to build', 'what did this codebase cost', development-cost or build-cost estimates, calendar-time estimates, and Claude/AI ROI on a delivered codebase. Estimates by measured LOC and complexity, not by ticket volume."
 when_to_use: |
   Use when you have an existing codebase and need a defensible build-cost estimate: catalog
   lines of code by language, convert to developer-hours with productivity rates and overhead
@@ -11,12 +11,9 @@ when_to_use: |
   estimate", "build cost", "engineering cost", "rebuild cost", "calendar time to build", or
   "Claude ROI"/"AI ROI" for a delivered codebase.
 
-  Not when: the task is financial reporting from accounting data — burn rate, runway, P&L,
-  scenario modeling, or a CFO briefing from QuickBooks/CSV exports — use
-  [finance-ops](../finance-ops/SKILL.md) instead. Not when the task is pricing a *future*
+  Not when: the task is pricing a *future*
   project from a spec rather than measuring an existing codebase (there is no code to count
-  yet) — scope the spec first, then return here once code exists. Not when the task is
-  game-studio revenue/LTV forecasting — use `game-monetization-strategist`.
+  yet) — scope the spec first, then return here once code exists.
 ---
 
 # Codebase Cost Estimator

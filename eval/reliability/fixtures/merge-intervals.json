@@ -1,0 +1,6 @@
+{
+  "id": "merge-intervals",
+  "signature": "pub fn merge_intervals(intervals: &[(i64, i64)]) -> Vec<(i64, i64)>",
+  "crate_name": "solution",
+  "task": "Write a Cargo LIBRARY crate named `solution` (Cargo.toml `[package] name = \"solution\"`, no external dependencies, must build offline) that exposes `pub fn merge_intervals(intervals: &[(i64, i64)]) -> Vec<(i64, i64)>` in `src/lib.rs`.\n\nContract: each tuple `(a, b)` denotes an INCLUSIVE interval `[a, b]` with `a <= b` guaranteed. Return the minimal set of disjoint intervals, sorted ascending by start, that covers the same intervals as the input.\n\nMerge semantics (endpoint-based):\n- Two intervals merge iff they OVERLAP or SHARE A BOUNDARY POINT. Example: [1,4] and [4,9] merge into [1,9] because they touch at 4.\n- Otherwise they stay SEPARATE. Merely-adjacent integer values do NOT count as touching: [1,3] and [4,8] do NOT merge (3 and 4 are distinct points; the intervals neither overlap nor share a boundary). Do not merge on `next.start == prev.end + 1`.\n- The input may be given in ANY order.\n- The empty input returns an empty `Vec`. Values may be negative; use `i64` arithmetic as given.\n\nReturn owned `(i64, i64)` tuples."
+}

@@ -1,0 +1,2 @@
+# Per-invocation monotonic counter the battery uses for unique stream names.
+.battery-counter

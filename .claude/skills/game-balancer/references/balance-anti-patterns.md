@@ -108,7 +108,7 @@ Patch notes that list 50 numerical changes with no context. Players can't tell w
 
 A balance is shipped without telemetry to validate it. Six months later, no one knows whether the change worked.
 
-**Fix:** every balance change ships with a measurement plan. Hand it to `site-reliability-engineering` (alerts) and `growth-engine` (experiments).
+**Fix:** every balance change ships with a measurement plan. Hand it to the `devops-engineer` agent (alerts) and `growth-engine` (experiments).
 
 ## 19. Symmetric "balance" by removal
 

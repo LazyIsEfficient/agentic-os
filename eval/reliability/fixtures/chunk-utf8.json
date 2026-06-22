@@ -1,0 +1,6 @@
+{
+  "id": "chunk-utf8",
+  "signature": "pub fn chunk_utf8(s: &str, max_bytes: usize) -> Vec<&str>",
+  "crate_name": "solution",
+  "task": "Write a Cargo LIBRARY crate named `solution` (Cargo.toml `[package] name = \"solution\"`, no external dependencies, must build offline) that exposes `pub fn chunk_utf8(s: &str, max_bytes: usize) -> Vec<&str>` in `src/lib.rs`.\n\nContract: split `s` into consecutive chunks and return them as string slices borrowed from `s`. Requirements:\n- Concatenating the chunks in order MUST exactly reproduce the original `s` (the chunks partition `s` with no gaps and no overlaps).\n- Each chunk MUST be at most `max_bytes` bytes long (`chunk.len() <= max_bytes`).\n- A chunk boundary MUST NEVER fall inside a multi-byte UTF-8 character. Every returned slice must itself be valid UTF-8 (i.e. boundaries land on char boundaries only).\n- The split is GREEDY: each chunk is made as long as possible (as many whole characters as fit in `max_bytes`) before starting the next chunk.\n- `max_bytes >= 4` is guaranteed (large enough to hold any single UTF-8 scalar).\n- Empty input returns an empty `Vec`.\n\nReturn the borrowed slices; do not allocate new owned strings for the chunk contents."
+}

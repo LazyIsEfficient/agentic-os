@@ -1,1 +1,0 @@
-# Prompt-based skill — no Python dependencies

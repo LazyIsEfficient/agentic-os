@@ -60,7 +60,7 @@ Bundle composition changes after launch ("we removed item X from this SKU"). Pla
 
 Live SKU's price changes without comms. Players notice; community erupts.
 
-**Fix:** announce price changes in advance (1–2 weeks). Compensate buyers who paid the old price near the change. Coordinate with `game-marketer`.
+**Fix:** announce price changes in advance (1–2 weeks). Compensate buyers who paid the old price near the change. Coordinate with the `marketer` agent.
 
 ## 11. Subscription that gates content
 

@@ -1,10 +1,10 @@
 ---
 name: typescript-testing-frontend
-description: Use when writing or reviewing TypeScript frontend tests — Jest unit/integration tests for React components and hooks built with Chakra UI, React Query, Zustand, and Next.js App Router. Triggers on edits to `*.test.tsx`, React component/hook test files (`.tsx`, not `.ts`) under `**/__tests__/`, custom test render helpers, or mentions of "frontend test", "component test", "hook test", "React test", "UI test". For broader QE topics (E2E, smart contract tests, cross-cutting test policy) see typescript-quality-engineering.
+description: Use when writing or reviewing TypeScript frontend tests — Jest unit/integration tests for React components and hooks built with Chakra UI, React Query, Zustand, and Next.js App Router. Triggers on edits to `*.test.tsx`, React component/hook test files (`.tsx`, not `.ts`) under `**/__tests__/`, custom test render helpers, or mentions of "frontend test", "component test", "hook test", "React test", "UI test".
 when_to_use: |
   Use when writing or reviewing TypeScript frontend tests: Jest unit/integration tests for React components and hooks using React Testing Library, with Chakra UI, React Query, Zustand, and Next.js App Router. The key signals are `*.test.tsx` files, component test helpers, or any request to test a React UI, component behavior, or custom hook.
 
-  Not when: the task is writing tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is E2E flows, smart contract tests, or cross-cutting test policy — use typescript-quality-engineering. Not when the task is writing production React component code — use frontend-ui-engineering. Not when the task is running or verifying the UI in a real browser (Chrome DevTools, visual/layout/interaction verification) — use browser-testing-with-devtools.
+  Not when: the task is writing tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is running or verifying the UI in a real browser (Chrome DevTools, visual/layout/interaction verification) — use browser-testing-with-devtools.
 ---
 
 # TypeScript Testing — Frontend
@@ -37,14 +37,7 @@ Hard-to-test UI remains a useful design feedback signal — but **feedback belon
 
 **Examples of when to flag:** untestable or awkward seams (no stable boundary to mock/fake); heavy or nested mocks to assert one behavior; large wrapper/setup cost for a supposedly small unit; missing stable accessible names (roles, labels) so tests depend on `getByTestId` or brittle copy; business logic or I/O bundled in a component or hook so focused assertions are awkward.
 
-Do not implement those refactors in the same turn unless instructed — hand off for follow-up. This aligns with [software-design](../software-design/SKILL.md): record the signal; acting on it is a separate, explicit scope.
-
-## Related skills
-
-- [software-design](../software-design/SKILL.md) — testability is a design feedback signal; do not game tests to hide issues. When the mandate is **tests only**, capture component- or module-level improvements under **Refactor opportunities (not in scope)** instead of refactoring production code in the same turn unless the user asked.
-- [typescript-quality-engineering](../typescript-quality-engineering/SKILL.md) — umbrella QE skill for cross-cutting test policy
-- [test-driven-development](../test-driven-development/SKILL.md) — the red-green-refactor discipline that drives when these React/hook tests get written; this skill is the frontend-specific specialization of it
-- [ux-design](../ux-design/SKILL.md) — accessibility test criteria (axe, jest-axe) come from the design; the design provides the requirements, the tests enforce them
+Do not implement those refactors in the same turn unless instructed — hand off for follow-up. Record the signal; acting on it is a separate, explicit scope.
 
 ## References
 
@@ -56,7 +49,3 @@ Do not implement those refactors in the same turn unless instructed — hand off
 - [references/mocking-patterns.md](references/mocking-patterns.md) — Zustand stores, services, Next.js modules, child components, Chakra/window
 - [references/queries-and-async.md](references/queries-and-async.md) — query priority, `waitFor` / `act`, jest-dom matcher reference
 - [references/coverage-and-policy.md](references/coverage-and-policy.md) — coverage config, no snapshots, test failure triage
-
-## Enforcement
-
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions become DADs or ADRs (see [team-lead](../team-lead/SKILL.md)) and become part of the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).

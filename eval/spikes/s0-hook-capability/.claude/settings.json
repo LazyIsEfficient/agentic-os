@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-start.sh" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Write", "hooks": [ { "type": "command", "command": "bash .claude/hooks/pretooluse-guard.sh" } ] }
+    ],
+    "PreCompact": [
+      { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash .claude/hooks/precompact-flush.sh" } ] }
+    ]
+  }
+}

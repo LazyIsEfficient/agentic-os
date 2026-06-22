@@ -4,7 +4,7 @@ Long-lived cloud credentials in CI are a liability. OIDC federation lets a workf
 
 ## OIDC to AWS
 
-### Trust Policy (provisioned in cloud-infrastructure)
+### Trust Policy (provisioned by the `devops-engineer` agent)
 
 ```json
 {

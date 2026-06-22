@@ -6,7 +6,7 @@ Five common kinds of balance work. Pick the one that fits before opening the spr
 
 **Signal:** the design has currencies, sources, sinks, and the team needs to know the rates.
 
-**Inputs:** system specs touching currency; player profiles; ARPDAU / LTV target (from `game-monetization-strategist`); intended player lifetime.
+**Inputs:** system specs touching currency; player profiles; ARPDAU / LTV target (from `iap-manager`); intended player lifetime.
 
 **Outputs:** filled `economy-spreadsheet-skeleton.md`; per-currency velocity tables; time-to-content predictions; sensitivity analysis on top 3–5 levers.
 
@@ -60,7 +60,7 @@ Five common kinds of balance work. Pick the one that fits before opening the spr
 
 **Inputs:** live telemetry; the original model; the player community's expectations.
 
-**Outputs:** re-tune plan (`live-rebalancing.md`); rollout plan (A/B if possible); rollback plan; comms plan with `game-marketer`; cross-check with `iap-manager` if catalogs are touched.
+**Outputs:** re-tune plan (`live-rebalancing.md`); rollout plan (A/B if possible); rollback plan; comms plan with the `marketer` agent; cross-check with `iap-manager` if catalogs are touched.
 
 **Pitfalls:**
 - Silent nerfs to monetized content (NFTs, premium gear) without comms — destroys trust

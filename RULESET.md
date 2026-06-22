@@ -145,6 +145,19 @@ these here; `scripts/validate.sh` is the deterministic gate.
 - **R36 — Distribution here is the pinned-release flow**, not Claude.ai upload:
   changes land via PR → `validate.sh` → `scripts/release.sh` (content-addressed
   tarball + digest pin). See `RELEASING.md`.
+- **R37 — Cross-references use links so they're gateable.** A cross-reference to
+  another skill/agent **in the body** MUST be a markdown link to the target file
+  (`[name](../other-skill/SKILL.md)`, `[name](../../agents/other-agent.md)`), so
+  `validate.sh` Invariant 3 catches it when the target is pruned/renamed. The
+  `## Skills available` / `## Delegate` / `## Related skills` sections are link
+  lists, not bare names. **Descriptions and `when_to_use` are the exception**:
+  their sibling mentions ("For X see other-skill", "Not when: … use sibling") are
+  advisory natural-language routing hints the router reads — keep them as plain
+  text (links would clutter the catalog), and keep them accurate **by hand**.
+  Only the body links are deterministically gated; a stale bare name in a
+  description is caught in review, not by `validate.sh` (the residual that the
+  197-ref prune cleanup exposed). Rationale: a bare name can't be told from
+  ordinary prose, so only an explicit link syntax is reliably checkable.
 
 ---
 

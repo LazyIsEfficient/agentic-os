@@ -1,6 +1,6 @@
 # Store-side UX
 
-The store is a UI surface, not just a list of SKUs. The same catalog with bad UX converts dramatically worse than with good UX. Coordinate with `ux-design` for screen-level work; this reference covers IAP-specific patterns.
+The store is a UI surface, not just a list of SKUs. The same catalog with bad UX converts dramatically worse than with good UX. Coordinate on screen-level UX work; this reference covers IAP-specific patterns.
 
 ## Paywall placement
 
@@ -65,7 +65,7 @@ The text on the offer matters. Rules:
 - **Avoid pressure tactics** — "Last chance!" only if it's the genuine last chance; "Limited stock!" only if there's actual stock
 - **Localize** — translated text per region
 
-Coordinate with `game-marketer` for copy and `ux-design` for typography / hierarchy.
+Coordinate with the `marketer` agent for copy and on typography / hierarchy (screen-level UX).
 
 ## Comparison and decoy display
 
@@ -121,7 +121,7 @@ If the rails include web3:
 
 ## Output
 
-Coordinate with `ux-design` to specify:
+Coordinate on screen-level UX to specify:
 - Paywall screens (always-on, low-currency, low-energy, defeat, victory, time-limited)
 - Offer detail screens
 - Confirm + receipt screens

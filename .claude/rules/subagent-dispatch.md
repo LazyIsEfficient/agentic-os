@@ -7,9 +7,7 @@ Any vague request goes through a shaper before code is touched.
 
 - Engineering work → `/shape` (`prompt-shaper`)
 - Marketing work → `/mshape` (`marketing-shaper`)
-- Course work → `/course-shape` (`course-shaper`)
 - Game work → `/game-shape` (`game-design-shaper`)
-- Blog work → `/blog-shape` (`blog-post-shaper`)
 
 The shaper produces a scoped brief. Feed the brief to `planning-and-task-breakdown` to produce a DAG with stable task IDs, declared file writes, conflict edges, and branch suffixes. Dispatch the DAG in parallel waves. Skip the shaper only when the request is already a fully-scoped brief — and say so explicitly when you skip.
 
@@ -35,14 +33,3 @@ For any question that needs more than 2–3 file reads or greps, spawn `Explore`
 - One `Explore` per discrete question. Brief tightly: `"quick"` / `"medium"` / `"very thorough"` per the agent's contract.
 - Fan out 3–5 in parallel for "where is X / how does Y / what depends on Z" surveys.
 - Their summaries come back small. You synthesize. Your context stays clean for the actual work.
-
-### Pattern 5 — Default a self-contained build to the `v2-collab` pod
-When the user asks you to **produce one self-contained deliverable** that a single pod can iterate to "done" in a few rounds — a web page, a document, a small module/script, one skill or agent, a copy/spec artifact — **default to running it through `/v2-collab`** (the in-session `technical-pm → engineer → reviewer` collaboration pod) instead of building it yourself in the main thread. Announce that you are routing it to the pod; the user can say "just do it directly" to opt out.
-
-Do **not** route to the pod when:
-- The message is a question, lookup, explanation, or a quick/one-line edit — handle those directly. Most messages are this; the pod is the exception, not the default for *all* input.
-- The work spans multiple repos or many slices — use **Pattern 1** (shaper → planner → fan-out) instead.
-- The deliverable is a single artifact but its **scope is still vague** (you cannot yet name its acceptance criteria) — shape it first (Pattern 1) into a brief, *then* hand the brief to the pod. Don't dispatch an unscoped ask; the tiebreaker with Pattern 1 is "scoped → pod, vague → shape then pod."
-- The user explicitly asks you to do it yourself, or the deliverable is so small that a direct build is plainly cheaper (the pod spends real tokens across multiple subagent turns — use judgment).
-
-The pod writes output to a path the user names (or `./v2-out/`), **never** into the live library; materialize with path sanitization (reject `..`/absolute/escape) and report the reviewer's verdict. The pod's roster is configurable — pick a reviewer that fits the deliverable (e.g. `code-reviewer` for code/pages, `library-reviewer` for a skill/agent).

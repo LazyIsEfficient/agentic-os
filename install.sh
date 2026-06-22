@@ -174,16 +174,14 @@ echo "Installing to $DEST"
 install_dir "skills"
 install_dir "agents"
 # Commands: ship-tagged allowlist ONLY — list each file that installs into a
-# consumer's global namespace. Author-facing scaffolds, the router, and the
-# v2-collab command ship; maintainer-only commands (audit-library, review-gate,
-# plan-clean, triage-findings) stay in-repo and are never installed, to avoid
+# consumer's global namespace. The author-facing scaffolds plus /state (the
+# awareness-harness writer command — its skill + hooks ship alongside) are the
+# only consumer commands; maintainer-only commands (audit-library, review-gate,
+# triage-findings, eval-harness) stay in-repo and are never installed, to avoid
 # polluting the consumer's command namespace.
-install_files "commands" "skill-new.md" "agent-new.md" "route.md" "v2-collab.md"
-# Workflows: ship-tagged allowlist ONLY. Only the v2-collab workflow ships (it
-# backs the globally-installed /v2-collab command, which resolves its workflow
-# from ~/.claude/workflows/). The other workflows (sharded library audit,
-# routing-collision sweep) are maintainer-only and stay in-repo.
-install_files "workflows" "v2-collab.js"
+install_files "commands" "skill-new.md" "agent-new.md" "state.md"
+# Workflows: NOTHING ships. The only workflow (audit-skill-library) is a
+# maintainer-only tool that stays in-repo and is never installed.
 install_dir "hooks"
 
 # Ensure hook scripts are executable

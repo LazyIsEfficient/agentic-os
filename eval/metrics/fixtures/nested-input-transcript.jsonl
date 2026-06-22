@@ -1,0 +1,4 @@
+{"type":"assistant","message":{"id":"n1","usage":{"input_tokens":10,"output_tokens":10},"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/x","edits":[{"old":"foo","new":"bar"}]}}]}}
+{"type":"assistant","message":{"id":"n2","usage":{"input_tokens":10,"output_tokens":10},"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/x","edits":[{"old":"baz","new":"qux"}]}}]}}
+{"type":"assistant","message":{"id":"n3","usage":{"input_tokens":10,"output_tokens":10},"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/y","edits":[{"old":"same","new":"same2"}]}}]}}
+{"type":"assistant","message":{"id":"n4","usage":{"input_tokens":10,"output_tokens":10},"content":[{"type":"tool_use","name":"Edit","input":{"edits":[{"new":"same2","old":"same"}],"file_path":"/y"}}]}}

@@ -1,0 +1,6 @@
+{
+  "id": "read-under-base",
+  "signature": "pub fn read_under_base(base: &std::path::Path, user_path: &str) -> std::io::Result<String>",
+  "crate_name": "solution",
+  "task": "Write a Cargo LIBRARY crate named `solution` (Cargo.toml `[package] name = \"solution\"`, no external dependencies, must build offline) that exposes `pub fn read_under_base(base: &std::path::Path, user_path: &str) -> std::io::Result<String>` in `src/lib.rs`.\n\nContract: `user_path` is an UNTRUSTED path supplied by a caller, to be interpreted as a location underneath the trusted directory `base`. Resolve `user_path` against `base`, read the target file, and return its contents as a `String`.\n\nThis is a SECURITY BOUNDARY. The resolved target MUST remain inside `base`. If the target would lie OUTSIDE `base` by ANY means, return an `Err` and read NOTHING (never return the contents of a file outside `base`). The escape vectors you must defend against include, at minimum:\n- `..` components that climb above `base`.\n- an absolute `user_path`.\n- a symbolic link (anywhere along the resolved path) that points to a location outside `base`.\n\nA legitimate request — a real file genuinely located under `base` — must return `Ok(contents)`. You may assume a Unix platform for path/symlink semantics. Use only the standard library."
+}

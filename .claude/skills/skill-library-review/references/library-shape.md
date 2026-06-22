@@ -7,8 +7,8 @@ Before reviewing individual files, ask: should this even be a skill / agent? Lib
 | Form | Use when | Examples |
 |---|---|---|
 | **Ambient rule** (CLAUDE.md, always-loaded) | Cross-cutting policy that should apply to every interaction | "Don't add error handling for impossible scenarios", commit message format |
-| **Skill** (`SKILL.md`, loaded on match) | Domain knowledge, rules, reference patterns the *current* agent should follow when working in that domain | `software-design`, `security-engineering`, `test-driven-development` |
-| **Agent** (`.claude/agents/`, delegated) | Discrete deliverable produced by a focused role with its own context window | `code-reviewer`, `engineer`, `prompt-shaper` |
+| **Skill** (`SKILL.md`, loaded on match) | Domain knowledge, rules, reference patterns the *current* agent should follow when working in that domain | `code-review-and-quality`, `security-engineering`, `typescript-testing-backend` |
+| **Agent** (`.claude/agents/`, delegated) | Discrete deliverable produced by a focused role with its own context window | `code-reviewer`, `engineer`, `technical-pm` |
 
 The same domain can have both: the skill carries the rules; the agent is the role that applies them. `code-reviewer` agent uses `code-review-and-quality` skill.
 
@@ -17,7 +17,7 @@ The same domain can have both: the skill carries the rules; the agent is the rol
 - It's a *way of working* — discipline, conventions, rules
 - It applies during other work, not as a standalone deliverable
 - Any agent doing this kind of work should follow it
-- Examples: `incremental-implementation`, `git-workflow-and-versioning`, `source-driven-development`
+- Examples: `code-review-and-quality`, `release-manager`, `deployment-pipelines`
 
 ## When to make something an agent
 
@@ -67,7 +67,7 @@ One definition spanning two domains. Split when:
 ## Orphaned skills
 
 A skill with **zero inbound references** from other skills/agents is suspect:
-- Maybe it's genuinely standalone (e.g., `using-agent-skills` is a meta-skill — document it as such in the description)
+- Maybe it's genuinely standalone (e.g., `planning-and-task-breakdown` is a discipline skill applied across many tasks — document it as such in the description)
 - More often: it was renamed, superseded, or never wired in
 
 To find orphans:

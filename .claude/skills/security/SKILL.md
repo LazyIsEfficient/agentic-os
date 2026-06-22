@@ -17,7 +17,7 @@ when_to_use: |
 
   Not when: hardening application code against OWASP vulnerabilities, implementing
   auth/sessions/input validation, or doing a cross-stack security review — use
-  security-and-hardening or security-engineering instead.
+  security-engineering instead.
 ---
 
 # Security Sanitizer
@@ -41,5 +41,4 @@ Edit `.claude/skills/security/scripts/sanitizer-config.json` to customize blockl
 
 ## Related skills
 
-- [security-engineering](../security-engineering/SKILL.md) — application security, OWASP, auth hardening
-- [security-and-hardening](../security-and-hardening/SKILL.md) — OWASP Top 10 hardening, input validation, auth/session patterns for web applications
+- [security-engineering](../security-engineering/SKILL.md) — application security, OWASP, auth hardening, input validation, auth/session patterns for web applications

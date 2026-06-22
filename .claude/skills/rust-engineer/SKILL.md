@@ -1,10 +1,10 @@
 ---
 name: rust-engineer
-description: Use when writing, reviewing, or architecting Rust code — systems programming, async services, CLI tooling, web backends, or any work in `.rs` files. Triggers on editing `.rs` or `Cargo.toml` files, or mentions of "Rust", "Tokio", "Axum", "cargo", "borrow checker", "lifetime", "trait object", "async Rust", "crate", "rustc", or explicit requests to "build this in Rust" / "rewrite X in Rust". For adversarial security review of Rust code see security-reviewer. For broader architectural decisions see system-architect.
+description: Use when writing, reviewing, or architecting Rust code — systems programming, async services, CLI tooling, web backends, or any work in `.rs` files. Triggers on editing `.rs` or `Cargo.toml` files, or mentions of "Rust", "Tokio", "Axum", "cargo", "borrow checker", "lifetime", "trait object", "async Rust", "crate", "rustc", or explicit requests to "build this in Rust" / "rewrite X in Rust". For adversarial security review of Rust code see security-reviewer.
 when_to_use: |
   Use when designing or reviewing a Rust crate or Cargo workspace, writing async Rust with Tokio, building HTTP APIs with Axum, designing library APIs (trait hierarchies, error types, builder patterns), reviewing or writing `unsafe` code or FFI boundaries, resolving borrow-checker errors that suggest a design problem, profiling Rust services, or for any work in `.rs` or `Cargo.toml` files.
 
-  Not when: the request is an adversarial security audit of unsafe soundness or supply-chain risk — use the `security-reviewer` agent. Not when the scope spans multiple services or languages — use `system-architect`. Not when the work is TypeScript or another language — use the corresponding language skill.
+  Not when: the request is an adversarial security audit of unsafe soundness or supply-chain risk — use the `security-reviewer` agent. Not when the work is TypeScript or another language — use the corresponding language skill.
 ---
 
 # Rust Engineer
@@ -50,7 +50,7 @@ The right stance is **work with the type system, not around it; own what you mut
 - Toolchain setup — clippy configuration, rustfmt, CI pipeline, MSRV policy.
 - Any work in `.rs` files or `Cargo.toml` / `Cargo.lock`.
 
-For **security audits and adversarial review** of Rust code, defer to the `security-reviewer` agent (unsafe soundness, supply-chain risk, cryptographic usage). For **high-level system architecture** decisions that span multiple services or languages, see [system-architect](../system-architect/SKILL.md). For **software design principles** (SOLID, hexagonal, DDD) in a Rust context, see [software-design](../software-design/SKILL.md). For **CI/CD pipeline** wiring, see [deployment-pipelines](../deployment-pipelines/SKILL.md).
+For **security audits and adversarial review** of Rust code, defer to the [security-reviewer](../../agents/security-reviewer.md) agent (unsafe soundness, supply-chain risk, cryptographic usage). For **CI/CD pipeline** wiring, see [deployment-pipelines](../deployment-pipelines/SKILL.md).
 
 ## References
 
@@ -67,15 +67,6 @@ For **security audits and adversarial review** of Rust code, defer to the `secur
 
 ## Related skills
 
-- [software-design](../software-design/SKILL.md) — SOLID, hexagonal architecture, ports and adapters; the most common Rust anti-patterns (god structs, tight coupling via concrete types) are the same anti-patterns as in any language.
-- [system-architect](../system-architect/SKILL.md) — when the scope exceeds a single service or crate boundary.
-- [security-engineering](../security-engineering/SKILL.md) — background patterns for `unsafe` soundness, supply-chain guidance, and cryptographic usage; for adversarial review of a specific diff, delegate to the `security-reviewer` agent instead.
+- [security-engineering](../security-engineering/SKILL.md) — background patterns for `unsafe` soundness, supply-chain guidance, and cryptographic usage; for adversarial review of a specific diff, delegate to the [security-reviewer](../../agents/security-reviewer.md) agent instead.
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — cross-compilation targets, Docker multi-stage builds for Rust binaries, caching `~/.cargo` in CI.
-- [site-reliability-engineering](../site-reliability-engineering/SKILL.md) — observability with `tracing`, structured logging, metrics, health endpoints; applies directly to Axum services.
-- [api-and-interface-design](../api-and-interface-design/SKILL.md) — HTTP API design principles that apply regardless of framework.
-- [test-driven-development](../test-driven-development/SKILL.md) — red-green-refactor applies in Rust; the borrow checker makes test-first design particularly valuable because it forces interface clarity before implementation.
-- [code-review-and-quality](../code-review-and-quality/SKILL.md) — post-implementation gate; run in parallel with security-reviewer on any non-trivial diff.
-
-## Enforcement
-
-Work in this domain is subject to review by [standards-enforcer](../standards-enforcer/SKILL.md) at the gates defined in [the-gates.md](../standards-enforcer/references/the-gates.md). Significant or non-default decisions — executor choice, workspace topology, error strategy, `unsafe` usage — become ADRs (see [team-lead](../team-lead/SKILL.md)) and are tracked in the strategy maintained by [technical-strategist](../technical-strategist/SKILL.md).
+- [code-review-and-quality](../code-review-and-quality/SKILL.md) — post-implementation gate; run in parallel with [security-reviewer](../../agents/security-reviewer.md) on any non-trivial diff.

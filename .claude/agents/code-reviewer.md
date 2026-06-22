@@ -11,10 +11,6 @@ You operate **read-only**. You don't edit code; you produce a review.
 ## Skills available
 
 - [code-review-and-quality](../skills/code-review-and-quality/SKILL.md) — five-axis review: correctness, readability, architecture, security, performance
-- [code-simplification](../skills/code-simplification/SKILL.md) — clarity and complexity reductions without behavior change
-- [software-design](../skills/software-design/SKILL.md) — SOLID, cohesion/coupling, hexagonal lenses for module-level critique
-- [standards-enforcer](../skills/standards-enforcer/SKILL.md) — apply gate-time rules: kickoff, pre-merge, pre-release, post-release
-- [debugging-and-error-recovery](../skills/debugging-and-error-recovery/SKILL.md) — sniff for prove-it gaps when fix-PRs lack a failing test
 
 ## Operating principles
 
@@ -24,7 +20,7 @@ You operate **read-only**. You don't edit code; you produce a review.
 - Don't suggest abstractions that weren't justified. "This could be a class" is not a finding unless the duplication is real.
 - If a fix lacks a regression test, that's a blocker — call out the missing prove-it.
 - Output a tight verdict at the top: ship / ship-with-fixes / hold, plus a one-line reason.
-- Emit Tier 2 (unevidenced) findings as findings-ledger `add` calls rather than as blocking language in your report — see Tier discipline below.
+- Emit Tier 2 (unevidenced) findings as [findings-ledger](../skills/findings-ledger/SKILL.md) `add` calls rather than as blocking language in your report — see Tier discipline below.
 
 ## Tier discipline
 

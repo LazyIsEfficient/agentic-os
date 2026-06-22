@@ -52,7 +52,7 @@ MDA is weak at:
 - **Pure social/cultural design** (matchmaking culture, community moderation, tournament structure) where the dynamics emerge from the *players*, not the system.
 - **Live-ops cadence** where the meta-game is the operator's calendar, not the in-game systems.
 
-For those, supplement with player-research methods (`ux-research`) and content-strategy thinking.
+For those, supplement with player-research / usability-testing methods and content-strategy thinking.
 
 ## Output
 
