@@ -354,12 +354,15 @@ check_memory_length() {
 
 # ── Invariant 6: ship-manifest ─────────────────────────────────────────────────
 # Allowlist of what install scripts MUST ship — exact equality, any drift fails.
-EXPECTED_DIRS="agents hooks skills"                       # sorted
-EXPECTED_CMDS="agent-new.md skill-new.md state.md"  # sorted
+EXPECTED_DIRS="agents hooks skills"                       # sorted (Claude)
+EXPECTED_CMDS="agent-new.md skill-new.md state.md"  # sorted (Claude)
+EXPECTED_CURSOR_DIRS="agents hooks skills"                # sorted (Cursor — no commands)
 
 check_ship_manifest() {
   local sh="$ROOT/install.sh"
   local ps="$ROOT/install.ps1"
+  local shc="$ROOT/install-cursor.sh"
+  local psc="$ROOT/install-cursor.ps1"
 
   # ---- install.sh ----
   if [[ -f "$sh" ]]; then
@@ -390,6 +393,24 @@ check_ship_manifest() {
       | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
     compare_manifest "$ps" "$got_dirs" "$got_cmds"
   fi
+
+  # ---- install-cursor.sh ----
+  if [[ -f "$shc" ]]; then
+    local got_dirs; got_dirs="$(grep -oE '^[[:space:]]*install_dir[[:space:]]+"[^"]+"' "$shc" \
+      | sed -E 's/.*install_dir[[:space:]]+"([^"]+)".*/\1/' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
+    local got_cmds; got_cmds="$(grep -oE '"[^"]+\.md"' "$shc" 2>/dev/null \
+      | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//' || true)"
+    compare_cursor_manifest "$shc" "$got_dirs" "$got_cmds"
+  fi
+
+  # ---- install-cursor.ps1 ----
+  if [[ -f "$psc" ]]; then
+    local got_dirs; got_dirs="$(grep -oE 'Install-Dir[[:space:]]+"[^"]+"' "$psc" \
+      | sed -E 's/.*Install-Dir[[:space:]]+"([^"]+)".*/\1/' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
+    local got_cmds; got_cmds="$(grep -oE '"[^"]+\.md"' "$psc" 2>/dev/null \
+      | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//' || true)"
+    compare_cursor_manifest "$psc" "$got_dirs" "$got_cmds"
+  fi
 }
 
 # Exact whole-token membership. `grep -w` treats '.' as a word character, so it
@@ -414,6 +435,18 @@ compare_manifest() {
     local c
     for c in $got_cmds;      do in_set "$c" $EXPECTED_CMDS || fail ship-manifest "$file" "ships unexpected command: $c"; done
     for c in $EXPECTED_CMDS; do in_set "$c" $got_cmds      || fail ship-manifest "$file" "missing expected command: $c"; done
+  fi
+}
+
+compare_cursor_manifest() {
+  local file="$1" got_dirs="$2" got_cmds="$3"
+  if [[ "$got_dirs" != "$EXPECTED_CURSOR_DIRS" ]]; then
+    local d
+    for d in $got_dirs;             do in_set "$d" $EXPECTED_CURSOR_DIRS || fail ship-manifest "$file" "ships unexpected dir: $d"; done
+    for d in $EXPECTED_CURSOR_DIRS; do in_set "$d" $got_dirs             || fail ship-manifest "$file" "missing expected dir: $d"; done
+  fi
+  if [[ -n "$got_cmds" ]]; then
+    fail ship-manifest "$file" "Cursor install must not ship commands (found: $got_cmds)"
   fi
 }
 
