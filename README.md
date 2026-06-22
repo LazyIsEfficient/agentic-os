@@ -135,7 +135,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
-| `~/.cursor/hooks/` | Hook scripts copied from the shared `.claude/hooks/` tree (e.g. `block-bad-bash.sh`, awareness-harness scripts). **Dormant** — no `hooks.json` ships; nothing runs until you register hooks yourself. Cursor hook activation is **deferred** (spike NO-GO) — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.cursor/hooks/` | Hook scripts copied from the shared `.claude/hooks/` tree (dormant until registered). For Cursor-native JSON hooks, use the project `.cursor/hooks/` scripts — see [Awareness harness](#awareness-harness-experimental) |
 
 > **Ship vs. in-repo-only.** The Cursor installer copies a curated allowlist of skills, agents, and hook scripts — not whole directories. Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
@@ -204,7 +204,21 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 }
 ```
 
-**Cursor hook activation — deferred (NO-GO).** The [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/v2-cursor/eval/spikes/cursor-hook-capability.md) recorded **NO-GO** for `checkpoint:cursor-go`: probe scripts emit valid JSON, but live model surfacing of `sessionStart` injection was not proven. Hook scripts still ship dormant to `~/.cursor/hooks/`; do not register `hooks.json` from consumer docs until `T-cursor-hooks` lands and live-fire passes. Use the writer + `session-state` skill on Cursor without hooks for now.
+**Cursor activation (opt-in)** — project `.cursor/hooks.json` (production scripts in `.cursor/hooks/`; `sessionStart` injection live-proven on Cursor `3.8.11`):
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{ "command": ".cursor/hooks/session-state-inject.sh" }],
+    "beforeSubmitPrompt": [{ "command": ".cursor/hooks/session-state-digest.sh" }],
+    "preCompact": [{ "command": ".cursor/hooks/session-state-checkpoint.sh" }],
+    "beforeShellExecution": [{ "command": ".cursor/hooks/survey-before-act.sh" }]
+  }
+}
+```
+
+Per-turn digest live surfacing is not yet confirmed on Cursor — see [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` still copies dormant `.claude/hooks/` scripts; use project `.cursor/hooks/` for Cursor-native hooks.
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 

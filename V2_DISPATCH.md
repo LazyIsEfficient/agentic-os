@@ -135,7 +135,7 @@ dag:
 ```
 
 **Ready set (now):**
-- **Deferred:** `T-cursor-hooks`, `T-cursor-metrics` (NO-GO until live `sessionStart` proof)
+- **T-cursor-metrics** (#154) — unblocked after `T-cursor-hooks` merge
 - **Lane 3:** evidence-gated only (#145, #147, #158 — triggers required)
 
 ---
@@ -159,14 +159,13 @@ dag:
 
 ---
 
-### checkpoint:cursor-go — **NO-GO** (2026-06-22)
+### checkpoint:cursor-go — **GO** (2026-06-22)
 
 - [x] `T-cursor-spike` verified — verdict in [eval/spikes/cursor-hook-capability.md](eval/spikes/cursor-hook-capability.md)
-- [x] Orchestrator recorded NO-GO in [#149](https://github.com/LazyIsEfficient/agentic-os/issues/149)
+- [x] Spike A live-fire passed (Cursor `3.8.11`; sentinel in new Agent chat)
+- [x] `T-cursor-hooks` production port on `main`
 
-**If NO-GO:** dispatch only `T-cursor-install`, `T-cursor-rules`, `T-cursor-docs` (skills-only port); defer `T-cursor-hooks`, `T-cursor-security` hook parity, `T-cursor-metrics` hook-dependent paths. Update #149 scope.
-
-**Blocks:** `T-cursor-hooks`, `T-cursor-metrics` (full hook-dependent scope). `T-cursor-install`, `T-cursor-rules`, `T-cursor-docs`, `T-cursor-security` proceed on narrowed scope.
+**Unblocks:** `T-cursor-hooks` ✅, `T-cursor-metrics` (#154).
 
 ---
 
@@ -192,8 +191,8 @@ dag:
 | T-cursor-install | [#150](https://github.com/LazyIsEfficient/agentic-os/issues/150) | Lane 2 | ✅ #162 |
 | T-cursor-rules | [#151](https://github.com/LazyIsEfficient/agentic-os/issues/151) | Lane 2 | ✅ #163 |
 | T-cursor-security | [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153) | Lane 2 | ✅ #164 |
-| T-cursor-hooks | [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152) (full) | Lane 2 | ⏸ deferred (NO-GO) |
-| T-cursor-metrics | [#154](https://github.com/LazyIsEfficient/agentic-os/issues/154) | Lane 2 | ⏸ deferred (NO-GO) |
+| T-cursor-hooks | [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152) (full) | Lane 2 | ✅ GO live-fire + port |
+| T-cursor-metrics | [#154](https://github.com/LazyIsEfficient/agentic-os/issues/154) | Lane 2 | ⬜ ready |
 | T-cursor-docs | [#155](https://github.com/LazyIsEfficient/agentic-os/issues/155) | Lane 2 | ✅ #165 |
 
 ---
@@ -620,5 +619,7 @@ Dispatch only when the **trigger** fires. Orchestrator opens a focused session; 
 | 2026-06-22 | T-cursor-docs | ✅ merged | PR #165 |
 | 2026-06-22 | checkpoint:cursor-v1 | ✅ shipped | PR #166 → `main` `7426dd1` |
 | 2026-06-22 | v2.1.0 release pin | ✅ shipped | post-cursor housekeeping |
+| 2026-06-22 | checkpoint:cursor-go | ✅ GO | Spike A live-fire |
+| 2026-06-22 | T-cursor-hooks | ✅ shipped | production `.cursor/hooks/` |
 
 *Orchestrator: append a row when each task completes.*

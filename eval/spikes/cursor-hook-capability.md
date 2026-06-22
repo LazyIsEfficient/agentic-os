@@ -3,23 +3,25 @@
 **Status:** DONE — GO/NO-GO gate for Lane 2 hook port. **Env:** Cursor `3.8.11` (CLI + app), macOS darwin 25.3.0, branch `lane-cursor/cursor-spike`.
 **Roadmap:** [V2_DISPATCH.md](../../V2_DISPATCH.md) `T-cursor-spike` / [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152). **Harness:** `eval/spikes/cursor-hook-capability/` + throwaway `.cursor/hooks/*-probe.sh`.
 
-## Verdict: **NO-GO** (narrow v1 scope)
+## Verdict: **GO** (Spike A live-fire confirmed 2026-06-22)
 
 | Spike | Capability | Script contract | Live model surfacing | Gate |
 |---|---|---|---|---|
-| **A** | `sessionStart` → inject `SESSION-STATE.md` | **PROVEN** (unit + stdout sample) | **NOT PROVEN** (requires new Agent chat; known Cursor injection bugs) | **FAILS gate** |
-| **B** | `beforeShellExecution` → warn-and-allow on unsurveyed `docker run` | **PROVEN** (unit + stdout sample) | **NOT PROVEN** (subagent Bash did not fire hook; agent_message surfacing unconfirmed) | Partial — insufficient for GO |
+| **A** | `sessionStart` → inject `SESSION-STATE.md` | **PROVEN** (unit + stdout sample) | **PROVEN** (fresh Agent chat; agent echoed `CURSOR_SPIKE_SESSIONSTART_INJECTED`) | **PASSES gate** |
+| **B** | `beforeShellExecution` → warn-and-allow on unsurveyed `docker run` | **PROVEN** (unit + stdout sample) | **NOT PROVEN** (interactive shell verification still required) | Partial — does not block GO |
 
-**checkpoint:cursor-go:** **NO-GO.** Do not dispatch full `T-cursor-hooks` / hook-dependent metrics until Spike A live-fire passes in a fresh Agent chat.
+**checkpoint:cursor-go:** **GO** (2026-06-22). Spike A live-fire passed on Cursor `3.8.11` — `sessionStart` `additional_context` reached the model in a new Agent chat. Unblocks `T-cursor-hooks` / [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152).
 
-**Recommended v1 scope (NO-GO path):** ship `T-cursor-install`, `T-cursor-rules`, `T-cursor-docs` (shared skills/agents + `/state` writer + rules). Ship hook **scripts dormant** (no activation doc). Defer `T-cursor-hooks`, hook parity in `T-cursor-security`, and hook-dependent `T-cursor-metrics`.
+**Live-fire evidence:** `eval/spikes/cursor-hook-capability/live-fire.log` (hook executed); human confirmed agent reply matched sentinel exactly.
 
-### Blockers
+**Prior NO-GO scope (shipped as cursor-v1):** skills-only port without production hooks remained valid until this live-fire; production hooks now land via `T-cursor-hooks`.
 
-1. **Spike A is the explicit gate** (`GO = sessionStart inject proven`). We proved the probe emits valid Cursor JSON with file content + sentinel, but **did not prove the agent reads `additional_context`** in a new session.
-2. **No headless runner** — unlike Claude S0 (`claude -p … --include-hook-events`), Cursor has no documented CLI path to regression-test hook→model injection without an interactive Agent chat.
-3. **Reported platform gaps** — Cursor forum threads document `sessionStart` hooks executing and returning valid `additional_context` JSON while the model never sees it ([#158452](https://forum.cursor.com/t/sessionstart-hook-additional-context-is-never-injected-into-agents-initial-system-context/158452)); Claude `additionalContext` (camelCase) vs Cursor `additional_context` (snake_case) mismatch ([#153739](https://forum.cursor.com/t/gaps-in-claude-code-sessionstart-support/153739)). Cursor `3.8.11` may have partial fixes, but this spike did not live-confirm.
-4. **Spike B live-fire** — `docker run --help` from the engineer subagent shell did **not** append `.cursor/survey-guard.warns` (hook not invoked on that execution path). Interactive Agent shell verification still required.
+### Blockers (resolved for Spike A)
+
+1. ~~**Spike A is the explicit gate**~~ — **RESOLVED 2026-06-22:** live Agent chat confirmed model reads `additional_context`.
+2. **No headless runner** — still true; regression remains interactive-only for inject (unlike Claude S0).
+3. **Reported platform gaps** — may still affect other Cursor versions; **3.8.11** confirmed working for Spike A in this repo.
+4. **Spike B live-fire** — `beforeShellExecution` agent_message surfacing still unconfirmed interactively.
 
 ---
 
@@ -66,9 +68,8 @@ Sample stdout (repo has live `SESSION-STATE.md`):
 3. Open **new Agent chat** (not this existing thread — `sessionStart` fires once per conversation).
 4. First message: `Reply with exactly the token CURSOR_SPIKE_SESSIONSTART_INJECTED and nothing else.`
 5. **Pass:** agent outputs the sentinel without you pasting it. **Fail:** agent does not know the token.
-6. Optional: Hooks output channel shows hook executed; compare with agent reply.
 
-**This spike session:** not run — subagent started before probes landed; `sessionStart` cannot retroactively fire.
+**Live-fire result (2026-06-22):** **PASS** — new Agent chat on Cursor `3.8.11`; agent replied exactly `CURSOR_SPIKE_SESSIONSTART_INJECTED`; `live-fire.log` recorded hook execution (`session_id=569f9dbc-8ab6-4567-8b17-4750bab7d63d`).
 
 ---
 
@@ -124,7 +125,7 @@ Statuses: **script** = probe/unit-test verified; **doc** = Cursor docs only; **l
 
 | Claude event | Claude inject / gate mechanism | Cursor event | Cursor output fields | Status |
 |---|---|---|---|---|
-| `SessionStart` | plain stdout **or** `hookSpecificOutput.additionalContext` | `sessionStart` | `additional_context`, `env` | **script ✓**, **live ✗** |
+| `SessionStart` | plain stdout **or** `hookSpecificOutput.additionalContext` | `sessionStart` | `additional_context`, `env` | **script ✓**, **live ✓** (2026-06-22) |
 | `UserPromptSubmit` | plain stdout digest | `beforeSubmitPrompt` (matcher `UserPromptSubmit`) | `continue`, `user_message` only — **no context inject** | **doc** — gap for per-turn digest |
 | `PreCompact` (`auto`/`manual`) | side-effect flush script | `preCompact` | `user_message` (observational) | **doc** — live deferred (same as S0) |
 | `PreToolUse` + `Bash` matcher | `permissionDecision` + `additionalContext` | `beforeShellExecution` | `permission`, `user_message`, `agent_message` | **script ✓** (Spike B), **live ✗** |
@@ -171,8 +172,7 @@ printf '%s' '{"command":"docker run -d redis","cwd":"'"$PWD"'","sandbox":false}'
 | | Claude S0 | Cursor spike |
 |---|---|---|
 | Headless harness | `claude -p` + `--include-hook-events` | **None** — interactive only |
-| SessionStart inject | **Live proven** (sentinel in stream) | Script only; **live not proven** |
-| Shell advisory | PreToolUse deny tested live | beforeShellExecution allow+agent_message script only |
-| Gate outcome | **GO** (all capabilities confirmed) | **NO-GO** (gate capability unproven live) |
+| SessionStart inject | **Live proven** (sentinel in stream) | **Live proven** (Spike A, 2026-06-22) |
+| Gate outcome | **GO** (all capabilities confirmed) | **GO** (Spike A gate; Spike B live deferred) |
 
-**Next step to reach GO:** one human runs Spike A live-fire repro in Cursor `3.8.11`; if sentinel appears in the first agent reply, update this doc to **GO** and unblock `T-cursor-hooks`.
+**Next step:** production hooks shipped in `.cursor/hooks/` (`T-cursor-hooks`); Spike B live-fire optional follow-up.

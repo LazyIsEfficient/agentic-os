@@ -3,12 +3,22 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": ".cursor/hooks/session-state-inject-probe.sh"
+        "command": ".cursor/hooks/session-state-inject.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/session-state-digest.sh"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": ".cursor/hooks/session-state-checkpoint.sh"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": ".cursor/hooks/survey-before-act-probe.sh"
+        "command": ".cursor/hooks/survey-before-act.sh"
       }
     ]
   }
