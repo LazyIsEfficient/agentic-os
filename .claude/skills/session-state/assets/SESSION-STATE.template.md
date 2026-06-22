@@ -5,7 +5,7 @@ WHY: a model's context is finite and compresses over a long session, so settled
 facts drift and get re-derived (the failure NORTH_STAR targets). This file is the
 durable copy. Hooks re-surface it so awareness survives compaction:
   - SessionStart  → injects this whole file at the top of every session
-  - UserPromptSubmit → injects a compact digest (Constraints + Open threads) each turn
+  - UserPromptSubmit → injects a compact digest (Constraints + Decisions + Open threads) each turn
   - PreCompact    → checkpoints a marker before context is compressed
 
 HOW it stays current: do NOT hand-edit during work — use `/state` (the command writes
@@ -25,7 +25,7 @@ re-injected each turn — bloat re-creates the token tax. Prune stale lines.
 - <!-- e.g. No Python in generated code — Rust only -->
 
 ## Decisions
-<!-- Settled decisions, so they are not re-litigated. Helper stamps the date. -->
+<!-- Settled decisions, so they are not re-litigated. Helper stamps the date. Re-injected each turn alongside Constraints. -->
 - <!-- e.g. [2026-06-19] Awareness mechanisms use deterministic hooks, not prompt rules -->
 
 ## Existing infrastructure
