@@ -9,7 +9,7 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 `SESSION-STATE.md` (project root, gitignored; schema in this skill's `assets/SESSION-STATE.template.md`) is the harness's live external memory — NORTH_STAR Lever 3. A model's context compresses over a long session and settled facts drift; this file is the durable copy, re-surfaced by hooks:
 
 - **SessionStart** injects the whole file (turn one of every session).
-- **UserPromptSubmit** injects a compact digest — **Constraints + Open threads** — each turn.
+- **UserPromptSubmit** injects a compact digest — **Constraints + Decisions + Open threads** — each turn.
 - **PreCompact** checkpoints before context is compressed.
 
 ## How to record (never hand-edit)
@@ -26,7 +26,7 @@ SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
 | Type | Use for | Re-injected each turn? |
 |---|---|---|
 | `constraint` | hard rules in force (e.g. "Rust only, no Python") | **yes** |
-| `decision` | settled choices, date-stamped (so they're not re-litigated) | no (session start only) |
+| `decision` | settled choices, date-stamped (so they're not re-litigated) | **yes** |
 | `infra` | survey-before-act findings — what already exists, to reuse (lead with a `[subject]` token, e.g. `[rabbitmq]`) | no |
 | `thread` | in-flight items / next steps | **yes** |
 
@@ -112,4 +112,9 @@ Global `install-cursor.sh` copies production `.cursor/hooks/` scripts (excluding
 
 ## Discipline
 
-Keep entries terse — Constraints and Open threads are re-injected every turn, so bloat re-creates the token tax. Prune stale lines. Do not duplicate `.claude/memory/` (cross-session) or facts derivable from the repo.
+Keep entries terse — Constraints, Decisions, and Open threads are re-injected every turn, so bloat re-creates the token tax. Prune stale lines. Do not duplicate `.claude/memory/` (cross-session) or facts derivable from the repo.
+
+## Known limitations
+
+- **Existing-infra is SessionStart-only.** Survey findings (`infra`) are not in the per-turn digest — only Constraints, Decisions, and Open threads are. After mid-session compaction, infra coverage still depends on SessionStart injection (or recording a load-bearing finding as a `constraint`). The survey-before-act guard covers provisioning commands only.
+- **Token-cost tradeoff.** Adding Decisions to the digest (#158) improves post-compaction decision coverage at the cost of a slightly larger always-on per-turn injection. Keep decision bullets terse; prune stale ones.

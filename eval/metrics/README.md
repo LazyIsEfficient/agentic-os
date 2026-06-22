@@ -9,15 +9,17 @@ axis, per the effectiveness investigation) to **tokens-per-outcome + awareness d
 
 | file | what | tier |
 |---|---|---|
-| `session-metrics.mjs` | parse one transcript → tokens (output/input/cache, per-turn) + awareness signals (files read >1×, repeated identical tool calls) | **Tier 0** deterministic |
+| `session-metrics.mjs` | parse one **Claude Code** transcript → tokens + awareness signals | **Tier 0** deterministic |
+| `session-metrics-cursor.mjs` | parse one **Cursor** transcript → turns + awareness signals (tokens N/A in export) | **Tier 0** deterministic |
 | `compare.mjs` | diff two transcripts (ON vs OFF arm) → per-metric delta `(OFF − ON)` | **Tier 0** deterministic |
 | `run-arms.sh` | run a scenario live under both arms and compare | **stochastic** (one sample) |
 
 ```
 node session-metrics.mjs <transcript.jsonl> [--json]
-node compare.mjs <on.jsonl> <off.jsonl> [--json]
+node session-metrics-cursor.mjs <transcript.jsonl> [--json]
+node compare.mjs <on.jsonl> <off.jsonl> [--json]   # auto-detects Claude vs Cursor per file
 bash run-arms.sh "<scenario prompt>"
-bash session-metrics-test.sh && bash compare-test.sh   # deterministic self-tests
+bash session-metrics-test.sh && bash compare-test.sh   # Claude + Cursor self-tests
 ```
 
 ## The two arms
@@ -30,6 +32,24 @@ bash session-metrics-test.sh && bash compare-test.sh   # deterministic self-test
 
 Both run the **same** scenario; the only difference is the harness. `compare.mjs`
 reports how much *more* the OFF arm spent (positive Δ / `saved%` = the harness helped).
+
+## Cursor transcripts
+
+Cursor agent sessions are captured as JSONL under:
+
+`~/.cursor/projects/<workspace-slug>/agent-transcripts/<session-id>/<session-id>.jsonl`
+
+(subagent runs: `.../agent-transcripts/<parent-id>/subagents/<subagent-id>.jsonl`)
+
+Each line is a JSON object. Assistant records use `role:"assistant"` with
+`message.content[]` blocks (`type:"text"`, `type:"tool_use"`). Tool calls expose
+`name` and `input` on the block; **Read** uses `input.path` (Claude Code uses
+`input.file_path`). As of Cursor 3.8.x these transcripts **do not include token
+usage** — use `session-metrics-cursor.mjs` for turns + awareness signals.
+
+Fixed fixtures: `fixtures/sample-cursor-transcript.jsonl`,
+`fixtures/nested-input-cursor-transcript.jsonl`. Tier 0 test:
+`session-metrics-cursor-test.sh` (also run from `session-metrics-test.sh`).
 
 ## What is and isn't proven
 

@@ -9,8 +9,17 @@
 // DETERMINISTIC over fixed transcripts (same files -> same delta). A single live
 // A/B is ONE stochastic sample, not a reproducible number — see ./README.md.
 //
+// Auto-detects Claude Code vs Cursor JSONL (same as session-metrics family).
+//
 // Usage: node compare.mjs <on.jsonl> <off.jsonl> [--json]
-import { computeMetrics } from './session-metrics.mjs';
+import { readFileSync } from 'node:fs';
+import { computeMetrics as computeClaudeMetrics } from './session-metrics.mjs';
+import { computeMetrics as computeCursorMetrics, detectCursorTranscript } from './session-metrics-cursor.mjs';
+
+function resolveMetrics(path) {
+  const lines = readFileSync(path, 'utf8').split('\n').filter(Boolean);
+  return detectCursorTranscript(lines) ? computeCursorMetrics(path) : computeClaudeMetrics(path);
+}
 
 const onPath = process.argv[2], offPath = process.argv[3];
 if (!onPath || !offPath) {
@@ -18,8 +27,8 @@ if (!onPath || !offPath) {
   process.exit(2);
 }
 
-const on = computeMetrics(onPath);
-const off = computeMetrics(offPath);
+const on = resolveMetrics(onPath);
+const off = resolveMetrics(offPath);
 
 const pctSaved = (offV, onV) => (offV === 0 ? 0 : Math.round(((offV - onV) / offV) * 100));
 const metrics = {
