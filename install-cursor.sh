@@ -7,7 +7,7 @@
 # (checkpoint:cursor-go NO-GO; register hooks manually when T-cursor-hooks lands).
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.4.0/install-cursor.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.sh | bash
 #
 # Usage — from a local clone:
 #   ./install-cursor.sh
@@ -38,8 +38,8 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v1.4.0"
-EXPECTED_SHA256="a999d63479e20431c6e30c8079f6d9764d080e0dea6981de43dc74dfbdbe16c9"
+VERSION="v2.1.0"
+EXPECTED_SHA256="44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332"
 
 DEST="${CURSOR_DIR:-$HOME/.cursor}"
 FORCE=false

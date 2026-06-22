@@ -6,7 +6,7 @@
 # yet (checkpoint:cursor-go NO-GO; register hooks manually when T-cursor-hooks lands).
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.4.0/install-cursor.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install-cursor.ps1
@@ -36,8 +36,8 @@ $ErrorActionPreference = "Stop"
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
-$Version        = "v1.4.0"
-$ExpectedSha256 = "a999d63479e20431c6e30c8079f6d9764d080e0dea6981de43dc74dfbdbe16c9"
+$Version        = "v2.1.0"
+$ExpectedSha256 = "44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 

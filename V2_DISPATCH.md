@@ -1,6 +1,6 @@
 # V2 Dispatch Plan — ship Claude v2 + port Cursor harness
 
-**Status:** cursor-v1 ready to merge → `main`
+**Status:** cursor-v1 **shipped** on `main` (PR [#166](https://github.com/LazyIsEfficient/agentic-os/pull/166), `7426dd1`)
 **Epic:** [#149](https://github.com/LazyIsEfficient/agentic-os/issues/149)
 **Vision:** [NORTH_STAR.md](NORTH_STAR.md) · **Roadmap:** [V2_ROADMAP.md](V2_ROADMAP.md)
 **Claude v2 landed:** PR [#143](https://github.com/LazyIsEfficient/agentic-os/pull/143) merged to `main` (`657403a`)
@@ -12,9 +12,9 @@ This document is the **single dispatch source** for async agents working the v2 
 | Lane | Base branch | PR target | Scope |
 |---|---|---|---|
 | **Lane 1** — release | `main` | `main` | #156 README drift, #157 v2 release pin |
-| **Lane 2** — Cursor port | **`v2-cursor`** | **`v2-cursor`** | #150–#155, epic #149 |
+| **Lane 2** — Cursor port | **`main`** (was `v2-cursor`) | **`main`** | #150–#155, epic #149 ✅ |
 
-- **`v2-cursor`** is branched from post-#143 `main`. All Cursor work lands here until **checkpoint:cursor-v1**, then merges to `main`.
+- **`v2-cursor`** merged to `main` at **checkpoint:cursor-v1** (PR #166). Lane 2 worktrees/branches are archival only.
 - Lane 1 and Lane 2 may run **in parallel** on their respective branches — **each lane MUST use its own git worktree** (see below).
 
 ### Worktree isolation (mandatory for parallel lanes)
@@ -135,9 +135,8 @@ dag:
 ```
 
 **Ready set (now):**
-- **`v2-cursor` → `main` merge PR** — closes **checkpoint:cursor-v1** / epic #149
 - **Deferred:** `T-cursor-hooks`, `T-cursor-metrics` (NO-GO until live `sessionStart` proof)
-- **Lane 1 ignored:** v2.0.0 release (#157) — per maintainer
+- **Lane 3:** evidence-gated only (#145, #147, #158 — triggers required)
 
 ---
 
@@ -151,13 +150,12 @@ dag:
 
 ---
 
-### checkpoint:claude-v2-shipped
+### checkpoint:claude-v2-shipped ✅ CLEARED
 
-**Clears when:**
-- [ ] `T-157-release-v2` verified
-- [ ] Release tag + tarball published; remote install works
+- [x] `T-157-release-v2` verified — v2.0.0 tag + tarball (#157 closed)
+- [x] Remote Claude install works (`install.sh` / `install.ps1` pin)
 
-**Blocks:** nothing. Lane 2 on `v2-cursor` proceeds independently; consumer Cursor ship should wait for this + **checkpoint:cursor-v1**.
+**Note:** v2.1.0 supersedes v2.0.0 on `main` after cursor-v1 merge (includes Cursor installer pins + updated payload).
 
 ---
 
@@ -175,12 +173,12 @@ dag:
 ### checkpoint:cursor-v1
 
 **Clears when:**
-- [ ] #150–#155 closed on **`v2-cursor`**
-- [ ] Simulated Cursor consumer install + opt-in activation documented end-to-end
-- [ ] `validate.sh` green on `v2-cursor`
-- [ ] **`v2-cursor` merged to `main`** (human gate)
+- [x] #150–#155 merged on `v2-cursor`
+- [x] `validate.sh` + `validate-test.sh` green (34/34)
+- [x] Simulated `install-cursor.sh` smoke test passed
+- [x] **`v2-cursor` merged to `main`** — PR #166 (`7426dd1`, 2026-06-22)
 
-**Closes epic #149**
+**Closes epic #149** ✅
 
 ---
 
@@ -189,7 +187,7 @@ dag:
 | Task ID | GitHub | Phase | Status |
 |---|---|---|---|
 | T-156-readme-drift | [#156](https://github.com/LazyIsEfficient/agentic-os/issues/156) | Lane 1 | ✅ #159 |
-| T-157-release-v2 | [#157](https://github.com/LazyIsEfficient/agentic-os/issues/157) | Lane 1 | ⬜ |
+| T-157-release-v2 | [#157](https://github.com/LazyIsEfficient/agentic-os/issues/157) | Lane 1 | ✅ v2.0.0 |
 | T-cursor-spike | [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152) (subset) | Lane 2 | ✅ #160 (NO-GO) |
 | T-cursor-install | [#150](https://github.com/LazyIsEfficient/agentic-os/issues/150) | Lane 2 | ✅ #162 |
 | T-cursor-rules | [#151](https://github.com/LazyIsEfficient/agentic-os/issues/151) | Lane 2 | ✅ #163 |
@@ -620,6 +618,7 @@ Dispatch only when the **trigger** fires. Orchestrator opens a focused session; 
 | 2026-06-22 | T-cursor-rules | ✅ merged | PR #163 |
 | 2026-06-22 | T-cursor-security | ✅ merged | PR #164 |
 | 2026-06-22 | T-cursor-docs | ✅ merged | PR #165 |
-| 2026-06-22 | checkpoint:cursor-v1 | 🔄 pending | merge `v2-cursor` → `main` |
+| 2026-06-22 | checkpoint:cursor-v1 | ✅ shipped | PR #166 → `main` `7426dd1` |
+| 2026-06-22 | v2.1.0 release pin | ✅ shipped | post-cursor housekeeping |
 
 *Orchestrator: append a row when each task completes.*
