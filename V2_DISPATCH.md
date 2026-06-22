@@ -1,6 +1,6 @@
 # V2 Dispatch Plan — ship Claude v2 + port Cursor harness
 
-**Status:** in-progress
+**Status:** cursor-v1 ready to merge → `main`
 **Epic:** [#149](https://github.com/LazyIsEfficient/agentic-os/issues/149)
 **Vision:** [NORTH_STAR.md](NORTH_STAR.md) · **Roadmap:** [V2_ROADMAP.md](V2_ROADMAP.md)
 **Claude v2 landed:** PR [#143](https://github.com/LazyIsEfficient/agentic-os/pull/143) merged to `main` (`657403a`)
@@ -135,8 +135,9 @@ dag:
 ```
 
 **Ready set (now):**
-- **Lane 1 (`main`):** `[T-157-release-v2]` (after `T-156-readme-drift` merged #159)
-- **Lane 2 (`v2-cursor`):** `[T-cursor-security]`, `[T-cursor-docs]` — `checkpoint:cursor-go` is **NO-GO**; defer `T-cursor-hooks`, `T-cursor-metrics`
+- **`v2-cursor` → `main` merge PR** — closes **checkpoint:cursor-v1** / epic #149
+- **Deferred:** `T-cursor-hooks`, `T-cursor-metrics` (NO-GO until live `sessionStart` proof)
+- **Lane 1 ignored:** v2.0.0 release (#157) — per maintainer
 
 ---
 
@@ -192,10 +193,10 @@ dag:
 | T-cursor-spike | [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152) (subset) | Lane 2 | ✅ #160 (NO-GO) |
 | T-cursor-install | [#150](https://github.com/LazyIsEfficient/agentic-os/issues/150) | Lane 2 | ✅ #162 |
 | T-cursor-rules | [#151](https://github.com/LazyIsEfficient/agentic-os/issues/151) | Lane 2 | ✅ #163 |
-| T-cursor-security | [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153) | Lane 2 | 🔄 in progress |
+| T-cursor-security | [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153) | Lane 2 | ✅ #164 |
 | T-cursor-hooks | [#152](https://github.com/LazyIsEfficient/agentic-os/issues/152) (full) | Lane 2 | ⏸ deferred (NO-GO) |
 | T-cursor-metrics | [#154](https://github.com/LazyIsEfficient/agentic-os/issues/154) | Lane 2 | ⏸ deferred (NO-GO) |
-| T-cursor-docs | [#155](https://github.com/LazyIsEfficient/agentic-os/issues/155) | Lane 2 | ✅ |
+| T-cursor-docs | [#155](https://github.com/LazyIsEfficient/agentic-os/issues/155) | Lane 2 | ✅ #165 |
 
 ---
 
@@ -617,7 +618,8 @@ Dispatch only when the **trigger** fires. Orchestrator opens a focused session; 
 | 2026-06-22 | T-cursor-spike | ✅ NO-GO | PR #160 |
 | 2026-06-22 | T-cursor-install | ✅ merged | PR #162 |
 | 2026-06-22 | T-cursor-rules | ✅ merged | PR #163 |
-| 2026-06-22 | T-cursor-docs | ✅ | lane-cursor/cursor-docs |
-| | | | |
+| 2026-06-22 | T-cursor-security | ✅ merged | PR #164 |
+| 2026-06-22 | T-cursor-docs | ✅ merged | PR #165 |
+| 2026-06-22 | checkpoint:cursor-v1 | 🔄 pending | merge `v2-cursor` → `main` |
 
 *Orchestrator: append a row when each task completes.*

@@ -15,6 +15,10 @@ SESSION-STATE.md
 .claude/session-state.checkpoints
 .claude/survey-guard.warns
 
+# Cursor — local overrides and runtime logs (do not commit)
+.cursor/cli-config.json
+.cursor/survey-guard.warns
+
 # Claude Code — agent worktrees (ephemeral, machine-local)
 .claude/worktrees/
 
