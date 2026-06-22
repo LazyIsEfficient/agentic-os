@@ -14,7 +14,13 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 
 ## How to record (never hand-edit)
 
-Use the `/state` command, which calls the deterministic writer in this skill's `scripts/session-state.sh`. Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full.
+Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer path project-first, then fall back to the global install (the skill ships to `~/.claude/` on a global install):
+
+```
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
+```
 
 | Type | Use for | Re-injected each turn? |
 |---|---|---|
@@ -23,12 +29,44 @@ Use the `/state` command, which calls the deterministic writer in this skill's `
 | `infra` | survey-before-act findings — what already exists, to reuse (lead with a `[subject]` token, e.g. `[rabbitmq]`) | no |
 | `thread` | in-flight items / next steps | **yes** |
 
-## When to reach for it (proactively, not only on /state)
+### Claude Code — `/state` slash command
 
-- You just established a hard constraint, or the user gave one → `/state constraint`.
-- You made or were given a settled decision → `/state decision`.
-- You surveyed and found existing infrastructure (a running service, an existing config) → `/state infra`, so a later step reuses it instead of rebuilding.
-- You are leaving a thread unfinished → `/state thread`.
+In Claude Code, use the `/state` command (`.claude/commands/state.md`), which invokes the writer above:
+
+```
+bash "$SS" init           # or: show
+bash "$SS" constraint "<entry text>"   # constraint | decision | infra | thread
+```
+
+Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `show`. If the type is empty or invalid, list the valid types — do not guess. `init` and `show` take no text; the four entry types take the text as one quoted argument.
+
+### Cursor — skill-triggered workflow (no `/state` command)
+
+Cursor has no `/state` slash command. When this skill is relevant (triggers below, or the user asks to remember something for the session), **read this skill and run the writer via Bash**:
+
+1. Read `$1` as the entry type (`constraint`, `decision`, `infra`, `thread`, `init`, `show`). If empty or invalid, STOP and list the valid types.
+2. Remaining args are entry text (required for the four entry types).
+3. Run:
+
+```
+bash "$SS" init
+bash "$SS" show
+bash "$SS" constraint "<entry text>"
+bash "$SS" decision   "<entry text>"
+bash "$SS" infra      "<entry text>"
+bash "$SS" thread     "<entry text>"
+```
+
+4. Report the single line the script prints (or, for `show`/`init`, the command output).
+
+Keep entries terse. Lead `infra` with a `[subject]` token — e.g. `"[rabbitmq] broker on :5552 (docker-compose) — reuse"` — so survey-before-act guards suppress warnings only when a command names that exact subject.
+
+## When to reach for it (proactively)
+
+- You just established a hard constraint, or the user gave one → record a `constraint`.
+- You made or were given a settled decision → record a `decision`.
+- You surveyed and found existing infrastructure (a running service, an existing config) → record `infra`, so a later step reuses it instead of rebuilding.
+- You are leaving a thread unfinished → record a `thread`.
 
 ## Activation (opt-in — hooks ship dormant)
 
