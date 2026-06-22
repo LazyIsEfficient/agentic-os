@@ -1,7 +1,8 @@
 # V2_ROADMAP.md — building the awareness harness
 
-**Status:** proposed
-**Base:** [NORTH_STAR.md](NORTH_STAR.md) · branch `v2-prune`
+**Status:** in-progress
+**Base:** [NORTH_STAR.md](NORTH_STAR.md) · Claude v2 on `main` (PR #143 merged) · Cursor port on **`v2-cursor`**
+**Dispatch:** [V2_DISPATCH.md](V2_DISPATCH.md) — async agent task blocks, DAG, checkpoints (epic [#149](https://github.com/LazyIsEfficient/agentic-os/issues/149))
 **Frame:** the prune did the *subtract* half (−47% always-on token tax). This roadmap is the *add* half — the awareness + token mechanisms NORTH_STAR calls for and the library does not yet have.
 
 ---
