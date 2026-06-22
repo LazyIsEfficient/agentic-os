@@ -61,11 +61,11 @@ inj="$(bash "$T/.claude/hooks/session-state-inject.sh" < /dev/null)"
 has "inject emits constraint" "$inj" "No Python — Rust only"
 has "inject emits infra" "$inj" "RabbitMQ broker already running"
 
-# Digest hook (UserPromptSubmit) — Constraints + Open threads ONLY
+# Digest hook (UserPromptSubmit) — Constraints + Decisions + Open threads
 dig="$(printf '%s' '{"hook_event_name":"UserPromptSubmit"}' | bash "$T/.claude/hooks/session-state-digest.sh")"
 has "digest includes constraint" "$dig" "No Python — Rust only"
+has "digest includes decision" "$dig" "Awareness via deterministic hooks"
 has "digest includes open thread" "$dig" "Confirm PreCompact live-fire"
-hasnt "digest EXCLUDES decisions (token discipline)" "$dig" "Awareness via deterministic hooks"
 hasnt "digest EXCLUDES infra (token discipline)" "$dig" "RabbitMQ broker already running"
 
 # Digest on a FRESH (unedited) template injects nothing (placeholders skipped)
