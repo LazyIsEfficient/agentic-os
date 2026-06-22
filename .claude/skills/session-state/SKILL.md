@@ -14,11 +14,12 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 
 ## How to record (never hand-edit)
 
-Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer path project-first, then fall back to the global install (the skill ships to `~/.claude/` on a global install):
+Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then fall back to the global install:
 
 ```
 PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
 SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
 [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 ```
 
