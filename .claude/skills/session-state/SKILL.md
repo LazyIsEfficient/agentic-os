@@ -90,7 +90,7 @@ Add this to your project `.claude/settings.json` (commands invoke vendored scrip
 
 ### Cursor — hook activation deferred (NO-GO)
 
-Do **not** register `hooks.json` from consumer docs yet. The [cursor hook capability spike](../../../eval/spikes/cursor-hook-capability.md) recorded **NO-GO** for live `sessionStart` injection into Agent context; hook scripts ship dormant to `~/.cursor/hooks/` until `T-cursor-hooks` lands and live-fire passes. Use the writer + this skill without hooks on Cursor for now.
+Do **not** register `hooks.json` from consumer docs yet. The [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/v2-cursor/eval/spikes/cursor-hook-capability.md) recorded **NO-GO** for live `sessionStart` injection into Agent context; hook scripts ship dormant to `~/.cursor/hooks/` until `T-cursor-hooks` lands and live-fire passes. Use the writer + this skill without hooks on Cursor for now.
 
 **Security (untrusted data).** `SESSION-STATE.md` is injected into the model's context every session/turn with no tool call — whoever can write it controls injected text. So keep it **gitignored and per-developer** (never commit it, never use it in a shared/multi-writer checkout); the inject hook frames the block as DATA, not instructions. See `SECURITY.md` rule 7.
 
