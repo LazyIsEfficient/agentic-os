@@ -117,6 +117,9 @@ fi
 
 # ── Install ───────────────────────────────────────────────────────────────────
 
+# shellcheck source=scripts/lib/install-hook-settings.sh
+source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
+
 install_dir() {
   local name="$1"
   local src_dir="$SRC/$name"
@@ -189,7 +192,9 @@ if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
 fi
 
+install_claude_hook_settings "$REPO_ROOT" "$DEST"
+
 echo ""
-echo "Done. Restart Claude Code to load the new skills, agents, and commands."
+echo "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."

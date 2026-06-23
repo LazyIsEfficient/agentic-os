@@ -60,15 +60,16 @@ git config core.hooksPath .githooks
 
 Claude conventions above govern shared content under `.claude/`. Cursor adds a parallel consumer install and a repo-local hook surface.
 
-- **Install.** `install-cursor.sh` / `install-cursor.ps1` copy `skills/` and `agents/` from `.claude/` and production hook scripts from `.cursor/hooks/` (excluding `*-probe.sh` spike fixtures) into `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/` (dormant until registered). Changing what ships requires updating both Cursor install scripts and `EXPECTED_CURSOR_DIRS` in `scripts/validate.sh` in the same PR.
-- **Shared vs Cursor-specific.** Skill and agent markdown live in `.claude/`. Cursor-native production hooks live in `.cursor/hooks/` (these ship globally); activation wiring lives in project `.cursor/hooks.json`; operating doctrine lives in `.cursor/rules/*.mdc` only — **plain `.md` is invalid** (`validate.sh` invariant `cursor-rules-format`). Clone this repo into a project to use rules; they are not copied by `install-cursor.sh`. Consumer install details: [README — Cursor](README.md#cursor).
-- **Hook activation (opt-in).** The global installer lands hook scripts dormant; no `hooks.json` ships. To enable the awareness harness in a project, register `.cursor/hooks/*.sh` via `.cursor/hooks.json` — this repo ships a working example at `.cursor/hooks.json`. See README [Awareness harness](README.md#awareness-harness-experimental).
+- **Install.** `install-cursor.sh` / `install-cursor.ps1` copy `skills/` and `agents/` from `.claude/` and production hook scripts from `.cursor/hooks/` into `~/.cursor/`, then merge active hook registration into `~/.cursor/hooks.json`. Changing what ships requires updating both Cursor install scripts and `EXPECTED_CURSOR_DIRS` in `scripts/validate.sh` in the same PR.
+- **Shared vs Cursor-specific.** Skill and agent markdown live in `.claude/`. Cursor-native production hooks live in `.cursor/hooks/` (ship globally); global registration in `~/.cursor/hooks.json`; this repo also ships project `.cursor/hooks.json`. Operating doctrine lives in `.cursor/rules/*.mdc` only — **plain `.md` is invalid** (`validate.sh` invariant `cursor-rules-format`). Clone this repo into a project to use rules; they are not copied by `install-cursor.sh`. Consumer install details: [README — Cursor](README.md#cursor).
+- **Hooks.** Active after global install. To disable, edit `~/.cursor/hooks.json`. See README [Awareness harness](README.md#awareness-harness-experimental).
 - **Gates for `.cursor/hooks/` changes.** Run all four before merging:
 
   ```sh
   bash scripts/session-state-test-cursor.sh
   bash scripts/survey-guard-test-cursor.sh
   bash scripts/block-bad-bash-test-cursor.sh
+  bash scripts/install-hook-smoke-test.sh
   bash scripts/validate.sh
   ```
 

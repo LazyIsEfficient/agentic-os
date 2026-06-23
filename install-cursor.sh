@@ -2,10 +2,10 @@
 # Install Skills Library into your Cursor global config.
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
-# copies the consumer allowlist into ~/.cursor/ (skills, agents, dormant hooks).
+# copies the consumer allowlist into ~/.cursor/ (skills, agents, hooks).
 # Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
-# *-probe.sh fixtures are dev-only and excluded. No hooks.json activation doc
-# ships — register hooks manually in your project or global Cursor config.
+# *-probe.sh fixtures are dev-only and excluded. hooks.json registers them
+# globally on install (disable by editing ~/.cursor/hooks.json).
 #
 # Usage — pipe from GitHub (no clone required):
 #   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.sh | bash
@@ -125,6 +125,9 @@ fi
 
 # ── Install ───────────────────────────────────────────────────────────────────
 
+# shellcheck source=scripts/lib/install-hook-settings.sh
+source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
+
 install_dir() {
   local name="$1"
   local src_dir="${2:-$SRC/$name}"
@@ -169,8 +172,10 @@ if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
 fi
 
+merge_cursor_hook_settings "$REPO_ROOT" "$DEST"
+
 echo ""
-echo "Done. Restart Cursor to load the new skills, agents, and subagent types."
+echo "Done. Restart Cursor to load the new skills, agents, subagent types, and hooks."
 echo ""
 echo "Recommended — Cursor Settings → Rules → User Rules:"
 echo "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"

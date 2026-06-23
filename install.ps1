@@ -182,11 +182,45 @@ if (Test-Path $HooksSrc) {
   Write-Host "  OK hooks -> $HooksDest"
 }
 
+function Install-ClaudeHookSettings {
+  $SrcFile = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
+  if (-not (Test-Path $SrcFile)) { return }
+  $DestFile = Join-Path $Dest "settings.json"
+  $HooksDir = Join-Path $Dest "hooks"
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    $hooksJsonText = & $bash.Source -c @"
+export HD='$($HooksDir -replace "'", "'\''")'
+export SRC='$($SrcFile -replace "'", "'\''")'
+jq --arg hd "`$HD" '
+  walk(if type == "object" and has("command") then
+    .command |= gsub("\\\$HOME/.claude/hooks"; \$hd)
+  else . end) | .hooks' "`$SRC"
+"@
+    $hooks = $hooksJsonText | ConvertFrom-Json
+    if (Test-Path $DestFile) {
+      $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+      $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $hooks -Force
+      $destJson | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+    } else {
+      @{ hooks = $hooks } | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+    }
+    Write-Host "  OK hooks active -> $DestFile"
+  } elseif (-not (Test-Path $DestFile) -and $Dest -eq (Join-Path $env:USERPROFILE ".claude")) {
+    Copy-Item $SrcFile $DestFile
+    Write-Host "  OK hooks active -> $DestFile"
+  } else {
+    Write-Warning "bash+jq required to install hook registration (custom -Dest needs jq path rewrite)"
+  }
+}
+
+Install-ClaudeHookSettings
+
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
 }
 
 Write-Host ""
-Write-Host "Done. Restart Claude Code to load the new skills, agents, and commands."
+Write-Host "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

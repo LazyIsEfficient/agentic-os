@@ -20,7 +20,7 @@ Both remote one-liners install a **pinned release** and verify its SHA-256 befor
 
 ### Cursor
 
-Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
+Install skills, agents, and **active** hook registration into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
 
 **macOS / Linux — one-liner (no clone required):**
 
@@ -118,6 +118,8 @@ Maintainers: see [RELEASING.md](RELEASING.md) for how the pin is produced.
 
 #### Custom install path
 
+Hook registration paths are rewritten to match `CLAUDE_DIR` / `-Dest` at install (requires `jq` on bash).
+
 ```bash
 CLAUDE_DIR=/path/to/.claude ./install.sh
 ```
@@ -136,7 +138,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
-| `~/.cursor/hooks/` | Cursor-native hook scripts from `.cursor/hooks/` (JSON stdout; spike `*-probe.sh` excluded; dormant until registered) — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.cursor/hooks/` | Cursor-native hook scripts — registered globally in `~/.cursor/hooks.json` on install |
 
 > **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
@@ -147,7 +149,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
-| `~/.claude/hooks/` | Hook scripts (e.g. `block-bad-bash.sh`). The awareness-harness hooks also land here but stay **dormant** until a `settings.json` registers them — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.claude/hooks/` | Hook scripts — registered globally in `~/.claude/settings.json` on install (awareness harness + `block-bad-bash`) — see [Awareness harness](#awareness-harness-experimental) |
 
 > **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
@@ -187,11 +189,12 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 
 - **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. Hooks inject it at session start, inject a compact digest each turn, and checkpoint before compaction. Maintained only through the deterministic writer (Claude: `/state`; Cursor: `session-state` skill + Bash), never hand-edited.
 - **survey-before-act** — on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
+- **block-bad-bash** — nudges away from `cd && git` and long `&&` shell chains (ergonomics, not security; can block routine agent shell — remove the hook entry if annoying).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Ship posture:** hook **scripts** install on both platforms but stay **dormant** until you opt in — no shipped `settings.json` (Claude) or `hooks.json` (Cursor). The writer and `session-state` skill work without hooks.
+**Ship posture:** hooks are **on by default** after install — `install.sh` / `install-cursor.sh` merge hook registration into `~/.claude/settings.json` and `~/.cursor/hooks.json`. Re-install **replaces the whole `hooks` block**. Remove the `hooks` key to disable.
 
-**→ [Activation guide](docs/awareness-harness-activation.md)** — prerequisites, Claude + Cursor JSON snippets (all four hooks), verify steps, dogfooding for #145.
+**→ [Activation guide](docs/awareness-harness-activation.md)** — what's registered, how to turn off, verify steps.
 
 **Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
 

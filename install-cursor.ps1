@@ -2,9 +2,9 @@
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
 # copies the consumer allowlist into $env:USERPROFILE\.cursor\ (skills, agents,
-# dormant hooks). Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout
-# contract); spike *-probe.sh fixtures are dev-only and excluded. No hooks.json
-# activation doc ships — register hooks manually in your project or global config.
+# hooks) and merges active hook registration into ~/.cursor/hooks.json.
+# Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
+# *-probe.sh fixtures are dev-only and excluded.
 #
 # Usage — pipe from GitHub (no clone required):
 #   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.ps1 | iex
@@ -159,12 +159,30 @@ Install-Dir "skills"
 Install-Dir "agents"
 Install-CursorHooks
 
+function Install-CursorHookSettings {
+  $SrcFile = Join-Path $RepoRoot "assets\consumer\cursor-hooks.json"
+  if (-not (Test-Path $SrcFile)) { return }
+  $DestFile = Join-Path $Dest "hooks.json"
+  $srcJson = Get-Content $SrcFile -Raw | ConvertFrom-Json
+  if (Test-Path $DestFile) {
+    $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+    $destJson.version = $srcJson.version
+    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $srcJson.hooks -Force
+    $destJson | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+  } else {
+    Copy-Item $SrcFile $DestFile
+  }
+  Write-Host "  OK hooks active -> $DestFile"
+}
+
+Install-CursorHookSettings
+
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
 }
 
 Write-Host ""
-Write-Host "Done. Restart Cursor to load the new skills, agents, and subagent types."
+Write-Host "Done. Restart Cursor to load the new skills, agents, subagent types, and hooks."
 Write-Host ""
 Write-Host "Recommended — Cursor Settings → Rules → User Rules:"
 Write-Host "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"

@@ -18,3 +18,4 @@ jobs:
       - run: bash scripts/session-state-test-cursor.sh
       - run: bash scripts/survey-guard-test-cursor.sh
       - run: bash scripts/block-bad-bash-test-cursor.sh
+      - run: bash scripts/install-hook-smoke-test.sh

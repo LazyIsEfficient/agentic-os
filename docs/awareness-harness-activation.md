@@ -1,6 +1,6 @@
 # Awareness harness — activation guide
 
-Turn on the **session-state** hooks (inject, digest, checkpoint) and **survey-before-act** (warn-first provisioning guard). Hook scripts install via `install.sh` / `install-cursor.sh` but stay **dormant** until you register them — see [SECURITY.md](../SECURITY.md) § Shipping the awareness harness.
+The **session-state** hooks (inject, digest, checkpoint) and **survey-before-act** (warn-first provisioning guard) plus **block-bad-bash** (shell ergonomics nudge) are **active by default** after `install.sh` / `install-cursor.sh` — they register in your global `~/.claude/settings.json` or `~/.cursor/hooks.json`. **To turn them off:** delete the `hooks` block from that file, or remove individual entries.
 
 **Related:** [NORTH_STAR.md](../NORTH_STAR.md) · [V2_ROADMAP.md](../V2_ROADMAP.md) · [session-state skill](../.claude/skills/session-state/SKILL.md)
 
@@ -14,9 +14,9 @@ Turn on the **session-state** hooks (inject, digest, checkpoint) and **survey-be
 | `jq` for JSON hooks | optional (inject/digest use plain stdout) | **required** for `sessionStart` / `beforeSubmitPrompt` |
 | Initialize session state | `/state init` | `bash .claude/skills/session-state/scripts/session-state.sh init` (or global copy under `~/.cursor/skills/…`) |
 | Gitignore live doc | Ensure `SESSION-STATE.md` is gitignored (never commit — injected as DATA; [SECURITY.md](../SECURITY.md) rule 7) | same |
-| Register hooks | project `.claude/settings.json` | project `.cursor/hooks.json` |
+| Register hooks | auto on install (`~/.claude/settings.json`) | auto on install (`~/.cursor/hooks.json`) |
 
-**Project vs global:** Install copies hook scripts to `~/.claude/hooks/` or `~/.cursor/hooks/`. The snippets below use **project-relative** paths (`.claude/hooks/…`, `.cursor/hooks/…`) in a repo checkout — recommended so paths stay vendored. Global copies use the same script names under `$HOME`.
+**Project vs global:** Install copies hook scripts to `~/.claude/hooks/` or `~/.cursor/hooks/` and registers them globally. This repo also ships a working **project-level** example at `.claude/settings.json` and `.cursor/hooks.json` for vendored paths.
 
 ---
 
@@ -31,7 +31,10 @@ Add to your **project** `.claude/settings.json` (commands invoke vendored script
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
     "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
                          { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
-    "PreToolUse":       [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }] }]
+    "PreToolUse":       [{ "matcher": "Bash", "hooks": [
+      { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
+      { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
+    ]}]
   }
 }
 ```
@@ -41,6 +44,7 @@ Add to your **project** `.claude/settings.json` (commands invoke vendored script
 | `session-state-inject.sh` | SessionStart | Full `SESSION-STATE.md` at session open |
 | `session-state-digest.sh` | UserPromptSubmit | Compact Constraints + Decisions + Open threads each turn |
 | `session-state-checkpoint.sh` | PreCompact | Append checkpoint marker (side-effect log) |
+| `block-bad-bash.sh` | PreToolUse (Bash) | Nudge on `cd && git` and long `&&` chains (not a security control) |
 | `survey-before-act.sh` | PreToolUse (Bash) | Warn on container provisioning if not surveyed; logs to `.claude/survey-guard.warns` |
 
 Record facts with **`/state`** (never hand-edit `SESSION-STATE.md`).
@@ -58,7 +62,10 @@ Production hooks live under `.cursor/hooks/` (JSON stdout). Copy or merge into y
     "sessionStart": [{ "command": ".cursor/hooks/session-state-inject.sh" }],
     "beforeSubmitPrompt": [{ "command": ".cursor/hooks/session-state-digest.sh" }],
     "preCompact": [{ "command": ".cursor/hooks/session-state-checkpoint.sh" }],
-    "beforeShellExecution": [{ "command": ".cursor/hooks/survey-before-act.sh" }]
+    "beforeShellExecution": [
+      { "command": ".cursor/hooks/block-bad-bash.sh" },
+      { "command": ".cursor/hooks/survey-before-act.sh" }
+    ]
   }
 }
 ```
@@ -68,6 +75,7 @@ Production hooks live under `.cursor/hooks/` (JSON stdout). Copy or merge into y
 | `session-state-inject.sh` | sessionStart | Full doc via `additional_context` (**live-proven** Cursor 3.8.11) |
 | `session-state-digest.sh` | beforeSubmitPrompt | Per-turn digest — **live-proven** (Test A PASS, 2026-06-23) |
 | `session-state-checkpoint.sh` | preCompact | Checkpoint log under `.cursor/session-state.checkpoints` |
+| `block-bad-bash.sh` | beforeShellExecution | Nudge on `cd && git` and long `&&` chains |
 | `survey-before-act.sh` | beforeShellExecution | Warn on provisioning; logs to `.cursor/survey-guard.warns` |
 
 Record facts via the **session-state** skill + Bash writer (no `/state` command on Cursor).
@@ -85,6 +93,7 @@ bash scripts/session-state-test.sh
 bash scripts/session-state-test-cursor.sh
 bash scripts/survey-guard-test.sh
 bash scripts/survey-guard-test-cursor.sh
+bash scripts/install-hook-smoke-test.sh
 bash eval/spikes/cursor-hook-capability/unit-test.sh
 ```
 
@@ -121,6 +130,8 @@ Hook-injected content is framed as **DATA, not instructions** — but anyone who
 
 ---
 
-## What we deliberately do not ship active
+## Re-install and custom install paths
 
-No consumer gets auto-registered hooks from the tarball alone. Opt-in registration stays a **project-level** choice until a separate security-gated step ships active `settings.json` / `hooks.json` on install.
+- **Re-install** merges hook registration again and **replaces the entire `hooks` block** — custom hook entries you added are lost. Remove hooks from the global file before re-install if you want them to stay off.
+- **Custom `CLAUDE_DIR` / `-Dest`** — hook commands are rewritten to `$DEST/hooks/…` at install (requires `jq` on bash; PowerShell uses bash+jq). Default `~/.claude` / `~/.cursor` works without extra setup.
+- **`block-bad-bash`** blocks agent shell patterns like `cd repo && git status` and 3+ `&&` chains — remove that hook entry if it gets in the way.
