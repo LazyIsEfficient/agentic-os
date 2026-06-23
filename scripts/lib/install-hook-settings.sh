@@ -1,6 +1,14 @@
 # install-hook-settings.sh — merge consumer hook registration into global config.
 # Sourced by install.sh / install-cursor.sh (not executed directly).
 
+_validate_install_dest() {
+  local dest="$1"
+  if [[ ! "$dest" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+    echo "Error: unsafe install DEST (reject shell metacharacters in path): $dest" >&2
+    exit 1
+  fi
+}
+
 # Rewrite Claude template commands: $HOME/.claude/hooks → $hooks_dir (install DEST).
 # Requires jq. Returns JSON object for the hooks key only.
 _claude_hooks_json_for_dest() {
@@ -16,6 +24,7 @@ _claude_hooks_json_for_dest() {
 
 merge_claude_hook_settings() {
   local repo_root="$1" dest="$2"
+  _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
   local dest_file="$dest/settings.json"
   [[ -f "$src" ]] || return 0
@@ -44,6 +53,7 @@ merge_claude_hook_settings() {
 
 merge_cursor_hook_settings() {
   local repo_root="$1" dest="$2"
+  _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/cursor-hooks.json"
   local dest_file="$dest/hooks.json"
   [[ -f "$src" ]] || return 0

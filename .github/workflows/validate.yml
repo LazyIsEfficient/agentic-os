@@ -19,3 +19,17 @@ jobs:
       - run: bash scripts/survey-guard-test-cursor.sh
       - run: bash scripts/block-bad-bash-test-cursor.sh
       - run: bash scripts/install-hook-smoke-test.sh
+  ship-gates:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Enforce PR reviewer checkboxes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/check-pr-ship-gates.sh
+      - run: bash scripts/check-pr-ship-gates-test.sh

@@ -45,6 +45,11 @@ EXPECTED_SHA256="e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486
 DEST="${CURSOR_DIR:-$HOME/.cursor}"
 FORCE=false
 
+if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: unsafe CURSOR_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
+  exit 1
+fi
+
 for arg in "$@"; do
   case "$arg" in
     --force) FORCE=true ;;

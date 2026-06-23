@@ -34,7 +34,9 @@ maintainer-only and is never shipped to consumers.
 
 ## Cutting a release
 
-From a clean checkout of the commit you want to release (usually `main`):
+**PR first.** Merge your feature PR to `main` before tagging. Tags must point at commits on `origin/main` (CI: `tag-from-main.yml`). Do not tag feature branches.
+
+From a clean checkout of **`main`** at the commit you want to release:
 
 1. **Build the asset and get the digest.** This also runs `validate.sh` first
    and fails closed if the library is structurally invalid:

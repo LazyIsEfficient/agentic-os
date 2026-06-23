@@ -1,0 +1,27 @@
+# Tags must point at commits on main (PR-first release discipline).
+name: tag-from-main
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  tag-on-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify tag commit is on origin/main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "FAIL: tag $GITHUB_REF_NAME points at a commit not on origin/main."
+            echo "Open a PR, merge to main, then tag from main (see RELEASING.md)."
+            exit 1
+          fi
+          echo "OK: tag commit is on origin/main"

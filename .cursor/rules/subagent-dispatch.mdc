@@ -74,7 +74,7 @@ Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the
 |---|---|
 | Vague or multi-step request | Shaper → planner → fan-out |
 | Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
-| Code complete, before reporting done | `code-reviewer` (always) + `security-reviewer` if sensitive |
+| Code complete, before reporting done | `code-reviewer` (always) + `security-reviewer` (hook/install/SECURITY/workflow) + `library-reviewer` (skills/agents) — **parallel `Task` calls** |
 | Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
 | Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
 | User names an agent | `Task` with that `subagent_type` immediately |
@@ -103,11 +103,23 @@ When tasks have no conflict edge, dispatch in a **single message with multiple `
 
 After any implementation beyond a trivial diff:
 
-- Spawn `code-reviewer` (`readonly: true`) on the diff. Always.
-- Spawn `security-reviewer` in parallel if the diff touches auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD, or any user-input-to-sensitive-sink path.
-- Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
+- Spawn `code-reviewer` (`readonly: true`) on the diff. **Always. Same message as implementation completes — not later.**
+- Spawn `security-reviewer` (`readonly: true`) **in parallel** when the diff touches hooks, `install*`, `assets/consumer/`, `SECURITY.md`, `.github/workflows/`, `scripts/release.sh`, or `scripts/lib/install-hook-settings.sh`. **Not optional for those paths.**
+- Spawn `library-reviewer` (`readonly: true`) in parallel if the diff touches `.claude/skills/` or `.claude/agents/`.
 
 Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.mdc`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
+
+### Pattern 3b — Ship gates (Tier 0 — never skip)
+
+**Before `git merge`, `gh pr merge`, `git tag`, or `gh release create`:**
+
+1. **Open a PR to `main` first** — no direct merges to `main`, no tags from unmerged feature branches. CI `tag-from-main` rejects tags not on `main`.
+2. **Dispatch reviewers** (Pattern 3) and check the boxes in the PR description (`.github/pull_request_template.md`).
+3. **Wait for green CI**, including `check-pr-ship-gates` — it fails PRs with code changes missing checked reviewer boxes.
+
+Release order: **merge PR → checkout `main` → `release.sh` → pin commit → tag on `main` → `gh release create`**. Never tag a feature branch.
+
+Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` (when sensitive) in one wave before you say done.
 
 ### Pattern 4 — Research via explore, never the main thread
 
