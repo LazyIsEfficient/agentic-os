@@ -63,7 +63,7 @@ fi
 
 # Reproducible payload: .claude + validate.sh + production .cursor/hooks only
 # (exclude *-probe.sh spike fixtures — same allowlist as install-cursor.sh).
-ARCHIVE_PATHS=(.claude scripts/validate.sh)
+ARCHIVE_PATHS=(.claude scripts/validate.sh docs/awareness-harness-activation.md)
 while IFS= read -r hook; do
   [[ -n "$hook" ]] && ARCHIVE_PATHS+=("$hook")
 done < <(git -C "$ROOT" ls-tree -r --name-only "$REF^{tree}" .cursor/hooks 2>/dev/null \

@@ -21,8 +21,9 @@ maintainer-only and is never shipped to consumers.
   `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
   pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload*
-  (`.claude/` plus `scripts/validate.sh`, the validator the installer runs, and
-  production `.cursor/hooks/*.sh` excluding `*-probe.sh` spike fixtures). It excludes `install.sh` /
+  (`.claude/` plus `scripts/validate.sh`, `docs/awareness-harness-activation.md`
+  for shipped skill links, and production `.cursor/hooks/*.sh` excluding `*-probe.sh`
+  spike fixtures). It excludes `install.sh` /
   `install.ps1` / `install-cursor.sh` / `install-cursor.ps1` / `README.md`, which
   embed the digest — so embedding the digest in them never changes the asset's digest.
 - **What the pin defends against:** a tampered or corrupt asset download, and a

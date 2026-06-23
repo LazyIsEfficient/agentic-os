@@ -18,9 +18,21 @@ This repo's operating model matches Claude Code: **you decompose, brief, review,
 
 If you do **not** have `Task` (e.g. Ask mode), switch to **Agent mode** before dispatching — these rules assume orchestrator mode. If `CLAUDE.md` mentions `Agent`, ignore it here; use **`Task`** with `subagent_type`.
 
-**Typical `Task` fields:** `description` (short title), `prompt` (full brief for the subagent), `subagent_type` (e.g. `explore`, `engineer`, `code-reviewer`), `readonly: true` for reviewers, `run_in_background: true` only when you have independent main-thread work.
+**Stock Cursor `Task` parameters** (Agent mode — [subagents](https://cursor.com/docs/agent/subagents)):
 
-**Example — research on a subagent, not the main thread:**
+| Parameter | Required | Purpose |
+|---|---|---|
+| `description` | yes | Short title (UI + subagent routing hint) |
+| `prompt` | yes | Full brief — subagent starts with no parent conversation context |
+| `subagent_type` | yes | Built-in (`explore`, `generalPurpose`, `best-of-n-runner`, …) or custom agent name from `~/.cursor/agents/` |
+| `readonly` | no | `true` for reviewers — no file edits |
+| `run_in_background` | no | `true` only when you have independent main-thread work; default foreground |
+| `model` | no | Optional model slug; omit to inherit |
+| `resume` | no | Subagent ID from a prior `Task` to continue |
+
+Orchestrator dispatch uses **`Task` tool calls** (not chat `/name` syntax). Fan out multiple `Task` calls in **one message** when work is parallelizable.
+
+**Example — `explore` (read-only research):**
 
 ```text
 Task(
@@ -31,7 +43,26 @@ Task(
 )
 ```
 
-Fan out independent `Task` calls in **one message** when work is parallelizable.
+**Example — custom agent after `install-cursor.sh` (restart Cursor first):**
+
+```text
+Task(
+  description="Review PR diff",
+  subagent_type="code-reviewer",
+  prompt="Read-only review of branch changes vs main. Cite file:line evidence.",
+  readonly=true
+)
+```
+
+**Example — overlapping file writes (worktree isolation):**
+
+```text
+Task(
+  description="Implement feature A in isolation",
+  subagent_type="best-of-n-runner",
+  prompt="…scoped brief with files to touch…"
+)
+```
 
 ### Token discipline
 
