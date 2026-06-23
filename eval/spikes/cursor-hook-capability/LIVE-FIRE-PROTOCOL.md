@@ -42,7 +42,7 @@ Confirm **Cursor Settings → Hooks** lists all four production hooks from `.cur
 - `continue` (boolean)
 - `user_message` (string, when blocked)
 
-There is **no documented `additional_context` field** for `beforeSubmitPrompt`. Our production script (`.cursor/hooks/session-state-digest.sh`) emits `{continue: true, additional_context: "…"}` mirroring Claude `UserPromptSubmit`, but Cursor may **silently ignore** unknown fields (same class of bug as stripped `updated_input` — see [forum thread](https://forum.cursor.com/t/bug-beforesubmitprompt-hook-updated-input-is-silently-stripped-modified-prompt-never-reaches-the-model/158883)).
+There is **no documented `additional_context` field** for `beforeSubmitPrompt` in official Cursor docs ([hooks.md](https://cursor.com/docs/hooks.md)). Our production script emits `{continue: true, additional_context: "…"}`. **Live-fire Test A PASS (2026-06-23)** shows it reaches the model on at least one current Cursor build — docs may lag implementation (same class of gap as historical `updated_input` stripping — see [forum thread](https://forum.cursor.com/t/bug-beforesubmitprompt-hook-updated-input-is-silently-stripped-modified-prompt-never-reaches-the-model/158883)).
 
 **If live-fire FAILS for digest:** treat per-turn digest as **non-functional on Cursor today**. Fallback strategy:
 
@@ -180,14 +180,14 @@ Evidence: `eval/spikes/cursor-hook-capability/live-fire.log`
 | Hook | Event | Script contract | Live model surfacing | Evidence |
 |---|---|---|---|---|
 | Session inject | `sessionStart` | unit + `session-state-test-cursor.sh` ✓ | **PROVEN** (3.8.11, 2026-06-22) | `live-fire.log` |
-| Per-turn digest | `beforeSubmitPrompt` | unit + `session-state-test-cursor.sh` ✓ | **PENDING** — Test A | Test A slot above |
+| Per-turn digest | `beforeSubmitPrompt` | unit + `session-state-test-cursor.sh` ✓ | **PROVEN** — Test A PASS (2026-06-23) | [live-fire-evidence-2026-06-23.md](live-fire-evidence-2026-06-23.md) |
 | Survey guard | `beforeShellExecution` | unit-test.sh ✓ | **PENDING** — Test B | Test B slot above |
 | Checkpoint | `preCompact` | side-effect log ✓ | deferred (observational) | n/a |
 
 **Operator sign-off:**
 
 ```
-Digest Test A:  [ ] PASS  [ ] FAIL  [ ] NOT RUN
+Digest Test A:  [x] PASS  [ ] FAIL  [ ] NOT RUN
 Survey Test B:  [ ] PASS  [ ] FAIL  [ ] NOT RUN
 Cursor version tested: ___________
 Signed: ___________  Date: ___________

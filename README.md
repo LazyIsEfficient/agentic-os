@@ -197,7 +197,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 | Hook | Status |
 |---|---|
 | `sessionStart` inject | **PROVEN** — model receives full `SESSION-STATE.md` |
-| `beforeSubmitPrompt` digest | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md); official docs do not list `additional_context` for this event (likely no-op until Cursor adds it); fallback: session-start inject + decisions via [#158](https://github.com/LazyIsEfficient/agentic-os/issues/158) |
+| `beforeSubmitPrompt` digest | **PROVEN** — live-fire Test A PASS (2026-06-23); per-turn Constraints + Decisions + Open threads reach the model via `additional_context` |
 | `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
 | `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
 
