@@ -8,6 +8,10 @@
 #      in a fresh temp copy and assert validate.sh exits non-zero AND names the
 #      right invariant tag.
 #
+# Notable cases for this PR's new behavior:
+#   4d / 4e — check_cursor_rules_frontmatter (missing alwaysApply / description)
+#   32      — scripts/install-paths-test.sh (dual-path fallback chain)
+#
 # Pure Bash. Temp dirs via mktemp -d, cleaned via trap.
 
 set -uo pipefail
@@ -151,6 +155,15 @@ description: missing alwaysApply
 ---
 EOF
 assert_trips "case 4d cursor-rules-frontmatter (no alwaysApply)" "$c4d" cursor-rules-frontmatter
+
+# ── Case 4e: cursor-rules-frontmatter — .mdc missing description ─────────────
+c4e="$(make_copy)"
+cat > "$c4e/.cursor/rules/no-desc.mdc" <<'EOF'
+---
+alwaysApply: true
+---
+EOF
+assert_trips "case 4e cursor-rules-frontmatter (no description)" "$c4e" cursor-rules-frontmatter
 
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"

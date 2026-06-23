@@ -6,6 +6,13 @@
 # Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
 # *-probe.sh fixtures are dev-only and excluded.
 #
+# Validation strategy (why bash detection + SHA pin coexist):
+#   • Local clone  → require bash + scripts/validate.sh before copy (fail-closed).
+#     Catches structural drift while you still have the full repo.
+#   • Remote one-liner → SHA-256 pin on the release tarball is the integrity gate;
+#     validate.sh is skipped when bash is absent (common on Windows without Git Bash).
+#     The pinned asset is the same tree CI validated at release time.
+#
 # Usage — pipe from GitHub (no clone required):
 #   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.2/install-cursor.ps1 | iex
 #

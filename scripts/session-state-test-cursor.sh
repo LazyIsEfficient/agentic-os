@@ -7,7 +7,7 @@ REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 SKILL_SRC="$REPO/.claude/skills/session-state"
-SKILL="$T/.cursor/skills/session-state"
+SKILL="$T/.claude/skills/session-state"
 mkdir -p "$T/.cursor/hooks" "$SKILL/scripts" "$SKILL/assets"
 cp "$SKILL_SRC/assets/SESSION-STATE.template.md" "$SKILL/assets/"
 cp "$SKILL_SRC/scripts/session-state.sh" "$SKILL/scripts/"

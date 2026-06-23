@@ -55,8 +55,11 @@ ok, 2 = setup/usage error; output ordering is deterministic). Resolve the script
 
 ```sh
 PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+# 1. Repo checkout — never $PROJ/.cursor/skills/
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
+# 2. Global Cursor (after install-cursor.sh)
 [ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
+# 3. Global Claude Code (after install.sh)
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 
 python3 "$LEDGER" add \

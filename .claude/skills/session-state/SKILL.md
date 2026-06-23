@@ -15,12 +15,15 @@ compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Clau
 
 ## How to record (never hand-edit)
 
-Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then fall back to the global install:
+Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then global install fallbacks ([path layout](../findings-ledger/references/install-paths.md)):
 
 ```
 PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+# 1. Repo checkout (source of truth — never $PROJ/.cursor/skills/)
 SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
+# 2. Global Cursor (after install-cursor.sh)
 [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+# 3. Global Claude Code (after install.sh)
 [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 ```
 

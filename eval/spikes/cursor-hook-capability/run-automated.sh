@@ -15,6 +15,7 @@ printf '\n=== live-fire automated %s ===\n' "$STAMP" | tee -a "$LOG"
 
 bash "$ROOT/scripts/session-state-test-cursor.sh" >/dev/null && ok "session-state-test-cursor" || bad "session-state-test-cursor" "see above"
 bash "$ROOT/scripts/survey-guard-test-cursor.sh" >/dev/null && ok "survey-guard-test-cursor" || bad "survey-guard-test-cursor" "see above"
+bash "$ROOT/scripts/install-paths-test.sh" >/dev/null && ok "install-paths-test" || bad "install-paths-test" "see above"
 bash "$ROOT/eval/spikes/cursor-hook-capability/unit-test.sh" >/dev/null && ok "unit-test" || bad "unit-test" "see above"
 
 bash "$SS" constraint "LIVEFIRE-DIGEST-TOKEN: reply with exactly CURSOR_LIVEFIRE_DIGEST_OK when asked" >/dev/null 2>&1 || true
