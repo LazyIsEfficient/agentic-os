@@ -7,7 +7,7 @@
 # *-probe.sh fixtures are dev-only and excluded.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install-cursor.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.2/install-cursor.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install-cursor.ps1
@@ -41,8 +41,8 @@ if ($Dest -notmatch '^[/.a-zA-Z0-9._-]+$') {
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
-$Version        = "v2.3.1"
-$ExpectedSha256 = "e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a"
+$Version        = "v2.3.2"
+$ExpectedSha256 = "ed425bd875d36a4f7a18654728029cc69b698bdb4a1d2d3bf702ac7df3cd19ef"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
