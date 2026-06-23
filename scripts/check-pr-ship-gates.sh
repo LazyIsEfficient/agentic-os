@@ -54,12 +54,8 @@ is_library=false
 while IFS= read -r f; do
   [[ -n "$f" ]] || continue
   case "$f" in
-    *.md|*.mdc|LICENSE|NOTICE) continue ;;
-    docs/*) continue ;;
-    eval/metrics/runs/*) continue ;;
-    .claude/memory/*) continue ;;
+    .claude/skills/*|.claude/agents/*) is_library=true ;;
   esac
-  is_code_change=true
   case "$f" in
     install.sh|install.ps1|install-cursor.sh|install-cursor.ps1) is_sensitive=true ;;
     assets/consumer/*) is_sensitive=true ;;
@@ -70,11 +66,15 @@ while IFS= read -r f; do
     .github/workflows/*) is_sensitive=true ;;
   esac
   case "$f" in
-    .claude/skills/*|.claude/agents/*) is_library=true ;;
+    *.md|*.mdc|LICENSE|NOTICE) continue ;;
+    docs/*) continue ;;
+    eval/metrics/runs/*) continue ;;
+    .claude/memory/*) continue ;;
   esac
+  is_code_change=true
 done <<< "$changed"
 
-if [[ "$is_code_change" == false ]]; then
+if [[ "$is_code_change" == false && "$is_library" == false && "$is_sensitive" == false ]]; then
   echo "check-pr-ship-gates: docs-only diff — OK"
   exit 0
 fi
@@ -95,7 +95,7 @@ fail() {
   exit 1
 }
 
-if ! body_check 'code-reviewer'; then
+if [[ "$is_code_change" == true ]] && ! body_check 'code-reviewer'; then
   fail "check [x] code-reviewer (readonly Task dispatched; Tier 0/1 findings addressed)"
 fi
 

@@ -29,4 +29,24 @@ else
   fail "docs-only skip"
 fi
 
+BODY_LIB_OK=$'- [x] code-reviewer\n- [x] library-reviewer'
+
+if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_LIB_OK" bash "$GATE"; then
+  pass "skill SKILL.md + library-reviewer"
+else
+  fail "skill SKILL.md + library-reviewer"
+fi
+
+if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY='- [x] library-reviewer' bash "$GATE"; then
+  pass "skill SKILL.md library-only body"
+else
+  fail "skill SKILL.md library-only body"
+fi
+
+if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then
+  fail "skill SKILL.md missing library-reviewer should trip"
+else
+  pass "skill SKILL.md missing library-reviewer trips"
+fi
+
 echo "check-pr-ship-gates-test: OK"
