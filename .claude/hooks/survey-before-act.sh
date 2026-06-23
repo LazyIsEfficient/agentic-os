@@ -37,12 +37,28 @@ else
 fi
 [ -n "$cmd" ] || exit 0
 
-# Provisioning detector (narrow). 'docker ps' / 'compose ls' are surveys, not
-# provisioning, so they are deliberately NOT matched.
-case "$cmd" in
-  *"docker run"*|*"docker compose up"*|*"docker-compose up"*|*"podman run"*|*"nerdctl run"*) ;;
-  *) exit 0 ;;
-esac
+# Provisioning detector: match only when a shell *segment* starts with container
+# provisioning — not when "docker run" appears inside gh/heredocs/printf strings.
+looks_like_provisioning() {
+  local normalized part
+  normalized="$(printf '%s' "$cmd" | sed 's/&&/;/g; s/||/;/g')"
+  IFS=';' read -ra parts <<< "$normalized" || true
+  for part in "${parts[@]}"; do
+    part="${part#"${part%%[![:space:]]*}"}"
+    part="${part%"${part##*[![:space:]]}"}"
+    [ -z "$part" ] && continue
+    case "$part" in
+      docker\ run\ --help*|docker\ run\ -h|docker\ run\ -h\ *|docker\ run\ --version*)
+        continue
+        ;;
+      docker\ run\ *|docker\ compose\ up*|docker-compose\ up*|podman\ run\ *|nerdctl\ run\ *)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+looks_like_provisioning || exit 0
 
 # Already surveyed? Suppress ONLY when a recorded [surveyed:name] token in an
 # Existing-infrastructure entry appears as a whole token in the command.

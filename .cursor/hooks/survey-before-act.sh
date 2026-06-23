@@ -20,10 +20,26 @@ else
 fi
 [ -n "$cmd" ] || allow_silent
 
-case "$cmd" in
-  *"docker run"*|*"docker compose up"*|*"docker-compose up"*|*"podman run"*|*"nerdctl run"*) ;;
-  *) allow_silent ;;
-esac
+looks_like_provisioning() {
+  local normalized part
+  normalized="$(printf '%s' "$cmd" | sed 's/&&/;/g; s/||/;/g')"
+  IFS=';' read -ra parts <<< "$normalized" || true
+  for part in "${parts[@]}"; do
+    part="${part#"${part%%[![:space:]]*}"}"
+    part="${part%"${part##*[![:space:]]}"}"
+    [ -z "$part" ] && continue
+    case "$part" in
+      docker\ run\ --help*|docker\ run\ -h|docker\ run\ -h\ *|docker\ run\ --version*)
+        continue
+        ;;
+      docker\ run\ *|docker\ compose\ up*|docker-compose\ up*|podman\ run\ *|nerdctl\ run\ *)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+looks_like_provisioning || allow_silent
 
 state="$dir/SESSION-STATE.md"
 surveyed=0

@@ -190,33 +190,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 
 **Ship posture:** hook **scripts** install on both platforms but stay **dormant** until you opt in — no shipped `settings.json` (Claude) or `hooks.json` (Cursor). The writer and `session-state` skill work without hooks.
 
-**Claude Code activation** — add to your project `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
-    "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
-                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
-    "PreToolUse":       [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }] }]
-  }
-}
-```
-
-**Cursor activation (opt-in)** — project `.cursor/hooks.json` (production scripts in `.cursor/hooks/`; `sessionStart` injection live-proven on Cursor `3.8.11`):
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "sessionStart": [{ "command": ".cursor/hooks/session-state-inject.sh" }],
-    "beforeSubmitPrompt": [{ "command": ".cursor/hooks/session-state-digest.sh" }],
-    "preCompact": [{ "command": ".cursor/hooks/session-state-checkpoint.sh" }],
-    "beforeShellExecution": [{ "command": ".cursor/hooks/survey-before-act.sh" }]
-  }
-}
-```
+**→ [Activation guide](docs/awareness-harness-activation.md)** — prerequisites, Claude + Cursor JSON snippets (all four hooks), verify steps, dogfooding for #145.
 
 **Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
 
@@ -227,7 +201,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 | `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
 | `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
 
-See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
+See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`. **v2 closeout checklist:** [eval/metrics/V2-CLOSEOUT.md](eval/metrics/V2-CLOSEOUT.md) (live-fire, long-session A/B, milestone).
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 

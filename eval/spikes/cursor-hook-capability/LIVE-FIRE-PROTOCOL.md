@@ -19,8 +19,10 @@
 Preflight (from repo root):
 
 ```bash
-bash eval/spikes/cursor-hook-capability/unit-test.sh          # script contracts — must pass
-bash scripts/session-state-test-cursor.sh                     # production digest/inject scripts
+bash eval/spikes/cursor-hook-capability/run-automated.sh   # all contracts + evidence log
+# or individually:
+bash eval/spikes/cursor-hook-capability/unit-test.sh
+bash scripts/session-state-test-cursor.sh
 cursor --version
 ```
 

@@ -8,6 +8,8 @@ The user invoked `/state $ARGUMENTS`.
 
 `SESSION-STATE.md` is the live external-memory doc; hooks re-inject it each session and digest it each turn, so anything recorded here survives context compaction. Write to it **only** through the deterministic helper — never hand-edit the file.
 
+**Hooks are opt-in** (ship dormant). To auto-surface this file and enable survey-before-act, see [docs/awareness-harness-activation.md](../../docs/awareness-harness-activation.md).
+
 1. Read `$1` as the entry type. Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `show`. If `$1` is empty or not one of these, STOP and list the valid types — do not guess.
 2. The remaining arguments (`$2` onward) are the entry text (required for constraint/decision/infra/thread).
 3. Run the writer. Resolve its path project-first, then fall back to the global install (the skill ships to `~/.claude/` on a global install). `init` and `show` take **no** text; the four entry types take the text as one quoted argument:

@@ -71,6 +71,30 @@ for c in "git status" "ls -la" "npm install left-pad" "cargo build --release" "e
   fi
 done
 
+out="$(run 'gh pr create --title x --body docker run hello-world')"
+if printf '%s' "$out" | grep -q 'survey-before-act'; then
+  no "gh body false-positive" "got: $out"
+else
+  ok "no false-positive: gh with docker run in body"
+fi
+
+out="$(run 'printf docker run nginx')"
+if printf '%s' "$out" | grep -q 'survey-before-act'; then
+  no "printf false-positive" "got: $out"
+else
+  ok "no false-positive: printf mentioning docker run"
+fi
+
+out="$(run 'docker run --help')"
+if printf '%s' "$out" | grep -q 'survey-before-act'; then
+  no "docker run --help" "got: $out"
+else
+  ok "no warn on docker run --help (survey not provision)"
+fi
+
+out="$(run 'cd /tmp && docker run -d nginx')"
+printf '%s' "$out" | grep -q 'agent_message' && ok "warns when docker run follows && chain" || no "&& chain provisioning" "got: $out"
+
 deny="$(for c in 'docker run x' 'docker compose up' 'docker-compose up -d'; do run "$c"; done)"
 printf '%s' "$deny" | grep -q '"deny"' && no "never denies (warn-first)" "found deny" || ok "never denies (warn-first)"
 
