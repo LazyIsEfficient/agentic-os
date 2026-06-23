@@ -39,7 +39,7 @@ Follow [LIVE-FIRE-PROTOCOL.md](../spikes/cursor-hook-capability/LIVE-FIRE-PROTOC
 
 | Test | Result | Notes |
 |------|--------|-------|
-| A — `beforeSubmitPrompt` digest | [ ] PASS [x] INCONCLUSIVE [ ] FAIL | Hook contract PASS ([evidence](live-fire-evidence-2026-06-23.md)); model surfacing not verified in fresh chat |
+| A — `beforeSubmitPrompt` digest | [x] PASS [ ] INCONCLUSIVE [ ] FAIL | Operator 2026-06-23 — [evidence](../spikes/cursor-hook-capability/live-fire-evidence-2026-06-23.md) |
 | B — `beforeShellExecution` survey | [ ] PASS [x] INCONCLUSIVE [ ] FAIL | Warn log PASS on hook pipe; agent shell path not verified |
 
 **Environment pin:** Cursor version ___ · OS darwin · branch docs/v2-closeout-182 · date 2026-06-23

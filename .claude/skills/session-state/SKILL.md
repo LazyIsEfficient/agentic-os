@@ -107,7 +107,7 @@ Production hooks live under `.cursor/hooks/` in a project checkout (JSON stdout;
 }
 ```
 
-**Live-proven:** `sessionStart` injection (Spike A GO, Cursor `3.8.11`, 2026-06-22). Per-turn digest via `beforeSubmitPrompt` is wired but live surfacing is not yet confirmed — see [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability.md).
+**Live-proven:** `sessionStart` injection (Spike A GO, Cursor `3.8.11`, 2026-06-22). Per-turn digest via `beforeSubmitPrompt` **live-proven** (Test A PASS, operator 2026-06-23) — see [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability.md).
 
 Global `install-cursor.sh` copies production `.cursor/hooks/` scripts (excluding spike `*-probe.sh`) to `~/.cursor/hooks/` — same JSON contract as project hooks above.
 

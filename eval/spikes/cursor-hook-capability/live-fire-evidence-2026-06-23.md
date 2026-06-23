@@ -25,9 +25,9 @@ Run: `bash eval/spikes/cursor-hook-capability/run-automated.sh`
 | Check | Result | Notes |
 |-------|--------|-------|
 | Hook output contract | **PASS** | Digest JSON contains token |
-| Agent reply in fresh chat | **NOT RUN** | Requires new Agent chat; Cursor may ignore `additional_context` on `beforeSubmitPrompt` (undocumented field) |
+| Agent reply in fresh chat | **PASS** | Operator confirmed 2026-06-23 — model returned `CURSOR_LIVEFIRE_DIGEST_OK` without token pasted in prompt |
 
-**Interpretation:** Script layer proven. Model surfacing remains **PENDING** until a human opens a new chat and asks for `LIVEFIRE-DIGEST-TOKEN` without pasting it — or Cursor documents/fixes `additional_context` on digest.
+**Interpretation:** `beforeSubmitPrompt` + `additional_context` **reaches the model** on operator's Cursor build (docs may lag; see [LIVE-FIRE-PROTOCOL.md](LIVE-FIRE-PROTOCOL.md) limitation note).
 
 ## Test B — survey model surfacing
 
@@ -43,8 +43,8 @@ Run: `bash eval/spikes/cursor-hook-capability/run-automated.sh`
 ## Operator sign-off (automated partial)
 
 ```
-Digest Test A:  [ ] PASS  [x] FAIL/INCONCLUSIVE (contract only)  [ ] NOT RUN (model)
+Digest Test A:  [x] PASS  [ ] FAIL/INCONCLUSIVE  [ ] NOT RUN (model)
 Survey Test B:  [ ] PASS  [x] INCONCLUSIVE (hook yes, model not verified)  [ ] NOT RUN
-Cursor version tested: ___
-Signed: automated preflight  Date: 2026-06-23
+Cursor version tested: operator build (2026-06-23)
+Signed: operator (digest PASS)  Date: 2026-06-23
 ```

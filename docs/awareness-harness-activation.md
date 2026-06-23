@@ -66,7 +66,7 @@ Production hooks live under `.cursor/hooks/` (JSON stdout). Copy or merge into y
 | Hook | Event | Effect |
 |------|-------|--------|
 | `session-state-inject.sh` | sessionStart | Full doc via `additional_context` (**live-proven** Cursor 3.8.11) |
-| `session-state-digest.sh` | beforeSubmitPrompt | Per-turn digest — **live surfacing not confirmed** (see live-fire) |
+| `session-state-digest.sh` | beforeSubmitPrompt | Per-turn digest — **live-proven** (Test A PASS, 2026-06-23) |
 | `session-state-checkpoint.sh` | preCompact | Checkpoint log under `.cursor/session-state.checkpoints` |
 | `survey-before-act.sh` | beforeShellExecution | Warn on provisioning; logs to `.cursor/survey-guard.warns` |
 

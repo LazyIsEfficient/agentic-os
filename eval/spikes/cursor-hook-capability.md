@@ -129,7 +129,7 @@ Statuses: **script** = probe/unit-test verified; **doc** = Cursor docs only; **l
 | Claude event | Claude inject / gate mechanism | Cursor event | Cursor output fields | Status |
 |---|---|---|---|---|
 | `SessionStart` | plain stdout **or** `hookSpecificOutput.additionalContext` | `sessionStart` | `additional_context`, `env` | **script ✓**, **live ✓** (2026-06-22) |
-| `UserPromptSubmit` | plain stdout digest | `beforeSubmitPrompt` (matcher `UserPromptSubmit`) | docs: `continue`, `user_message` only; script emits `additional_context` | **script ✓**, **live pending** — [manual repro required](cursor-hook-capability/LIVE-FIRE-PROTOCOL.md#test-a--beforesubmitprompt-digest-per-turn); likely **LIMITATION** (no documented `additional_context`) |
+| `UserPromptSubmit` | plain stdout digest | `beforeSubmitPrompt` (matcher `UserPromptSubmit`) | docs: `continue`, `user_message` only; script emits `additional_context` | **script ✓**, **live ✓** (Test A PASS, 2026-06-23) — [evidence](cursor-hook-capability/live-fire-evidence-2026-06-23.md) |
 | `PreCompact` (`auto`/`manual`) | side-effect flush script | `preCompact` | `user_message` (observational) | **doc** — live deferred (same as S0) |
 | `PreToolUse` + `Bash` matcher | `permissionDecision` + `additionalContext` | `beforeShellExecution` | `permission`, `user_message`, `agent_message` | **script ✓** (Spike B + production), **live pending** — [manual repro required](cursor-hook-capability/LIVE-FIRE-PROTOCOL.md#test-b--beforeshellexecution-survey-provisioning-advisory) |
 | `PreToolUse` + `Bash` matcher | `permissionDecision: deny` | `beforeShellExecution` or `preToolUse`/`Shell` | `permission: deny` or exit code `2` | **doc** — not spike-tested |
