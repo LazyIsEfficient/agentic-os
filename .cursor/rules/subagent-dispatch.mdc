@@ -1,0 +1,118 @@
+---
+description: Dispatch subagents for non-trivial work — orchestrator mode, Task tool, fan-out, review pairing.
+alwaysApply: true
+---
+
+## You are the orchestrator — dispatch, don't do
+
+This repo's operating model matches Claude Code: **you decompose, brief, review, and integrate; subagents do the work.** The main thread is for orchestration, not implementation.
+
+### Cursor `Task` tool — prerequisites (not Claude's `Agent` tool)
+
+| | Cursor (this IDE) | Claude Code |
+|---|---|---|
+| Spawn tool | **`Task`** | **`Agent`** |
+| When available | **Agent mode** (and other modes that expose `Task` in your build) | Claude Code sessions with `Agent` in tool list |
+| Custom agents | `~/.cursor/agents/*.md` + `.claude/agents/*.md` — **restart Cursor** after `install-cursor.sh` so names appear in `subagent_type` | `~/.claude/agents/` |
+| Built-ins | `explore`, `bash`, `browser` ([Cursor subagents](https://cursor.com/docs/agent/subagents)); **`best-of-n-runner`** = Cursor's worktree-isolation `Task` type (not an agentic-os agent file — parallel to Claude `Agent` + `isolation: "worktree"`) | `Explore`, worktree via `isolation: "worktree"` |
+
+If you do **not** have `Task` (e.g. Ask mode), switch to **Agent mode** before dispatching — these rules assume orchestrator mode. If `CLAUDE.md` mentions `Agent`, ignore it here; use **`Task`** with `subagent_type`.
+
+**Stock Cursor `Task` parameters** (Agent mode — [subagents](https://cursor.com/docs/agent/subagents)):
+
+| Parameter | Required | Purpose |
+|---|---|---|
+| `description` | yes | Short title (UI + subagent routing hint) |
+| `prompt` | yes | Full brief — subagent starts with no parent conversation context |
+| `subagent_type` | yes | Built-in (`explore`, `generalPurpose`, `best-of-n-runner`, …) or custom agent name from `~/.cursor/agents/` |
+| `readonly` | no | `true` for reviewers — no file edits |
+| `run_in_background` | no | `true` only when you have independent main-thread work; default foreground |
+| `model` | no | Optional model slug; omit to inherit |
+| `resume` | no | Subagent ID from a prior `Task` to continue |
+
+Orchestrator dispatch uses **`Task` tool calls** (not chat `/name` syntax). Fan out multiple `Task` calls in **one message** when work is parallelizable.
+
+**Example — `explore` (read-only research):**
+
+```text
+Task(
+  description="Map validate.sh invariants",
+  subagent_type="explore",
+  prompt="List every check_* in scripts/validate.sh and what invariant each enforces. Thoroughness: quick.",
+  readonly=true
+)
+```
+
+**Example — custom agent after `install-cursor.sh` (restart Cursor first):**
+
+```text
+Task(
+  description="Review PR diff",
+  subagent_type="code-reviewer",
+  prompt="Read-only review of branch changes vs main. Cite file:line evidence.",
+  readonly=true
+)
+```
+
+**Example — overlapping file writes (worktree isolation):**
+
+```text
+Task(
+  description="Implement feature A in isolation",
+  subagent_type="best-of-n-runner",
+  prompt="…scoped brief with files to touch…"
+)
+```
+
+### Token discipline
+
+Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the main context for orchestration, push noisy reads and implementation to subagents. For durable facts across sessions use `.claude/memory/` (`memory-discipline.mdc`); for within-session constraints use `session-state` + hooks — do not re-derive settled facts on the main thread.
+
+### When to dispatch (default ON)
+
+| Situation | Action |
+|---|---|
+| Vague or multi-step request | Shaper → planner → fan-out |
+| Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
+| Code complete, before reporting done | `code-reviewer` (always) + `security-reviewer` if sensitive |
+| Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
+| Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
+| User names an agent | `Task` with that `subagent_type` immediately |
+
+Sequential dispatch when tasks are independent is a **bug**. Fan out in one message with multiple `Task` calls.
+
+### Pattern 1 — Shaper → planner → fan-out
+
+Any vague request goes through a shaper before code is touched.
+
+- Engineering → read `prompt-shaper` skill (project: `.claude/skills/prompt-shaper/SKILL.md`; global: `~/.cursor/skills/prompt-shaper/SKILL.md`)
+- Marketing → read `marketing-shaper` skill (same project/global pattern)
+- Game → read `game-design-shaper` skill (same project/global pattern)
+
+The shaper produces a scoped brief. Feed it to `planning-and-task-breakdown` for a DAG (stable task IDs, file writes, conflict edges, branch suffixes). Dispatch the DAG in parallel waves. Skip the shaper only when the request is already a fully-scoped brief — say so explicitly when you skip.
+
+### Pattern 2 — Parallel fan-out with worktree isolation
+
+When tasks have no conflict edge, dispatch in a **single message with multiple `Task` tool calls**.
+
+- When agents may touch **overlapping files**, use `subagent_type: "best-of-n-runner"` — Cursor's built-in isolated git worktree per subagent ([docs](https://cursor.com/docs/agent/subagents)). This is the Cursor equivalent of Claude's `Agent` + `isolation: "worktree"`; it is **not** a custom agent under `~/.cursor/agents/`.
+- Use `run_in_background: true` only when you have genuinely independent main-thread work to do. Otherwise foreground — you need the result before the next decision.
+- Cap concurrent waves at ~3–5 agents. Beyond that you cannot supervise quality.
+
+### Pattern 3 — Build + review pairing (mandatory gate)
+
+After any implementation beyond a trivial diff:
+
+- Spawn `code-reviewer` (`readonly: true`) on the diff. Always.
+- Spawn `security-reviewer` in parallel if the diff touches auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD, or any user-input-to-sensitive-sink path.
+- Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
+
+Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.mdc`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
+
+### Pattern 4 — Research via explore, never the main thread
+
+For any question needing more than 2–3 file reads or greps, spawn `explore` (or `generalPurpose`) instead of polluting main context.
+
+- One `explore` per discrete question. Brief: `"quick"` / `"medium"` / `"very thorough"`.
+- Fan out 3–5 in parallel for surveys ("where is X", "how does Y", "what depends on Z").
+- Their summaries come back small. You synthesize. Your context stays clean for the actual work.

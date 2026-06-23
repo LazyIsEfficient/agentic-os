@@ -7,7 +7,7 @@
 # activation doc ships — register hooks manually in your project or global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install-cursor.ps1
@@ -37,8 +37,8 @@ $ErrorActionPreference = "Stop"
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
-$Version        = "v2.1.0"
-$ExpectedSha256 = "44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332"
+$Version        = "v2.2.0"
+$ExpectedSha256 = "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -164,11 +164,17 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 }
 
 Write-Host ""
-Write-Host "Done. Restart Cursor to load the new skills and agents."
+Write-Host "Done. Restart Cursor to load the new skills, agents, and subagent types."
 Write-Host ""
-Write-Host "Session-state writer (after install):"
-Write-Host '  SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"'
-Write-Host '  [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
+Write-Host "Recommended — Cursor Settings → Rules → User Rules:"
+Write-Host "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"
+Write-Host "  (https://github.com/LazyIsEfficient/agentic-os#configure-cursor-rules--skill-discipline)"
+Write-Host "  so orchestrator dispatch persists across projects."
+Write-Host ""
+Write-Host "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
+Write-Host ""
+Write-Host "Session-state writer (after install — global path):"
+Write-Host '  SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
 Write-Host '  bash "$SS" init'
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

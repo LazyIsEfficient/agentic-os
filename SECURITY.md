@@ -26,7 +26,7 @@ The only barrier in front of a freshly pulled hook is each platform's **workspac
 - **No `hooks.json` ships.** The repo's own `.cursor/hooks.json` (dev/spike registration for live-fire probes) is **not** shipped. Hook scripts are **dormant** on a consumer until they register them in their own `hooks.json` — same opt-in posture as Claude.
 
 **Shared shipped hook scripts (dormant until registered):**
-  - **Claude only:** `.claude/hooks/block-bad-bash.sh` — a `jq`-gated ergonomics nudge, explicitly self-labeled *not a security control*. Benign and minimal.
+  - **Both platforms (ergonomics, not security):** `.claude/hooks/block-bad-bash.sh` and `.cursor/hooks/block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Benign and minimal. Ships dormant unless registered.
   - **Both platforms (awareness harness):** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — Claude copies from `.claude/hooks/` (plain stdout); Cursor copies from `.cursor/hooks/` (JSON stdout; requires `jq` at runtime for inject/digest). Ship **dormant** (S5-C). The `session-state` skill documents the opt-in registration; `SESSION-STATE.md` is governed by rule 7 below.
 
 ## Policy for shipped hooks

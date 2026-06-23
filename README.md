@@ -14,18 +14,18 @@ Two consumer paths — **Cursor** and **Claude Code** — share the same skill/a
 
 Both remote one-liners install a **pinned release** and verify its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
-- **Current release:** `v2.1.0`
-- **Asset:** `agentic-os-v2.1.0.tar.gz`
-- **SHA-256:** `9f436e14530ffbce9332e42263b6b1242d5636360058db4718ad24203c6dd617`
+- **Current release:** `v2.2.0`
+- **Asset:** `agentic-os-v2.2.0.tar.gz`
+- **SHA-256:** `85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c`
 
 ### Cursor
 
-Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/` (clone the repo into a project to use them — they are not copied by the global installer).
+Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
 
 **macOS / Linux — one-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.sh | bash
 ```
 
 **Or from a local clone:**
@@ -46,13 +46,14 @@ CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
 
 **Windows:** use `install-cursor.ps1` for parity (or run `install-cursor.sh` from Git Bash/WSL).
 
-**Session-state writer** (after install — project-first, then global):
+**Session-state writer** (after `install-cursor.sh` — writer lands in global skills):
 
 ```bash
-SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"
-[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
 bash "$SS" init
 ```
+
+In a **checkout of this repo**, the same writer also exists at `.claude/skills/session-state/scripts/session-state.sh`.
 
 There is no `/state` slash command on Cursor. Invoke the `session-state` skill (or ask the agent to record a session fact) and it runs the writer via Bash — see [.claude/skills/session-state/SKILL.md](.claude/skills/session-state/SKILL.md).
 
@@ -65,7 +66,7 @@ Restart Cursor after install so new skills and agents load.
 **One-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.sh | bash
 ```
 
 **Or from a local clone:**
@@ -83,7 +84,7 @@ Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/com
 **One-liner (no clone required):**
 
 ```powershell
-irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.ps1 | iex
 ```
 
 **Or from a local clone:**
@@ -104,11 +105,11 @@ out-of-band before trusting the one-liner, download the asset and check it
 yourself:
 
 ```bash
-curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v2.1.0/agentic-os-v2.1.0.tar.gz
+curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v2.2.0/agentic-os-v2.2.0.tar.gz
 # macOS / BSD:
-echo "44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332  agentic-os-v2.1.0.tar.gz" | shasum -a 256 -c
+echo "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c  agentic-os-v2.2.0.tar.gz" | shasum -a 256 -c
 # Linux (coreutils):
-echo "44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332  agentic-os-v2.1.0.tar.gz" | sha256sum -c
+echo "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c  agentic-os-v2.2.0.tar.gz" | sha256sum -c
 ```
 
 There is intentionally no "track `main`" remote install path — to install
@@ -137,7 +138,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
 | `~/.cursor/hooks/` | Cursor-native hook scripts from `.cursor/hooks/` (JSON stdout; spike `*-probe.sh` excluded; dormant until registered) — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
+> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
 ### Claude Code (`install.sh`)
 
@@ -224,7 +225,11 @@ opt-in rather than default.
 
 ### Configure Cursor rules + skill discipline
 
-Operating doctrine for this repo lives in `.cursor/rules/` (YAML frontmatter with `alwaysApply: true`). Clone the repo into a project to use it, or copy the rules into your project's `.cursor/rules/`.
+Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
+
+`AGENTS.md` at the repo root is auto-loaded by Cursor (project-root plain markdown). Full doctrine: `.cursor/rules/*.mdc` (`alwaysApply: true`). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
+
+For orchestrator behavior **across all projects**, paste the Skills + Subagents blocks below into **Cursor Settings → Rules → User Rules** (also printed by `install-cursor.sh` on success).
 
 To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
 
@@ -235,6 +240,18 @@ You have a library of skills installed at `~/.cursor/skills/`. Before responding
 check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
 
 If there is even a 1% chance a skill might apply, load the skill first.
+```
+
+To make subagent dispatch default globally (match Claude Code's orchestrator model), add this block to **User Rules** as well:
+
+```markdown
+## Subagents
+
+You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
+For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
+work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
+After implementation, spawn `code-reviewer` before reporting done. For research needing more than
+2–3 file reads, use an `explore` subagent.
 ```
 
 Repo maintainers: `CURSOR.md` at the repo root `@`-imports `.cursor/rules/*` (parallel to `CLAUDE.md`).

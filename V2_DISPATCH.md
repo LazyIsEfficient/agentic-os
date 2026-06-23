@@ -369,13 +369,13 @@ depends_on: [T-cursor-spike]
 parallel_safe: true
 conflicts_with: [T-cursor-docs]
 files_write:
-  - .cursor/rules/factual-correctness.md
-  - .cursor/rules/memory-discipline.md
-  - .cursor/rules/subagent-dispatch.md
-  - .cursor/rules/grounding.md
-  - .cursor/rules/review-tiers.md
-  - .cursor/rules/verification.md
-  - .cursor/rules/communication.md
+  - .cursor/rules/factual-correctness.mdc
+  - .cursor/rules/memory-discipline.mdc
+  - .cursor/rules/subagent-dispatch.mdc
+  - .cursor/rules/grounding.mdc
+  - .cursor/rules/review-tiers.mdc
+  - .cursor/rules/verification.mdc
+  - .cursor/rules/communication.mdc
   - .claude/skills/session-state/SKILL.md
 files_read:
   - .claude/rules/*.md

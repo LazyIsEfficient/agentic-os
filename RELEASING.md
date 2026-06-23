@@ -1,9 +1,9 @@
 # Releasing
 
-The installers (`install.sh`, `install.ps1`) install a **pinned release asset**
-and verify its SHA-256 before extracting. This document is the runbook for
-cutting a release and updating that pin. It is maintainer-only and is never
-shipped to consumers.
+The installers (`install.sh`, `install.ps1`, `install-cursor.sh`, `install-cursor.ps1`)
+install a **pinned release asset** and verify its SHA-256 before extracting. This
+document is the runbook for cutting a release and updating that pin. It is
+maintainer-only and is never shipped to consumers.
 
 ## Why it works this way
 
@@ -21,9 +21,11 @@ shipped to consumers.
   `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
   pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload*
-  (`.claude/` plus `scripts/validate.sh`, the validator the installer runs). It
-  excludes `install.sh` / `install.ps1` / `README.md`, which embed the digest —
-  so embedding the digest in them never changes the asset's digest.
+  (`.claude/` plus `scripts/validate.sh`, `docs/awareness-harness-activation.md`
+  for shipped skill links, and production `.cursor/hooks/*.sh` excluding `*-probe.sh`
+  spike fixtures). It excludes `install.sh` /
+  `install.ps1` / `install-cursor.sh` / `install-cursor.ps1` / `README.md`, which
+  embed the digest — so embedding the digest in them never changes the asset's digest.
 - **What the pin defends against:** a tampered or corrupt asset download, and a
   moved/retagged release (the digest won't match). It does **not** by itself
   defend against a full repo compromise that rewrites the installer's embedded
@@ -43,11 +45,13 @@ From a clean checkout of the commit you want to release (usually `main`):
 
    It writes `agentic-os-v1.0.0.tar.gz` and prints its `sha256`.
 
-2. **Pin the version + digest** in three files (keep all three in sync):
+2. **Pin the version + digest** in five files (keep all in sync):
    - `install.sh` — `VERSION` and `EXPECTED_SHA256`
    - `install.ps1` — `$Version` and `$ExpectedSha256`
+   - `install-cursor.sh` — `VERSION` and `EXPECTED_SHA256`
+   - `install-cursor.ps1` — `$Version` and `$ExpectedSha256`
    - `README.md` — the *Current release* block and the *Verifying the download*
-     command, plus the `vX.Y.Z` in both one-liner URLs
+     command, plus the `vX.Y.Z` in all one-liner URLs
 
 3. **Commit** the pin, then **tag that commit** and push the tag:
 
@@ -74,11 +78,16 @@ From a clean checkout of the commit you want to release (usually `main`):
      -R LazyIsEfficient/agentic-os --title "v1.0.0" --notes "..."
    ```
 
-6. **Smoke-test the published one-liner** on a throwaway `CLAUDE_DIR`:
+6. **Smoke-test the published one-liners** on throwaway dirs:
 
    ```bash
    CLAUDE_DIR="$(mktemp -d)" bash -c \
      'curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash'
+   CURSOR_DIR="$(mktemp -d)" bash -c \
+     'curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install-cursor.sh | bash'
    ```
 
 The built `*.tar.gz` is a release artifact, not source — do not commit it.
+
+**Note:** v2.1.0 and earlier release assets omit `.cursor/hooks/`; remote `install-cursor.sh`
+installs zero hooks until the next release cut (v2.2.0+) pins a new digest that includes them.

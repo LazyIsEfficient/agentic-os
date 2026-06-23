@@ -8,7 +8,7 @@
 # ships — register hooks manually in your project or global Cursor config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.1.0/install-cursor.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.sh | bash
 #
 # Usage — from a local clone:
 #   ./install-cursor.sh
@@ -39,8 +39,8 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v2.1.0"
-EXPECTED_SHA256="44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332"
+VERSION="v2.2.0"
+EXPECTED_SHA256="85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
 
 DEST="${CURSOR_DIR:-$HOME/.cursor}"
 FORCE=false
@@ -170,11 +170,17 @@ if [[ -d "$DEST/hooks" ]]; then
 fi
 
 echo ""
-echo "Done. Restart Cursor to load the new skills and agents."
+echo "Done. Restart Cursor to load the new skills, agents, and subagent types."
 echo ""
-echo "Session-state writer (after install):"
-echo "  SS=\"\${CURSOR_PROJECT_DIR:-\${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh\""
-echo "  [ -f \"\$SS\" ] || SS=\"\$HOME/.cursor/skills/session-state/scripts/session-state.sh\""
+echo "Recommended — Cursor Settings → Rules → User Rules:"
+echo "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"
+echo "  (https://github.com/LazyIsEfficient/agentic-os#configure-cursor-rules--skill-discipline)"
+echo "  so orchestrator dispatch persists across projects."
+echo ""
+echo "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
+echo ""
+echo "Session-state writer (after install — global path):"
+echo "  SS=\"\$HOME/.cursor/skills/session-state/scripts/session-state.sh\""
 echo "  bash \"\$SS\" init"
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."

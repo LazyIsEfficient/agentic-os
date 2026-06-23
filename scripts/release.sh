@@ -61,11 +61,15 @@ if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; th
   exit 1
 fi
 
-# Reproducible payload: .claude (everything the installer copies) + the single
-# validator script the installer runs before copying. Nothing else.
-# Archive the TREE (not the commit) with a fixed mtime — see header for why.
+# Reproducible payload: .claude + validate.sh + production .cursor/hooks only
+# (exclude *-probe.sh spike fixtures — same allowlist as install-cursor.sh).
+ARCHIVE_PATHS=(.claude scripts/validate.sh docs/awareness-harness-activation.md)
+while IFS= read -r hook; do
+  [[ -n "$hook" ]] && ARCHIVE_PATHS+=("$hook")
+done < <(git -C "$ROOT" ls-tree -r --name-only "$REF^{tree}" .cursor/hooks 2>/dev/null \
+  | grep '\.sh$' | grep -v 'probe\.sh$' || true)
 git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
-    "$REF^{tree}" .claude scripts/validate.sh | gzip -n > "$ROOT/$ASSET"
+    "$REF^{tree}" "${ARCHIVE_PATHS[@]}" | gzip -n > "$ROOT/$ASSET"
 
 # Fail closed: validate EXACTLY what we packed (extract the asset and run its
 # own validator), not the working tree — they can differ when REF != HEAD or the
@@ -100,8 +104,8 @@ Built $ASSET ($(wc -c < "$ROOT/$ASSET" | tr -d ' ') bytes)
   sha256: $SHA
 
 Next steps (see RELEASING.md):
-  1. Pin VERSION=$VERSION and EXPECTED_SHA256=$SHA in install.sh and install.ps1,
-     and update the version + digest in README.md.
+  1. Pin VERSION=$VERSION and EXPECTED_SHA256=$SHA in install.sh, install.ps1,
+     install-cursor.sh, install-cursor.ps1, and update the version + digest in README.md.
   2. Commit, then tag that commit: git tag $VERSION && git push origin $VERSION
   3. Create the release and upload the asset:
        gh release create $VERSION "$ASSET" -R $REPO_OWNER/$REPO_NAME \\

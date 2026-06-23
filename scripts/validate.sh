@@ -356,6 +356,18 @@ check_cursor_imports() {
   done < "$cf"
 }
 
+# ── Invariant 4c: cursor-rules-format ───────────────────────────────────────────
+# Cursor ignores plain .md in .cursor/rules/ — only .mdc with frontmatter loads.
+# Stale .md siblings would confuse maintainers and PR diffs (rename vs duplicate).
+check_cursor_rules_format() {
+  local rules_dir="$ROOT/.cursor/rules"
+  [[ -d "$rules_dir" ]] || return 0
+  local f
+  while IFS= read -r f; do
+    fail cursor-rules-format "$f" "plain .md in .cursor/rules/ is invalid — use .mdc with frontmatter (Cursor ignores .md)"
+  done < <(find "$rules_dir" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
+}
+
 # ── Invariant 5: memory-length ─────────────────────────────────────────────────
 check_memory_length() {
   local mf="$CLAUDE/memory/MEMORY.md"
@@ -666,6 +678,7 @@ check_frontmatter_and_names
 check_dangling_refs
 check_claude_imports
 check_cursor_imports
+check_cursor_rules_format
 check_memory_length
 check_ship_manifest
 check_review_tiers
