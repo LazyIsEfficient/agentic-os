@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# run-automated.sh — deterministic live-fire preflight (no IDE required).
-# Interactive Tests A/B model surfacing still need a fresh Agent chat; this script
-# proves hook contracts + records evidence to live-fire.log.
+# run-automated.sh — deterministic Cursor hook verification (no IDE required).
+# This is the acceptance gate for Cursor hooks — see LIVE-FIRE-PROTOCOL.md.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT"

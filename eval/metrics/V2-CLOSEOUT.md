@@ -33,18 +33,22 @@ One-liner: `bash eval/spikes/cursor-hook-capability/run-automated.sh`
 
 ---
 
-## 3. Cursor live-fire ([#170](https://github.com/LazyIsEfficient/agentic-os/issues/170) — protocol shipped)
+## 3. Cursor hooks — automated gate ([#170](https://github.com/LazyIsEfficient/agentic-os/issues/170))
 
-Follow [LIVE-FIRE-PROTOCOL.md](../spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md). Fill evidence slots there or below.
+**No manual UI repro.** Run:
 
-| Test | Result | Notes |
-|------|--------|-------|
-| A — `beforeSubmitPrompt` digest | [x] PASS [ ] INCONCLUSIVE [ ] FAIL | Operator 2026-06-23 — [evidence](../spikes/cursor-hook-capability/live-fire-evidence-2026-06-23.md) |
-| B — `beforeShellExecution` survey | [ ] PASS [x] INCONCLUSIVE [ ] FAIL | Warn log PASS on hook pipe; agent shell path not verified |
+```bash
+bash eval/spikes/cursor-hook-capability/run-automated.sh
+```
 
-**Environment pin:** Cursor version ___ · OS darwin · branch docs/v2-closeout-182 · date 2026-06-23
+| Check | Result | Gate |
+|-------|--------|------|
+| Session-state (Cursor) | [x] PASS | `session-state-test-cursor.sh` |
+| Survey guard (Cursor) | [x] PASS | `survey-guard-test-cursor.sh` |
+| Block bad bash (Cursor) | [x] PASS | `block-bad-bash-test-cursor.sh` |
+| Full bundle | [x] PASS | `run-automated.sh` |
 
-**Automated:** `bash eval/spikes/cursor-hook-capability/run-automated.sh`
+Protocol: [LIVE-FIRE-PROTOCOL.md](../spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) (automated only).
 
 ---
 

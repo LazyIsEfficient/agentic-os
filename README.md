@@ -198,17 +198,19 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 
 **→ [Activation guide](docs/awareness-harness-activation.md)** — what's registered, how to turn off, verify steps.
 
-**Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
+**Cursor hook verification (automated — CI on every PR):**
 
-| Hook | Status |
-|---|---|
-| `sessionStart` inject | **PROVEN** — model receives full `SESSION-STATE.md` |
-| `beforeSubmitPrompt` digest | **PROVEN** — live-fire Test A PASS (2026-06-23); per-turn Constraints + Decisions + Open threads reach the model via `additional_context` |
-| `beforeShellExecution` block-bad-bash | **PROVEN** — denies chained `cd && git` patterns via `permission: deny` |
-| `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
-| `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
+| Hook | Status | Gate script |
+|---|---|---|
+| `sessionStart` inject | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
+| `beforeSubmitPrompt` digest | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
+| `beforeShellExecution` block-bad-bash | **CONTRACT-VERIFIED** | `scripts/block-bad-bash-test-cursor.sh` |
+| `beforeShellExecution` survey | **CONTRACT-VERIFIED** | `scripts/survey-guard-test-cursor.sh` |
+| `preCompact` checkpoint | **CONTRACT-VERIFIED** (side-effect log) | `eval/spikes/cursor-hook-capability/run-automated.sh` |
 
-See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`. **v2 closeout checklist:** [eval/metrics/V2-CLOSEOUT.md](eval/metrics/V2-CLOSEOUT.md) (live-fire, long-session A/B, milestone).
+One-liner: `bash eval/spikes/cursor-hook-capability/run-automated.sh`. No manual Cursor UI repro is required — see [automated verification protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
+
+See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 
