@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "hooks/session-state-inject.sh" }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "hooks/session-state-digest.sh" }
+    ],
+    "preCompact": [
+      { "command": "hooks/session-state-checkpoint.sh" }
+    ],
+    "beforeShellExecution": [
+      { "command": "hooks/block-bad-bash.sh" },
+      { "command": "hooks/survey-before-act.sh" }
+    ]
+  }
+}

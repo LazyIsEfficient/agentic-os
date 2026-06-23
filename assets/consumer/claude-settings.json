@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash $HOME/.claude/hooks/block-bad-bash.sh" },
+          { "type": "command", "command": "bash $HOME/.claude/hooks/survey-before-act.sh" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-inject.sh" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-digest.sh" } ] }
+    ],
+    "PreCompact": [
+      { "matcher": "auto",   "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] },
+      { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] }
+    ]
+  }
+}

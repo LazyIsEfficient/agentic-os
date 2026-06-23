@@ -69,11 +69,11 @@ Keep entries terse. For `infra`, lead with the service name as the first word �
 - You surveyed and found existing infrastructure (a running service, an existing config) → record `infra`, so a later step reuses it instead of rebuilding.
 - You are leaving a thread unfinished → record a `thread`.
 
-## Activation (opt-in — hooks ship dormant)
+## Activation (on by default)
 
-The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). The **hooks that auto-surface the file ship dormant** — scripts land on disk but nothing registers them until you opt in.
+The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). **Hooks are active after `install.sh` / `install-cursor.sh`** — they register globally in `~/.claude/settings.json` or `~/.cursor/hooks.json`. To disable, remove the `hooks` block from that file.
 
-**Full guide:** [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md) (prerequisites, verify steps, dogfooding for #145).
+**Full guide:** [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md) (verify steps, dogfooding for #145).
 
 ### Claude Code
 
@@ -86,14 +86,17 @@ Add this to your project `.claude/settings.json` (commands invoke vendored scrip
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
     "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
                          { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
-    "PreToolUse":       [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }] }]
+    "PreToolUse":       [{ "matcher": "Bash", "hooks": [
+      { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
+      { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
+    ]}]
   }
 }
 ```
 
-### Cursor — project hooks (opt-in)
+### Cursor — project hooks (this repo)
 
-Production hooks live under `.cursor/hooks/` in a project checkout (JSON stdout; requires `jq` at runtime). Copy or merge this into your project `.cursor/hooks.json`:
+This checkout also ships a **project-level** `.cursor/hooks.json` (vendored `.cursor/hooks/` paths). Global install uses `~/.cursor/hooks.json` with `hooks/` paths instead.
 
 ```json
 {
@@ -102,7 +105,10 @@ Production hooks live under `.cursor/hooks/` in a project checkout (JSON stdout;
     "sessionStart": [{ "command": ".cursor/hooks/session-state-inject.sh" }],
     "beforeSubmitPrompt": [{ "command": ".cursor/hooks/session-state-digest.sh" }],
     "preCompact": [{ "command": ".cursor/hooks/session-state-checkpoint.sh" }],
-    "beforeShellExecution": [{ "command": ".cursor/hooks/survey-before-act.sh" }]
+    "beforeShellExecution": [
+      { "command": ".cursor/hooks/block-bad-bash.sh" },
+      { "command": ".cursor/hooks/survey-before-act.sh" }
+    ]
   }
 }
 ```

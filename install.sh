@@ -2,7 +2,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install.sh | bash
 #
 # Usage — from a local clone:
 #   ./install.sh
@@ -25,11 +25,16 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v2.2.0"
-EXPECTED_SHA256="85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
+VERSION="v2.3.1"
+EXPECTED_SHA256="e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a"
 
 DEST="${CLAUDE_DIR:-$HOME/.claude}"
 FORCE=false
+
+if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
+  exit 1
+fi
 
 for arg in "$@"; do
   case "$arg" in
@@ -117,6 +122,9 @@ fi
 
 # ── Install ───────────────────────────────────────────────────────────────────
 
+# shellcheck source=scripts/lib/install-hook-settings.sh
+source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
+
 install_dir() {
   local name="$1"
   local src_dir="$SRC/$name"
@@ -189,7 +197,9 @@ if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
 fi
 
+merge_claude_hook_settings "$REPO_ROOT" "$DEST"
+
 echo ""
-echo "Done. Restart Claude Code to load the new skills, agents, and commands."
+echo "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."

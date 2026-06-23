@@ -21,8 +21,8 @@ maintainer-only and is never shipped to consumers.
   `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
   pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload*
-  (`.claude/` plus `scripts/validate.sh`, `docs/awareness-harness-activation.md`
-  for shipped skill links, and production `.cursor/hooks/*.sh` excluding `*-probe.sh`
+  (`.claude/` plus `assets/consumer/`, `scripts/validate.sh`,
+  `docs/awareness-harness-activation.md` for shipped skill links, and production
   spike fixtures). It excludes `install.sh` /
   `install.ps1` / `install-cursor.sh` / `install-cursor.ps1` / `README.md`, which
   embed the digest — so embedding the digest in them never changes the asset's digest.
@@ -34,7 +34,9 @@ maintainer-only and is never shipped to consumers.
 
 ## Cutting a release
 
-From a clean checkout of the commit you want to release (usually `main`):
+**PR first.** Merge your feature PR to `main` before tagging. Tags must point at commits on `origin/main` (CI: `tag-from-main.yml`). Do not tag feature branches.
+
+From a clean checkout of **`main`** at the commit you want to release:
 
 1. **Build the asset and get the digest.** This also runs `validate.sh` first
    and fails closed if the library is structurally invalid:

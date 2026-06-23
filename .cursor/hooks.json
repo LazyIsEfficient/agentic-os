@@ -17,9 +17,8 @@
       }
     ],
     "beforeShellExecution": [
-      {
-        "command": ".cursor/hooks/survey-before-act.sh"
-      }
+      { "command": ".cursor/hooks/block-bad-bash.sh" },
+      { "command": ".cursor/hooks/survey-before-act.sh" }
     ]
   }
 }

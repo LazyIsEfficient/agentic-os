@@ -12,7 +12,13 @@
   },
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" } ] }
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
+          { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
+        ]
+      }
     ],
     "SessionStart": [
       { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" } ] }

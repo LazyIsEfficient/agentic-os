@@ -1,7 +1,7 @@
 # Install Skills Library into your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install.ps1
@@ -23,14 +23,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($Dest -notmatch '^[/.a-zA-Z0-9._-]+$') {
+  throw "Error: unsafe -Dest (shell metacharacters not allowed): $Dest"
+}
+
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — $ExpectedSha256 is the digest of the release asset
 # built from tag $Version.
-$Version        = "v2.2.0"
-$ExpectedSha256 = "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
+$Version        = "v2.3.1"
+$ExpectedSha256 = "e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -182,11 +186,45 @@ if (Test-Path $HooksSrc) {
   Write-Host "  OK hooks -> $HooksDest"
 }
 
+function Install-ClaudeHookSettings {
+  $SrcFile = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
+  if (-not (Test-Path $SrcFile)) { return }
+  $DestFile = Join-Path $Dest "settings.json"
+  $HooksDir = Join-Path $Dest "hooks"
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    $hooksJsonText = & $bash.Source -c @"
+export HD='$($HooksDir -replace "'", "'\''")'
+export SRC='$($SrcFile -replace "'", "'\''")'
+jq --arg hd "`$HD" '
+  walk(if type == "object" and has("command") then
+    .command |= gsub("\\\$HOME/.claude/hooks"; \$hd)
+  else . end) | .hooks' "`$SRC"
+"@
+    $hooks = $hooksJsonText | ConvertFrom-Json
+    if (Test-Path $DestFile) {
+      $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+      $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $hooks -Force
+      $destJson | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+    } else {
+      @{ hooks = $hooks } | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+    }
+    Write-Host "  OK hooks active -> $DestFile"
+  } elseif (-not (Test-Path $DestFile) -and $Dest -eq (Join-Path $env:USERPROFILE ".claude")) {
+    Copy-Item $SrcFile $DestFile
+    Write-Host "  OK hooks active -> $DestFile"
+  } else {
+    Write-Warning "bash+jq required to install hook registration (custom -Dest needs jq path rewrite)"
+  }
+}
+
+Install-ClaudeHookSettings
+
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
 }
 
 Write-Host ""
-Write-Host "Done. Restart Claude Code to load the new skills, agents, and commands."
+Write-Host "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

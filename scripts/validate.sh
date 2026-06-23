@@ -640,6 +640,17 @@ check_hook_safety() {
     '.cursor/hooks/' \
     '^\.cursor/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
     '.cursor/hooks/<name>.sh [simple args]'
+
+  # Consumer global install templates (Invariant 8(b) — separate path prefixes).
+  check_hook_commands_in_file "$ROOT/assets/consumer/claude-settings.json" \
+    '.claude/hooks/' \
+    '^bash \$HOME/.claude/hooks/[A-Za-z0-9_-]+\.sh$' \
+    'bash $HOME/.claude/hooks/<name>.sh'
+
+  check_hook_commands_in_file "$ROOT/assets/consumer/cursor-hooks.json" \
+    'hooks/' \
+    '^hooks/[A-Za-z0-9_-]+\.sh$' \
+    'hooks/<name>.sh'
 }
 
 # ── Invariant 9: tombstones ────────────────────────────────────────────────────

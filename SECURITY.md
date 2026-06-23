@@ -19,15 +19,17 @@ The only barrier in front of a freshly pulled hook is each platform's **workspac
 
 **Claude Code (`install.sh` / `install.ps1`)**
 - Ships `.claude/hooks/*.sh` and marks them executable.
-- **No `settings.json` ships.** The repo's own `.claude/settings.json` (dev permissions + autoMode config) is **not** shipped, and S5-C deliberately did not add a shipped one. Every shipped hook script is **dormant** on a consumer until they register it in their own `settings.json` — the executable code is on disk but nothing runs it automatically.
+- **Registers hooks globally** by merging `assets/consumer/claude-settings.json` into `~/.claude/settings.json`. At install time, template paths (`$HOME/.claude/hooks/…`) are rewritten to match the actual install `DEST` (supports custom `CLAUDE_DIR`). Only the `hooks` block is merged; other top-level keys are preserved. **Re-install replaces the entire `hooks` object** — custom hook entries are overwritten.
 
 **Cursor (`install-cursor.sh` / `install-cursor.ps1`)**
 - Ships production hook scripts from `.cursor/hooks/` into `~/.cursor/hooks/` (spike `*-probe.sh` excluded) and marks them executable. Skills and agents ship from `.claude/` into `~/.cursor/`; commands do **not** ship on Cursor.
-- **No `hooks.json` ships.** The repo's own `.cursor/hooks.json` (dev/spike registration for live-fire probes) is **not** shipped. Hook scripts are **dormant** on a consumer until they register them in their own `hooks.json` — same opt-in posture as Claude.
+- **Registers hooks globally** by merging `assets/consumer/cursor-hooks.json` into `~/.cursor/hooks.json` (`hooks/<name>.sh` paths relative to `~/.cursor/`).
 
-**Shared shipped hook scripts (dormant until registered):**
-  - **Both platforms (ergonomics, not security):** `.claude/hooks/block-bad-bash.sh` and `.cursor/hooks/block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Benign and minimal. Ships dormant unless registered.
-  - **Both platforms (awareness harness):** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — Claude copies from `.claude/hooks/` (plain stdout); Cursor copies from `.cursor/hooks/` (JSON stdout; requires `jq` at runtime for inject/digest). Ship **dormant** (S5-C). The `session-state` skill documents the opt-in registration; `SESSION-STATE.md` is governed by rule 7 below.
+**Shared shipped hook scripts (active after install):**
+  - **Both platforms (ergonomics, not security):** `block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Blocks long `&&` chains and `cd && git` patterns in Claude (exit 2) / Cursor (`permission: deny` message).
+  - **Both platforms (awareness harness):** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — Claude plain stdout; Cursor JSON stdout (requires `jq` at runtime for inject/digest). `SESSION-STATE.md` is governed by rule 7 below.
+
+**To disable:** delete the `hooks` key from `~/.claude/settings.json` or `~/.cursor/hooks.json`, or remove individual hook entries.
 
 ## Policy for shipped hooks
 
@@ -54,55 +56,23 @@ Every hook that ships to consumers MUST:
 
 Anything else — a chained `; curl…|bash`, a literal-newline statement, an `env` prefix, a `../` path traversal, a `$(…)` subshell — fails the shape and is rejected. This is an allowlist of *shape*, not a denylist of metacharacters (which is incompletable — an early denylist version missed the newline separator), so a single vendored call cannot become a chain.
 
-**This is a tripwire, not a sandbox — on both Claude Code and Cursor, and the denylist half is fundamentally incompletable.** A static denylist of egress idioms cannot be finished by enumeration (resolver-based DNS exfil, variable-indirection, string-rebuild, and the next idiom nobody listed all evade it). So **the denylist catches the obvious and the accidental; it does not stop a determined attacker.** What actually makes a hook safe is the *layered* controls, of which the regex is the weakest: **(rule 5) minimal scripts a human reads in full + (rule 6) human security review of every shipped hook + (rule 2) the no-runtime-fetch policy + each platform's workspace-trust gate.** The strict-shape half (b), by contrast, IS completable — it is an allowlist of command *shape*, not a denylist of idioms — and is the load-bearing deterministic check on **both** platforms. **Any future active install (S5-C active registration on Claude, or a shipped `hooks.json` on Cursor) is gated on human review + strict-shape, never on the egress denylist being "complete."**
+**This is a tripwire, not a sandbox — on both Claude Code and Cursor, and the denylist half is fundamentally incompletable.** A static denylist of egress idioms cannot be finished by enumeration (resolver-based DNS exfil, variable-indirection, string-rebuild, and the next idiom nobody listed all evade it). So **the denylist catches the obvious and the accidental; it does not stop a determined attacker.** What actually makes a hook safe is the *layered* controls, of which the regex is the weakest: **(rule 5) minimal scripts a human reads in full + (rule 6) human security review of every shipped hook + (rule 2) the no-runtime-fetch policy + each platform's workspace-trust gate.** The strict-shape half (b), by contrast, IS completable — it is an allowlist of command *shape*, not a denylist of idioms — and is the load-bearing deterministic check on **both** platforms. **Active global hook registration (shipped since v2.3) is gated on human review of hook scripts + strict-shape templates; the egress denylist is never treated as complete.**
 
 **Accepted, by-design limits of the regex denylist (NOT bugs — defended by the other layers):** the scan matches *literal* command idioms, so it cannot catch a payload assembled to defeat pattern-matching — most notably **variable indirection** (`A=cu; B=rl; "$A$B" http://…` reconstructs `curl` from fragments no single token matches), and equally string-reversal, `printf`-built command names, or an `IFS`/brace-expansion trick. Chasing these pattern-by-pattern is a losing game against a regex; they are out of scope for the tripwire and are caught instead by **rule 5 (minimal, auditable scripts a human reads in full)** and **rule 6 (human security review of every shipped hook)**. What the denylist *does* cover is the high-signal direct idioms — network tools (incl. `ssh`/`rsync`), version-suffixed and space-or-no-space `-m` interpreter invocations (python/node/perl/ruby), `openssl s_client`/`enc`, here-strings/heredocs and pipes fed to a shell, `eval`/`base64`/process-substitution — so an *accidental* or low-effort-malicious direct use trips the gate. `validate-test.sh` cases 11–26 pin Claude idioms; cases 30–31 pin Cursor config shape and a benign probe hook as Tier-0 regressions. The covered set is "the idioms we've seen tried," not a closed enumeration — new direct idioms get added as they're found (the ratchet), but the layered defenses above, not the regex, are what make a hook safe on either platform.
 
-## Shipping the awareness harness (V2_ROADMAP S5-C — opt-in shipped)
+## Shipping the awareness harness
 
-The awareness harness (the `session-state-*` and `survey-before-act` hooks, the
-`/state` command, the `session-state` skill, and the writer) ships to consumers
-**opt-in / dormant** as of S5-C. The tooling is self-contained and installs; the
-hooks are on disk but **inert** until a consumer registers them. No active
-`settings.json` ships — that (auto-firing the hooks on every consumer session) is
-a separate, still-gated step.
+The awareness harness (session-state hooks, survey-before-act, `/state` command, writer, skill) ships **active by default**: `install.sh` / `install-cursor.sh` merge hook registration into the consumer's global config after copying scripts.
 
-**Shipped in S5-C (opt-in mode) — done:**
-1. **Writer + template are skill-local.** The writer lives at
-   `.claude/skills/session-state/scripts/session-state.sh` and the schema template
-   at `.claude/skills/session-state/assets/SESSION-STATE.template.md`; both ship via
-   `install_dir "skills"` recursion. The writer resolves the template relative to
-   itself and the live `SESSION-STATE.md` at the project root (`CLAUDE_PROJECT_DIR`),
-   so `init` works on a consumer with no repo-root dependency. Both call sites
-   (`.claude/commands/state.md`, `.claude/skills/session-state/SKILL.md`) point at
-   the shipped path.
-2. **`/state` is in the command ship allowlist** in `install.sh` AND `install.ps1`
-   (parity), with `EXPECTED_CMDS` in `validate.sh` and the `validate-test.sh`
-   manifest fixture updated in lockstep.
-3. **The opt-in registration is documented, not shipped.** `session-state/SKILL.md`
-   carries the `settings.json` snippet a consumer pastes to activate; the command
-   entries invoke vendored `.claude/hooks/` scripts (no inline shell).
-4. **Untrusted-data framing (rule 7)** is carried in the skill and the template;
-   `SESSION-STATE.md` stays gitignored / per-developer on the consumer side.
+**Consumer templates** (`assets/consumer/`):
+- `claude-settings.json` → `~/.claude/settings.json` (`hooks` block merged with `DEST`-relative paths; other top-level keys preserved; **re-install overwrites the whole `hooks` object**)
+- `cursor-hooks.json` → `~/.cursor/hooks.json`
 
-**Still gated — shipping the hooks *active* (registered config on either platform):**
-- **Claude:** a shipped active `settings.json`
-- **Cursor:** a shipped active `hooks.json`
-- The gate is **human security review + the strict-shape command check (Invariant
-  8(b))**, **not** the egress denylist being "complete" (it never is — see
-  Enforcement). A shipped active config must register only single vendored-hook-script
-  commands with no shell metacharacter, and a `security-reviewer` pass on the actual
-  install diff is required before merge.
-- Until then the consumer opts in by hand, which keeps auto-execution off the
-  supply chain. **Recommendation (review #2): keep the harness dogfood-only / opt-in;
-  do not flip to active** — an active install would rest on the tripwire that has
-  already been stepped over, so the dormant posture is the one to ship.
+Invariant 8(b) validates these templates. Human `security-reviewer` sign-off applies to hook script changes; the layered controls in Enforcement remain the real safety boundary — not the egress regex tripwire alone.
 
-**Note for review:** the writer ships as a **skill-local script**, which is *not*
-covered by Invariant 8 (that gate scans `.claude/hooks/*.sh` and production
-`.cursor/hooks/*.sh` only). It is benign by construction (pure bash/awk/coreutils;
-no network, exec, persistence, or credential access), but its safety rests on
-review + minimality, not the static gate.
+**To turn off:** remove the `hooks` block from your global settings file.
+
+**Writer note:** the skill-local writer is not scanned by Invariant 8 (hooks dirs only). It is benign by construction (bash/awk/coreutils; no network/exec/persistence/credentials).
 
 ## Reporting a vulnerability
 

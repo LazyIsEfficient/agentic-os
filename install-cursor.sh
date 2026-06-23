@@ -2,13 +2,13 @@
 # Install Skills Library into your Cursor global config.
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
-# copies the consumer allowlist into ~/.cursor/ (skills, agents, dormant hooks).
+# copies the consumer allowlist into ~/.cursor/ (skills, agents, hooks).
 # Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
-# *-probe.sh fixtures are dev-only and excluded. No hooks.json activation doc
-# ships — register hooks manually in your project or global Cursor config.
+# *-probe.sh fixtures are dev-only and excluded. hooks.json registers them
+# globally on install (disable by editing ~/.cursor/hooks.json).
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install-cursor.sh | bash
 #
 # Usage — from a local clone:
 #   ./install-cursor.sh
@@ -39,11 +39,16 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v2.2.0"
-EXPECTED_SHA256="85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
+VERSION="v2.3.1"
+EXPECTED_SHA256="e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a"
 
 DEST="${CURSOR_DIR:-$HOME/.cursor}"
 FORCE=false
+
+if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: unsafe CURSOR_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
+  exit 1
+fi
 
 for arg in "$@"; do
   case "$arg" in
@@ -125,6 +130,9 @@ fi
 
 # ── Install ───────────────────────────────────────────────────────────────────
 
+# shellcheck source=scripts/lib/install-hook-settings.sh
+source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
+
 install_dir() {
   local name="$1"
   local src_dir="${2:-$SRC/$name}"
@@ -169,8 +177,10 @@ if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
 fi
 
+merge_cursor_hook_settings "$REPO_ROOT" "$DEST"
+
 echo ""
-echo "Done. Restart Cursor to load the new skills, agents, and subagent types."
+echo "Done. Restart Cursor to load the new skills, agents, subagent types, and hooks."
 echo ""
 echo "Recommended — Cursor Settings → Rules → User Rules:"
 echo "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"

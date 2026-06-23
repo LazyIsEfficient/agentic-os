@@ -14,18 +14,18 @@ Two consumer paths — **Cursor** and **Claude Code** — share the same skill/a
 
 Both remote one-liners install a **pinned release** and verify its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
-- **Current release:** `v2.2.0`
-- **Asset:** `agentic-os-v2.2.0.tar.gz`
-- **SHA-256:** `85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c`
+- **Current release:** `v2.3.1`
+- **Asset:** `agentic-os-v2.3.1.tar.gz`
+- **SHA-256:** `e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a`
 
 ### Cursor
 
-Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
+Install skills, agents, and **active** hook registration into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
 
 **macOS / Linux — one-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install-cursor.sh | bash
 ```
 
 **Or from a local clone:**
@@ -66,7 +66,7 @@ Restart Cursor after install so new skills and agents load.
 **One-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install.sh | bash
 ```
 
 **Or from a local clone:**
@@ -84,7 +84,7 @@ Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/com
 **One-liner (no clone required):**
 
 ```powershell
-irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install.ps1 | iex
 ```
 
 **Or from a local clone:**
@@ -105,11 +105,11 @@ out-of-band before trusting the one-liner, download the asset and check it
 yourself:
 
 ```bash
-curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v2.2.0/agentic-os-v2.2.0.tar.gz
+curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v2.3.1/agentic-os-v2.3.1.tar.gz
 # macOS / BSD:
-echo "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c  agentic-os-v2.2.0.tar.gz" | shasum -a 256 -c
+echo "e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a  agentic-os-v2.3.1.tar.gz" | shasum -a 256 -c
 # Linux (coreutils):
-echo "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c  agentic-os-v2.2.0.tar.gz" | sha256sum -c
+echo "e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a  agentic-os-v2.3.1.tar.gz" | sha256sum -c
 ```
 
 There is intentionally no "track `main`" remote install path — to install
@@ -117,6 +117,8 @@ unreleased changes, clone the repo and run `./install.sh` from the clone.
 Maintainers: see [RELEASING.md](RELEASING.md) for how the pin is produced.
 
 #### Custom install path
+
+Hook registration paths are rewritten to match `CLAUDE_DIR` / `-Dest` at install (requires `jq` on bash).
 
 ```bash
 CLAUDE_DIR=/path/to/.claude ./install.sh
@@ -136,7 +138,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 |---|---|
 | `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
-| `~/.cursor/hooks/` | Cursor-native hook scripts from `.cursor/hooks/` (JSON stdout; spike `*-probe.sh` excluded; dormant until registered) — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.cursor/hooks/` | Cursor-native hook scripts — registered globally in `~/.cursor/hooks.json` on install |
 
 > **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
@@ -147,7 +149,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
-| `~/.claude/hooks/` | Hook scripts (e.g. `block-bad-bash.sh`). The awareness-harness hooks also land here but stay **dormant** until a `settings.json` registers them — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.claude/hooks/` | Hook scripts — registered globally in `~/.claude/settings.json` on install (awareness harness + `block-bad-bash`) — see [Awareness harness](#awareness-harness-experimental) |
 
 > **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
@@ -187,11 +189,12 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 
 - **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. Hooks inject it at session start, inject a compact digest each turn, and checkpoint before compaction. Maintained only through the deterministic writer (Claude: `/state`; Cursor: `session-state` skill + Bash), never hand-edited.
 - **survey-before-act** — on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
+- **block-bad-bash** — nudges away from `cd && git` and long `&&` shell chains (ergonomics, not security; can block routine agent shell — remove the hook entry if annoying).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Ship posture:** hook **scripts** install on both platforms but stay **dormant** until you opt in — no shipped `settings.json` (Claude) or `hooks.json` (Cursor). The writer and `session-state` skill work without hooks.
+**Ship posture:** hooks are **on by default** after install — `install.sh` / `install-cursor.sh` merge hook registration into `~/.claude/settings.json` and `~/.cursor/hooks.json`. Re-install **replaces the whole `hooks` block**. Remove the `hooks` key to disable.
 
-**→ [Activation guide](docs/awareness-harness-activation.md)** — prerequisites, Claude + Cursor JSON snippets (all four hooks), verify steps, dogfooding for #145.
+**→ [Activation guide](docs/awareness-harness-activation.md)** — what's registered, how to turn off, verify steps.
 
 **Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
 

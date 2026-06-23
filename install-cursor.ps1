@@ -2,12 +2,12 @@
 #
 # Shared skill/agent content lives in the repo's .claude/ tree; this script
 # copies the consumer allowlist into $env:USERPROFILE\.cursor\ (skills, agents,
-# dormant hooks). Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout
-# contract); spike *-probe.sh fixtures are dev-only and excluded. No hooks.json
-# activation doc ships — register hooks manually in your project or global config.
+# hooks) and merges active hook registration into ~/.cursor/hooks.json.
+# Hook scripts ship from .cursor/hooks/ (Cursor JSON stdout contract); spike
+# *-probe.sh fixtures are dev-only and excluded.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.2.0/install-cursor.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.1/install-cursor.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install-cursor.ps1
@@ -34,11 +34,15 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($Dest -notmatch '^[/.a-zA-Z0-9._-]+$') {
+  throw "Error: unsafe -Dest (shell metacharacters not allowed): $Dest"
+}
+
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
-$Version        = "v2.2.0"
-$ExpectedSha256 = "85343fd78c8bcc03066da29a69bcd2d205caa22d0d08e4da80a955be9230ff5c"
+$Version        = "v2.3.1"
+$ExpectedSha256 = "e86841ebed75d02bed633488079156d4993cf54031924ae1deb174eff684486a"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -159,12 +163,30 @@ Install-Dir "skills"
 Install-Dir "agents"
 Install-CursorHooks
 
+function Install-CursorHookSettings {
+  $SrcFile = Join-Path $RepoRoot "assets\consumer\cursor-hooks.json"
+  if (-not (Test-Path $SrcFile)) { return }
+  $DestFile = Join-Path $Dest "hooks.json"
+  $srcJson = Get-Content $SrcFile -Raw | ConvertFrom-Json
+  if (Test-Path $DestFile) {
+    $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+    $destJson.version = $srcJson.version
+    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $srcJson.hooks -Force
+    $destJson | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
+  } else {
+    Copy-Item $SrcFile $DestFile
+  }
+  Write-Host "  OK hooks active -> $DestFile"
+}
+
+Install-CursorHookSettings
+
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
 }
 
 Write-Host ""
-Write-Host "Done. Restart Cursor to load the new skills, agents, and subagent types."
+Write-Host "Done. Restart Cursor to load the new skills, agents, subagent types, and hooks."
 Write-Host ""
 Write-Host "Recommended — Cursor Settings → Rules → User Rules:"
 Write-Host "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"
