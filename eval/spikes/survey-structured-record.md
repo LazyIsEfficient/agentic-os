@@ -1,6 +1,6 @@
 # Structured survey record — design spike (S5-D prep)
 
-**Status:** DESIGN ONLY — does **not** flip `permissionDecision` to `deny`.  
+**Status:** Option B **implemented** (warn-first) — `[surveyed:name]` writer + hook matching shipped; **deny flip not merged** until evidence gate met.  
 **Issue:** [#145](https://github.com/LazyIsEfficient/agentic-os/issues/145) (S5-D warn → deny ratchet).  
 **Gate:** V2_DISPATCH evidence gate **not met** — no near-zero false-positive evidence from real `.claude/survey-guard.warns` / `.cursor/survey-guard.warns` use yet.
 

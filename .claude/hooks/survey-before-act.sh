@@ -44,20 +44,13 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-# Already surveyed? Suppress ONLY when a recorded survey SUBJECT — a bracketed
-# token [name] leading an Existing-infrastructure entry — appears as a whole token
-# in the command. This structured record replaced an earlier fuzzy substring scan:
-# a coincidental word (e.g. "broker" inside a *different* service's name) no longer
-# aliases a surveyed subject, and the deny-time evasion surface shrinks to "name
-# your service EXACTLY like an already-surveyed subject". Matching is whole-token
-# and case-insensitive; tokens keep internal . _ - so a dashed subject stays whole.
-# No recorded subjects (legacy free-text infra, or unreadable state) => no match =>
-# warn (fail-open).
+# Already surveyed? Suppress ONLY when a recorded [surveyed:name] token in an
+# Existing-infrastructure entry appears as a whole token in the command.
 state="$dir/SESSION-STATE.md"
 surveyed=0
 if [ -r "$state" ]; then
   subjects="$(awk '/^## Existing infrastructure/{s=1;next} /^## /{s=0} s&&/^- /&&!/<!--/{print}' "$state" \
-    | grep -oE '\[[A-Za-z0-9._-]+\]' | tr -d '[]' | tr 'A-Z' 'a-z' | sort -u)"
+    | grep -oE '\[surveyed:[A-Za-z0-9._-]+\]' | sed 's/^\[surveyed://;s/\]$//' | tr 'A-Z' 'a-z' | sort -u)"
   if [ -n "$subjects" ]; then
     cmdtokens="$(printf '%s' "$cmd" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9._-' '\n')"
     # Word-split is safe: subjects are charset-filtered to [a-z0-9._-] above, so a

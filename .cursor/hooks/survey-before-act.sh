@@ -29,7 +29,7 @@ state="$dir/SESSION-STATE.md"
 surveyed=0
 if [ -r "$state" ]; then
   subjects="$(awk '/^## Existing infrastructure/{s=1;next} /^## /{s=0} s&&/^- /&&!/<!--/{print}' "$state" \
-    | grep -oE '\[[A-Za-z0-9._-]+\]' | tr -d '[]' | tr 'A-Z' 'a-z' | sort -u)"
+    | grep -oE '\[surveyed:[A-Za-z0-9._-]+\]' | sed 's/^\[surveyed://;s/\]$//' | tr 'A-Z' 'a-z' | sort -u)"
   if [ -n "$subjects" ]; then
     cmdtokens="$(printf '%s' "$cmd" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9._-' '\n')"
     for subj in $subjects; do

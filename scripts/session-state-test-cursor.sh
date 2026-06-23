@@ -39,12 +39,12 @@ bash "$SS" thread "Confirm PreCompact live-fire" >/dev/null
 live="$(cat "$T/SESSION-STATE.md")"
 has "constraint recorded under its section" "$live" "No Python — Rust only"
 has "decision is date-stamped" "$live" "$(printf '\\[%s\\]' "$(date +%F)")"
-has "infra finding recorded" "$live" "RabbitMQ broker already running"
+has "infra finding recorded" "$live" "broker already running on :5552"
 
 inj_json="$(printf '%s' '{"session_id":"t","is_background_agent":false}' | bash "$T/.cursor/hooks/session-state-inject.sh")"
 inj="$(json_field "$inj_json" additional_context)"
 has "inject emits constraint" "$inj" "No Python — Rust only"
-has "inject emits infra" "$inj" "RabbitMQ broker already running"
+has "inject emits infra" "$inj" "broker already running on :5552"
 has "inject emits SESSION STATE banner" "$inj" "SESSION STATE"
 
 dig_json="$(printf '%s' '{"prompt":"hi"}' | bash "$T/.cursor/hooks/session-state-digest.sh")"

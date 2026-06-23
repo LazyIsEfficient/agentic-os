@@ -54,12 +54,12 @@ bash "$SS" thread "Confirm PreCompact live-fire" >/dev/null
 live="$(cat "$T/SESSION-STATE.md")"
 has "constraint recorded under its section" "$live" "No Python — Rust only"
 has "decision is date-stamped" "$live" "$(printf '\\[%s\\]' "$(date +%F)")"
-has "infra finding recorded" "$live" "RabbitMQ broker already running"
+has "infra finding recorded" "$live" "broker already running on :5552"
 
 # Inject hook (SessionStart) — emits the WHOLE doc
 inj="$(bash "$T/.claude/hooks/session-state-inject.sh" < /dev/null)"
 has "inject emits constraint" "$inj" "No Python — Rust only"
-has "inject emits infra" "$inj" "RabbitMQ broker already running"
+has "inject emits infra" "$inj" "broker already running on :5552"
 
 # Digest hook (UserPromptSubmit) — Constraints + Decisions + Open threads
 dig="$(printf '%s' '{"hook_event_name":"UserPromptSubmit"}' | bash "$T/.claude/hooks/session-state-digest.sh")"
