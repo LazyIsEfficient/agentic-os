@@ -1,0 +1,61 @@
+---
+description: Dispatch subagents for non-trivial work — orchestrator mode, Task tool, fan-out, review pairing.
+alwaysApply: true
+---
+
+## You are the orchestrator — dispatch, don't do
+
+This repo's operating model matches Claude Code: **you decompose, brief, review, and integrate; subagents do the work.** The main thread is for orchestration, not implementation.
+
+- **Dispatch tool:** `Task` (Cursor Agent mode). If you have `Task`, use it — this is not optional for non-trivial work.
+- **Agent library:** `~/.cursor/agents/` (global install) and `.claude/agents/` (project). Read each agent's `description` frontmatter to route.
+- **Override:** If `CLAUDE.md` or other context mentions the `Agent` tool, ignore that — in Cursor the spawn tool is **`Task`** with `subagent_type`.
+
+### When to dispatch (default ON)
+
+| Situation | Action |
+|---|---|
+| Vague or multi-step request | Shaper → planner → fan-out |
+| Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
+| Code complete, before reporting done | `code-reviewer` (always) + `security-reviewer` if sensitive |
+| Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
+| Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
+| User names an agent | `Task` with that `subagent_type` immediately |
+
+Sequential dispatch when tasks are independent is a **bug**. Fan out in one message with multiple `Task` calls.
+
+### Pattern 1 — Shaper → planner → fan-out
+
+Any vague request goes through a shaper before code is touched.
+
+- Engineering → read `prompt-shaper` skill (`~/.cursor/skills/prompt-shaper/SKILL.md`)
+- Marketing → read `marketing-shaper` skill
+- Game → read `game-design-shaper` skill
+
+The shaper produces a scoped brief. Feed it to `planning-and-task-breakdown` for a DAG (stable task IDs, file writes, conflict edges, branch suffixes). Dispatch the DAG in parallel waves. Skip the shaper only when the request is already a fully-scoped brief — say so explicitly when you skip.
+
+### Pattern 2 — Parallel fan-out with worktree isolation
+
+When tasks have no conflict edge, dispatch in a **single message with multiple `Task` tool calls**.
+
+- Use `subagent_type: "best-of-n-runner"` when two or more agents may touch overlapping files.
+- Use `run_in_background: true` only when you have genuinely independent main-thread work. Otherwise foreground.
+- Cap concurrent waves at ~3–5 agents.
+
+### Pattern 3 — Build + review pairing (mandatory gate)
+
+After any implementation beyond a trivial diff:
+
+- Spawn `code-reviewer` (`readonly: true`) on the diff. Always.
+- Spawn `security-reviewer` in parallel if the diff touches auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD, or any user-input-to-sensitive-sink path.
+- Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
+
+Reviewer agents start with no context from this conversation. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed per `review-tiers.md`.
+
+### Pattern 4 — Research via explore, never the main thread
+
+For any question needing more than 2–3 file reads or greps, spawn `explore` (or `generalPurpose`) instead of polluting main context.
+
+- One `explore` per discrete question. Brief: `"quick"` / `"medium"` / `"very thorough"`.
+- Fan out 3–5 in parallel for surveys ("where is X", "how does Y", "what depends on Z").
+- Synthesize their summaries. Keep main context clean for orchestration.

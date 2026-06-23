@@ -224,7 +224,9 @@ opt-in rather than default.
 
 ### Configure Cursor rules + skill discipline
 
-Operating doctrine for this repo lives in `.cursor/rules/` (YAML frontmatter with `alwaysApply: true`). Clone the repo into a project to use it, or copy the rules into your project's `.cursor/rules/`.
+Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
+
+`AGENTS.md` at the repo root carries the same orchestrator + subagent dispatch mandate in plain markdown (Cursor loads it automatically). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
 
 To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
 
@@ -235,6 +237,18 @@ You have a library of skills installed at `~/.cursor/skills/`. Before responding
 check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
 
 If there is even a 1% chance a skill might apply, load the skill first.
+```
+
+To make subagent dispatch default globally (match Claude Code's orchestrator model), add this block to **User Rules** as well:
+
+```markdown
+## Subagents
+
+You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
+For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
+work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
+After implementation, spawn `code-reviewer` before reporting done. For research needing more than
+2–3 file reads, use an `explore` subagent.
 ```
 
 Repo maintainers: `CURSOR.md` at the repo root `@`-imports `.cursor/rules/*` (parallel to `CLAUDE.md`).
