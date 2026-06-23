@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes + sensitive-path rules.
+# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes (code + security always).
 #
 # Usage (CI — pull_request):
 #   PR_BODY set, BASE_SHA and HEAD_SHA set (or GITHUB_EVENT_PATH for file list)
@@ -62,6 +62,7 @@ while IFS= read -r f; do
     .claude/hooks/*|.cursor/hooks/*) is_sensitive=true ;;
     SECURITY.md) is_sensitive=true ;;
     scripts/lib/install-hook-settings.sh) is_sensitive=true ;;
+    scripts/validate.sh|scripts/validate-test.sh) is_sensitive=true ;;
     scripts/release.sh) is_sensitive=true ;;
     .github/workflows/*) is_sensitive=true ;;
   esac
@@ -95,12 +96,13 @@ fail() {
   exit 1
 }
 
-if [[ "$is_code_change" == true ]] && ! body_check 'code-reviewer'; then
+if [[ "$is_code_change" == true || "$is_library" == true ]] && ! body_check 'code-reviewer'; then
   fail "check [x] code-reviewer (readonly Task dispatched; Tier 0/1 findings addressed)"
 fi
 
-if [[ "$is_sensitive" == true ]] && ! body_check 'security-reviewer'; then
-  fail "sensitive paths in diff — check [x] security-reviewer (hook/install/SECURITY/workflow)"
+# Any non-docs-only PR requires both reviewers before "complete" (orchestrator + CI ratchet).
+if [[ "$is_code_change" == true || "$is_library" == true || "$is_sensitive" == true ]] && ! body_check 'security-reviewer'; then
+  fail "check [x] security-reviewer (readonly Task dispatched with code-reviewer before marking done)"
 fi
 
 if [[ "$is_library" == true ]] && ! body_check 'library-reviewer'; then

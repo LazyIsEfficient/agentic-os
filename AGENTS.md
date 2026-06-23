@@ -6,6 +6,6 @@ This repo is a skills + agents library. Work here is rarely a single edit — it
 
 **Memory:** `.claude/memory/` in-repo (see `memory-discipline` rule). Session constraints/threads: `session-state` skill + writer at `$HOME/.cursor/skills/session-state/scripts/session-state.sh` after global install (or `.claude/skills/...` in a repo checkout) — never hand-edit `SESSION-STATE.md`.
 
-**Dispatch:** `subagent-dispatch` rule (`.cursor/rules/subagent-dispatch.mdc`). **Ship gates:** PR required before merge/tag; CI `check-pr-ship-gates` enforces reviewer checkboxes on code PRs.
+**Dispatch:** `subagent-dispatch` rule (`.cursor/rules/subagent-dispatch.mdc`). **Ship gates:** PR before merge/tag; before saying done, always `Task` `code-reviewer` + `security-reviewer` (parallel); CI enforces checkboxes.
 
 **Global stickiness (recommended):** add the Skills + Subagents blocks from README § Configure Cursor rules to **Cursor Settings → Rules → User Rules** so orchestrator behavior persists outside this repo.

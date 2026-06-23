@@ -10,11 +10,12 @@ fail() { echo "FAIL $1"; exit 1; }
 
 BODY_OK=$'- [x] code-reviewer — dispatched\n- [x] security-reviewer — dispatched'
 BODY_NO_SEC='- [x] code-reviewer'
+BODY_LIB_OK=$'- [x] code-reviewer\n- [x] security-reviewer\n- [x] library-reviewer'
 
 if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_OK" bash "$GATE"; then
-  pass "sensitive file + both reviewers"
+  pass "code change + both reviewers"
 else
-  fail "sensitive file + both reviewers"
+  fail "code change + both reviewers"
 fi
 
 if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then
@@ -29,24 +30,22 @@ else
   fail "docs-only skip"
 fi
 
-BODY_LIB_OK=$'- [x] code-reviewer\n- [x] library-reviewer'
-
 if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_LIB_OK" bash "$GATE"; then
-  pass "skill SKILL.md + library-reviewer"
+  pass "skill SKILL.md + all reviewers"
 else
-  fail "skill SKILL.md + library-reviewer"
+  fail "skill SKILL.md + all reviewers"
 fi
 
-if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY='- [x] library-reviewer' bash "$GATE"; then
-  pass "skill SKILL.md library-only body"
+if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY='- [x] library-reviewer' bash "$GATE" 2>/dev/null; then
+  fail "skill SKILL.md library-only should trip (needs code+security)"
 else
-  fail "skill SKILL.md library-only body"
+  pass "skill SKILL.md library-only trips"
 fi
 
 if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then
-  fail "skill SKILL.md missing library-reviewer should trip"
+  fail "skill SKILL.md missing security-reviewer should trip"
 else
-  pass "skill SKILL.md missing library-reviewer trips"
+  pass "skill SKILL.md missing security-reviewer trips"
 fi
 
 echo "check-pr-ship-gates-test: OK"
