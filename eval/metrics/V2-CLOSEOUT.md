@@ -27,7 +27,9 @@ bash eval/spikes/cursor-hook-capability/unit-test.sh
 
 | Run date | Operator | All green? |
 |----------|----------|------------|
-| | | [ ] |
+| 2026-06-23 | agent automated | [x] |
+
+One-liner: `bash eval/spikes/cursor-hook-capability/run-automated.sh`
 
 ---
 
@@ -37,10 +39,12 @@ Follow [LIVE-FIRE-PROTOCOL.md](../spikes/cursor-hook-capability/LIVE-FIRE-PROTOC
 
 | Test | Result | Notes |
 |------|--------|-------|
-| A — `beforeSubmitPrompt` digest | [ ] PASS [ ] FAIL [ ] INCONCLUSIVE | |
-| B — `beforeShellExecution` survey | [ ] PASS [ ] FAIL [ ] INCONCLUSIVE | |
+| A — `beforeSubmitPrompt` digest | [ ] PASS [x] INCONCLUSIVE [ ] FAIL | Hook contract PASS ([evidence](live-fire-evidence-2026-06-23.md)); model surfacing not verified in fresh chat |
+| B — `beforeShellExecution` survey | [ ] PASS [x] INCONCLUSIVE [ ] FAIL | Warn log PASS on hook pipe; agent shell path not verified |
 
-**Environment pin:** Cursor version ___ · OS ___ · branch ___ · date ___
+**Environment pin:** Cursor version ___ · OS darwin · branch docs/v2-closeout-182 · date 2026-06-23
+
+**Automated:** `bash eval/spikes/cursor-hook-capability/run-automated.sh`
 
 ---
 
@@ -58,8 +62,10 @@ Target: **N ≥ 3** interactive sessions per arm (ON with hooks, OFF with `'{"ho
 
 | Arm | Runs completed | Compaction observed? | Late-step anchors correct? |
 |-----|----------------|----------------------|----------------------------|
-| ON | /3 | | |
-| OFF | /3 | | |
+| ON | 0/3 | — | — |
+| OFF | 0/3 | — | — |
+
+Pre-registered: `eval/metrics/runs/20260623T012738Z-long-session-awareness/hypothesis.md` (2026-06-23). **Interactive runs not executed** — requires ~6 multi-hour Claude sessions; cannot be automated in one agent turn.
 
 Interpretation (pre-registered before reading results): ___
 
