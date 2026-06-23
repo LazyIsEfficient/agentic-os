@@ -73,6 +73,8 @@ Keep entries terse. For `infra`, lead with the service name as the first word �
 
 The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). The **hooks that auto-surface the file ship dormant** — scripts land on disk but nothing registers them until you opt in.
 
+**Full guide:** [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md) (prerequisites, verify steps, dogfooding for #145).
+
 ### Claude Code
 
 Add this to your project `.claude/settings.json` (commands invoke vendored scripts — no inline shell):
@@ -83,7 +85,8 @@ Add this to your project `.claude/settings.json` (commands invoke vendored scrip
     "SessionStart":     [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" }] }],
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
     "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
-                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }]
+                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
+    "PreToolUse":       [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }] }]
   }
 }
 ```
