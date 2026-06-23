@@ -45,3 +45,6 @@ pocs/
 
 # Release artifacts built by scripts/release.sh (not source)
 /agentic-os-*.tar.gz
+
+.cursor/session-state.checkpoints
+eval/metrics/runs/
