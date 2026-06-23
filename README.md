@@ -228,7 +228,9 @@ opt-in rather than default.
 
 Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
 
-`AGENTS.md` at the repo root is the thin Cursor runtime entry (memory + session-state pointers; full doctrine in `.mdc` rules). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
+`AGENTS.md` at the repo root is auto-loaded by Cursor (project-root plain markdown). Full doctrine: `.cursor/rules/*.mdc` (`alwaysApply: true`). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
+
+For orchestrator behavior **across all projects**, paste the Skills + Subagents blocks below into **Cursor Settings → Rules → User Rules** (also printed by `install-cursor.sh` on success).
 
 To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
 

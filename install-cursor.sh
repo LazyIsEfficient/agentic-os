@@ -170,7 +170,14 @@ if [[ -d "$DEST/hooks" ]]; then
 fi
 
 echo ""
-echo "Done. Restart Cursor to load the new skills and agents."
+echo "Done. Restart Cursor to load the new skills, agents, and subagent types."
+echo ""
+echo "Recommended — Cursor Settings → Rules → User Rules:"
+echo "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"
+echo "  (https://github.com/LazyIsEfficient/agentic-os#configure-cursor-rules--skill-discipline)"
+echo "  so orchestrator dispatch persists across projects."
+echo ""
+echo "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
 echo ""
 echo "Session-state writer (after install):"
 echo "  PROJ=\"\${CURSOR_PROJECT_DIR:-\${CLAUDE_PROJECT_DIR:-.}}\""

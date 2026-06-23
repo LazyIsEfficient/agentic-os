@@ -164,7 +164,14 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 }
 
 Write-Host ""
-Write-Host "Done. Restart Cursor to load the new skills and agents."
+Write-Host "Done. Restart Cursor to load the new skills, agents, and subagent types."
+Write-Host ""
+Write-Host "Recommended — Cursor Settings → Rules → User Rules:"
+Write-Host "  Paste the Skills + Subagents blocks from README § Configure Cursor rules"
+Write-Host "  (https://github.com/LazyIsEfficient/agentic-os#configure-cursor-rules--skill-discipline)"
+Write-Host "  so orchestrator dispatch persists across projects."
+Write-Host ""
+Write-Host "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
 Write-Host ""
 Write-Host "Session-state writer (after install):"
 Write-Host '  PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"'

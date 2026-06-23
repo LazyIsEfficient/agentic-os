@@ -133,6 +133,16 @@ c4b="$(make_copy)"
 printf '@.cursor/rules/nonexistent.mdc\n' >> "$c4b/CURSOR.md"
 assert_trips "case 4b cursor-imports (missing import)" "$c4b" cursor-imports
 
+# ── Case 4c: cursor-rules-format — stray .md in .cursor/rules/ ───────────────
+c4c="$(make_copy)"
+cat > "$c4c/.cursor/rules/stale.md" <<'EOF'
+---
+description: stale
+alwaysApply: true
+---
+EOF
+assert_trips "case 4c cursor-rules-format (plain .md in rules)" "$c4c" cursor-rules-format
+
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"
 mkdir -p "$c5/.claude/memory"

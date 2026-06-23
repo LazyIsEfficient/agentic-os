@@ -7,9 +7,35 @@ alwaysApply: true
 
 This repo's operating model matches Claude Code: **you decompose, brief, review, and integrate; subagents do the work.** The main thread is for orchestration, not implementation.
 
-- **Dispatch tool:** `Task` (Cursor Agent mode). If you have `Task`, use it — this is not optional for non-trivial work.
-- **Agent library:** `~/.cursor/agents/` (global install) and `.claude/agents/` (project). Read each agent's `description` frontmatter to route.
-- **Override:** If `CLAUDE.md` or other context mentions the `Agent` tool, ignore that — in Cursor the spawn tool is **`Task`** with `subagent_type`.
+### Cursor `Task` tool — prerequisites (not Claude's `Agent` tool)
+
+| | Cursor (this IDE) | Claude Code |
+|---|---|---|
+| Spawn tool | **`Task`** | **`Agent`** |
+| When available | **Agent mode** (and other modes that expose `Task` in your build) | Claude Code sessions with `Agent` in tool list |
+| Custom agents | `~/.cursor/agents/*.md` + `.claude/agents/*.md` — **restart Cursor** after `install-cursor.sh` so names appear in `subagent_type` | `~/.claude/agents/` |
+| Built-ins | `explore`, `bash`, `browser` (Cursor docs); harness also uses `generalPurpose`, `best-of-n-runner` | `Explore`, worktree via `isolation: "worktree"` |
+
+If you do **not** have `Task` (e.g. Ask mode), switch to **Agent mode** before dispatching — these rules assume orchestrator mode. If `CLAUDE.md` mentions `Agent`, ignore it here; use **`Task`** with `subagent_type`.
+
+**Typical `Task` fields:** `description` (short title), `prompt` (full brief for the subagent), `subagent_type` (e.g. `explore`, `engineer`, `code-reviewer`), `readonly: true` for reviewers, `run_in_background: true` only when you have independent main-thread work.
+
+**Example — research on a subagent, not the main thread:**
+
+```text
+Task(
+  description="Map validate.sh invariants",
+  subagent_type="explore",
+  prompt="List every check_* in scripts/validate.sh and what invariant each enforces. Thoroughness: quick.",
+  readonly=true
+)
+```
+
+Fan out independent `Task` calls in **one message** when work is parallelizable.
+
+### Token discipline
+
+Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the main context for orchestration, push noisy reads and implementation to subagents. For durable facts across sessions use `.claude/memory/` (`memory-discipline.mdc`); for within-session constraints use `session-state` + hooks — do not re-derive settled facts on the main thread.
 
 ### When to dispatch (default ON)
 
