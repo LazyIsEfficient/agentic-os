@@ -38,6 +38,8 @@ cd agentic-os
 
 Files are copied to `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/`. Existing files are not overwritten by default. Add `--force` to update everything.
 
+**Maintainer dev sync:** for active work on this repo, use the checkout paths (`.claude/skills/`, `.claude/agents/`, `.cursor/rules/`) directly — or symlink `~/.cursor/skills` / `~/.cursor/agents` to the repo's `.claude/` trees if you want global Cursor to track the clone live.
+
 **Custom install path:**
 
 ```bash
@@ -202,6 +204,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 |---|---|
 | `sessionStart` inject | **PROVEN** — model receives full `SESSION-STATE.md` |
 | `beforeSubmitPrompt` digest | **PROVEN** — live-fire Test A PASS (2026-06-23); per-turn Constraints + Decisions + Open threads reach the model via `additional_context` |
+| `beforeShellExecution` block-bad-bash | **PROVEN** — denies chained `cd && git` patterns via `permission: deny` |
 | `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
 | `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
 
@@ -253,11 +256,12 @@ To make subagent dispatch default globally (match Claude Code's orchestrator mod
 You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
 For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
 work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation, spawn `code-reviewer` before reporting done. For research needing more than
-2–3 file reads, use an `explore` subagent.
+After implementation beyond a trivial diff, spawn `code-reviewer` and `security-reviewer` in parallel
+(`readonly: true`) before reporting done. For research needing more than 2–3 file reads, use an
+`explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
-Repo maintainers: `CURSOR.md` at the repo root `@`-imports `.cursor/rules/*` (parallel to `CLAUDE.md`).
+Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files (parallel to `CLAUDE.md`).
 
 ---
 

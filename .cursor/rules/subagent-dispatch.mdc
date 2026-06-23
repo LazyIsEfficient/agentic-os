@@ -121,7 +121,7 @@ Reviewer agents start with no context from this conversation, so their second op
 
 Release order: **merge PR → checkout `main` → `release.sh` → pin commit → tag on `main` → `gh release create`**. Never tag a feature branch.
 
-Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` (when sensitive) in one wave before you say done.
+Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` in one wave before you say done.
 
 ### Pattern 4 — Research via explore, never the main thread
 

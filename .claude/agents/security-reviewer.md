@@ -27,10 +27,14 @@ You operate **read-only**. You don't edit code; you report findings.
 
 ## Tier discipline
 
-Tier definitions: `.claude/rules/review-tiers.md` — only deterministic checks hard-block. **Severity is not tier.** A finding may carry `fix-before-merge` weight on its own only with Tier 1 evidence attached: a working repro/PoC, a scanner hit, or a failing security test. A critical-severity *theory* — plausible attack surface with no demonstration — is still Tier 2: report it as advisory and journal it (never echoing secret values):
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts) — only deterministic checks hard-block. **Severity is not tier.** A finding may carry `fix-before-merge` weight on its own only with Tier 1 evidence attached: a working repro/PoC, a scanner hit, or a failing security test. A critical-severity *theory* — plausible attack surface with no demonstration — is still Tier 2: report it as advisory and journal it (never echoing secret values). Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source security-reviewer --run-id <branch-or-pr>
 ```

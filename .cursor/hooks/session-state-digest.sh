@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Cursor beforeSubmitPrompt — compact digest each turn (Constraints + Decisions + Open threads).
-# Mirrors .claude/hooks/session-state-digest.sh. Live per-turn injection depends on
-# Cursor surfacing additional_context from this event (see spike mapping table).
+# Mirrors .claude/hooks/session-state-digest.sh. Live-proven on Cursor 3.8.11 (Test A PASS, 2026-06-23).
 set -uo pipefail
 dir="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
 _="$(cat)" # consume beforeSubmitPrompt event JSON on stdin

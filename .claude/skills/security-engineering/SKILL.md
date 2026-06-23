@@ -12,6 +12,7 @@ when_to_use: |
   [security](../security/SKILL.md). Not when the task is a
   general multi-axis code review (correctness, readability, architecture,
   performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md).
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
 ---
 
 # Security Engineering

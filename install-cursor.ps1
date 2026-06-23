@@ -101,8 +101,11 @@ if (Test-Path $ValidateSh) {
       Write-Error "Library failed structural validation — aborting install."
       exit 1
     }
+  } elseif ($LocalSrc) {
+    Write-Error "bash is required to validate a local clone before install. Install Git Bash or WSL, or use the pinned remote install path."
+    exit 1
   } else {
-    Write-Warning "bash not found — skipping structural validation (enforced by CI and the macOS/Linux installer)."
+    Write-Warning "bash not found — skipping structural validation (pinned release was verified by SHA-256)."
   }
 } else {
   Write-Error "scripts/validate.sh not found at $RepoRoot — aborting install."
@@ -152,6 +155,13 @@ function Install-CursorHooks {
   }
 
   Write-Host "  OK hooks -> $DestDir"
+
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    Get-ChildItem -Path $DestDir -Filter "*.sh" -Recurse -File | ForEach-Object {
+      & $bash.Source -c "chmod +x '$($_.FullName)'"
+    }
+  }
 }
 
 # ── Run ────────────────────────────────────────────────────────────────────────

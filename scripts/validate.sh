@@ -368,6 +368,20 @@ check_cursor_rules_format() {
   done < <(find "$rules_dir" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
 }
 
+# ── Invariant 4d: cursor-rules-frontmatter ──────────────────────────────────────
+# Cursor loads .mdc rules only when YAML frontmatter includes alwaysApply.
+check_cursor_rules_frontmatter() {
+  local rules_dir="$ROOT/.cursor/rules"
+  [[ -d "$rules_dir" ]] || return 0
+  local f
+  for f in "$rules_dir"/*.mdc; do
+    [[ -f "$f" ]] || continue
+    head -n 1 "$f" | grep -q '^---$' || fail cursor-rules-frontmatter "$f" "missing opening --- frontmatter delimiter"
+    head -n 20 "$f" | grep -q '^alwaysApply:' || fail cursor-rules-frontmatter "$f" "missing alwaysApply in frontmatter"
+    head -n 20 "$f" | grep -q '^description:' || fail cursor-rules-frontmatter "$f" "missing description in frontmatter"
+  done
+}
+
 # ── Invariant 5: memory-length ─────────────────────────────────────────────────
 check_memory_length() {
   local mf="$CLAUDE/memory/MEMORY.md"
@@ -690,6 +704,7 @@ check_dangling_refs
 check_claude_imports
 check_cursor_imports
 check_cursor_rules_format
+check_cursor_rules_frontmatter
 check_memory_length
 check_ship_manifest
 check_review_tiers
