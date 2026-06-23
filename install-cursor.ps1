@@ -159,7 +159,7 @@ function Install-CursorHooks {
   $bash = Get-Command bash -ErrorAction SilentlyContinue
   if ($bash) {
     Get-ChildItem -Path $DestDir -Filter "*.sh" -Recurse -File | ForEach-Object {
-      & $bash.Source -c "chmod +x '$($_.FullName)'"
+      & $bash.Source -c 'chmod +x "$1"' -- $_.FullName
     }
   }
 }
