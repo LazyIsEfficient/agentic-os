@@ -192,7 +192,7 @@ if [[ -d "$DEST/hooks" ]]; then
   find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
 fi
 
-install_claude_hook_settings "$REPO_ROOT" "$DEST"
+merge_claude_hook_settings "$REPO_ROOT" "$DEST"
 
 echo ""
 echo "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
