@@ -167,8 +167,10 @@ Write-Host ""
 Write-Host "Done. Restart Cursor to load the new skills and agents."
 Write-Host ""
 Write-Host "Session-state writer (after install):"
-Write-Host '  SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"'
+Write-Host '  PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"'
+Write-Host '  SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"'
 Write-Host '  [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
+Write-Host '  [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"'
 Write-Host '  bash "$SS" init'
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

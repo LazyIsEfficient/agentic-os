@@ -16,11 +16,11 @@ Both remote one-liners install a **pinned release** and verify its SHA-256 befor
 
 - **Current release:** `v2.1.0`
 - **Asset:** `agentic-os-v2.1.0.tar.gz`
-- **SHA-256:** `9f436e14530ffbce9332e42263b6b1242d5636360058db4718ad24203c6dd617`
+- **SHA-256:** `44cae4fcb4b10f9def07aac5cc972a83241e6455346558521d922908604ca332`
 
 ### Cursor
 
-Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/` (clone the repo into a project to use them — they are not copied by the global installer).
+Install skills, agents, and **dormant** hook scripts into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
 
 **macOS / Linux — one-liner (no clone required):**
 
@@ -49,8 +49,10 @@ CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
 **Session-state writer** (after install — project-first, then global):
 
 ```bash
-SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
 [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 bash "$SS" init
 ```
 
@@ -137,7 +139,7 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
 | `~/.cursor/hooks/` | Cursor-native hook scripts from `.cursor/hooks/` (JSON stdout; spike `*-probe.sh` excluded; dormant until registered) — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
+> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
 
 ### Claude Code (`install.sh`)
 
@@ -226,7 +228,7 @@ opt-in rather than default.
 
 Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
 
-`AGENTS.md` at the repo root carries the same orchestrator + subagent dispatch mandate in plain markdown (Cursor loads it automatically). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
+`AGENTS.md` at the repo root is the thin Cursor runtime entry (memory + session-state pointers; full doctrine in `.mdc` rules). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
 
 To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
 

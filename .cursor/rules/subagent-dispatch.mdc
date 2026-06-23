@@ -28,9 +28,9 @@ Sequential dispatch when tasks are independent is a **bug**. Fan out in one mess
 
 Any vague request goes through a shaper before code is touched.
 
-- Engineering → read `prompt-shaper` skill (`~/.cursor/skills/prompt-shaper/SKILL.md`)
-- Marketing → read `marketing-shaper` skill
-- Game → read `game-design-shaper` skill
+- Engineering → read `prompt-shaper` skill (project: `.claude/skills/prompt-shaper/SKILL.md`; global: `~/.cursor/skills/prompt-shaper/SKILL.md`)
+- Marketing → read `marketing-shaper` skill (same project/global pattern)
+- Game → read `game-design-shaper` skill (same project/global pattern)
 
 The shaper produces a scoped brief. Feed it to `planning-and-task-breakdown` for a DAG (stable task IDs, file writes, conflict edges, branch suffixes). Dispatch the DAG in parallel waves. Skip the shaper only when the request is already a fully-scoped brief — say so explicitly when you skip.
 
@@ -38,9 +38,9 @@ The shaper produces a scoped brief. Feed it to `planning-and-task-breakdown` for
 
 When tasks have no conflict edge, dispatch in a **single message with multiple `Task` tool calls**.
 
-- Use `subagent_type: "best-of-n-runner"` when two or more agents may touch overlapping files.
-- Use `run_in_background: true` only when you have genuinely independent main-thread work. Otherwise foreground.
-- Cap concurrent waves at ~3–5 agents.
+- Use `subagent_type: "best-of-n-runner"` when two or more agents may touch overlapping files. The harness creates a temporary worktree on its own branch and reports back the path.
+- Use `run_in_background: true` only when you have genuinely independent main-thread work to do. Otherwise foreground — you need the result before the next decision.
+- Cap concurrent waves at ~3–5 agents. Beyond that you cannot supervise quality.
 
 ### Pattern 3 — Build + review pairing (mandatory gate)
 
@@ -50,7 +50,7 @@ After any implementation beyond a trivial diff:
 - Spawn `security-reviewer` in parallel if the diff touches auth, sessions, secrets, input validation, crypto, smart contracts, CI/CD, or any user-input-to-sensitive-sink path.
 - Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
 
-Reviewer agents start with no context from this conversation. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed per `review-tiers.md`.
+Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.mdc`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
 
 ### Pattern 4 — Research via explore, never the main thread
 
@@ -58,4 +58,4 @@ For any question needing more than 2–3 file reads or greps, spawn `explore` (o
 
 - One `explore` per discrete question. Brief: `"quick"` / `"medium"` / `"very thorough"`.
 - Fan out 3–5 in parallel for surveys ("where is X", "how does Y", "what depends on Z").
-- Synthesize their summaries. Keep main context clean for orchestration.
+- Their summaries come back small. You synthesize. Your context stays clean for the actual work.

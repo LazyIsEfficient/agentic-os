@@ -371,7 +371,7 @@ conflicts_with: [T-cursor-docs]
 files_write:
   - .cursor/rules/factual-correctness.md
   - .cursor/rules/memory-discipline.md
-  - .cursor/rules/subagent-dispatch.md
+  - .cursor/rules/subagent-dispatch.mdc
   - .cursor/rules/grounding.md
   - .cursor/rules/review-tiers.md
   - .cursor/rules/verification.md
