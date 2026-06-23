@@ -61,11 +61,15 @@ if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; th
   exit 1
 fi
 
-# Reproducible payload: .claude (Claude installer copy source) + the validator
-# script both installers run + .cursor/hooks (Cursor installer hook source).
-# Nothing else. Archive the TREE (not the commit) with a fixed mtime — see header.
+# Reproducible payload: .claude + validate.sh + production .cursor/hooks only
+# (exclude *-probe.sh spike fixtures — same allowlist as install-cursor.sh).
+ARCHIVE_PATHS=(.claude scripts/validate.sh)
+while IFS= read -r hook; do
+  [[ -n "$hook" ]] && ARCHIVE_PATHS+=("$hook")
+done < <(git -C "$ROOT" ls-tree -r --name-only "$REF^{tree}" .cursor/hooks 2>/dev/null \
+  | grep '\.sh$' | grep -v 'probe\.sh$' || true)
 git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
-    "$REF^{tree}" .claude scripts/validate.sh .cursor/hooks | gzip -n > "$ROOT/$ASSET"
+    "$REF^{tree}" "${ARCHIVE_PATHS[@]}" | gzip -n > "$ROOT/$ASSET"
 
 # Fail closed: validate EXACTLY what we packed (extract the asset and run its
 # own validator), not the working tree — they can differ when REF != HEAD or the

@@ -173,11 +173,8 @@ Write-Host "  so orchestrator dispatch persists across projects."
 Write-Host ""
 Write-Host "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
 Write-Host ""
-Write-Host "Session-state writer (after install):"
-Write-Host '  PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"'
-Write-Host '  SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"'
-Write-Host '  [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
-Write-Host '  [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"'
+Write-Host "Session-state writer (after install — global path):"
+Write-Host '  SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
 Write-Host '  bash "$SS" init'
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."

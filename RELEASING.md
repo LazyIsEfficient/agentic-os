@@ -22,7 +22,7 @@ maintainer-only and is never shipped to consumers.
   pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload*
   (`.claude/` plus `scripts/validate.sh`, the validator the installer runs, and
-  `.cursor/hooks/` for the Cursor installer). It excludes `install.sh` /
+  production `.cursor/hooks/*.sh` excluding `*-probe.sh` spike fixtures). It excludes `install.sh` /
   `install.ps1` / `install-cursor.sh` / `install-cursor.ps1` / `README.md`, which
   embed the digest — so embedding the digest in them never changes the asset's digest.
 - **What the pin defends against:** a tampered or corrupt asset download, and a
@@ -87,3 +87,6 @@ From a clean checkout of the commit you want to release (usually `main`):
    ```
 
 The built `*.tar.gz` is a release artifact, not source — do not commit it.
+
+**Note:** v2.1.0 and earlier release assets omit `.cursor/hooks/`; remote `install-cursor.sh`
+installs zero hooks until the next release cut (v2.2.0+) pins a new digest that includes them.

@@ -46,15 +46,14 @@ CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
 
 **Windows:** use `install-cursor.ps1` for parity (or run `install-cursor.sh` from Git Bash/WSL).
 
-**Session-state writer** (after install — project-first, then global):
+**Session-state writer** (after `install-cursor.sh` — writer lands in global skills):
 
 ```bash
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
-SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
-[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
-[ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
+SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
 bash "$SS" init
 ```
+
+In a **checkout of this repo**, the same writer also exists at `.claude/skills/session-state/scripts/session-state.sh`.
 
 There is no `/state` slash command on Cursor. Invoke the `session-state` skill (or ask the agent to record a session fact) and it runs the writer via Bash — see [.claude/skills/session-state/SKILL.md](.claude/skills/session-state/SKILL.md).
 

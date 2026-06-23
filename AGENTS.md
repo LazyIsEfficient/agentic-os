@@ -4,7 +4,7 @@ This repo is a skills + agents library. Work here is rarely a single edit — it
 
 **How Cursor loads this file:** Cursor automatically includes project-root `AGENTS.md` in Agent/Ask/Plan/Debug sessions (no `@` import). Full always-on doctrine lives in `.cursor/rules/*.mdc`. `CURSOR.md` is maintainer-only (`@-imports` for `validate.sh`, not Cursor expansion).
 
-**Memory:** `.claude/memory/` in-repo (see `memory-discipline` rule). Session constraints/threads: `session-state` skill + writer at `$PROJ/.claude/skills/session-state/scripts/session-state.sh` (then `~/.cursor/skills/…`) — never hand-edit `SESSION-STATE.md`.
+**Memory:** `.claude/memory/` in-repo (see `memory-discipline` rule). Session constraints/threads: `session-state` skill + writer at `$HOME/.cursor/skills/session-state/scripts/session-state.sh` after global install (or `.claude/skills/...` in a repo checkout) — never hand-edit `SESSION-STATE.md`.
 
 **Dispatch:** `subagent-dispatch` rule (`.cursor/rules/subagent-dispatch.mdc`). Awareness harness: [docs/awareness-harness-activation.md](docs/awareness-harness-activation.md).
 

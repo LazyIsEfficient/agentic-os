@@ -14,7 +14,7 @@ This repo's operating model matches Claude Code: **you decompose, brief, review,
 | Spawn tool | **`Task`** | **`Agent`** |
 | When available | **Agent mode** (and other modes that expose `Task` in your build) | Claude Code sessions with `Agent` in tool list |
 | Custom agents | `~/.cursor/agents/*.md` + `.claude/agents/*.md` — **restart Cursor** after `install-cursor.sh` so names appear in `subagent_type` | `~/.claude/agents/` |
-| Built-ins | `explore`, `bash`, `browser` (Cursor docs); harness also uses `generalPurpose`, `best-of-n-runner` | `Explore`, worktree via `isolation: "worktree"` |
+| Built-ins | `explore`, `bash`, `browser` ([Cursor subagents](https://cursor.com/docs/agent/subagents)); **`best-of-n-runner`** = Cursor's worktree-isolation `Task` type (not an agentic-os agent file — parallel to Claude `Agent` + `isolation: "worktree"`) | `Explore`, worktree via `isolation: "worktree"` |
 
 If you do **not** have `Task` (e.g. Ask mode), switch to **Agent mode** before dispatching — these rules assume orchestrator mode. If `CLAUDE.md` mentions `Agent`, ignore it here; use **`Task`** with `subagent_type`.
 
@@ -64,7 +64,7 @@ The shaper produces a scoped brief. Feed it to `planning-and-task-breakdown` for
 
 When tasks have no conflict edge, dispatch in a **single message with multiple `Task` tool calls**.
 
-- Use `subagent_type: "best-of-n-runner"` when two or more agents may touch overlapping files. The harness creates a temporary worktree on its own branch and reports back the path.
+- When agents may touch **overlapping files**, use `subagent_type: "best-of-n-runner"` — Cursor's built-in isolated git worktree per subagent ([docs](https://cursor.com/docs/agent/subagents)). This is the Cursor equivalent of Claude's `Agent` + `isolation: "worktree"`; it is **not** a custom agent under `~/.cursor/agents/`.
 - Use `run_in_background: true` only when you have genuinely independent main-thread work to do. Otherwise foreground — you need the result before the next decision.
 - Cap concurrent waves at ~3–5 agents. Beyond that you cannot supervise quality.
 
