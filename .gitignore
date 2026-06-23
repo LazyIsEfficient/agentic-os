@@ -5,7 +5,9 @@ Thumbs.db
 # Claude Code — local overrides (do not commit)
 .claude/settings.local.json
 
-# Claude Code — persistent memory (machine-local, contains personal context)
+# Claude Code — persistent memory (machine-local, contains personal context).
+# Gitignored so it never ships; validate.sh still scans it when present locally —
+# dangling wikilinks in .claude/memory/*.md fail local validate but not CI.
 .claude/memory/
 
 # AgenticOS — live session-state doc (per-session working state; the committed
@@ -38,6 +40,7 @@ SESSION-STATE.md
 !.env.example
 
 # Optional tooling
+.tmp/
 node_modules/
 __pycache__/
 

@@ -17,9 +17,11 @@
 #   CURSOR_DIR   Override the install destination (default: ~/.cursor)
 #   --force      Overwrite existing files without prompting
 #
-# Session-state writer resolution (project-first, then global — mirror #143):
-#   SS="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/.cursor/skills/session-state/scripts/session-state.sh"
+# Session-state writer resolution (project-first, then global — see install-paths.md):
+#   PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+#   SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
 #   [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+#   [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 #   bash "$SS" init
 #
 # Windows: use install-cursor.ps1 for parity. If PowerShell is unavailable,
@@ -189,8 +191,11 @@ echo "  so orchestrator dispatch persists across projects."
 echo ""
 echo "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
 echo ""
-echo "Session-state writer (after install — global path):"
-echo "  SS=\"\$HOME/.cursor/skills/session-state/scripts/session-state.sh\""
-echo "  bash \"\$SS\" init"
+echo "Session-state writer (after install — see findings-ledger/references/install-paths.md):"
+echo '  PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"'
+echo '  SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"'
+echo '  [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
+echo '  [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"'
+echo '  bash "$SS" init'
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."

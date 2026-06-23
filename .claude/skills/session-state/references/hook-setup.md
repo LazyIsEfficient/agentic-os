@@ -40,7 +40,7 @@ This checkout ships a **project-level** `.cursor/hooks.json` (vendored `.cursor/
 }
 ```
 
-**Live-proven:** `sessionStart` injection (Spike A GO, Cursor `3.8.11`, 2026-06-22). Per-turn digest via `beforeSubmitPrompt` **live-proven** (Test A PASS, operator 2026-06-23) — see [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability.md).
+**Live-proven (historical):** `sessionStart` injection confirmed on Cursor `3.8.11` (2026-06-22). **Acceptance gate today:** automated CI scripts only — see [LIVE-FIRE-PROTOCOL.md](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
 
 Global `install-cursor.sh` copies production `.cursor/hooks/` scripts (excluding spike `*-probe.sh`) to `~/.cursor/hooks/` — same JSON contract as project hooks above.
 

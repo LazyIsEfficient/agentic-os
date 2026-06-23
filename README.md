@@ -38,7 +38,9 @@ cd agentic-os
 
 Files are copied to `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/`. Existing files are not overwritten by default. Add `--force` to update everything.
 
-**Maintainer dev sync:** for active work on this repo, use the checkout paths (`.claude/skills/`, `.claude/agents/`, `.cursor/rules/`) directly — or symlink `~/.cursor/skills` / `~/.cursor/agents` to the repo's `.claude/` trees if you want global Cursor to track the clone live.
+**Maintainer dev sync:** for active work on this repo, use the checkout paths (`.claude/skills/`, `.claude/agents/`, `.cursor/rules/`) directly — or symlink `~/.cursor/skills` / `~/.cursor/agents` to the repo's `.claude/` trees if you want global Cursor to track the clone live. Skill script paths: [findings-ledger/references/install-paths.md](.claude/skills/findings-ledger/references/install-paths.md) (repo uses `.claude/skills/`; `~/.cursor/skills/` is post-install only).
+
+**Persistent memory:** `.claude/memory/` is gitignored (machine-local). `validate.sh` scans it when present on your machine — fix dangling wikilinks locally; CI does not see memory files.
 
 **Custom install path:**
 

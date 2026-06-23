@@ -104,7 +104,7 @@ When tasks have no conflict edge, dispatch in a **single message with multiple `
 After any implementation beyond a trivial diff — **before you say work is complete:**
 
 - Spawn `code-reviewer` (`readonly: true`) on the diff. **Always.**
-- Spawn `security-reviewer` (`readonly: true`) **in parallel. Always.** Not only for hook/install paths — any work presented as done runs both reviewers.
+- Spawn `security-reviewer` (`readonly: true`) **in parallel. Always.** Not only for hook/install paths — any work presented as done runs both reviewers. **Why always (not "when sensitive"):** CI `check-pr-ship-gates` requires both reviewer checkboxes on every code PR; path-conditioned security review let non-hook changes ship unaudited (see #566530c).
 - Spawn `library-reviewer` (`readonly: true`) in parallel if the diff touches `.claude/skills/` or `.claude/agents/`.
 
 **Forbidden:** reporting complete, opening a PR as ready, or checking ship-gate boxes without dispatching `code-reviewer` and `security-reviewer` on the current diff in the same session.

@@ -16,9 +16,11 @@
 #   -Force   Overwrite existing files without prompting
 #   -Dest    Override the install destination (default: $env:USERPROFILE\.cursor)
 #
-# Session-state writer resolution (project-first, then global — mirror #143):
-#   $SS = Join-Path ($env:CURSOR_PROJECT_DIR ?? $env:CLAUDE_PROJECT_DIR ?? ".") ".cursor\skills\session-state\scripts\session-state.sh"
+# Session-state writer resolution (project-first — see findings-ledger/references/install-paths.md):
+#   $proj = $env:CURSOR_PROJECT_DIR ?? $env:CLAUDE_PROJECT_DIR ?? "."
+#   $SS = Join-Path $proj ".claude\skills\session-state\scripts\session-state.sh"
 #   if (-not (Test-Path $SS)) { $SS = Join-Path $env:USERPROFILE ".cursor\skills\session-state\scripts\session-state.sh" }
+#   if (-not (Test-Path $SS)) { $SS = Join-Path $env:USERPROFILE ".claude\skills\session-state\scripts\session-state.sh" }
 #   bash $SS init
 #
 # Integrity: the remote install path downloads a PINNED release asset and
@@ -89,6 +91,10 @@ if ($LocalSrc) {
 }
 
 # ── Validate before copying ────────────────────────────────────────────────────
+# Failure modes:
+#   • Local clone + no bash → abort (structural validate.sh must run before copy).
+#   • Pinned remote + no bash → continue (SHA-256 pin is the integrity gate).
+#   • validate.sh nonzero → abort (do not ship a broken tree).
 $RepoRoot   = Split-Path $Src
 $ValidateSh = Join-Path $RepoRoot "scripts\validate.sh"
 if (Test-Path $ValidateSh) {
@@ -102,7 +108,11 @@ if (Test-Path $ValidateSh) {
       exit 1
     }
   } elseif ($LocalSrc) {
-    Write-Error "bash is required to validate a local clone before install. Install Git Bash or WSL, or use the pinned remote install path."
+    Write-Error @"
+bash is required to validate a local clone before install.
+Install Git Bash (https://git-scm.com/download/win) or WSL, then re-run .\install-cursor.ps1.
+Alternatively use the pinned remote install (irm …/install-cursor.ps1 | iex) which verifies SHA-256 without bash.
+"@
     exit 1
   } else {
     Write-Warning "bash not found — skipping structural validation (pinned release was verified by SHA-256)."
@@ -156,11 +166,16 @@ function Install-CursorHooks {
 
   Write-Host "  OK hooks -> $DestDir"
 
+  # Mark hook scripts executable (Cursor invokes paths directly). Positional arg avoids
+  # shell-quoting bugs when $Dest contains apostrophes. Skipped when bash absent —
+  # hooks may not run until the user installs Git Bash/WSL and re-runs install.
   $bash = Get-Command bash -ErrorAction SilentlyContinue
   if ($bash) {
     Get-ChildItem -Path $DestDir -Filter "*.sh" -Recurse -File | ForEach-Object {
       & $bash.Source -c 'chmod +x "$1"' -- $_.FullName
     }
+  } elseif (Test-Path $DestDir) {
+    Write-Warning "bash not found — hook scripts copied but not marked executable. Install Git Bash and re-run, or chmod +x manually under $DestDir"
   }
 }
 
@@ -205,8 +220,8 @@ Write-Host "  so orchestrator dispatch persists across projects."
 Write-Host ""
 Write-Host "Project-local doctrine (this repo): AGENTS.md + .cursor/rules/*.mdc"
 Write-Host ""
-Write-Host "Session-state writer (after install — global path):"
-Write-Host '  SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"'
-Write-Host '  bash "$SS" init'
+Write-Host "Session-state writer (after install — see findings-ledger/references/install-paths.md):"
+Write-Host '  $SS = Join-Path $env:USERPROFILE ".cursor\skills\session-state\scripts\session-state.sh"'
+Write-Host '  bash $SS init   # or project-first chain from install-paths.md'
 Write-Host ""
 Write-Host "To update later, re-run this script (-Force to overwrite customisations)."
