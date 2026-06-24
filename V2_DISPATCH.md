@@ -67,11 +67,14 @@ git checkout -b lane-main/readme-drift
 
 ### Review gate (Pattern 3 — mandatory after every implementation task)
 
-| Diff touches | Spawn |
-|---|---|
-| Any non-trivial code | `code-reviewer` (readonly) |
-| Hooks, install, validate, SECURITY, auth, exec | `security-reviewer` (readonly) — **always** for hook/install tasks |
-| `.claude/skills/`, `.claude/agents/`, rules, README catalog | `library-reviewer` (readonly) |
+Canonical DAG: **[`.claude/references/gate-dag.md`](.claude/references/gate-dag.md)** (epic [#189](https://github.com/LazyIsEfficient/agentic-os/issues/189)). Maintainer command: `/review-gate`.
+
+| Wave | Nodes | Notes |
+|---|---|---|
+| 0 | `checkpoint:impl-verified` | `validate.sh` + task verification |
+| 1 | `G-code-review?` \|\| `G-security-review` \|\| `G-data-document` \|\| `G-library-review?` | Parallel — only **triggered** nodes (see gate-dag.md § Gate nodes) |
+| 2 | `G-data-verify?` | After Wave 1; when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191)) |
+| — | `checkpoint:ship-ready` | Tier 0/1 fixed; PR checkboxes |
 
 Tier doctrine: fix Tier 0/1 findings before marking complete; log Tier 2 to findings ledger.
 
