@@ -105,7 +105,7 @@ After any implementation beyond a trivial diff — **before you say work is comp
 
 1. **`checkpoint:impl-verified`** — local verification passes
 2. **Wave 1 (parallel):** dispatch triggered nodes only — `G-security-review` + `G-data-document` on every non-docs-only diff; add `G-code-review` when `is_code_change || is_library`; add `G-library-review` when `is_library`
-3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191))
+3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
 4. **`checkpoint:ship-ready`** — all required nodes returned; Tier 0/1 addressed
 
 **Forbidden:** reporting complete without running required waves; dispatching `data-model-verifier` in parallel with `data-model-documenter` (author before verifier).

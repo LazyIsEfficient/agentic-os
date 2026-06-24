@@ -73,7 +73,7 @@ Canonical DAG: **[`.claude/references/gate-dag.md`](.claude/references/gate-dag.
 |---|---|---|
 | 0 | `checkpoint:impl-verified` | `validate.sh` + task verification |
 | 1 | `G-code-review?` \|\| `G-security-review` \|\| `G-data-document` \|\| `G-library-review?` | Parallel — only **triggered** nodes (see gate-dag.md § Gate nodes) |
-| 2 | `G-data-verify?` | After Wave 1; when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191)) |
+| 2 | `G-data-verify?` | After Wave 1; when `DATA_MODEL.md` changed — `data-model-verifier` |
 | — | `checkpoint:ship-ready` | Tier 0/1 fixed; PR checkboxes |
 
 Tier doctrine: fix Tier 0/1 findings before marking complete; log Tier 2 to findings ledger.

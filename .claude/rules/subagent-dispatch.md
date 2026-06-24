@@ -24,7 +24,7 @@ After any implementation that touches more than a trivial diff, run the **gate D
 
 1. `checkpoint:impl-verified` — verification passes
 2. **Wave 1 (parallel):** triggered nodes per [gate-dag.md](../references/gate-dag.md) — always `G-security-review` + `G-data-document` on non-docs-only diffs; `G-code-review` when code/library; `G-library-review` when `is_library`
-3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191))
+3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
 4. `checkpoint:ship-ready` — Tier 0/1 addressed
 
 Do not run verifier in parallel with documenter. Full node table and triggers: [gate-dag.md](../references/gate-dag.md).
