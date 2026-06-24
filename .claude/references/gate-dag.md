@@ -117,7 +117,7 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 - **Tier 1** — blocking only with evidence artifact (failing command, quoted counterexample)
 - **Tier 2** — advisory; findings ledger, not blocking language
 
-`G-data-verify` inventories property rows in `DATA_MODEL.md` and classifies VERIFIED / REFUTED / UNVERIFIABLE per cited **Source** file — REFUTED requires quoted counterexample (Tier 1).
+`G-data-verify` inventories property rows in `DATA_MODEL.md` and classifies VERIFIED / REFUTED / UNVERIFIABLE per cited **Source** file — REFUTED requires quoted counterexample (Tier 1) or failing `scripts/extract-data-model/*` (Tier 0 when Source is JSON Schema).
 
 ---
 
