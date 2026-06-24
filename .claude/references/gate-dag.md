@@ -36,12 +36,14 @@ dag:
 
 ## Implementation close (`G-data-document`)
 
-When implementation runs through **`engineer`**, that agent **must dispatch `data-model-documenter` before returning** — not the orchestrator.
+When implementation runs through an **implementation agent** (`engineer`, `rust-engineer`, `web3-engineer`, `godot-engineer`, `devops-engineer`, `phaser-engineer`), that agent **must dispatch `data-model-documenter` before returning** — not the orchestrator.
+
+Canonical contract: [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md)
 
 | Who | When | Action |
 |---|---|---|
-| **`engineer`** | After local verification, before completion report | Foreground `Task` → `data-model-documenter` with changed paths + brief |
-| **Orchestrator** | Wave 1 | Include `G-data-document` **only if** `engineer` did not already run it (main-thread impl, or completion report lacks `G-data-document:` status) |
+| **Implementation agents** (see above) | After local verification, before completion report | Foreground `Agent` / `Task` → `data-model-documenter` with changed paths + brief |
+| **Orchestrator** | Wave 1 | Include `G-data-document` **only if** no implementation agent ran it (main-thread impl, or completion report lacks `G-data-document:` status) |
 | **Orchestrator** | Wave 2 | `G-data-verify` when `DATA_MODEL.md` changed — always orchestrator-owned |
 
 **Skip** `G-data-document` when the diff is docs-only (same allowlist as path triggers below).
@@ -84,7 +86,7 @@ Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, r
 | `G-library-review` | `library-reviewer` | yes | 1 | **?** `is_library` (paths under `.claude/skills/` or `.claude/agents/`) |
 | `G-data-verify` | `data-model-verifier` | yes | 2 | **?** `DATA_MODEL.md` changed this run (Wave 2 — after `G-data-document`) |
 
-**Always require `G-security-review` on any non-docs-only PR** ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)). **`G-data-document`** runs at **implementation close** when `engineer` implemented; otherwise include it in orchestrator Wave 1.
+**Always require `G-security-review` on any non-docs-only PR** ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)). **`G-data-document`** runs at **implementation close** when an implementation agent implemented; otherwise include it in orchestrator Wave 1.
 
 ### Wave 2 — `G-data-verify`
 
@@ -151,3 +153,5 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 | `.github/pull_request_template.md` | PR checkboxes (CI enforced) |
 | `scripts/gate-plan.sh` | Tier 0 planner — waves + checkboxes from diff |
 | `scripts/check-pr-ship-gates.sh` | Tier 0 PR checkbox gate (uses gate-plan-lib) |
+| `scripts/implementation-close-test.sh` | Tier 0 — implementation agents declare `G-data-document` close |
+| `data-model-documentation/references/implementation-close.md` | Session-close contract for implementation agents (shipped with skill) |

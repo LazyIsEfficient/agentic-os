@@ -63,6 +63,7 @@ Nested objects: inline in Shape; document top-level properties in the table; add
 
 ## Related skills
 
-- [data-model-documenter](../../agents/data-model-documenter.md) — agent that executes this skill (Wave 1 author)
+- [implementation-close](references/implementation-close.md) — mandatory session-close contract for implementation agents (`G-data-document`)
+- [data-model-documenter](../../agents/data-model-documenter.md) — agent that executes this skill at session close or orchestrator Wave 1
 - [data-model-verifier](../../agents/data-model-verifier.md) — Wave 2 adversarial verification of property rows
 - [data-model-verification](../data-model-verification/SKILL.md) — verification protocol

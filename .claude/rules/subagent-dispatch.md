@@ -23,12 +23,12 @@ When tasks have no conflict edge between them, dispatch in a **single message wi
 After any implementation that touches more than a trivial diff, run the **gate DAG** in [gate-dag.md](../references/gate-dag.md):
 
 1. `checkpoint:impl-verified` — verification passes
-2. **Implementation close:** when dispatch used `engineer`, the engineer runs `G-data-document` (`data-model-documenter`) before returning — see [gate-dag.md](../references/gate-dag.md) § Implementation close
+2. **Implementation close:** when dispatch used an implementation agent (`engineer`, stack specialists — see [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md)), that agent runs `G-data-document` before returning
 3. **Wave 1 (parallel):** triggered reviewer nodes — always `G-security-review` on non-docs-only diffs; `G-code-review` when code/library; `G-library-review` when `is_library`; **`G-data-document` only if** the implementation agent did not already run it
 4. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
 5. `checkpoint:ship-ready` — Tier 0/1 addressed
 
-Do not run verifier in parallel with documenter. Do not re-dispatch documenter if engineer already reported `G-data-document`. Full node table and triggers: [gate-dag.md](../references/gate-dag.md).
+Do not run verifier in parallel with documenter. Do not re-dispatch documenter if an implementation agent already reported `G-data-document`. Full node table and triggers: [gate-dag.md](../references/gate-dag.md).
 
 ### Pattern 4 — Research via Explore, never the main thread
 For any question that needs more than 2–3 file reads or greps, spawn `Explore` (or `general-purpose`) agents instead of polluting the main context.

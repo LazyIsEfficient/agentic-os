@@ -21,7 +21,7 @@ From the changed path set, run `bash scripts/gate-plan.sh` (or classify flags th
 |---|---|
 | `G-code-review` | `is_code_change \|\| is_library` |
 | `G-security-review` | `is_code_change \|\| is_library \|\| is_sensitive` |
-| `G-data-document` | Same triggers — **Wave 1 only if** implementation did not already run it at session close (no `G-data-document:` in engineer report) |
+| `G-data-document` | Same triggers — **Wave 1 only if** implementation did not already run it at session close (no `G-data-document:` in implementation agent report) |
 | `G-library-review` | `is_library` |
 | `G-data-verify` | **After Wave 1** — if `DATA_MODEL.md` is in the post-documenter diff |
 

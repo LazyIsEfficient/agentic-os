@@ -33,15 +33,7 @@ The skills below carry discipline-specific rules; load the ones the task touches
 
 ## Session close — mandatory (`G-data-document`)
 
-After implementation and local verification pass, **before** reporting back to the orchestrator, dispatch **`data-model-documenter`** ([gate-dag.md](../references/gate-dag.md) § Implementation close).
-
-1. **Skip** when the diff is docs-only (same allowlist as ship gates — no contract-touching code).
-2. Otherwise dispatch a **foreground** subagent spawn — **`Agent`** (Claude Code) or **`Task`** (Cursor) — with `subagent_type: "data-model-documenter"`: include every changed path (untracked via `git add -N`), what was implemented, and instruction to merge into `DATA_MODEL.md` at project root per [data-model-documentation](../skills/data-model-documentation/SKILL.md).
-3. **Wait** for the documenter to return. Do not report complete until it finishes or you explicitly skip per step 1.
-
-Include in your completion report: `G-data-document: <updated | no-op | skipped-docs-only>` and the documenter's section summary.
-
-Review agents (`code-reviewer`, `security-reviewer`) are **orchestrator-owned** — do not dispatch them.
+Follow [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md) before reporting back to the orchestrator.
 
 ## Delegate to other agents
 
