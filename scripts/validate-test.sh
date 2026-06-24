@@ -400,6 +400,26 @@ cat > "$c30/.cursor/hooks.json" <<'JSON'
 JSON
 assert_trips "case 30 hook-safety (chained command in hooks.json)" "$c30" hook-safety
 
+# ── Case 37: rules-parity — a .cursor rule with no .claude twin ────────────────
+# Invariant 10 (structural name-set parity). The dual-maintained doctrine files
+# must carry the SAME SET of names across .claude/rules/*.md and .cursor/rules/*.mdc.
+# Seed an orphan .cursor/rules/extra.mdc (frontmatter-valid, so it does NOT trip
+# cursor-rules-frontmatter) with no .claude/rules/extra.md twin, and assert the
+# failure attributes to the rules-parity tag specifically.
+c37="$(make_copy)"
+mkdir -p "$c37/.cursor/rules"
+cat > "$c37/.cursor/rules/extra.mdc" <<'EOF'
+---
+description: orphan cursor rule with no .claude twin
+alwaysApply: true
+---
+
+## Extra
+
+Orphan rule present only in the Cursor tree.
+EOF
+assert_trips "case 37 rules-parity (cursor rule missing claude twin)" "$c37" rules-parity
+
 # 31: the real survey-before-act-probe.sh must STAY clean under Invariant 8(a).
 c31="$(make_copy)"
 run_validate "$c31"

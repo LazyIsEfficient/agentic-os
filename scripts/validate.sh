@@ -698,6 +698,49 @@ check_tombstones() {
   done
 }
 
+# ── Invariant 10: rules-parity ─────────────────────────────────────────────────
+# The operating-doctrine files are dual-maintained: .claude/rules/<name>.md
+# (plumbed via CLAUDE.md @-imports for Claude Code) and .cursor/rules/<name>.mdc
+# (loaded via alwaysApply for Cursor). The two trees must carry the SAME SET of
+# rule names, so a rule added or removed in one tree can never be silently absent
+# from the other.
+#
+# This is a STRUCTURAL name-set check only — BODY content is deliberately NOT
+# compared. Two pairs legitimately diverge by design: subagent-dispatch (Claude
+# `Agent`/`Explore` tooling vs Cursor `Task`/`subagent_type`) and review-tiers
+# (`/triage-findings` command vs the `findings-ledger` skill, since Cursor ships
+# no slash commands). A body-equality gate would false-positive on those; name-set
+# parity catches the real regression (an orphaned rule in one tree) without it.
+check_rules_name_parity() {
+  local claude_rules="$CLAUDE/rules"
+  local cursor_rules="$ROOT/.cursor/rules"
+  [[ -d "$claude_rules" && -d "$cursor_rules" ]] || return 0
+  # Fork-free glob loops + parameter-expansion basenames (rule names are kebab-case,
+  # never contain spaces) build space-delimited sets; membership is a pure-bash
+  # substring test. No find/basename/grep/sort — same lean style as the other
+  # .cursor/rules checks above.
+  local f base
+  local claude_names=" " cursor_names=" "
+  for f in "$claude_rules"/*.md; do
+    [[ -e "$f" ]] || continue
+    base="${f##*/}"; base="${base%.md}"
+    claude_names+="$base "
+  done
+  for f in "$cursor_rules"/*.mdc; do
+    [[ -e "$f" ]] || continue
+    base="${f##*/}"; base="${base%.mdc}"
+    cursor_names+="$base "
+  done
+  for base in $claude_names; do
+    [[ "$cursor_names" == *" $base "* ]] || \
+      fail rules-parity "$cursor_rules" "rule '$base' exists in .claude/rules/ but has no .cursor/rules/$base.mdc twin"
+  done
+  for base in $cursor_names; do
+    [[ "$claude_names" == *" $base "* ]] || \
+      fail rules-parity "$claude_rules" "rule '$base' exists in .cursor/rules/ but has no .claude/rules/$base.md twin"
+  done
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
@@ -710,6 +753,7 @@ check_ship_manifest
 check_review_tiers
 check_hook_safety
 check_tombstones
+check_rules_name_parity
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
