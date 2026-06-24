@@ -74,7 +74,7 @@ Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the
 |---|---|
 | Vague or multi-step request | Shaper → planner → fan-out |
 | Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
-| Code complete, before reporting done | **`code-reviewer` + `security-reviewer` always** (parallel `Task`, `readonly: true`) + `library-reviewer` when skills/agents — **never say "done" without both** |
+| Code complete, before reporting done | **`code-reviewer` + `security-reviewer` + `data-model-documenter` always** (parallel `Task`; reviewers `readonly: true`) + `library-reviewer` when skills/agents — **never say "done" without all three** |
 | Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
 | Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
 | User names an agent | `Task` with that `subagent_type` immediately |
@@ -104,10 +104,11 @@ When tasks have no conflict edge, dispatch in a **single message with multiple `
 After any implementation beyond a trivial diff — **before you say work is complete:**
 
 - Spawn `code-reviewer` (`readonly: true`) on the diff. **Always.**
-- Spawn `security-reviewer` (`readonly: true`) **in parallel. Always.** Not only for hook/install paths — any work presented as done runs both reviewers. **Why always (not "when sensitive"):** CI `check-pr-ship-gates` requires both reviewer checkboxes on every code PR; path-conditioned security review let non-hook changes ship unaudited (see #566530c).
+- Spawn `security-reviewer` (`readonly: true`) **in parallel. Always.** Not only for hook/install paths — any work presented as done runs both reviewers. **Why always (not "when sensitive"):** CI `check-pr-ship-gates` requires all three agent checkboxes on every code PR; path-conditioned security review let non-hook changes ship unaudited (see #566530c).
+- Spawn `data-model-documenter` **in parallel. Always.** It merges API, persistence, and message shapes into `DATA_MODEL.md` at the project root (not read-only — only file it may write).
 - Spawn `library-reviewer` (`readonly: true`) in parallel if the diff touches `.claude/skills/` or `.claude/agents/`.
 
-**Forbidden:** reporting complete, opening a PR as ready, or checking ship-gate boxes without dispatching `code-reviewer` and `security-reviewer` on the current diff in the same session.
+**Forbidden:** reporting complete, opening a PR as ready, or checking ship-gate boxes without dispatching `code-reviewer`, `security-reviewer`, and `data-model-documenter` on the current diff in the same session.
 
 Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.mdc`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
 
@@ -121,7 +122,7 @@ Reviewer agents start with no context from this conversation, so their second op
 
 Release order: **merge PR → checkout `main` → `release.sh` → pin commit → tag on `main` → `gh release create`**. Never tag a feature branch.
 
-Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` in one wave before you say done.
+Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` + `data-model-documenter` in one wave before you say done.
 
 ### Pattern 4 — Research via explore, never the main thread
 

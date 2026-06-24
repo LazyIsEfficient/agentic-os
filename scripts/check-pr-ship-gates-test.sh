@@ -8,20 +8,27 @@ GATE="$REPO/scripts/check-pr-ship-gates.sh"
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
 
-BODY_OK=$'- [x] code-reviewer — dispatched\n- [x] security-reviewer — dispatched'
-BODY_NO_SEC='- [x] code-reviewer'
-BODY_LIB_OK=$'- [x] code-reviewer\n- [x] security-reviewer\n- [x] library-reviewer'
+BODY_OK=$'- [x] code-reviewer — dispatched\n- [x] security-reviewer — dispatched\n- [x] data-model-documenter — dispatched'
+BODY_NO_SEC='- [x] code-reviewer\n- [x] data-model-documenter'
+BODY_NO_DATA='- [x] code-reviewer\n- [x] security-reviewer'
+BODY_LIB_OK=$'- [x] code-reviewer\n- [x] security-reviewer\n- [x] data-model-documenter\n- [x] library-reviewer'
 
 if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_OK" bash "$GATE"; then
-  pass "code change + both reviewers"
+  pass "code change + all three agents"
 else
-  fail "code change + both reviewers"
+  fail "code change + all three agents"
 fi
 
 if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then
   fail "missing security-reviewer should trip"
 else
   pass "missing security-reviewer trips"
+fi
+
+if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_NO_DATA" bash "$GATE" 2>/dev/null; then
+  fail "missing data-model-documenter should trip"
+else
+  pass "missing data-model-documenter trips"
 fi
 
 if SHIP_GATES_CHANGED_FILES="README.md" PR_BODY="$BODY_OK" bash "$GATE"; then
@@ -37,9 +44,21 @@ else
 fi
 
 if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY='- [x] library-reviewer' bash "$GATE" 2>/dev/null; then
-  fail "skill SKILL.md library-only should trip (needs code+security)"
+  fail "skill SKILL.md library-only should trip (needs code+security+data-model)"
 else
   pass "skill SKILL.md library-only trips"
+fi
+
+if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY="$BODY_OK" bash "$GATE"; then
+  pass "DATA_MODEL.md-only requires all agents"
+else
+  fail "DATA_MODEL.md-only requires all agents"
+fi
+
+if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY='- [x] not-data-model-documenter' bash "$GATE" 2>/dev/null; then
+  fail "negated checkbox label should trip"
+else
+  pass "negated checkbox label trips"
 fi
 
 if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then

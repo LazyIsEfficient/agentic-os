@@ -263,8 +263,9 @@ To make subagent dispatch default globally (match Claude Code's orchestrator mod
 You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
 For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
 work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation beyond a trivial diff, spawn `code-reviewer` and `security-reviewer` in parallel
-(`readonly: true`) before reporting done. For research needing more than 2–3 file reads, use an
+After implementation beyond a trivial diff, spawn `code-reviewer`, `security-reviewer`, and
+`data-model-documenter` in parallel before reporting done (`code-reviewer` and `security-reviewer`:
+`readonly: true`). For research needing more than 2–3 file reads, use an
 `explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
@@ -281,6 +282,7 @@ Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/r
 | `browser-testing-with-devtools` | Test in real browsers via Chrome DevTools MCP |
 | `code-review-and-quality` | Multi-axis code review across correctness, design, security, performance |
 | `codebase-cost-estimator` | Estimate build/dev cost of a codebase by measured LOC and complexity |
+| `data-model-documentation` | Catalog APIs, persistence, and message shapes into `DATA_MODEL.md` |
 | `content-ops` | Score content with an auto-assembled expert panel until it hits 90+ |
 | `content-pipeline` | Non-interactive content production — quote mining, clip discovery, repurposing, gating |
 | `conversion-ops` | AI-powered CRO — landing-page audits, survey segmentation, lead magnets |
@@ -319,6 +321,7 @@ Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/r
 |---|---|
 | `adversarial-claims-reviewer` | Read-only, cold-context adversarial review of formal/technical claims |
 | `code-reviewer` | Read-only multi-axis code review |
+| `data-model-documenter` | Catalog APIs, models, and message shapes into `DATA_MODEL.md` at project root |
 | `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `engineer` | Full-stack implementation across architecture and shipping |
 | `game-design-shaper` | Game design pipeline — intake → design → balance → catalog; marketing → marketer agent |
@@ -343,7 +346,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 | `agent-new` | Scaffold a new conforming agent definition |
 | `audit-library` | Launch the sharded, adversarially-verified skill-library audit |
 | `eval-harness` | Run the comparative eval harness over fixtures with a blind pairwise judge panel |
-| `review-gate` | Run the Pattern-3 review gate (code-reviewer + security/library-reviewer) on the current diff |
+| `review-gate` | Run the Pattern-3 review gate (code-reviewer + security-reviewer + data-model-documenter + library-reviewer) on the current diff |
 | `skill-new` | Scaffold a new conforming skill |
 | `state` | Record a durable session fact to SESSION-STATE.md via the deterministic writer |
 | `triage-findings` | Tally the findings ledger and propose ratchet targets (human disposes) |
