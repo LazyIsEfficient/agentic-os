@@ -667,6 +667,58 @@ check_hook_commands_in_file() {
   done < <(grep -E '"command"[[:space:]]*:' "$json_file" || true)
 }
 
+# ── Invariant 8(c): Cursor hook-registration parity ────────────────────────────
+# Two files register the SAME Cursor hook set with DIFFERENT path prefixes:
+#   .cursor/hooks.json                — project/in-repo  (.cursor/hooks/<name>.sh)
+#   assets/consumer/cursor-hooks.json — merged into ~/.cursor/hooks.json by
+#                                       install-cursor.sh        (hooks/<name>.sh)
+# They agree today but nothing gated drift. Assert both declare the SAME set of
+# (event, script-basename) pairs after normalizing the path prefix and ignoring
+# any *-probe.sh (probes are spike scripts, never shipped to consumers).
+#
+# Crude line-based JSON scan (no jq, per this script's constraint): track the
+# current event-array key, then for each "command" emit `event<TAB>basename`.
+hook_event_script_pairs() {
+  local json_file="$1"
+  [[ -f "$json_file" ]] || return 0
+  awk '
+    # Event-array opener: "<event>": [   — the trailing [ distinguishes it from
+    # "hooks": { (object) and "version": 1 (number), so neither is mistaken for an event.
+    /"[A-Za-z][A-Za-z0-9]*"[[:space:]]*:[[:space:]]*\[/ {
+      ev=$0
+      sub(/^[^"]*"/, "", ev); sub(/".*/, "", ev)
+      event=ev
+    }
+    # Hook command string: extract the value, reduce to the script basename,
+    # drop any trailing simple args, and skip probe scripts.
+    /"command"[[:space:]]*:[[:space:]]*"/ {
+      cmd=$0
+      sub(/.*"command"[[:space:]]*:[[:space:]]*"/, "", cmd); sub(/".*/, "", cmd)
+      sub(/.*\//, "", cmd)   # strip path prefix -> basename
+      sub(/ .*/, "", cmd)    # strip trailing args, keep the script name
+      if (event != "" && cmd !~ /-probe\.sh$/) print event "\t" cmd
+    }
+  ' "$json_file" | sort -u
+}
+
+check_hook_parity() {
+  local proj="$ROOT/.cursor/hooks.json"
+  local consumer="$ROOT/assets/consumer/cursor-hooks.json"
+  # Only meaningful when both registration files exist.
+  [[ -f "$proj" && -f "$consumer" ]] || return 0
+  local proj_pairs consumer_pairs p
+  proj_pairs="$(hook_event_script_pairs "$proj")"
+  consumer_pairs="$(hook_event_script_pairs "$consumer")"
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && fail hooks-parity "$consumer" \
+      "(event, script) registered in .cursor/hooks.json but missing from assets/consumer/cursor-hooks.json: ${p//$'\t'/ }"
+  done < <(comm -23 <(printf '%s\n' "$proj_pairs") <(printf '%s\n' "$consumer_pairs"))
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && fail hooks-parity "$proj" \
+      "(event, script) registered in assets/consumer/cursor-hooks.json but missing from .cursor/hooks.json: ${p//$'\t'/ }"
+  done < <(comm -13 <(printf '%s\n' "$proj_pairs") <(printf '%s\n' "$consumer_pairs"))
+}
+
 check_hook_safety() {
   # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
   # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
@@ -782,6 +834,7 @@ check_cursor_rules_format
 check_cursor_rules_frontmatter
 check_memory_length
 check_ship_manifest
+check_hook_parity
 check_review_tiers
 check_hook_safety
 check_tombstones
