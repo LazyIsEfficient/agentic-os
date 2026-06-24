@@ -55,6 +55,13 @@ make_copy() {
       cp "$REPO_ROOT/.cursor/hooks/"*.sh "$dst/.cursor/hooks/" 2>/dev/null || true
     fi
   fi
+  # Consumer Cursor hook-registration template — needed by check_hook_parity
+  # (and check_hook_safety 8(b)); both the clean baseline and the hooks-parity
+  # case are wrong without it.
+  if [[ -f "$REPO_ROOT/assets/consumer/cursor-hooks.json" ]]; then
+    mkdir -p "$dst/assets/consumer"
+    cp "$REPO_ROOT/assets/consumer/cursor-hooks.json" "$dst/assets/consumer/cursor-hooks.json"
+  fi
   printf '%s' "$dst"
 }
 
@@ -415,6 +422,23 @@ if bash "$REPO_ROOT/scripts/install-paths-test.sh" >/dev/null 2>&1; then
 else
   report "case 32 install-paths (dual-path fallback chain)" fail "see scripts/install-paths-test.sh output"
 fi
+
+# ── Case 33: hooks-parity — register a hook in one file but not the other ──────
+# .cursor/hooks.json and assets/consumer/cursor-hooks.json must declare the same
+# (event, script-basename) set. Seed one asymmetry: add an event/command to the
+# project file only. The command is shape-valid (passes hook-safety 8(b)), so only
+# hooks-parity may trip.
+c33="$(make_copy)"
+awk '
+  /^[[:space:]]*"hooks"[[:space:]]*:[[:space:]]*\{/ && !done33 {
+    print
+    print "    \"afterFileEdit\": [ { \"command\": \".cursor/hooks/extra-hook.sh\" } ],"
+    done33=1
+    next
+  }
+  { print }
+' "$c33/.cursor/hooks.json" > "$c33/.cursor/hooks.json.tmp" && mv "$c33/.cursor/hooks.json.tmp" "$c33/.cursor/hooks.json"
+assert_trips "case 33 hooks-parity (hook in project file only)" "$c33" hooks-parity
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
