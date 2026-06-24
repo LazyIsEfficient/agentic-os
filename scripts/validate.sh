@@ -751,6 +751,50 @@ check_hook_safety() {
     'hooks/<name>.sh'
 }
 
+# ── Invariant 8(c): Cursor hook registration completeness ──────────────────────
+# 8(a)/8(b) prove shipped hook scripts are benign and that registered commands are
+# well-shaped — but nothing asserts the two SETS line up. A production script left
+# in .cursor/hooks/ but unregistered in .cursor/hooks.json, or a command pointing
+# at a script that no longer exists, both pass 8(a)/8(b) yet ship broken. This is
+# the deterministic registration-completeness ratchet (issue #205), scoped to the
+# PROJECT surface only (.cursor/hooks/ <-> .cursor/hooks.json). Consumer global
+# template parity (assets/consumer/cursor-hooks.json) is handled by #206.
+#   (1) every non-*-probe.sh script in .cursor/hooks/ is referenced by >=1 command
+#       (*-probe.sh are dev-only spike fixtures excluded from ship, per 8(a)).
+#   (2) every command path in .cursor/hooks.json resolves to a script that exists.
+# Basenames are matched robustly: a command may carry trailing args, so only the
+# first whitespace-delimited token (the script path) is considered.
+check_hook_registration() {
+  local hooks_dir="$ROOT/.cursor/hooks" hooks_json="$ROOT/.cursor/hooks.json"
+  [[ -d "$hooks_dir" && -f "$hooks_json" ]] || return 0
+
+  # Same grep/sed command-string parse as check_hook_commands_in_file (no jq).
+  local registered=" " cline cmdval cmdpath base
+  while IFS= read -r cline; do
+    cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
+    [[ "$cmdval" == "$cline" ]] && continue
+    cmdpath="${cmdval%% *}"
+    case "$cmdpath" in
+      .cursor/hooks/*.sh) ;;
+      *) continue ;;   # non-vendored / odd-shape commands are 8(b)'s job
+    esac
+    base="${cmdpath##*/}"
+    if [[ ! -f "$hooks_dir/$base" ]]; then
+      fail hook-registration "$hooks_json" "command references a missing script: $cmdpath (no .cursor/hooks/$base on disk)"
+    fi
+    registered="$registered$base "
+  done < <(grep -E '"command"[[:space:]]*:' "$hooks_json" || true)
+
+  local f fb
+  while IFS= read -r f; do
+    fb="${f##*/}"
+    [[ "$fb" == *-probe.sh ]] && continue
+    if [[ "$registered" != *" $fb "* ]]; then
+      fail hook-registration "$f" "production hook script is not registered in .cursor/hooks.json (add a command entry, or rename to *-probe.sh if it is a dev-only spike)"
+    fi
+  done < <(find "$hooks_dir" -maxdepth 1 -type f -name '*.sh' | sort)
+}
+
 # ── Invariant 9: tombstones ────────────────────────────────────────────────────
 # Bare-name PROSE references to a pruned skill/agent/command route to a target that
 # no longer exists. Invariant 3 only sees markdown LINKS; a backtick `slug`, a
@@ -837,6 +881,7 @@ check_ship_manifest
 check_hook_parity
 check_review_tiers
 check_hook_safety
+check_hook_registration
 check_tombstones
 check_rules_name_parity
 

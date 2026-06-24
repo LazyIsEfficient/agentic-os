@@ -456,6 +456,30 @@ else
   report "case 31 hook-safety (benign cursor probe hook stays clean)" fail "exit=$VRC; output:\n$VOUT"
 fi
 
+# ── Cases 33-34: hook-registration — Cursor project hook registration completeness (#205) ─
+# Invariant 8(c). 8(a)/8(b) only see scripts and command shapes in isolation; these
+# prove the two sets must MATCH for the project surface (.cursor/hooks/ <-> hooks.json).
+
+# 33: an unregistered production .sh in .cursor/hooks/ must trip (req #1).
+c33="$(make_copy)"
+printf '#!/usr/bin/env bash\necho ok\n' > "$c33/.cursor/hooks/orphan.sh"
+assert_trips "case 33 hook-registration (unregistered production script)" "$c33" hook-registration
+
+# 34: a registered command pointing at a now-missing script must trip (req #2).
+c34="$(make_copy)"
+rm -f "$c34/.cursor/hooks/block-bad-bash.sh"
+assert_trips "case 34 hook-registration (registered command, missing script)" "$c34" hook-registration
+
+# 35: an unregistered *-probe.sh spike fixture must STAY clean (probe exclusion, req #1).
+c35="$(make_copy)"
+printf '#!/usr/bin/env bash\necho probe\n' > "$c35/.cursor/hooks/extra-probe.sh"
+run_validate "$c35"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 35 hook-registration (unregistered probe stays clean)" pass
+else
+  report "case 35 hook-registration (unregistered probe stays clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+
 # 32: dual-path skill script resolution (install-paths.md)
 if bash "$REPO_ROOT/scripts/install-paths-test.sh" >/dev/null 2>&1; then
   report "case 32 install-paths (dual-path fallback chain)" pass
