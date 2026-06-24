@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes (code + security always).
+# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes (code + security + data-model always).
 #
 # Usage (CI — pull_request):
 #   PR_BODY set, BASE_SHA and HEAD_SHA set (or GITHUB_EVENT_PATH for file list)
@@ -67,6 +67,7 @@ while IFS= read -r f; do
     .github/workflows/*) is_sensitive=true ;;
   esac
   case "$f" in
+    DATA_MODEL.md) is_code_change=true; continue ;;
     *.md|*.mdc|LICENSE|NOTICE) continue ;;
     docs/*) continue ;;
     eval/metrics/runs/*) continue ;;
@@ -87,7 +88,7 @@ fi
 
 body_check() {
   local label="$1"
-  printf '%s' "$PR_BODY" | grep -qiE "^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]].*${label}"
+  printf '%s' "$PR_BODY" | grep -qiE "^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]+(\*\*)?${label}(\*\*)?([[:space:]]|$|—|-)"
 }
 
 fail() {
@@ -103,6 +104,10 @@ fi
 # Any non-docs-only PR requires both reviewers before "complete" (orchestrator + CI ratchet).
 if [[ "$is_code_change" == true || "$is_library" == true || "$is_sensitive" == true ]] && ! body_check 'security-reviewer'; then
   fail "check [x] security-reviewer (readonly Task dispatched with code-reviewer before marking done)"
+fi
+
+if [[ "$is_code_change" == true || "$is_library" == true || "$is_sensitive" == true ]] && ! body_check 'data-model-documenter'; then
+  fail "check [x] data-model-documenter (Task dispatched with reviewers; updates DATA_MODEL.md at project root)"
 fi
 
 if [[ "$is_library" == true ]] && ! body_check 'library-reviewer'; then

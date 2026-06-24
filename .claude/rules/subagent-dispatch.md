@@ -22,7 +22,8 @@ When tasks have no conflict edge between them, dispatch in a **single message wi
 After any implementation that touches more than a trivial diff:
 
 - Spawn `code-reviewer` (read-only) on the diff. Always.
-- Spawn `security-reviewer` (read-only) in parallel. Always — any work presented as done runs both reviewers. Why always: CI ship-gates require both reviewer checkboxes on every code PR (#566530c).
+- Spawn `security-reviewer` (read-only) in parallel. Always — any work presented as done runs both reviewers. Why always: CI ship-gates require code-reviewer, security-reviewer, and data-model-documenter checkboxes on every code PR (#566530c).
+- Spawn `data-model-documenter` in parallel. Always — merges data contracts into `DATA_MODEL.md` at the project root (only file it may write).
 - Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
 
 Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.md`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
