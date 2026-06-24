@@ -635,38 +635,6 @@ check_hook_commands_in_file() {
   done < <(grep -E '"command"[[:space:]]*:' "$json_file" || true)
 }
 
-check_hook_safety() {
-  # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
-  # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
-  # would evade it entirely — restrict shipped hooks to *.sh and reject the rest.
-  scan_hook_scripts_dir "$CLAUDE/hooks" ".claude/hooks/"
-  scan_hook_scripts_dir "$ROOT/.cursor/hooks" ".cursor/hooks/" skip-probe
-
-  # (b) Every hook "command" must invoke a vendored hooks/ script — no inline shell.
-  check_hook_commands_in_file "$CLAUDE/settings.json" \
-    '.claude/hooks/' \
-    '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
-    '<interpreter> .claude/hooks/<name>.sh [simple args]'
-
-  # Cursor hooks.json v1 schema — .cursor/hooks/<name>.sh [simple args] (no interpreter
-  # prefix; Cursor invokes the script path directly).
-  check_hook_commands_in_file "$ROOT/.cursor/hooks.json" \
-    '.cursor/hooks/' \
-    '^\.cursor/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
-    '.cursor/hooks/<name>.sh [simple args]'
-
-  # Consumer global install templates (Invariant 8(b) — separate path prefixes).
-  check_hook_commands_in_file "$ROOT/assets/consumer/claude-settings.json" \
-    '.claude/hooks/' \
-    '^bash \$HOME/.claude/hooks/[A-Za-z0-9_-]+\.sh$' \
-    'bash $HOME/.claude/hooks/<name>.sh'
-
-  check_hook_commands_in_file "$ROOT/assets/consumer/cursor-hooks.json" \
-    'hooks/' \
-    '^hooks/[A-Za-z0-9_-]+\.sh$' \
-    'hooks/<name>.sh'
-}
-
 # ── Invariant 8(c): Cursor hook-registration parity ────────────────────────────
 # Two files register the SAME Cursor hook set with DIFFERENT path prefixes:
 #   .cursor/hooks.json                — project/in-repo  (.cursor/hooks/<name>.sh)
@@ -719,6 +687,38 @@ check_hook_parity() {
   done < <(comm -13 <(printf '%s\n' "$proj_pairs") <(printf '%s\n' "$consumer_pairs"))
 }
 
+check_hook_safety() {
+  # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
+  # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
+  # would evade it entirely — restrict shipped hooks to *.sh and reject the rest.
+  scan_hook_scripts_dir "$CLAUDE/hooks" ".claude/hooks/"
+  scan_hook_scripts_dir "$ROOT/.cursor/hooks" ".cursor/hooks/" skip-probe
+
+  # (b) Every hook "command" must invoke a vendored hooks/ script — no inline shell.
+  check_hook_commands_in_file "$CLAUDE/settings.json" \
+    '.claude/hooks/' \
+    '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
+    '<interpreter> .claude/hooks/<name>.sh [simple args]'
+
+  # Cursor hooks.json v1 schema — .cursor/hooks/<name>.sh [simple args] (no interpreter
+  # prefix; Cursor invokes the script path directly).
+  check_hook_commands_in_file "$ROOT/.cursor/hooks.json" \
+    '.cursor/hooks/' \
+    '^\.cursor/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
+    '.cursor/hooks/<name>.sh [simple args]'
+
+  # Consumer global install templates (Invariant 8(b) — separate path prefixes).
+  check_hook_commands_in_file "$ROOT/assets/consumer/claude-settings.json" \
+    '.claude/hooks/' \
+    '^bash \$HOME/.claude/hooks/[A-Za-z0-9_-]+\.sh$' \
+    'bash $HOME/.claude/hooks/<name>.sh'
+
+  check_hook_commands_in_file "$ROOT/assets/consumer/cursor-hooks.json" \
+    'hooks/' \
+    '^hooks/[A-Za-z0-9_-]+\.sh$' \
+    'hooks/<name>.sh'
+}
+
 # ── Invariant 9: tombstones ────────────────────────────────────────────────────
 # Bare-name PROSE references to a pruned skill/agent/command route to a target that
 # no longer exists. Invariant 3 only sees markdown LINKS; a backtick `slug`, a
@@ -759,9 +759,9 @@ check_cursor_rules_format
 check_cursor_rules_frontmatter
 check_memory_length
 check_ship_manifest
+check_hook_parity
 check_review_tiers
 check_hook_safety
-check_hook_parity
 check_tombstones
 
 # ── Summary ────────────────────────────────────────────────────────────────────

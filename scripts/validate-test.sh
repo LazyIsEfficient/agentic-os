@@ -423,22 +423,22 @@ else
   report "case 32 install-paths (dual-path fallback chain)" fail "see scripts/install-paths-test.sh output"
 fi
 
-# ── Case 33: hooks-parity — register a hook in one file but not the other ──────
+# ── Case 36: hooks-parity — register a hook in one file but not the other ──────
 # .cursor/hooks.json and assets/consumer/cursor-hooks.json must declare the same
 # (event, script-basename) set. Seed one asymmetry: add an event/command to the
 # project file only. The command is shape-valid (passes hook-safety 8(b)), so only
 # hooks-parity may trip.
-c33="$(make_copy)"
+c36="$(make_copy)"
 awk '
-  /^[[:space:]]*"hooks"[[:space:]]*:[[:space:]]*\{/ && !done33 {
+  /^[[:space:]]*"hooks"[[:space:]]*:[[:space:]]*\{/ && !done36 {
     print
     print "    \"afterFileEdit\": [ { \"command\": \".cursor/hooks/extra-hook.sh\" } ],"
-    done33=1
+    done36=1
     next
   }
   { print }
-' "$c33/.cursor/hooks.json" > "$c33/.cursor/hooks.json.tmp" && mv "$c33/.cursor/hooks.json.tmp" "$c33/.cursor/hooks.json"
-assert_trips "case 33 hooks-parity (hook in project file only)" "$c33" hooks-parity
+' "$c36/.cursor/hooks.json" > "$c36/.cursor/hooks.json.tmp" && mv "$c36/.cursor/hooks.json.tmp" "$c36/.cursor/hooks.json"
+assert_trips "case 36 hooks-parity (hook in project file only)" "$c36" hooks-parity
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
