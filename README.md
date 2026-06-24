@@ -346,7 +346,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 | `agent-new` | Scaffold a new conforming agent definition |
 | `audit-library` | Launch the sharded, adversarially-verified skill-library audit |
 | `eval-harness` | Run the comparative eval harness over fixtures with a blind pairwise judge panel |
-| `review-gate` | Run the Pattern-3 review gate (code-reviewer + security-reviewer + data-model-documenter + library-reviewer) on the current diff |
+| `review-gate` | Run the Pattern-3 gate DAG (waves per `.claude/references/gate-dag.md`) on the current diff |
 | `skill-new` | Scaffold a new conforming skill |
 | `state` | Record a durable session fact to SESSION-STATE.md via the deterministic writer |
 | `triage-findings` | Tally the findings ledger and propose ratchet targets (human disposes) |

@@ -1,25 +1,55 @@
 ---
-description: Run the Pattern-3 review gate (code-reviewer + security-reviewer + data-model-documenter + library-reviewer as warranted) on the current diff
+description: Run the Pattern-3 review gate (gate DAG waves) on the current diff
 allowed-tools: Bash, Agent
 ---
 
-Run this repo's mandatory **Pattern 3 — Build + review pairing** gate on the current working-tree diff. The routing below is quoted verbatim from ship-gate doctrine and must be encoded exactly:
+Run the mandatory **Pattern 3 — Build + review pairing** gate on the current working-tree diff.
 
-> - Spawn `code-reviewer` (read-only) on the diff. Always.
-> - Spawn `security-reviewer` (read-only) in parallel. Always.
-> - Spawn `data-model-documenter` in parallel. Always — updates `DATA_MODEL.md` at the project root.
-> - Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
+**Canonical spec:** [gate-dag.md](../references/gate-dag.md) — node IDs, triggers, waves, checkpoints. Encode that DAG exactly; do not invent parallel shortcuts that skip Wave 2 when `DATA_MODEL.md` changes.
 
-## Steps
+## Step 0 — `checkpoint:impl-verified`
 
-1. **See the changes.** Run `git status --porcelain` to list every changed path **including brand-new untracked files** (a plain `git diff` omits untracked files, which would hide a newly-created `.claude/agents/foo.md` and defeat the `library-reviewer` trigger below). Then run `git diff HEAD` for the tracked diff, and `git add -N <untracked paths>` (intent-to-add) so the untracked files also appear in a follow-up `git diff`. Use the combined set of paths from `git status --porcelain` — not just the diff — when deciding whether to dispatch `library-reviewer` in step 2. If `git status --porcelain` is empty, stop and report "no changes to review."
+1. Run `git status --porcelain`. If empty, stop: **no changes to review.**
+2. List every changed path **including untracked files** (plain `git diff` omits them). Use `git add -N <untracked>` so contract/agent files appear in the diff.
+3. Run local verification: `bash scripts/validate.sh` on any non-docs-only diff; plus task-specific checks. If verification fails, stop — do not dispatch gate agents.
 
-2. **Always dispatch in parallel** via the Agent tool (single message, multiple Agent calls):
-   - **`code-reviewer`** — read-only, full diff. Unconditional.
-   - **`security-reviewer`** — read-only, full diff. Unconditional.
-   - **`data-model-documenter`** — writes/merges `DATA_MODEL.md` at project root. Unconditional (no-op changelog if no contract changes).
-   - **`library-reviewer`** — read-only — if ANY changed file is under `.claude/skills/` or `.claude/agents/`.
+## Step 1 — Compute triggered nodes
 
-3. **Brief each agent** with the goal, the exact changed file paths, and the diff to review. Agents start with no context from this conversation — give them the diff explicitly.
+From the changed path set, classify flags the same way as `scripts/check-pr-ship-gates.sh` (`is_code_change`, `is_library`, `is_sensitive`). Then include nodes per [gate-dag.md](../references/gate-dag.md) § Gate nodes:
 
-4. **Collect verdicts and report them.** Summarize each agent's findings and overall verdict. Per the gate: do NOT mark the work done until every agent has weighed in and the raised verdicts have been addressed. "Addressed" follows the tier rule (`.claude/rules/review-tiers.md`): findings with Tier 0/1 evidence (a failing script, test, or concrete counterexample) must be fixed or explicitly waived by the user before declaring success; unevidenced (Tier 2) findings are advisory — log them to the findings ledger (`findings-ledger` skill) rather than blocking on them, and say in the report which findings went where.
+| Node | Include when |
+|---|---|
+| `G-code-review` | `is_code_change \|\| is_library` |
+| `G-security-review` | `is_code_change \|\| is_library \|\| is_sensitive` |
+| `G-data-document` | `is_code_change \|\| is_library \|\| is_sensitive` |
+| `G-library-review` | `is_library` |
+| `G-data-verify` | **After Wave 1** — if `DATA_MODEL.md` is in the post-documenter diff ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191); until shipped, require human catalog review) |
+
+If the diff is docs-only per ship-gate allowlist, stop: **gates skipped.**
+
+## Step 2 — Wave 1 (parallel)
+
+Dispatch **only triggered Wave 1 nodes** in a **single message, multiple Agent calls** — wait for **all** to return before Wave 2. Typical mapping:
+
+- **`code-reviewer`** — if `G-code-review` triggered
+- **`security-reviewer`** — if `G-security-review` triggered
+- **`data-model-documenter`** — if `G-data-document` triggered
+- **`library-reviewer`** — if `G-library-review` triggered
+
+Brief each agent with goal, exact changed paths, and diff. Agents start with no context from this conversation.
+
+## Step 3 — Wave 2 (conditional)
+
+After Wave 1 completes:
+
+1. Re-check whether `DATA_MODEL.md` changed (`git diff HEAD -- DATA_MODEL.md` or status).
+2. If yes and `data-model-verifier` exists: dispatch **`data-model-verifier`** (`G-data-verify`) read-only on the catalog diff + cited Source files.
+3. If yes and verifier not shipped yet: report **manual catalog review required** in PR; do not mark ship-ready without calling it out.
+
+## Step 4 — `checkpoint:ship-ready`
+
+1. Summarize every gate agent verdict.
+2. Fix Tier 0/1 findings; log Tier 2 to findings ledger ([findings-ledger](../skills/findings-ledger/SKILL.md)).
+3. Do **not** mark work complete until all required nodes ran and findings are addressed.
+
+Per [review-tiers](../rules/review-tiers.md): Tier 2 alone does not block; Tier 1 requires evidence to block.

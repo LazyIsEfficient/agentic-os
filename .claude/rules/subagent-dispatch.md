@@ -19,14 +19,15 @@ When tasks have no conflict edge between them, dispatch in a **single message wi
 - Cap concurrent waves at ~3–5 agents. Beyond that you cannot supervise quality.
 
 ### Pattern 3 — Build + review pairing (mandatory gate)
-After any implementation that touches more than a trivial diff:
 
-- Spawn `code-reviewer` (read-only) on the diff. Always.
-- Spawn `security-reviewer` (read-only) in parallel. Always — any work presented as done runs both reviewers. Why always: CI ship-gates require code-reviewer, security-reviewer, and data-model-documenter checkboxes on every code PR (#566530c).
-- Spawn `data-model-documenter` in parallel. Always — merges data contracts into `DATA_MODEL.md` at the project root (only file it may write).
-- Spawn `library-reviewer` if the diff touches `.claude/skills/` or `.claude/agents/`.
+After any implementation that touches more than a trivial diff, run the **gate DAG** in [gate-dag.md](../references/gate-dag.md):
 
-Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.md`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
+1. `checkpoint:impl-verified` — verification passes
+2. **Wave 1 (parallel):** triggered nodes per [gate-dag.md](../references/gate-dag.md) — always `G-security-review` + `G-data-document` on non-docs-only diffs; `G-code-review` when code/library; `G-library-review` when `is_library`
+3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191))
+4. `checkpoint:ship-ready` — Tier 0/1 addressed
+
+Do not run verifier in parallel with documenter. Full node table and triggers: [gate-dag.md](../references/gate-dag.md).
 
 ### Pattern 4 — Research via Explore, never the main thread
 For any question that needs more than 2–3 file reads or greps, spawn `Explore` (or `general-purpose`) agents instead of polluting the main context.

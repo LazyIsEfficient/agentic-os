@@ -74,7 +74,7 @@ Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the
 |---|---|
 | Vague or multi-step request | Shaper → planner → fan-out |
 | Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
-| Code complete, before reporting done | **`code-reviewer` + `security-reviewer` + `data-model-documenter` always** (parallel `Task`; reviewers `readonly: true`) + `library-reviewer` when skills/agents — **never say "done" without all three** |
+| Code complete, before reporting done | Run **gate DAG** ([gate-dag.md](../../.claude/references/gate-dag.md)): Wave 1 parallel reviewers + documenter; Wave 2 verifier if `DATA_MODEL.md` changed — **never say "done" without required waves** |
 | Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
 | Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
 | User names an agent | `Task` with that `subagent_type` immediately |
@@ -101,16 +101,16 @@ When tasks have no conflict edge, dispatch in a **single message with multiple `
 
 ### Pattern 3 — Build + review pairing (mandatory gate)
 
-After any implementation beyond a trivial diff — **before you say work is complete:**
+After any implementation beyond a trivial diff — **before you say work is complete** — run the **gate DAG** in [gate-dag.md](../../.claude/references/gate-dag.md) (epic [#189](https://github.com/LazyIsEfficient/agentic-os/issues/189)):
 
-- Spawn `code-reviewer` (`readonly: true`) on the diff. **Always.**
-- Spawn `security-reviewer` (`readonly: true`) **in parallel. Always.** Not only for hook/install paths — any work presented as done runs both reviewers. **Why always (not "when sensitive"):** CI `check-pr-ship-gates` requires all three agent checkboxes on every code PR; path-conditioned security review let non-hook changes ship unaudited (see #566530c).
-- Spawn `data-model-documenter` **in parallel. Always.** It merges API, persistence, and message shapes into `DATA_MODEL.md` at the project root (not read-only — only file it may write).
-- Spawn `library-reviewer` (`readonly: true`) in parallel if the diff touches `.claude/skills/` or `.claude/agents/`.
+1. **`checkpoint:impl-verified`** — local verification passes
+2. **Wave 1 (parallel):** dispatch triggered nodes only — `G-security-review` + `G-data-document` on every non-docs-only diff; add `G-code-review` when `is_code_change || is_library`; add `G-library-review` when `is_library`
+3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191))
+4. **`checkpoint:ship-ready`** — all required nodes returned; Tier 0/1 addressed
 
-**Forbidden:** reporting complete, opening a PR as ready, or checking ship-gate boxes without dispatching `code-reviewer`, `security-reviewer`, and `data-model-documenter` on the current diff in the same session.
+**Forbidden:** reporting complete without running required waves; dispatching `data-model-verifier` in parallel with `data-model-documenter` (author before verifier).
 
-Reviewer agents start with no context from this conversation, so their second opinion is independent by construction. Do not report a task complete until the reviewer has weighed in and the verdict has been addressed. "Addressed" follows the tier rule (`review-tiers.mdc`): fix what carries Tier 0/1 evidence; log unevidenced (Tier 2) findings to the findings ledger — a verdict riding only on Tier 2 findings proposes, it does not block.
+Reviewer agents start with no context from this conversation. "Addressed" follows the tier rule (`review-tiers.mdc`): fix Tier 0/1; log Tier 2 to findings ledger.
 
 ### Pattern 3b — Ship gates (Tier 0 — never skip)
 
@@ -122,7 +122,7 @@ Reviewer agents start with no context from this conversation, so their second op
 
 Release order: **merge PR → checkout `main` → `release.sh` → pin commit → tag on `main` → `gh release create`**. Never tag a feature branch.
 
-Sequential "implement then maybe review" is a **bug**. Fan out `code-reviewer` + `security-reviewer` + `data-model-documenter` in one wave before you say done.
+Sequential "implement then maybe review" is a **bug**. Run Wave 1 of the gate DAG before you say done; Wave 2 when `DATA_MODEL.md` changes.
 
 ### Pattern 4 — Research via explore, never the main thread
 
