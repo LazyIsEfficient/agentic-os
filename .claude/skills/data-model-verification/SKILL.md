@@ -22,7 +22,39 @@ Verify only **added or changed** `###` catalog sections in `DATA_MODEL.md` (from
 
 Skip: unchanged sections, changelog-only edits, template example sections marked for removal.
 
-## Protocol
+## Tier 0 extractors (preferred when Source matches)
+
+When **Source** is a JSON Schema file (`.json` with `"properties"` or `$schema`), run deterministic extractors **before** manual quote verification:
+
+```sh
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+EDM="$PROJ/scripts/extract-data-model"
+bash "$EDM/json-schema.sh" path/to/schema.json > /tmp/shape.json
+bash "$EDM/verify-data-model-section.sh" \
+  --extracted /tmp/shape.json \
+  --catalog "$PROJ/DATA_MODEL.md" \
+  --section OrderCreated
+# exit 0 = properties match; exit 1 = REFUTED (Tier 0 evidence)
+```
+
+Or one step:
+
+```sh
+bash "$EDM/verify-data-model-section.sh" \
+  --source path/to/schema.json \
+  --definition OrderCreated \
+  --catalog "$PROJ/DATA_MODEL.md" \
+  --section OrderCreated \
+  --fail-on-warn
+```
+
+- Extractor output is canonical — use it to classify **VERIFIED** / **REFUTED** for property rows
+- Extractor exit 1 → **hold** with script stderr as Tier 0 evidence
+- Extractor exit 0 → mark in-scope properties **VERIFIED** (cite script name); skip quote-based re-check for those rows
+- If no extractor exists for the Source type, fall back to quote-based Tier 1 protocol below
+- Additional stacks (OpenAPI, Prisma, protobuf) — [#194](https://github.com/LazyIsEfficient/agentic-os/issues/194) ratchet; one per PR
+
+## Protocol (quote-based fallback)
 
 1. **INVENTORY** — list every property row in scope; count is part of the output
 2. **LOCATE SOURCE** — resolve each **Source** path under the git root; reject `..`, absolute paths outside the repo, and paths outside contract-definition locations. If invalid or missing, REFUTE affected properties with evidence. Open valid sources only.
@@ -37,13 +69,9 @@ Skip: unchanged sections, changelog-only edits, template example sections marked
 
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) — stochastic judgment proposes, deterministic verification disposes.
 
-- **REFUTED** without `file:line` quote or grep evidence is not REFUTED — downgrade to UNVERIFIABLE
-- **hold** verdict only when REFUTED > 0 (Tier 1)
-- UNVERIFIABLE counts are advisory; log recurring patterns to [findings-ledger](../findings-ledger/SKILL.md) for ratchet (Tier 0 extractors — [#194](https://github.com/LazyIsEfficient/agentic-os/issues/194))
-
-## Future: deterministic extractors
-
-When stack-specific scripts exist (`scripts/extract-data-model/`), prefer their output over manual reading. Until then, quote-based verification is Tier 1.
+- **REFUTED** without Tier 0 script failure or `file:line` quote is not REFUTED — downgrade to UNVERIFIABLE
+- **hold** when REFUTED > 0 (Tier 0 extractor failure or Tier 1 counterexample)
+- UNVERIFIABLE counts are advisory; log recurring patterns to [findings-ledger](../findings-ledger/SKILL.md) for ratchet to Tier 0 extractors under `scripts/extract-data-model/`
 
 ## Verification checklist
 

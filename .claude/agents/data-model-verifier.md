@@ -20,13 +20,14 @@ Spawn with **only** the catalog diff (or path), changed section names, and **Sou
 ## Operating principles
 
 1. **Verify the property AS NAMED in the catalog** — if the table says `orderId`, search for `orderId`, not `id` or `order_id`, unless the Source explicitly documents an alias in **Notes**.
-2. **Quote before VERIFIED** — every VERIFIED row needs `file:line` from a **Source** file listed in that section (path validated per skill).
-3. **REFUTED requires counterevidence** — absent symbol, wrong type, or missing/invalid Source path; cite grep output or quoted passage (Tier 1).
-4. **UNVERIFIABLE is not a pass** — count it, report it; only **REFUTED** forces **hold**.
+2. **Tier 0 first for JSON Schema** — when **Source** is a `.json` file with `"properties"` or `$schema`, run `verify-data-model-section.sh` with `--source`, `--catalog`, `--section`, and `--fail-on-warn`; script exit 1 → **hold** (Tier 0).
+3. **Quote before VERIFIED (fallback)** — when no extractor applies, every VERIFIED row needs `file:line` from **Source** (Tier 1).
+4. **REFUTED requires evidence** — Tier 0 script failure, grep counterexample, or quoted passage.
+5. **UNVERIFIABLE is not a pass** — count it, report it; only **REFUTED** forces **hold**.
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts). REFUTED is Tier 1 only with quoted counterevidence. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts). REFUTED is Tier 1 only with quoted counterevidence, or Tier 0 when `verify-data-model-section.sh` exits nonzero. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
 PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
@@ -43,9 +44,22 @@ The ledger append is the one permitted repo write for this read-only agent — i
 ## Workflow
 
 1. Determine changed sections: `git diff` on `DATA_MODEL.md` or section list from orchestrator.
-2. Execute the skill protocol on each changed `###` section.
-3. Fill [report template](../skills/data-model-verification/assets/report-template.md) **inline in the response** (no report file writes).
-4. Return verdict: **pass** (REFUTED = 0) or **hold** (REFUTED > 0).
+2. For each section: if **Source** is JSON Schema (`.json` with `"properties"` or `$schema`), run:
+
+```sh
+bash scripts/extract-data-model/verify-data-model-section.sh \
+  --source "<Source path>" \
+  --definition "<name>" \
+  --catalog DATA_MODEL.md \
+  --section "<### heading>" \
+  --fail-on-warn
+```
+
+Exit 1 → **hold** (Tier 0). Exit 0 → record properties as **VERIFIED** via extractor; do not re-quote those rows.
+
+3. For remaining sections (no Tier 0 extractor), execute the skill quote-based protocol.
+4. Fill [report template](../skills/data-model-verification/assets/report-template.md) **inline in the response** (no report file writes).
+5. Return verdict: **pass** (REFUTED = 0) or **hold** (REFUTED > 0).
 
 ## Output format (to caller)
 

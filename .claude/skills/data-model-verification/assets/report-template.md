@@ -9,7 +9,7 @@
 |---:|---:|---:|---:|
 | n | n | n | n |
 
-**Verdict:** `<pass | hold>` — hold when REFUTED > 0 (Tier 1 counterexamples required below)
+**Verdict:** `<pass | hold>` — hold when REFUTED > 0 (Tier 0 script failure or Tier 1 counterexamples below)
 
 ## Most damaging finding
 
@@ -22,13 +22,12 @@
 | P1 | `OrderCreated` | `orderId` | `uuid` | VERIFIED | `src/events/order.ts:12` |
 | P2 | `OrderCreated` | `legacyId` | `integer` | REFUTED | absent in `src/events/order.ts` (grep) |
 
-## REFUTED detail (Tier 1 — blocking)
+## REFUTED detail (Tier 0 / Tier 1 — blocking)
 
 ### P2 — `OrderCreated.legacyId`
 
-- **Catalog claims:** `legacyId` · `integer` · required
-- **Source says:** _(quote or "symbol not found in Source paths")_
-- **Fix:** remove from catalog or add to source definition
+- **Catalog claims:** …
+- **Evidence:** `verify-data-model-section.sh` stderr **or** quoted Source (`file:line`)
 
 ## UNVERIFIABLE (advisory)
 
