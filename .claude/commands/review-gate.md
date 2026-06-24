@@ -15,13 +15,13 @@ Run the mandatory **Pattern 3 — Build + review pairing** gate on the current w
 
 ## Step 1 — Compute triggered nodes
 
-From the changed path set, run `bash scripts/gate-plan.sh` (or classify flags the same way as `scripts/lib/gate-plan-lib.sh`). Include nodes per [gate-dag.md](../references/gate-dag.md) § Gate nodes:
+From the changed path set, run `bash scripts/gate-plan.sh` (or classify flags the same way as `scripts/lib/gate-plan-lib.sh`). Include nodes per [gate-dag.md](../references/gate-dag.md) § Gate nodes and § Implementation close:
 
 | Node | Include when |
 |---|---|
 | `G-code-review` | `is_code_change \|\| is_library` |
 | `G-security-review` | `is_code_change \|\| is_library \|\| is_sensitive` |
-| `G-data-document` | `is_code_change \|\| is_library \|\| is_sensitive` |
+| `G-data-document` | Same triggers — **Wave 1 only if** implementation did not already run it at session close (no `G-data-document:` in engineer report) |
 | `G-library-review` | `is_library` |
 | `G-data-verify` | **After Wave 1** — if `DATA_MODEL.md` is in the post-documenter diff |
 
@@ -33,7 +33,7 @@ Dispatch **only triggered Wave 1 nodes** in a **single message, multiple Agent c
 
 - **`code-reviewer`** — if `G-code-review` triggered
 - **`security-reviewer`** — if `G-security-review` triggered
-- **`data-model-documenter`** — if `G-data-document` triggered
+- **`data-model-documenter`** — if `G-data-document` triggered **and** not already run at implementation close
 - **`library-reviewer`** — if `G-library-review` triggered
 
 Brief each agent with goal, exact changed paths, and diff. Agents start with no context from this conversation.

@@ -74,7 +74,7 @@ Dispatch + explore isolation are the primary token levers (NORTH_STAR): keep the
 |---|---|
 | Vague or multi-step request | Shaper → planner → fan-out |
 | Implementation beyond a trivial diff | `engineer` or domain specialist (`rust-engineer`, `web3-engineer`, …) |
-| Code complete, before reporting done | Run **gate DAG** ([gate-dag.md](../../.claude/references/gate-dag.md)): Wave 1 parallel reviewers + documenter; Wave 2 verifier if `DATA_MODEL.md` changed — **never say "done" without required waves** |
+| Code complete, before reporting done | **`engineer`** runs `G-data-document` before return; orchestrator runs **gate DAG** ([gate-dag.md](../../.claude/references/gate-dag.md)): Wave 1 reviewers (+ documenter only if engineer skipped it); Wave 2 verifier if `DATA_MODEL.md` changed |
 | Library edits under `.claude/skills/` or `.claude/agents/` | `library-reviewer` |
 | Research needing >2–3 file reads/greps | `explore` or `generalPurpose` — never the main thread |
 | User names an agent | `Task` with that `subagent_type` immediately |
@@ -104,11 +104,12 @@ When tasks have no conflict edge, dispatch in a **single message with multiple `
 After any implementation beyond a trivial diff — **before you say work is complete** — run the **gate DAG** in [gate-dag.md](../../.claude/references/gate-dag.md) (epic [#189](https://github.com/LazyIsEfficient/agentic-os/issues/189)):
 
 1. **`checkpoint:impl-verified`** — local verification passes
-2. **Wave 1 (parallel):** dispatch triggered nodes only — `G-security-review` + `G-data-document` on every non-docs-only diff; add `G-code-review` when `is_code_change || is_library`; add `G-library-review` when `is_library`
-3. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
-4. **`checkpoint:ship-ready`** — all required nodes returned; Tier 0/1 addressed
+2. **Implementation close:** when `engineer` implemented, it dispatches `data-model-documenter` before returning ([gate-dag.md](../../.claude/references/gate-dag.md) § Implementation close)
+3. **Wave 1 (parallel):** dispatch triggered reviewer nodes — `G-security-review` on every non-docs-only diff; add `G-code-review` when `is_code_change || is_library`; add `G-library-review` when `is_library`; add `G-data-document` **only if** the implementation agent did not already run it
+4. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
+5. **`checkpoint:ship-ready`** — all required nodes returned; Tier 0/1 addressed
 
-**Forbidden:** reporting complete without running required waves; dispatching `data-model-verifier` in parallel with `data-model-documenter` (author before verifier).
+**Forbidden:** reporting complete without required waves; re-dispatching `data-model-documenter` when engineer already ran `G-data-document`; dispatching `data-model-verifier` in parallel with `data-model-documenter` (author before verifier).
 
 Reviewer agents start with no context from this conversation. "Addressed" follows the tier rule (`review-tiers.mdc`): fix Tier 0/1; log Tier 2 to findings ledger.
 
