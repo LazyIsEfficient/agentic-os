@@ -14,6 +14,7 @@ when_to_use: |
   positive sweep (sharded generate + adversarial verify) — run the audit-library
   command. Not when verifying claims in a formal/technical document — use
   adversarial-claims-reviewer.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
 ---
 
 # Library Investigator
@@ -33,7 +34,7 @@ Fixed seven steps. Probe contract: [references/probe-table.md](references/probe-
 
 1. **Inventory** — enumerate the files under audit across all four surfaces. Report the count.
 2. **Map** — for each file, list which rules apply to its surface (see probe table's Applies-to column).
-3. **Probe** — run `bash .claude/skills/library-investigator/scripts/library_probe.sh [REPO_ROOT]`. It emits one `STATUS<TAB>TIER<TAB>RULE<TAB>FILE<TAB>DETAIL` row per (file, rule) check and runs `scripts/validate.sh` for the Tier-0 line.
+3. **Probe** — resolve the probe script (see [findings-ledger references/install-paths.md](../findings-ledger/references/install-paths.md)), then run `bash "$PROBE" [REPO_ROOT]`. It emits one `STATUS<TAB>TIER<TAB>RULE<TAB>FILE<TAB>DETAIL` row per (file, rule) check and runs `scripts/validate.sh` for the Tier-0 line.
 4. **Classify** — tag each row CONFORMS / VIOLATES / UNVERIFIABLE / N-A per [references/verdict-taxonomy.md](references/verdict-taxonomy.md).
 5. **Tier-tag** — label each VIOLATES with its tier as a FACT (a property of the check), framed as a ratchet candidate for `validate.sh`. Never say "this blocks."
 6. **Self-consistency** — confirm every probed file appears in the output. Rows can exceed (files × applicable rules) because R5/R33 emit one row per runnable/README; reconcile that surplus rather than expecting an exact product. Flag any missing file as UNVERIFIABLE.
@@ -51,7 +52,7 @@ Counts first: `CONFORMS n / VIOLATES n / UNVERIFIABLE n / N-A n over N files × 
 
 ## Tier discipline
 
-Tier definitions: `.claude/rules/review-tiers.md`. Each VIOLATES states its tier as a fact about the check, not a gate. Tier-0 (validate.sh) findings reproduce without you; Tier 1 (R9/R13/R12/R32-desc/R32-body) carry their probe output as the evidence artifact; Tier 2 (R33/R5) are reported facts and ratchet candidates. The investigator never escalates a tier to "blocking" — it states the tier and stops.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`). Each VIOLATES states its tier as a fact about the check, not a gate.
 
 ## References
 

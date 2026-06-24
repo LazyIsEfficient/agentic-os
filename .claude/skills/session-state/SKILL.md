@@ -2,6 +2,7 @@
 name: session-state
 description: Maintain SESSION-STATE.md, the durable within-session memory that survives context compaction. Use when a constraint, settled decision, existing-infrastructure (survey) finding, or open thread must persist across a long session so it is not re-derived or re-litigated. Triggers on /state, "remember this for the session", "record this constraint/decision", or after surveying what already exists. For cross-session/personal memory use .claude/memory/ instead; for repo-derivable facts, do not record at all.
 when_to_use: A fact must survive context compaction WITHIN this session — a hard constraint, a settled decision, a survey result (existing infra to reuse), or an open thread/next step. Not for cross-session memory (.claude/memory/) and not for anything derivable from the repo.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
 ---
 
 # Session State
@@ -14,12 +15,15 @@ when_to_use: A fact must survive context compaction WITHIN this session — a ha
 
 ## How to record (never hand-edit)
 
-Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then fall back to the global install:
+Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then global install fallbacks ([path layout](../findings-ledger/references/install-paths.md)):
 
 ```
 PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+# 1. Repo checkout (source of truth — never $PROJ/.cursor/skills/)
 SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
+# 2. Global Cursor (after install-cursor.sh)
 [ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+# 3. Global Claude Code (after install.sh)
 [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 ```
 
@@ -71,53 +75,7 @@ Keep entries terse. For `infra`, lead with the service name as the first word �
 
 ## Activation (on by default)
 
-The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). **Hooks are active after `install.sh` / `install-cursor.sh`** — they register globally in `~/.claude/settings.json` or `~/.cursor/hooks.json`. To disable, remove the `hooks` block from that file.
-
-**Full guide:** [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md) (verify steps, dogfooding for #145).
-
-### Claude Code
-
-Add this to your project `.claude/settings.json` (commands invoke vendored scripts — no inline shell):
-
-```json
-{
-  "hooks": {
-    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" }] }],
-    "PreCompact":       [{ "matcher": "auto",   "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] },
-                         { "matcher": "manual", "hooks": [{ "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" }] }],
-    "PreToolUse":       [{ "matcher": "Bash", "hooks": [
-      { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
-      { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
-    ]}]
-  }
-}
-```
-
-### Cursor — project hooks (this repo)
-
-This checkout also ships a **project-level** `.cursor/hooks.json` (vendored `.cursor/hooks/` paths). Global install uses `~/.cursor/hooks.json` with `hooks/` paths instead.
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "sessionStart": [{ "command": ".cursor/hooks/session-state-inject.sh" }],
-    "beforeSubmitPrompt": [{ "command": ".cursor/hooks/session-state-digest.sh" }],
-    "preCompact": [{ "command": ".cursor/hooks/session-state-checkpoint.sh" }],
-    "beforeShellExecution": [
-      { "command": ".cursor/hooks/block-bad-bash.sh" },
-      { "command": ".cursor/hooks/survey-before-act.sh" }
-    ]
-  }
-}
-```
-
-**Live-proven:** `sessionStart` injection (Spike A GO, Cursor `3.8.11`, 2026-06-22). Per-turn digest via `beforeSubmitPrompt` **live-proven** (Test A PASS, operator 2026-06-23) — see [cursor hook capability spike](https://github.com/LazyIsEfficient/agentic-os/blob/main/eval/spikes/cursor-hook-capability.md).
-
-Global `install-cursor.sh` copies production `.cursor/hooks/` scripts (excluding spike `*-probe.sh`) to `~/.cursor/hooks/` — same JSON contract as project hooks above.
-
-**Security (untrusted data).** `SESSION-STATE.md` is injected into the model's context every session/turn with no tool call — whoever can write it controls injected text. So keep it **gitignored and per-developer** (never commit it, never use it in a shared/multi-writer checkout); the inject hook frames the block as DATA, not instructions. See `SECURITY.md` rule 7.
+The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). **Hooks are active after `install.sh` / `install-cursor.sh`**. Hook JSON examples and security notes: [references/hook-setup.md](references/hook-setup.md). Operator guide: [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md).
 
 ## Discipline
 

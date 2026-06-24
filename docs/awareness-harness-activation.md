@@ -105,11 +105,15 @@ All should report zero failures.
 2. New session → ask: *What is ACTIVATION-SMOKE?* → expect `SMOKE_OK`.
 3. `docker run -d hello-world` (unsurveyed) → expect advisory in context; line in `.claude/survey-guard.warns`.
 
-### Cursor — live-fire protocol
+### Cursor — automated verification
 
-Interactive acceptance (digest + survey surfacing): [eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md](../eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
+No manual Agent-chat repro required. Gate:
 
-Record PASS/FAIL in that doc’s evidence slots or in [eval/metrics/V2-CLOSEOUT.md](../eval/metrics/V2-CLOSEOUT.md).
+```bash
+bash eval/spikes/cursor-hook-capability/run-automated.sh
+```
+
+Details: [eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md](../eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
 
 ---
 

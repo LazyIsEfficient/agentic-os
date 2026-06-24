@@ -8,17 +8,17 @@ You are triaging the stochastic-findings ledger per the tier doctrine in `.claud
 
 ## Step 1 — run the ledger
 
-`$1` is an optional recurrence threshold (default 2); `$2` is an optional retire-age in days (default 14). Always run tally first:
+`$1` is an optional recurrence threshold (default 2); `$2` is an optional retire-age in days (default 14). Always run tally first (resolve ledger path per [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md)):
 
 ```sh
-python3 .claude/skills/findings-ledger/scripts/ledger.py tally
-```
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 
-Then run triage — with no arguments when `$1`/`$2` are empty, or with the flags spelled out when they are given. The two forms (never include literal brackets):
-
-```sh
-python3 .claude/skills/findings-ledger/scripts/ledger.py triage
-python3 .claude/skills/findings-ledger/scripts/ledger.py triage --threshold $1 --age-days $2
+python3 "$LEDGER" tally
+python3 "$LEDGER" triage
+python3 "$LEDGER" triage --threshold $1 --age-days $2
 ```
 
 If the script exits 2 with "ledger not found", report that the ledger is empty and stop — there is nothing to triage.

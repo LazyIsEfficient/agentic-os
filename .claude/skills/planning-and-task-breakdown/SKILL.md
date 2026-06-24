@@ -5,6 +5,7 @@ when_to_use: |
   Use after a `prompt-shaper` or `marketing-shaper` brief when the work spans multiple repos, multiple weeks, or needs parallel agent execution — specifically when the implementation order is not obvious or tasks can safely be dispatched concurrently. Use when a spec or task feels too large to start in one session.
 
   Not when: the change is single-file with obvious scope — implement it directly. Not when the work has not yet been shaped into a brief — use `prompt-shaper` first. Not when there is no spec yet and requirements are unclear — produce the spec first, then return to decompose it.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
 ---
 
 # Planning and Task Breakdown

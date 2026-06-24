@@ -24,10 +24,14 @@ You operate **read-only**. You don't edit code; you produce a review.
 
 ## Tier discipline
 
-Tier definitions: `.claude/rules/review-tiers.md` — only deterministic checks hard-block. A finding may be labeled **blocking** only with its Tier 1 evidence attached (the failing test, failing command, or concrete counterexample). Everything unevidenced — style, taste, unproven performance worry — is Tier 2: advisory, and journaled instead of argued:
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts) — only deterministic checks hard-block. A finding may be labeled **blocking** only with its Tier 1 evidence attached (the failing test, failing command, or concrete counterexample). Everything unevidenced — style, taste, unproven performance worry — is Tier 2: advisory, and journaled instead of argued. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source code-reviewer --run-id <branch-or-pr>
 ```

@@ -38,6 +38,10 @@ cd agentic-os
 
 Files are copied to `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/`. Existing files are not overwritten by default. Add `--force` to update everything.
 
+**Maintainer dev sync:** for active work on this repo, use the checkout paths (`.claude/skills/`, `.claude/agents/`, `.cursor/rules/`) directly — or symlink `~/.cursor/skills` / `~/.cursor/agents` to the repo's `.claude/` trees if you want global Cursor to track the clone live. Skill script paths: [findings-ledger/references/install-paths.md](.claude/skills/findings-ledger/references/install-paths.md) (repo uses `.claude/skills/`; `~/.cursor/skills/` is post-install only).
+
+**Persistent memory:** `.claude/memory/` is gitignored (machine-local). `validate.sh` scans it when present on your machine — fix dangling wikilinks locally; CI does not see memory files.
+
 **Custom install path:**
 
 ```bash
@@ -46,14 +50,17 @@ CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
 
 **Windows:** use `install-cursor.ps1` for parity (or run `install-cursor.sh` from Git Bash/WSL).
 
-**Session-state writer** (after `install-cursor.sh` — writer lands in global skills):
+**Session-state writer** (full resolution chain — see [install-paths.md](.claude/skills/findings-ledger/references/install-paths.md)):
 
 ```bash
-SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
+[ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 bash "$SS" init
 ```
 
-In a **checkout of this repo**, the same writer also exists at `.claude/skills/session-state/scripts/session-state.sh`.
+After `install-cursor.sh` only, the global `$HOME/.cursor/skills/…` path alone is usually enough.
 
 There is no `/state` slash command on Cursor. Invoke the `session-state` skill (or ask the agent to record a session fact) and it runs the writer via Bash — see [.claude/skills/session-state/SKILL.md](.claude/skills/session-state/SKILL.md).
 
@@ -196,16 +203,19 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V
 
 **→ [Activation guide](docs/awareness-harness-activation.md)** — what's registered, how to turn off, verify steps.
 
-**Cursor live-fire status** (Cursor `3.8.11` unless re-tested):
+**Cursor hook verification (automated — CI on every PR):**
 
-| Hook | Status |
-|---|---|
-| `sessionStart` inject | **PROVEN** — model receives full `SESSION-STATE.md` |
-| `beforeSubmitPrompt` digest | **PROVEN** — live-fire Test A PASS (2026-06-23); per-turn Constraints + Decisions + Open threads reach the model via `additional_context` |
-| `beforeShellExecution` survey | **PENDING** manual confirmation — [live-fire protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md) |
-| `preCompact` checkpoint | Side-effect log only (same deferral as Claude S0) |
+| Hook | Status | Gate script |
+|---|---|---|
+| `sessionStart` inject | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
+| `beforeSubmitPrompt` digest | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
+| `beforeShellExecution` block-bad-bash | **CONTRACT-VERIFIED** | `scripts/block-bad-bash-test-cursor.sh` |
+| `beforeShellExecution` survey | **CONTRACT-VERIFIED** | `scripts/survey-guard-test-cursor.sh` |
+| `preCompact` checkpoint | **CONTRACT-VERIFIED** (side-effect log) | `eval/spikes/cursor-hook-capability/run-automated.sh` |
 
-See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`. **v2 closeout checklist:** [eval/metrics/V2-CLOSEOUT.md](eval/metrics/V2-CLOSEOUT.md) (live-fire, long-session A/B, milestone).
+One-liner: `bash eval/spikes/cursor-hook-capability/run-automated.sh`. No manual Cursor UI repro is required — see [automated verification protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
+
+See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
 
 Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
 
@@ -253,11 +263,12 @@ To make subagent dispatch default globally (match Claude Code's orchestrator mod
 You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
 For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
 work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation, spawn `code-reviewer` before reporting done. For research needing more than
-2–3 file reads, use an `explore` subagent.
+After implementation beyond a trivial diff, spawn `code-reviewer` and `security-reviewer` in parallel
+(`readonly: true`) before reporting done. For research needing more than 2–3 file reads, use an
+`explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
-Repo maintainers: `CURSOR.md` at the repo root `@`-imports `.cursor/rules/*` (parallel to `CLAUDE.md`).
+Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files (parallel to `CLAUDE.md`).
 
 ---
 

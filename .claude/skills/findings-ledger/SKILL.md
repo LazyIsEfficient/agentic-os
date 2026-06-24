@@ -13,12 +13,13 @@ when_to_use: |
   Not when conducting the review itself — use code-review-and-quality for source
   code or skill-library-review for library definitions; this skill only stores
   their unevidenced residue.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
 ---
 
 # Findings Ledger
 
 Stochastic judgment proposes; deterministic verification disposes (tier
-doctrine: `.claude/rules/review-tiers.md`). This skill is the *proposes* side's
+doctrine: review-tiers — `.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`). This skill is the *proposes* side's
 inbox: a single append-only JSONL at `.claude/ledger/findings.jsonl` where
 Tier 2 findings accumulate fingerprinted, so the same defect phrased two ways
 across runs usually collides to one entry (a heuristic — see the limits doc)
@@ -50,17 +51,25 @@ Full schema, lifecycle, and fingerprint-normalization limits:
 ## Commands
 
 All via [scripts/ledger.py](scripts/ledger.py) (python3, stdlib only; exit 0 =
-ok, 2 = setup/usage error; output ordering is deterministic):
+ok, 2 = setup/usage error; output ordering is deterministic). Resolve the script path first — [references/install-paths.md](references/install-paths.md):
 
 ```sh
-python3 .claude/skills/findings-ledger/scripts/ledger.py add \
+PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+# 1. Repo checkout — never $PROJ/.cursor/skills/
+LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
+# 2. Global Cursor (after install-cursor.sh)
+[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
+# 3. Global Claude Code (after install.sh)
+[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+
+python3 "$LEDGER" add \
   --file <path> --claim "<one sentence>" --tier 2 \
   --source <agent-name> --run-id <id> [--evidence <path>]
 
-python3 .claude/skills/findings-ledger/scripts/ledger.py tally
-python3 .claude/skills/findings-ledger/scripts/ledger.py triage [--threshold 2] [--age-days 14]
-python3 .claude/skills/findings-ledger/scripts/ledger.py promote <fingerprint> [--status INVESTIGATING] [--evidence <path>]
-python3 .claude/skills/findings-ledger/scripts/ledger.py retire <fingerprint>
+python3 "$LEDGER" tally
+python3 "$LEDGER" triage [--threshold 2] [--age-days 14]
+python3 "$LEDGER" promote <fingerprint> [--status INVESTIGATING] [--evidence <path>]
+python3 "$LEDGER" retire <fingerprint>
 ```
 
 - `add` computes the fingerprint (sha256 of file path + normalized claim text)
