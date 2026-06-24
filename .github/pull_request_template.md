@@ -4,16 +4,25 @@
 
 ## Ship gates (required — CI enforces checkboxes)
 
-Before marking work **complete**, dispatch via `Task` (parallel) and check boxes after dispatch:
+Run locally: `bash scripts/gate-plan.sh` (or set `SHIP_GATES_CHANGED_FILES` to your changed paths) — check every agent listed under `checkboxes=`.
 
-- [ ] **code-reviewer** — always, on this PR diff; Tier 0/1 findings fixed (`readonly: true`)
-- [ ] **security-reviewer** — always, in parallel with code-reviewer — not only for hook/install paths (`readonly: true`)
-- [ ] **data-model-documenter** — always, in parallel; writes/updates `DATA_MODEL.md` at project root (not read-only)
+**Wave 1** (parallel, triggered nodes only):
+
+- [ ] **code-reviewer** — when non-docs code or library paths changed (`readonly: true`)
+- [ ] **security-reviewer** — on any non-docs-only PR (`readonly: true`)
+- [ ] **data-model-documenter** — on any non-docs-only PR (writes `DATA_MODEL.md` at project root)
 - [ ] **library-reviewer** — when diff touches `.claude/skills/` or `.claude/agents/` (`readonly: true`)
+
+**Wave 2** (after Wave 1, when `DATA_MODEL.md` changed):
+
+- [ ] **data-model-verifier** — adversarial property check against Source files (`readonly: true`)
+
+Canonical DAG: `.claude/references/gate-dag.md`
 
 **No direct merge or tag** until this PR is open and `check-pr-ship-gates` is green. Release flow: merge PR → tag on `main` → `gh release create`.
 
 ## Test plan
 
 - [ ] `bash scripts/validate.sh`
+- [ ] `bash scripts/gate-plan-test.sh`
 - [ ] Other relevant tests listed here

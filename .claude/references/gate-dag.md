@@ -1,6 +1,6 @@
 # Gate DAG — ship-gate orchestration
 
-Canonical dependency graph for **Pattern 3 — Build + review pairing**. Orchestrators and maintainer commands (`review-gate`) execute this DAG; CI checkbox rules live in `scripts/check-pr-ship-gates.sh` today and will converge on `scripts/gate-plan.sh` ([#192](https://github.com/LazyIsEfficient/agentic-os/issues/192)).
+Canonical dependency graph for **Pattern 3 — Build + review pairing**. Orchestrators and maintainer commands (`review-gate`) execute this DAG; CI checkbox rules are computed by **`scripts/gate-plan.sh`** and enforced by **`scripts/check-pr-ship-gates.sh`**.
 
 **Epic:** [#189](https://github.com/LazyIsEfficient/agentic-os/issues/189)
 
@@ -56,7 +56,7 @@ Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, r
 
 ## Gate nodes
 
-| Node ID | Agent | Read-only | Wave | Trigger (`check-pr-ship-gates.sh` flags) |
+| Node ID | Agent | Read-only | Wave | Trigger (`gate-plan.sh` flags) |
 |---|---|---|---|---|
 | `G-code-review` | `code-reviewer` | yes | 1 | **?** `is_code_change \|\| is_library` |
 | `G-security-review` | `security-reviewer` | yes | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
@@ -90,7 +90,12 @@ Orchestrators MUST NOT dispatch all nodes in a single message if Wave 2 applies.
 
 ## Path triggers (reference)
 
-Aligned with `scripts/check-pr-ship-gates.sh` today. Future: `scripts/gate-plan.sh` ([#192](https://github.com/LazyIsEfficient/agentic-os/issues/192)) emits this table from a diff.
+Aligned with **`scripts/gate-plan.sh`** (shared lib: `scripts/lib/gate-plan-lib.sh`). Run locally:
+
+```bash
+bash scripts/gate-plan.sh
+SHIP_GATES_CHANGED_FILES="path/to/changed" bash scripts/gate-plan.sh --json
+```
 
 | Condition | Gates required |
 |---|---|
@@ -124,4 +129,5 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 | `.cursor/rules/subagent-dispatch.mdc` | Cursor orchestrator rule — points here for Pattern 3 |
 | `.claude/rules/subagent-dispatch.md` | Claude Code orchestrator rule — same gate DAG |
 | `.github/pull_request_template.md` | PR checkboxes (CI enforced) |
-| `scripts/check-pr-ship-gates.sh` | Tier 0 checkbox gate (planner integration: #193) |
+| `scripts/gate-plan.sh` | Tier 0 planner — waves + checkboxes from diff |
+| `scripts/check-pr-ship-gates.sh` | Tier 0 PR checkbox gate (uses gate-plan-lib) |
