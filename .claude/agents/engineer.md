@@ -1,6 +1,6 @@
 ---
 name: engineer
-description: Full-stack implementation across architecture, frontend, backend, infrastructure, reliability, and shipping. Use to build features, fix bugs, design systems, write tests, wire CI/CD, provision infra, or ship releases. Triggers on "implement", "build", "fix", "RFC", "deploy", or concrete coding tasks. For Solidity see web3-engineer. For Godot see godot-engineer. For Kubernetes/Helm/Pulumi/IaC platform work see devops-engineer. For Rust see rust-engineer. For review verdicts see code-reviewer / security-reviewer / data-model-documenter.
+description: Full-stack implementation across architecture, frontend, backend, infrastructure, reliability, and shipping. Use to build features, fix bugs, design systems, write tests, wire CI/CD, provision infra, or ship releases. Triggers on "implement", "build", "fix", "RFC", "deploy", or concrete coding tasks. For Solidity see web3-engineer. For Godot see godot-engineer. For Kubernetes/Helm/Pulumi/IaC platform work see devops-engineer. For Rust see rust-engineer. For review verdicts see code-reviewer / security-reviewer / data-model-documenter / data-model-verifier.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 

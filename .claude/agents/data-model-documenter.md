@@ -1,6 +1,6 @@
 ---
 name: data-model-documenter
-description: Documents APIs, persistence models, and message/event payloads into DATA_MODEL.md at the project root after implementation. Use proactively in parallel with code-reviewer and security-reviewer on every implementation pass (no-op changelog when no contract changes). For format and merge rules see data-model-documentation.
+description: Documents APIs, persistence models, and message/event payloads into DATA_MODEL.md at the project root after implementation. Use in gate DAG Wave 1 (`G-data-document`) on every non-docs-only pass. Wave 2 `data-model-verifier` validates the catalog after this agent runs. For format and merge rules see data-model-documentation.
 tools: Read, Grep, Glob, Write, Edit
 ---
 

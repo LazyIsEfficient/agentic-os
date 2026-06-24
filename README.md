@@ -283,6 +283,7 @@ Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/r
 | `code-review-and-quality` | Multi-axis code review across correctness, design, security, performance |
 | `codebase-cost-estimator` | Estimate build/dev cost of a codebase by measured LOC and complexity |
 | `data-model-documentation` | Catalog APIs, persistence, and message shapes into `DATA_MODEL.md` |
+| `data-model-verification` | Adversarially verify DATA_MODEL.md property rows against Source files |
 | `content-ops` | Score content with an auto-assembled expert panel until it hits 90+ |
 | `content-pipeline` | Non-interactive content production — quote mining, clip discovery, repurposing, gating |
 | `conversion-ops` | AI-powered CRO — landing-page audits, survey segmentation, lead magnets |
@@ -322,6 +323,7 @@ Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/r
 | `adversarial-claims-reviewer` | Read-only, cold-context adversarial review of formal/technical claims |
 | `code-reviewer` | Read-only multi-axis code review |
 | `data-model-documenter` | Catalog APIs, models, and message shapes into `DATA_MODEL.md` at project root |
+| `data-model-verifier` | Read-only verification of DATA_MODEL.md property rows against Source files |
 | `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `engineer` | Full-stack implementation across architecture and shipping |
 | `game-design-shaper` | Game design pipeline — intake → design → balance → catalog; marketing → marketer agent |

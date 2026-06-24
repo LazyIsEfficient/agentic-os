@@ -62,18 +62,13 @@ Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, r
 | `G-security-review` | `security-reviewer` | yes | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-data-document` | `data-model-documenter` | **no** (writes `DATA_MODEL.md` only) | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-library-review` | `library-reviewer` | yes | 1 | **?** `is_library` (paths under `.claude/skills/` or `.claude/agents/`) |
-| `G-data-verify` | `data-model-verifier` | yes | 2 | **?** `DATA_MODEL.md` changed this run ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191)) |
+| `G-data-verify` | `data-model-verifier` | yes | 2 | **?** `DATA_MODEL.md` changed this run (Wave 2 — after `G-data-document`) |
 
 **Always dispatch `G-security-review` and `G-data-document` on any non-docs-only PR** — not path-conditioned to “sensitive only” ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)).
 
-### `G-data-verify` (stub until #191)
+### Wave 2 — `G-data-verify`
 
-When the verifier agent does not exist yet, orchestrators **skip** Wave 2 but must still:
-
-1. Run `G-data-document` in Wave 1
-2. If `DATA_MODEL.md` is in the working tree diff, **human-review** the catalog diff in the PR until #191 lands
-
-After #191 ships: Wave 2 is mandatory whenever `DATA_MODEL.md` changes.
+When `DATA_MODEL.md` changed after Wave 1, dispatch **`data-model-verifier`** read-only. It inventories property rows in changed catalog sections and verifies against **Source** files ([data-model-verification](../skills/data-model-verification/SKILL.md)). **hold** when REFUTED > 0; fix catalog or source before `checkpoint:ship-ready`.
 
 ---
 
@@ -84,7 +79,7 @@ Orchestrators MUST NOT dispatch all nodes in a single message if Wave 2 applies.
 | Wave | Dispatch | Wait |
 |---|---|---|
 | **1** | Single message, multiple `Task` / `Agent` calls: all triggered Wave 1 nodes | All Wave 1 agents return |
-| **2** | `data-model-verifier` if `DATA_MODEL.md` changed | Verifier returns |
+| **2** | `data-model-verifier` (`readonly: true`) if `DATA_MODEL.md` changed | Verifier returns **pass** |
 | **Barrier** | Orchestrator synthesizes; address Tier 0/1 | `checkpoint:ship-ready` |
 
 **Why Wave 2 follows Wave 1:** `G-data-document` is the author; `G-data-verify` is the independent verifier. Running them in parallel would verify before the catalog exists or re-verify stale content.
@@ -103,7 +98,7 @@ Aligned with `scripts/check-pr-ship-gates.sh` today. Future: `scripts/gate-plan.
 | `is_sensitive` only (e.g. `SECURITY.md`, `install.sh`, hooks) | `G-security-review`, `G-data-document` |
 | `is_code_change` and/or `is_library` | `G-code-review`, `G-security-review`, `G-data-document` |
 | `is_library` | + `G-library-review` |
-| `DATA_MODEL.md` in diff after Wave 1 | + `G-data-verify` (when [#191](https://github.com/LazyIsEfficient/agentic-os/issues/191) shipped) |
+| `DATA_MODEL.md` in diff after Wave 1 | + `G-data-verify` (`data-model-verifier`) |
 
 `DATA_MODEL.md` is **not** docs-only — agent-maintained catalog changes require full gates.
 
@@ -117,7 +112,7 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 - **Tier 1** — blocking only with evidence artifact (failing command, quoted counterexample)
 - **Tier 2** — advisory; findings ledger, not blocking language
 
-`G-data-verify` (when shipped) inventories property rows in `DATA_MODEL.md` and classifies VERIFIED / REFUTED / UNVERIFIABLE per cited **Source** file — REFUTED requires quoted counterexample (Tier 1).
+`G-data-verify` inventories property rows in `DATA_MODEL.md` and classifies VERIFIED / REFUTED / UNVERIFIABLE per cited **Source** file — REFUTED requires quoted counterexample (Tier 1).
 
 ---
 

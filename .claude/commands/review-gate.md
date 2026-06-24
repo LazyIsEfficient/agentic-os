@@ -23,7 +23,7 @@ From the changed path set, classify flags the same way as `scripts/check-pr-ship
 | `G-security-review` | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-data-document` | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-library-review` | `is_library` |
-| `G-data-verify` | **After Wave 1** — if `DATA_MODEL.md` is in the post-documenter diff ([#191](https://github.com/LazyIsEfficient/agentic-os/issues/191); until shipped, require human catalog review) |
+| `G-data-verify` | **After Wave 1** — if `DATA_MODEL.md` is in the post-documenter diff |
 
 If the diff is docs-only per ship-gate allowlist, stop: **gates skipped.**
 
@@ -43,8 +43,8 @@ Brief each agent with goal, exact changed paths, and diff. Agents start with no 
 After Wave 1 completes:
 
 1. Re-check whether `DATA_MODEL.md` changed (`git diff HEAD -- DATA_MODEL.md` or status).
-2. If yes and `data-model-verifier` exists: dispatch **`data-model-verifier`** (`G-data-verify`) read-only on the catalog diff + cited Source files.
-3. If yes and verifier not shipped yet: report **manual catalog review required** in PR; do not mark ship-ready without calling it out.
+2. If yes: dispatch **`data-model-verifier`** (`G-data-verify`) with `readonly: true` — catalog diff, changed section names, and Source paths only (cold context).
+3. If **hold** (REFUTED > 0): fix catalog or source, then **re-dispatch `data-model-verifier`** until **pass** before `checkpoint:ship-ready`.
 
 ## Step 4 — `checkpoint:ship-ready`
 

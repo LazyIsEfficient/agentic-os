@@ -4,7 +4,7 @@ description: Catalog APIs, persistence models, and message/event payloads into D
 when_to_use: |
   Use after any change that defines or modifies data crossing a boundary — HTTP handlers, GraphQL fields, protobuf/OpenAPI/JSON Schema, DB entities, Kafka/SQS payloads, websocket frames.
 
-  Not when: the diff is docs-only, refactors with no contract change, or pure UI with no new/changed boundary types.
+  Not when: the diff is docs-only, refactors with no contract change, or pure UI with no new/changed boundary types. Not when verifying an existing catalog — use `data-model-verification` / `data-model-verifier` (Wave 2).
 compatibility: Requires Bash. Works in Claude Code and Cursor via install.sh / install-cursor.sh. Agent writes `DATA_MODEL.md` at `$CURSOR_PROJECT_DIR` / `$CLAUDE_PROJECT_DIR`.
 ---
 
@@ -63,4 +63,6 @@ Nested objects: inline in Shape; document top-level properties in the table; add
 
 ## Related skills
 
-- [data-model-documenter](../../agents/data-model-documenter.md) — agent that executes this skill after implementation
+- [data-model-documenter](../../agents/data-model-documenter.md) — agent that executes this skill (Wave 1 author)
+- [data-model-verifier](../../agents/data-model-verifier.md) — Wave 2 adversarial verification of property rows
+- [data-model-verification](../data-model-verification/SKILL.md) — verification protocol
