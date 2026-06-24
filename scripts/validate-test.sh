@@ -137,6 +137,26 @@ c4b="$(make_copy)"
 printf '@.cursor/rules/nonexistent.mdc\n' >> "$c4b/CURSOR.md"
 assert_trips "case 4b cursor-imports (missing import)" "$c4b" cursor-imports
 
+# ── Case 4f: cursor-imports — .cursor/rules/*.mdc added but not @-imported ─────
+# Set-equality (#207): a frontmatter-VALID new rule file (so cursor-rules-frontmatter
+# stays clean and the failure is attributable to cursor-imports) that CURSOR.md does
+# not @-import means the maintainer index is stale.
+c4f="$(make_copy)"
+cat > "$c4f/.cursor/rules/orphan.mdc" <<'EOF'
+---
+description: orphan rule with valid frontmatter
+alwaysApply: true
+---
+Body.
+EOF
+assert_trips "case 4f cursor-imports (rule file not @-imported)" "$c4f" cursor-imports
+
+# ── Case 4g: claude-imports — .claude/rules/*.md added but not @-imported ──────
+# Symmetric set-equality (#207) for CLAUDE.md <-> .claude/rules/*.md.
+c4g="$(make_copy)"
+printf 'Orphan rule body.\n' > "$c4g/.claude/rules/orphan.md"
+assert_trips "case 4g claude-imports (rule file not @-imported)" "$c4g" claude-imports
+
 # ── Case 4c: cursor-rules-format — stray .md in .cursor/rules/ ───────────────
 c4c="$(make_copy)"
 cat > "$c4c/.cursor/rules/stale.md" <<'EOF'

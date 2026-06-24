@@ -328,6 +328,34 @@ check_dangling_refs() {
   done
 }
 
+# Set-equality between a maintainer index file's @<subdir>/*.<ext> imports and the
+# rule files actually present in <subdir>. Resolution (does each import point at a
+# real file?) is handled by the per-line loops above; this catches the OTHER drift:
+# a rule file added to the dir without a matching @-import (stale index), or an
+# @-import naming a file that is not there. Fails listing each missing/extra entry.
+# (#207)
+#   $1 = index file (CLAUDE.md / CURSOR.md)  $2 = rules subdir (relative to ROOT)
+#   $3 = extension (md / mdc)                $4 = fail tag
+check_import_completeness() {
+  local cf="$1" subdir="$2" ext="$3" tag="$4"
+  [[ -f "$cf" ]] || return 0
+  local rules_dir="$ROOT/$subdir"
+  [[ -d "$rules_dir" ]] || return 0
+  local esc; esc="${subdir//./\\.}"            # escape dots for ERE matching
+  local imported on_disk only_disk only_import name
+  imported="$(grep -oE "^@${esc}/[^[:space:]]+\.${ext}" "$cf" | sed -E "s#^@${esc}/##" | sort -u)" || true
+  on_disk="$(find "$rules_dir" -maxdepth 1 -name "*.${ext}" -type f -exec basename {} \; | sort -u)" || true
+  only_disk="$(comm -13 <(printf '%s\n' "$imported") <(printf '%s\n' "$on_disk"))" || true
+  only_import="$(comm -23 <(printf '%s\n' "$imported") <(printf '%s\n' "$on_disk"))" || true
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && fail "$tag" "$cf" "rule '$subdir/$name' exists but is not @-imported (stale maintainer index)"
+  done <<< "$only_disk"
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && fail "$tag" "$cf" "@-import '$subdir/$name' has no matching file in $subdir/"
+  done <<< "$only_import"
+  return 0   # last while may exit non-zero ([[ -n '' ]] && …); set -e would abort dispatch
+}
+
 # ── Invariant 4: claude-imports ────────────────────────────────────────────────
 check_claude_imports() {
   local cf="$ROOT/CLAUDE.md"
@@ -340,6 +368,8 @@ check_claude_imports() {
       fail claude-imports "$cf" "@-import '$rel' does not resolve to an existing file"
     fi
   done < "$cf"
+  # CLAUDE.md @-imports .claude/rules/*.md — gate the imported set == files present.
+  check_import_completeness "$cf" ".claude/rules" "md" "claude-imports"
 }
 
 # ── Invariant 4b: cursor-imports ───────────────────────────────────────────────
@@ -354,6 +384,8 @@ check_cursor_imports() {
       fail cursor-imports "$cf" "@-import '$rel' does not resolve to an existing file"
     fi
   done < "$cf"
+  # CURSOR.md @-imports .cursor/rules/*.mdc — gate the imported set == files present.
+  check_import_completeness "$cf" ".cursor/rules" "mdc" "cursor-imports"
 }
 
 # ── Invariant 4c: cursor-rules-format ───────────────────────────────────────────
