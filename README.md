@@ -1,10 +1,115 @@
 # Engineering Heresy — Agentic Framework
 
-A collection of skills and agents for [Claude Code](https://claude.ai/code) that encode engineering workflows, content pipelines, game development, marketing ops, and more into reusable AI playbooks.
+A collection of skills and agents for [Claude Code](https://claude.ai/code) and [Cursor](https://cursor.com) that encode engineering workflows, content pipelines, game development, marketing ops, and more into reusable AI playbooks.
 
 Install once, use in any project.
 
 > Part of **[Engineering Heresy](https://geggleto.substack.com/)** by Glenn Eggleton — challenging conventional wisdom in AI and software engineering. **[Subscribe on Substack →](https://geggleto.substack.com/)**
+
+---
+
+## Features
+
+AgenticOS (this repository) is a **curated library of AI playbooks** for serious, long-running work in software engineering, game development, marketing, and operations. You install it once into Claude Code or Cursor; from then on, your agent can follow proven workflows instead of improvising every task from scratch.
+
+The product is not "more agents for the sake of agents." It is a **harness** — structure, guardrails, and reusable expertise wrapped around frontier models so you get **predictable quality at lower token cost**, especially across multi-step sessions where context compression would otherwise cause drift and rework. See [NORTH_STAR.md](NORTH_STAR.md) for the design thesis.
+
+### What you get
+
+| Piece | What it is | How you use it |
+|---|---|---|
+| **Skills** (37) | Step-by-step playbooks for a kind of work — code review, Rust engineering, SEO ops, game balancing, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
+| **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
+| **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | Claude Code: `/skill-new`, `/agent-new`, `/state`. Cursor: no slash commands ship; use the `session-state` skill instead of `/state`. |
+| **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
+| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use `.cursor/rules/*.mdc` (Cursor) or `.claude/rules/` via `CLAUDE.md` (Claude Code). Not copied by the global installer. |
+
+### Supported platforms
+
+- **[Claude Code](https://claude.ai/code)** — full install: skills, agents, hooks, and three consumer commands. Remote one-liner installs a **pinned, SHA-256–verified release** (`install.sh` / `install.ps1`).
+- **[Cursor](https://cursor.com)** — parallel install path: skills and agents from the shared `.claude/` tree, Cursor-native hooks, no slash commands. Remote one-liner: `install-cursor.sh` / `install-cursor.ps1`.
+
+Both paths share the same skill and agent markdown; only install location and hook wiring differ.
+
+### Workflow domains
+
+Skills and agents are grouped by the work they cover. Invoke the one that matches your task; shaper skills (`prompt-shaper`, `marketing-shaper`, `game-design-shaper`) turn vague requests into scoped briefs first.
+
+**Software engineering**
+
+- Full-stack implementation (`engineer`, `devops-engineer`)
+- Language specialists: Rust (`rust-engineer`), TypeScript testing (frontend/backend), data pipelines and analytics
+- Smart contracts and EVM development (`web3-engineer`, `web3-smart-contract-engineering`)
+- CI/CD and deployment pipelines
+- Planning and task breakdown for parallel subagent dispatch
+- Release coordination across a monorepo
+- Codebase cost estimation (LOC/complexity → build cost)
+
+**Quality, security, and review**
+
+- Multi-axis code review (`code-reviewer`, `code-review-and-quality`)
+- Cross-stack security audit (`security-reviewer`, `security-engineering`)
+- PII scan and redaction (`security`)
+- Adversarial review of formal claims — math, stats, benchmarks (`adversarial-claims-reviewer`)
+- API/persistence cataloging into `DATA_MODEL.md` (`data-model-documenter`, `data-model-documentation`) with adversarial verification (`data-model-verifier`)
+
+**Game development**
+
+- Godot 4 + C# (`godot-engineer`)
+- Phaser 3 + TypeScript (`phaser-engineer`)
+- Systems design, economy balancing, IAP catalog design (`game-systems-designer`, `game-balancer`, `iap-manager`)
+- End-to-end game design pipeline (`game-design-shaper`)
+
+**Marketing, growth, and revenue**
+
+- Marketing intake and full-spectrum execution (`marketing-shaper`, `marketer`)
+- Content scoring with an expert panel (`content-ops`)
+- Content production pipeline — quotes, clips, repurposing (`content-pipeline`)
+- SEO, CRO, growth experiments, cold outbound, revenue attribution (`seo-ops`, `conversion-ops`, `growth-engine`, `outbound-engine`, `revenue-intelligence`)
+- Karpathy-style autoresearch on conversion content (`autoresearch`)
+
+**Browser and tooling**
+
+- Real-browser testing via Chrome DevTools MCP (`browser-testing-with-devtools`)
+
+**Library maintenance** (for contributors and fork maintainers)
+
+- Scaffold conforming skills and agents (`/skill-new`, `/agent-new`)
+- Structural audit of the library (`library-reviewer`, `library-investigator`, `skill-library-review`)
+- Sharded full-library audit workflow (`/audit-library` — repo-local)
+- Stochastic finding triage and ratchet promotion (`findings-ledger`, `/triage-findings`)
+
+### Harness capabilities
+
+These are features of the **framework itself**, not individual skills:
+
+**Awareness harness (experimental)** — Fights the dominant failure mode of long agent sessions: losing track of settled decisions and existing infrastructure. Externalizes live session state in `SESSION-STATE.md`, re-injects it via hooks at session start and each turn, checkpoints before compaction, and nudges "survey before you provision." Includes deterministic metrics to compare hook-ON vs hook-OFF sessions. [Activation guide →](docs/awareness-harness-activation.md)
+
+**Orchestrator + ship gates** — Operating doctrine treats the main agent as an orchestrator that dispatches specialists (`Task` in Cursor, `Agent` in Claude Code) instead of doing multi-step work inline. After implementation, a fixed review DAG runs: code review, security review, optional library review, and conditional data-model documentation/verification. PR checkboxes and CI (`check-pr-ship-gates`) enforce the gate. Canonical graph: [gate-dag.md](.claude/references/gate-dag.md).
+
+**Review tiers** — Findings are sorted by reproducibility: Tier 0 deterministic checks hard-block; Tier 1 LLM findings need an evidence artifact; Tier 2 is advisory and logged to the findings ledger for recurrence-based promotion into deterministic checks.
+
+**Persistent memory** — Two layers: within-session facts in `SESSION-STATE.md` (hook-driven, gitignored); cross-session personal/project memory in `.claude/memory/` (gitignored, in-repo when you clone). Never hand-edit session state — use `/state` or the `session-state` writer script.
+
+**Deterministic validation** — `scripts/validate.sh` is an LLM-free gate on every PR: frontmatter, naming, dangling links, ship manifest, hook safety, tombstones for removed skills, and more. Install scripts refuse to copy a library that fails validation. Enable `.githooks` pre-commit for local enforcement.
+
+**Pinned, verified releases** — Remote installs download a tagged tarball and abort on SHA-256 mismatch. No "track main" remote path — unreleased work installs from a local clone. Maintainer runbook: [RELEASING.md](RELEASING.md).
+
+**Telemetry (opt-in)** — Local-first usage telemetry skill; privacy-respecting, not shipped as silent analytics.
+
+**Security model for hooks** — Shipped hook scripts are auditable shell, no runtime network, human-reviewed before merge, and scanned by validator Invariant 8. Injected session files are treated as untrusted data. Details: [SECURITY.md](SECURITY.md).
+
+### How to get started
+
+1. **Install** for your IDE — [Cursor](#cursor) or [Claude Code](#claude-code) section below.
+2. **Configure skill discipline** — add the Skills block from [Usage](#usage) to `~/.claude/CLAUDE.md` or Cursor User Rules so agents reach for skills by default.
+3. **Initialize session state** (optional but recommended for long sessions) — `/state init` (Claude Code) or `session-state.sh init` (Cursor).
+4. **Pick a workflow** — e.g. "Use `prompt-shaper` to scope this feature, then dispatch `engineer` to implement."
+5. **Contributing?** — scaffold with `/skill-new` or `/agent-new`, run `library-reviewer` on your diff, ensure `bash scripts/validate.sh` passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Maintainer-only (not installed globally)
+
+Cloned-repo tooling for library authors: `/audit-library`, `/review-gate`, `/eval-harness`, `/triage-findings`, `workflows/`, `eval/` comparative harness, `scripts/release.sh`, and full CI workflow in `.github/workflows/`. Consumers get the skills, agents, hooks, and three commands only.
 
 ---
 
@@ -304,6 +409,7 @@ Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/r
 | `security` | Scan and redact PII and sensitive data |
 | `security-engineering` | Cross-stack security review covering all attack surfaces |
 | `seo-ops` | AI-powered SEO operations and keyword intelligence |
+| `session-state` | Maintain SESSION-STATE.md — durable within-session memory that survives compaction |
 | `skill-library-review` | Audit a library of skills, agents, commands, and workflows |
 | `telemetry` | Opt-in, local-first, privacy-respecting usage telemetry |
 | `typescript-analytics` | Implement analytics with PostHog in TypeScript |
