@@ -14,9 +14,13 @@ This graph is **fixed** (not per-feature). Feature implementation DAGs use [`pla
 dag:
   - checkpoint:impl-verified after [local verification]
 
-  # Wave 1 — parallel (disjoint artifacts; wait for all before Wave 2)
+  # Implementation close — engineer (or stack specialist) dispatches before return
+  - T-impl → G-data-document?          # when implementation agent ran; see § Implementation close
+
+  # Wave 1 — parallel reviewers (disjoint artifacts; wait for all before Wave 2)
   - checkpoint:impl-verified → G-code-review?
-  - checkpoint:impl-verified → G-security-review || G-data-document
+  - checkpoint:impl-verified → G-security-review
+  - checkpoint:impl-verified → G-data-document?   # orchestrator only when T-impl did not run G-data-document
   - checkpoint:impl-verified → G-library-review?
 
   # Wave 2 — conditional (depends on documenter output)
@@ -27,6 +31,22 @@ dag:
 ```
 
 **Syntax:** `→` = must finish before; `||` = may run in parallel; `?` = include only when trigger matches (see below).
+
+---
+
+## Implementation close (`G-data-document`)
+
+When implementation runs through **`engineer`**, that agent **must dispatch `data-model-documenter` before returning** — not the orchestrator.
+
+| Who | When | Action |
+|---|---|---|
+| **`engineer`** | After local verification, before completion report | Foreground `Task` → `data-model-documenter` with changed paths + brief |
+| **Orchestrator** | Wave 1 | Include `G-data-document` **only if** `engineer` did not already run it (main-thread impl, or completion report lacks `G-data-document:` status) |
+| **Orchestrator** | Wave 2 | `G-data-verify` when `DATA_MODEL.md` changed — always orchestrator-owned |
+
+**Skip** `G-data-document` when the diff is docs-only (same allowlist as path triggers below).
+
+This keeps catalog authoring at the end of the implementation session while reviewers stay in orchestrator Wave 1.
 
 ---
 
@@ -60,11 +80,11 @@ Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, r
 |---|---|---|---|---|
 | `G-code-review` | `code-reviewer` | yes | 1 | **?** `is_code_change \|\| is_library` |
 | `G-security-review` | `security-reviewer` | yes | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
-| `G-data-document` | `data-model-documenter` | **no** (writes `DATA_MODEL.md` only) | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
+| `G-data-document` | `data-model-documenter` | **no** (writes `DATA_MODEL.md` only) | impl close / 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-library-review` | `library-reviewer` | yes | 1 | **?** `is_library` (paths under `.claude/skills/` or `.claude/agents/`) |
 | `G-data-verify` | `data-model-verifier` | yes | 2 | **?** `DATA_MODEL.md` changed this run (Wave 2 — after `G-data-document`) |
 
-**Always dispatch `G-security-review` and `G-data-document` on any non-docs-only PR** — not path-conditioned to “sensitive only” ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)).
+**Always require `G-security-review` on any non-docs-only PR** ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)). **`G-data-document`** runs at **implementation close** when `engineer` implemented; otherwise include it in orchestrator Wave 1.
 
 ### Wave 2 — `G-data-verify`
 
@@ -84,7 +104,7 @@ Orchestrators MUST NOT dispatch all nodes in a single message if Wave 2 applies.
 
 **Why Wave 2 follows Wave 1:** `G-data-document` is the author; `G-data-verify` is the independent verifier. Running them in parallel would verify before the catalog exists or re-verify stale content.
 
-**Why Wave 1 parallel is safe:** `code-reviewer` and `security-reviewer` read the **code diff**; `data-model-documenter` writes **`DATA_MODEL.md`**; `library-reviewer` reads library paths. No write/read conflict except documenter → verifier (handled in Wave 2).
+**Why Wave 1 parallel is safe:** `code-reviewer`, `security-reviewer`, and `library-reviewer` read the **code diff**. When `G-data-document` runs in Wave 1 (orchestrator fallback), it writes **`DATA_MODEL.md`** only — no conflict with reviewers. Documenter → verifier ordering is Wave 2.
 
 ---
 
