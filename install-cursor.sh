@@ -8,7 +8,7 @@
 # globally on install (disable by editing ~/.cursor/hooks.json).
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.3.3/install-cursor.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.4.0/install-cursor.sh | bash
 #
 # Usage — from a local clone:
 #   ./install-cursor.sh
@@ -41,8 +41,8 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v2.3.3"
-EXPECTED_SHA256="15554c8e7b0a5932fbaa62a09b9691736e8e2e669729a92f51ebedd9d92c7c47"
+VERSION="v2.4.0"
+EXPECTED_SHA256="4ba796045726c51a609f8d15f92e6171cdeb2917ad62449417022309414be2b8"
 
 DEST="${CURSOR_DIR:-$HOME/.cursor}"
 FORCE=false
