@@ -11,11 +11,11 @@ Run the mandatory **Pattern 3 — Build + review pairing** gate on the current w
 
 1. Run `git status --porcelain`. If empty, stop: **no changes to review.**
 2. List every changed path **including untracked files** (plain `git diff` omits them). Use `git add -N <untracked>` so contract/agent files appear in the diff.
-3. Run local verification: `bash scripts/validate.sh` on any non-docs-only diff; plus task-specific checks. If verification fails, stop — do not dispatch gate agents.
+3. Run local verification: `bash scripts/validate.sh` on any non-docs-only diff; plus task-specific checks. If verification fails, stop — do not dispatch gate agents. Optional: `bash scripts/gate-plan.sh` to list required gate nodes.
 
 ## Step 1 — Compute triggered nodes
 
-From the changed path set, classify flags the same way as `scripts/check-pr-ship-gates.sh` (`is_code_change`, `is_library`, `is_sensitive`). Then include nodes per [gate-dag.md](../references/gate-dag.md) § Gate nodes:
+From the changed path set, run `bash scripts/gate-plan.sh` (or classify flags the same way as `scripts/lib/gate-plan-lib.sh`). Include nodes per [gate-dag.md](../references/gate-dag.md) § Gate nodes:
 
 | Node | Include when |
 |---|---|

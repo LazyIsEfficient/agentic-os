@@ -12,6 +12,8 @@ BODY_OK=$'- [x] code-reviewer — dispatched\n- [x] security-reviewer — dispat
 BODY_NO_SEC='- [x] code-reviewer\n- [x] data-model-documenter'
 BODY_NO_DATA='- [x] code-reviewer\n- [x] security-reviewer'
 BODY_LIB_OK=$'- [x] code-reviewer\n- [x] security-reviewer\n- [x] data-model-documenter\n- [x] library-reviewer'
+BODY_DATA_MODEL_OK=$'- [x] code-reviewer\n- [x] security-reviewer\n- [x] data-model-documenter\n- [x] data-model-verifier'
+BODY_SENSITIVE_OK=$'- [x] security-reviewer\n- [x] data-model-documenter'
 
 if SHIP_GATES_CHANGED_FILES="install.sh" PR_BODY="$BODY_OK" bash "$GATE"; then
   pass "code change + all three agents"
@@ -49,16 +51,28 @@ else
   pass "skill SKILL.md library-only trips"
 fi
 
-if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY="$BODY_OK" bash "$GATE"; then
-  pass "DATA_MODEL.md-only requires all agents"
+if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY="$BODY_DATA_MODEL_OK" bash "$GATE"; then
+  pass "DATA_MODEL.md requires verifier checkbox"
 else
-  fail "DATA_MODEL.md-only requires all agents"
+  fail "DATA_MODEL.md requires verifier checkbox"
+fi
+
+if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY="$BODY_OK" bash "$GATE" 2>/dev/null; then
+  fail "DATA_MODEL.md missing verifier should trip"
+else
+  pass "DATA_MODEL.md missing verifier trips"
 fi
 
 if SHIP_GATES_CHANGED_FILES="DATA_MODEL.md" PR_BODY='- [x] not-data-model-documenter' bash "$GATE" 2>/dev/null; then
   fail "negated checkbox label should trip"
 else
   pass "negated checkbox label trips"
+fi
+
+if SHIP_GATES_CHANGED_FILES="SECURITY.md" PR_BODY="$BODY_SENSITIVE_OK" bash "$GATE"; then
+  pass "SECURITY.md sensitive-only skips code-reviewer"
+else
+  fail "SECURITY.md sensitive-only skips code-reviewer"
 fi
 
 if SHIP_GATES_CHANGED_FILES=".claude/skills/session-state/SKILL.md" PR_BODY="$BODY_NO_SEC" bash "$GATE" 2>/dev/null; then

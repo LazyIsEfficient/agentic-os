@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes (code + security + data-model always).
+# check-pr-ship-gates.sh — Tier 0 PR gate: reviewer checkboxes via gate-plan-lib.sh.
 #
 # Usage (CI — pull_request):
 #   PR_BODY set, BASE_SHA and HEAD_SHA set (or GITHUB_EVENT_PATH for file list)
@@ -12,6 +12,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/gate-plan-lib.sh
+source "$REPO_ROOT/scripts/lib/gate-plan-lib.sh"
 
 BASE_SHA="${BASE_SHA:-}"
 HEAD_SHA="${HEAD_SHA:-}"
@@ -46,43 +48,16 @@ if [[ -z "$changed" ]]; then
   exit 0
 fi
 
-# Code change = anything outside pure doc-only allowlist (still requires code-reviewer).
-is_code_change=false
-is_sensitive=false
-is_library=false
+gate_plan_run "$changed"
 
-while IFS= read -r f; do
-  [[ -n "$f" ]] || continue
-  case "$f" in
-    .claude/skills/*|.claude/agents/*) is_library=true ;;
-  esac
-  case "$f" in
-    install.sh|install.ps1|install-cursor.sh|install-cursor.ps1) is_sensitive=true ;;
-    assets/consumer/*) is_sensitive=true ;;
-    .claude/hooks/*|.cursor/hooks/*) is_sensitive=true ;;
-    SECURITY.md) is_sensitive=true ;;
-    scripts/lib/install-hook-settings.sh) is_sensitive=true ;;
-    scripts/validate.sh|scripts/validate-test.sh) is_sensitive=true ;;
-    scripts/release.sh) is_sensitive=true ;;
-    .github/workflows/*) is_sensitive=true ;;
-  esac
-  case "$f" in
-    DATA_MODEL.md) is_code_change=true; continue ;;
-    *.md|*.mdc|LICENSE|NOTICE) continue ;;
-    docs/*) continue ;;
-    eval/metrics/runs/*) continue ;;
-    .claude/memory/*) continue ;;
-  esac
-  is_code_change=true
-done <<< "$changed"
-
-if [[ "$is_code_change" == false && "$is_library" == false && "$is_sensitive" == false ]]; then
+if [[ "$GATE_SKIP_DOCS_ONLY" == true ]]; then
   echo "check-pr-ship-gates: docs-only diff — OK"
   exit 0
 fi
 
 if [[ -z "$PR_BODY" ]]; then
   echo "FAIL [ship-gates]: code change requires PR body with reviewer checkboxes (PR_BODY unset)" >&2
+  echo "Run: bash scripts/gate-plan.sh — required checkboxes listed under checkboxes=" >&2
   exit 1
 fi
 
@@ -94,25 +69,22 @@ body_check() {
 fail() {
   echo "FAIL [ship-gates]: $1" >&2
   echo "Edit the PR description — template: .github/pull_request_template.md" >&2
+  echo "Planner: bash scripts/gate-plan.sh (SHIP_GATES_CHANGED_FILES=…)" >&2
   exit 1
 }
 
-if [[ "$is_code_change" == true || "$is_library" == true ]] && ! body_check 'code-reviewer'; then
-  fail "check [x] code-reviewer (readonly Task dispatched; Tier 0/1 findings addressed)"
-fi
+for agent in "${GATE_CHECKBOXES[@]}"; do
+  if ! body_check "$agent"; then
+    case "$agent" in
+      code-reviewer) fail "check [x] code-reviewer (readonly Task dispatched; Tier 0/1 findings addressed)" ;;
+      security-reviewer) fail "check [x] security-reviewer (readonly Task dispatched before marking done)" ;;
+      data-model-documenter) fail "check [x] data-model-documenter (Task dispatched; updates DATA_MODEL.md at project root)" ;;
+      data-model-verifier) fail "check [x] data-model-verifier (Wave 2 after DATA_MODEL.md changes; readonly Task)" ;;
+      library-reviewer) fail "library paths in diff — check [x] library-reviewer" ;;
+      *) fail "check [x] $agent" ;;
+    esac
+  fi
+done
 
-# Any non-docs-only PR requires both reviewers before "complete" (orchestrator + CI ratchet).
-if [[ "$is_code_change" == true || "$is_library" == true || "$is_sensitive" == true ]] && ! body_check 'security-reviewer'; then
-  fail "check [x] security-reviewer (readonly Task dispatched with code-reviewer before marking done)"
-fi
-
-if [[ "$is_code_change" == true || "$is_library" == true || "$is_sensitive" == true ]] && ! body_check 'data-model-documenter'; then
-  fail "check [x] data-model-documenter (Task dispatched with reviewers; updates DATA_MODEL.md at project root)"
-fi
-
-if [[ "$is_library" == true ]] && ! body_check 'library-reviewer'; then
-  fail "library paths in diff — check [x] library-reviewer"
-fi
-
-echo "check-pr-ship-gates: OK (code=$is_code_change sensitive=$is_sensitive library=$is_library)"
+echo "check-pr-ship-gates: OK (code=$GATE_IS_CODE_CHANGE sensitive=$GATE_IS_SENSITIVE library=$GATE_IS_LIBRARY data_model=$GATE_HAS_DATA_MODEL)"
 exit 0
