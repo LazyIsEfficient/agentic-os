@@ -416,6 +416,26 @@ else
   report "case 32 install-paths (dual-path fallback chain)" fail "see scripts/install-paths-test.sh output"
 fi
 
+# ── Case 33: rules-parity — a .cursor rule with no .claude twin ────────────────
+# Invariant 10 (structural name-set parity). The dual-maintained doctrine files
+# must carry the SAME SET of names across .claude/rules/*.md and .cursor/rules/*.mdc.
+# Seed an orphan .cursor/rules/extra.mdc (frontmatter-valid, so it does NOT trip
+# cursor-rules-frontmatter) with no .claude/rules/extra.md twin, and assert the
+# failure attributes to the rules-parity tag specifically.
+c33="$(make_copy)"
+mkdir -p "$c33/.cursor/rules"
+cat > "$c33/.cursor/rules/extra.mdc" <<'EOF'
+---
+description: orphan cursor rule with no .claude twin
+alwaysApply: true
+---
+
+## Extra
+
+Orphan rule present only in the Cursor tree.
+EOF
+assert_trips "case 33 rules-parity (cursor rule missing claude twin)" "$c33" rules-parity
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."
