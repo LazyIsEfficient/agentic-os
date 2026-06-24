@@ -35,4 +35,5 @@ jobs:
         run: bash scripts/check-pr-ship-gates.sh
       - run: bash scripts/gate-plan-test.sh
       - run: bash scripts/extract-data-model-test.sh
+      - run: bash scripts/implementation-close-test.sh
       - run: bash scripts/check-pr-ship-gates-test.sh

@@ -263,7 +263,7 @@ To make subagent dispatch default globally (match Claude Code's orchestrator mod
 You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
 For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
 work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation beyond a trivial diff, the **`engineer`** agent dispatches `data-model-documenter` at session close before returning; the orchestrator then spawns `code-reviewer` and `security-reviewer` in Wave 1 (`readonly: true`). See gate-dag.md § Implementation close. For research needing more than 2–3 file reads, use an
+After implementation beyond a trivial diff, the **implementation agent** (`engineer`, `rust-engineer`, `web3-engineer`, `godot-engineer`, `devops-engineer`, `phaser-engineer`) dispatches `data-model-documenter` at session close before returning; the orchestrator then spawns `code-reviewer` and `security-reviewer` in Wave 1 (`readonly: true`). See implementation-close.md. For research needing more than 2–3 file reads, use an
 `explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
