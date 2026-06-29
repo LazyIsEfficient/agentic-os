@@ -32,6 +32,20 @@ hasnt(){ printf '%s' "$2" | grep -q -- "$3" && no "$1" "unexpected: $3" || ok "$
 bash "$SS" init >/dev/null
 [ -f "$T/SESSION-STATE.md" ] && ok "init creates live doc from template" || no "init" "no file"
 
+orch="$(mktemp -d)"
+mkdir -p "$orch/.claude/skills/session-state/scripts" "$orch/.claude/skills/session-state/assets"
+cp "$SKILL_SRC/scripts/session-state.sh" "$orch/.claude/skills/session-state/scripts/"
+cp "$SKILL_SRC/assets/SESSION-STATE.template.md" "$orch/.claude/skills/session-state/assets/"
+export CLAUDE_PROJECT_DIR="$orch"
+bash "$orch/.claude/skills/session-state/scripts/session-state.sh" init-orchestrator >/dev/null
+orch_live="$(cat "$orch/SESSION-STATE.md")"
+has "init-orchestrator adds dispatch constraint" "$orch_live" "dispatch Task(engineer"
+has "init-orchestrator adds reviewer constraint" "$orch_live" "Task(code-reviewer)"
+bash "$orch/.claude/skills/session-state/scripts/session-state.sh" init-orchestrator 2>&1 | grep -q "already present" \
+  && ok "init-orchestrator is idempotent" || no "init-orchestrator idempotent" "second run did not short-circuit"
+rm -rf "$orch"
+export CLAUDE_PROJECT_DIR="$T"
+
 # Fallback resolution: with NO CLAUDE_PROJECT_DIR (a consumer invoking the writer
 # directly), ROOT must resolve four-up from the script to the project root, AND the
 # template must still be found script-relative. Run in a fresh tree so it can't

@@ -7,6 +7,7 @@
 #
 # Usage:
 #   session-state.sh init                  # create SESSION-STATE.md from template
+#   session-state.sh init-orchestrator     # init + default Cursor orchestrator constraints
 #   session-state.sh show                  # print current state
 #   session-state.sh constraint "<text>"   # add a hard constraint
 #   session-state.sh decision   "<text>"   # add a dated settled decision
@@ -25,7 +26,7 @@ ROOT="${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." &
 LIVE="$ROOT/SESSION-STATE.md"
 TPL="$SELF_DIR/../assets/SESSION-STATE.template.md"
 
-usage() { echo "usage: session-state.sh {init|show|constraint|decision|infra|thread|drop} [<text>]" >&2; exit 2; }
+usage() { echo "usage: session-state.sh {init|init-orchestrator|show|constraint|decision|infra|thread|drop} [<text>]" >&2; exit 2; }
 
 ensure() {
   if [ ! -f "$LIVE" ]; then
@@ -65,6 +66,18 @@ drop_matching() {  # $1 = literal substring; remove bullet lines containing it
 cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 case "$cmd" in
   init) ensure; echo "initialized $LIVE" ;;
+  init-orchestrator)
+    ensure
+    if grep -qF "Orchestrator-only:" "$LIVE"; then
+      echo "orchestrator constraints already present in $LIVE"
+      exit 0
+    fi
+    append_under "Constraints" "- Orchestrator-only: main thread must not Write/StrReplace/Delete/EditNotebook for implementation — dispatch Task(engineer|domain specialist)"
+    append_under "Constraints" "- Research >2 file reads/greps on main thread forbidden — dispatch Task(explore|generalPurpose)"
+    append_under "Constraints" "- Skills: identify on main thread; run multi-step skill workflows only in dispatched subagents (brief with skill procedure)"
+    append_under "Constraints" "- Complete = Task(code-reviewer) + Task(security-reviewer) parallel readonly on current diff before saying done; library-reviewer when skills/agents change"
+    echo "initialized $LIVE with orchestrator constraints"
+    ;;
   show) ensure; cat "$LIVE" ;;
   drop) [ $# -ge 1 ] || usage; drop_matching "$*" ;;
   constraint) [ $# -ge 1 ] || usage; append_under "Constraints" "- $*" ;;

@@ -7,6 +7,18 @@ alwaysApply: true
 
 This repo's operating model matches Claude Code: **you decompose, brief, review, and integrate; subagents do the work.** The main thread is for orchestration, not implementation.
 
+**Compliance tier:** this rule is **Tier 2** (steer) — it does not hard-block inline work. For per-turn reinforcement, use session-state orchestrator constraints (`session-state.sh init-orchestrator`; see [cursor-orchestrator-gap.md](../../docs/cursor-orchestrator-gap.md)). Measure sessions with `eval/metrics/session-metrics-cursor.mjs` (`orchestration_signals`).
+
+### Main-thread allowlist (Cursor orchestrator)
+
+**Allowed on main thread:** `Task`, `TodoWrite` (planning only), `AskQuestion`, `SwitchMode`, routing reads/searches (at most **2–3** `Read`/`Grep`/`Glob`/`SemanticSearch` calls to pick a specialist), orchestration `Shell` (e.g. `git status`).
+
+**Forbidden on main thread** for non-trivial work: `Write`, `StrReplace`, `Delete`, `EditNotebook`, multi-step implementation, debugging loops, and research beyond the routing budget. **Exception:** trivial one-line typo/comment fixes — say so explicitly. If you already used a forbidden edit tool for non-trivial work, **stop** and redo via `Task`.
+
+### Skills + dispatch (resolves User Rules conflict)
+
+Identifying a skill does **not** mean executing it on the main thread. Pattern: (1) check `~/.cursor/skills/` (or project `.claude/skills/`) for a match; (2) optional single `Read` of `SKILL.md` for routing; (3) dispatch `Task` with the skill procedure in the subagent brief; (4) integrate the subagent summary on the main thread.
+
 ### Cursor `Task` tool — prerequisites (not Claude's `Agent` tool)
 
 | | Cursor (this IDE) | Claude Code |

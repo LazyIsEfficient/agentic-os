@@ -22,7 +22,7 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 | **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
 | **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | Claude Code: `/skill-new`, `/agent-new`, `/state`. Cursor: no slash commands ship; use the `session-state` skill instead of `/state`. |
 | **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
-| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use `.cursor/rules/*.mdc` (Cursor) or `.claude/rules/` via `CLAUDE.md` (Claude Code). Not copied by the global installer. |
+| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | **Cursor:** copied to `~/.cursor/rules/` by `install-cursor.sh`; also available project-local in `.cursor/rules/*.mdc` when you clone this repo. **Claude Code:** clone into a project for `.claude/rules/` via `CLAUDE.md` (not copied by `install.sh`). |
 
 ### Supported platforms
 
@@ -125,7 +125,7 @@ Both remote one-liners install a **pinned release** and verify its SHA-256 befor
 
 ### Cursor
 
-Install skills, agents, and **active** hook registration into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
+Install skills, agents, **operating rules** (`.mdc`), and **active** hook registration into `~/.cursor/`. Shared skill/agent content is sourced from the repo's `.claude/` tree; Cursor-specific rules and hooks ship from `.cursor/rules/` and `.cursor/hooks/`.
 
 **macOS / Linux — one-liner (no clone required):**
 
@@ -251,8 +251,9 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 | `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
 | `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
 | `~/.cursor/hooks/` | Cursor-native hook scripts — registered globally in `~/.cursor/hooks.json` on install |
+| `~/.cursor/rules/` | Operating doctrine (`.mdc`, `alwaysApply: true`) — subagent dispatch, grounding, review tiers, etc. |
 
-> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
+> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/`, production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded), and `.mdc` rules from `.cursor/rules/` into `~/.cursor/rules/`. Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. `AGENTS.md`, `CURSOR.md`, and `.claude/rules/` remain repo-local.
 
 ### Claude Code (`install.sh`)
 
@@ -343,13 +344,35 @@ opt-in rather than default.
 
 ### Configure Cursor rules + skill discipline
 
-Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
+Operating doctrine ships to `~/.cursor/rules/` on install (`alwaysApply: true` `.mdc` files). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are ignored. When this repo is the workspace, project rules under `.cursor/rules/` and `AGENTS.md` also load.
 
-`AGENTS.md` at the repo root is auto-loaded by Cursor (project-root plain markdown). Full doctrine: `.cursor/rules/*.mdc` (`alwaysApply: true`). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
+**Orchestrator gap:** rules steer dispatch but do not enforce it (Tier 2). See [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md) for session-state constraints, User Rules, and transcript measurement.
 
-For orchestrator behavior **across all projects**, paste the Skills + Subagents blocks below into **Cursor Settings → Rules → User Rules** (also printed by `install-cursor.sh` on success).
+For **default skill invocation + orchestrator dispatch** across projects, add **both** blocks below to **Cursor Settings → Rules → User Rules** (`subagent-dispatch.mdc` alone is often insufficient — models may load skills inline instead of dispatching).
 
-To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
+**Skills + orchestration** (add to **Cursor Settings → Rules → User Rules**):
+
+```markdown
+## Skills
+
+You have a library of skills installed at `~/.cursor/skills/`. Before responding to any task,
+check whether a skill applies — even if the task seems simple.
+
+If there is even a 1% chance a skill might apply, identify it first. Do NOT run multi-step
+skill workflows on the main thread: brief a subagent (`Task`) with the skill procedure instead.
+
+## Orchestration (Cursor)
+
+You are an orchestrator. Use Agent mode and the `Task` tool for non-trivial work.
+- Implementation → `Task(engineer)` or domain specialist — not main-thread Write/StrReplace.
+- Research beyond 2–3 reads/greps → `Task(explore)` or `generalPurpose`.
+- Before saying done on code changes → `Task(code-reviewer)` + `Task(security-reviewer)` in parallel (readonly).
+- Fan out independent `Task` calls in one message; sequential dispatch when parallelizable is a bug.
+```
+
+For long sessions, run `session-state.sh init-orchestrator` (see [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md)) so constraints re-inject every turn.
+
+Legacy **skills-only** block (use the combined block above instead):
 
 ```markdown
 ## Skills
@@ -358,18 +381,6 @@ You have a library of skills installed at `~/.cursor/skills/`. Before responding
 check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
 
 If there is even a 1% chance a skill might apply, load the skill first.
-```
-
-To make subagent dispatch default globally (match Claude Code's orchestrator model), add this block to **User Rules** as well:
-
-```markdown
-## Subagents
-
-You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
-For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
-work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation beyond a trivial diff, the **implementation agent** (`engineer`, `rust-engineer`, `web3-engineer`, `godot-engineer`, `devops-engineer`, `phaser-engineer`) dispatches `data-model-documenter` at session close before returning; the orchestrator then spawns `code-reviewer` and `security-reviewer` in Wave 1 (`readonly: true`). See implementation-close.md. For research needing more than 2–3 file reads, use an
-`explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
 Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files (parallel to `CLAUDE.md`).
@@ -475,7 +486,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 └── workflows/            # multi-agent orchestration scripts
 ```
 
-> Installers copy full `skills/`, `agents/`, and `hooks/` directories (commands are file-allowlisted on Claude Code only). `CLAUDE.md`, `CURSOR.md`, and `rules/` are repo-local and never installed.
+> **Cursor** (`install-cursor.sh`): copies `skills/`, `agents/`, `hooks/`, and `.cursor/rules/` (as `~/.cursor/rules/`). **Claude Code** (`install.sh`): copies `skills/`, `agents/`, `hooks/`, and three commands. `CLAUDE.md`, `CURSOR.md`, and `.claude/rules/` are repo-local and never installed by either global installer.
 
 ---
 

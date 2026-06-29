@@ -13,6 +13,7 @@ The **session-state** hooks (inject, digest, checkpoint) and **survey-before-act
 | Install library | `curl …/install.sh \| bash` | `curl …/install-cursor.sh \| bash` |
 | `jq` for JSON hooks | optional (inject/digest use plain stdout) | **required** for `sessionStart` / `beforeSubmitPrompt` |
 | Initialize session state | `/state init` | `bash .claude/skills/session-state/scripts/session-state.sh init` (or global copy under `~/.cursor/skills/…`) |
+| Orchestrator constraints (Cursor) | — | `bash …/session-state.sh init-orchestrator` — [cursor-orchestrator-gap.md](cursor-orchestrator-gap.md) |
 | Gitignore live doc | Ensure `SESSION-STATE.md` is gitignored (never commit — injected as DATA; [SECURITY.md](../SECURITY.md) rule 7) | same |
 | Register hooks | auto on install (`~/.claude/settings.json`) | auto on install (`~/.cursor/hooks.json`) |
 

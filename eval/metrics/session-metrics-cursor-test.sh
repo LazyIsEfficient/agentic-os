@@ -23,6 +23,30 @@ eq("turn_ended + user lines skipped without error", r.skipped_lines, 0);
 process.exit(fail);
 ' || exit 1
 
+collapse="$(node "$DIR/session-metrics-cursor.mjs" "$DIR/fixtures/orchestrator-collapse-cursor-transcript.jsonl" --json)"
+printf '%s' "$collapse" | node -e '
+const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+let fail = 0;
+const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console.log(`FAIL  ${n}: expected ${b}, got ${a}`); fail = 1; } };
+const o = r.orchestration_signals;
+eq("collapse transcript: task_dispatches", o.task_dispatches, 0);
+eq("collapse transcript: main_thread_edit_tools", o.main_thread_edit_tools, 3);
+eq("collapse transcript: orchestrator_collapse", o.orchestrator_collapse, true);
+process.exit(fail);
+' || exit 1
+
+healthy="$(node "$DIR/session-metrics-cursor.mjs" "$DIR/fixtures/orchestrator-healthy-cursor-transcript.jsonl" --json)"
+printf '%s' "$healthy" | node -e '
+const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+let fail = 0;
+const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console.log(`FAIL  ${n}: expected ${b}, got ${a}`); fail = 1; } };
+const o = r.orchestration_signals;
+eq("healthy transcript: task_dispatches", o.task_dispatches, 1);
+eq("healthy transcript: main_thread_edit_tools", o.main_thread_edit_tools, 0);
+eq("healthy transcript: orchestrator_collapse", o.orchestrator_collapse, false);
+process.exit(fail);
+' || exit 1
+
 nested="$(node "$DIR/session-metrics-cursor.mjs" "$DIR/fixtures/nested-input-cursor-transcript.jsonl" --json)"
 printf '%s' "$nested" | node -e '
 const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
