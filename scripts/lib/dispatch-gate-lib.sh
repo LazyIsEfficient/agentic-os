@@ -67,7 +67,10 @@ dispatch_gate_is_enabled() {
   fi
   local cfg
   cfg="$(dispatch_gate_load_json_file "$(dispatch_gate_config_path)")" || return 1
-  [ "$(printf '%s' "$cfg" | jq -r '.enabled // true')" = "true" ]
+  # NOTE: do NOT use `.enabled // true` — jq's `//` returns the RHS when the LHS
+  # is null OR false, so `enabled:false` would wrongly read as true and the gate
+  # could never be disabled. Treat only an explicit `false` as disabled.
+  [ "$(printf '%s' "$cfg" | jq -r 'if .enabled == false then "off" else "on" end')" = "on" ]
 }
 
 dispatch_gate_init_ledger() {

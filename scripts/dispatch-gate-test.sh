@@ -20,6 +20,20 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 dispatch_gate_require_jq || fail "jq required"
 
+# dispatch-gate test (enabled switch): guard the jq `.enabled // true` footgun —
+# `false // true` evaluates to `true`, which would leave the gate armed even when
+# the operator sets `enabled:false`. Only an explicit `false` may disable it; a
+# missing key defaults to enabled.
+GATE_CFG="$TMP/.cursor/dispatch-gate.json"
+jq '.enabled = false' "$GATE_CFG" > "$GATE_CFG.tmp" && mv "$GATE_CFG.tmp" "$GATE_CFG"
+if dispatch_gate_is_enabled; then fail "enabled:false must disable the gate (jq // footgun)"; fi
+jq '.enabled = true' "$GATE_CFG" > "$GATE_CFG.tmp" && mv "$GATE_CFG.tmp" "$GATE_CFG"
+dispatch_gate_is_enabled || fail "enabled:true must enable the gate"
+jq 'del(.enabled)' "$GATE_CFG" > "$GATE_CFG.tmp" && mv "$GATE_CFG.tmp" "$GATE_CFG"
+dispatch_gate_is_enabled || fail "missing enabled key must default to enabled"
+cp "$REPO/.cursor/dispatch-gate.json" "$GATE_CFG"
+pass "enabled:false disables the gate (jq // footgun closed)"
+
 dispatch_gate_init_ledger "test-conv"
 ledger="$(dispatch_gate_read_ledger "test-conv")"
 [ "$(printf '%s' "$ledger" | jq -r '.research_reads')" = "0" ] || fail "ledger init research_reads"
