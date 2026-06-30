@@ -61,9 +61,10 @@ if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; th
   exit 1
 fi
 
-# Reproducible payload: .claude + validate.sh + production .cursor/hooks only
-# (exclude *-probe.sh spike fixtures — same allowlist as install-cursor.sh).
-ARCHIVE_PATHS=(.claude assets/consumer scripts/validate.sh scripts/lib/install-hook-settings.sh docs/awareness-harness-activation.md)
+# Reproducible payload: .claude + validate.sh + production .cursor/hooks + the
+# docs files referenced by shipped skills/rules (exclude *-probe.sh spike
+# fixtures — same allowlist as install-cursor.sh).
+ARCHIVE_PATHS=(.claude assets/consumer scripts/validate.sh scripts/lib/install-hook-settings.sh docs/awareness-harness-activation.md docs/cursor-orchestrator-gap.md docs/dispatch-enforcement.md)
 while IFS= read -r hook; do
   [[ -n "$hook" ]] && ARCHIVE_PATHS+=("$hook")
 done < <(git -C "$ROOT" ls-tree -r --name-only "$REF^{tree}" .cursor/hooks 2>/dev/null \
