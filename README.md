@@ -347,9 +347,33 @@ Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatte
 
 `AGENTS.md` at the repo root is auto-loaded by Cursor (project-root plain markdown). Full doctrine: `.cursor/rules/*.mdc` (`alwaysApply: true`). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
 
-For orchestrator behavior **across all projects**, paste the Skills + Subagents blocks below into **Cursor Settings → Rules → User Rules** (also printed by `install-cursor.sh` on success).
+**Orchestrator gap:** rules steer dispatch but do not enforce it on their own (Tier 2). The Tier 0/1 dispatch-gate hooks ([docs/dispatch-enforcement.md](docs/dispatch-enforcement.md)) enforce it mechanically but ship **disabled** by default. See [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md) for session-state constraints, User Rules, and transcript measurement.
 
-To make installed skills default-invoked globally, add to **Cursor Settings → Rules → User Rules**:
+For **default skill invocation + orchestrator dispatch** across projects, add **both** blocks below to **Cursor Settings → Rules → User Rules** (`subagent-dispatch.mdc` alone is often insufficient — models may load skills inline instead of dispatching).
+
+**Skills + orchestration** (add to **Cursor Settings → Rules → User Rules**):
+
+```markdown
+## Skills
+
+You have a library of skills installed at `~/.cursor/skills/`. Before responding to any task,
+check whether a skill applies — even if the task seems simple.
+
+If there is even a 1% chance a skill might apply, identify it first. Do NOT run multi-step
+skill workflows on the main thread: brief a subagent (`Task`) with the skill procedure instead.
+
+## Orchestration (Cursor)
+
+You are an orchestrator. Use Agent mode and the `Task` tool for non-trivial work.
+- Implementation → `Task(engineer)` or domain specialist — not main-thread Write/StrReplace.
+- Research beyond 2–3 reads/greps → `Task(explore)` or `generalPurpose`.
+- Before saying done on code changes → `Task(code-reviewer)` + `Task(security-reviewer)` in parallel (readonly).
+- Fan out independent `Task` calls in one message; sequential dispatch when parallelizable is a bug.
+```
+
+For long sessions, run `session-state.sh init-orchestrator` (see [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md)) so constraints re-inject every turn.
+
+Legacy **skills-only** block (use the combined block above instead):
 
 ```markdown
 ## Skills
@@ -358,18 +382,6 @@ You have a library of skills installed at `~/.cursor/skills/`. Before responding
 check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
 
 If there is even a 1% chance a skill might apply, load the skill first.
-```
-
-To make subagent dispatch default globally (match Claude Code's orchestrator model), add this block to **User Rules** as well:
-
-```markdown
-## Subagents
-
-You are the orchestrator — subagents do the work. Agent definitions live at `~/.cursor/agents/`.
-For any non-trivial task, dispatch via the `Task` tool in Agent mode instead of doing multi-step
-work on the main thread. Fan out independent tasks in parallel (multiple `Task` calls in one message).
-After implementation beyond a trivial diff, the **implementation agent** (`engineer`, `rust-engineer`, `web3-engineer`, `godot-engineer`, `devops-engineer`, `phaser-engineer`) dispatches `data-model-documenter` at session close before returning; the orchestrator then spawns `code-reviewer` and `security-reviewer` in Wave 1 (`readonly: true`). See implementation-close.md. For research needing more than 2–3 file reads, use an
-`explore` subagent. For library edits under skills/agents, also spawn `library-reviewer`.
 ```
 
 Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files (parallel to `CLAUDE.md`).

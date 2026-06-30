@@ -39,22 +39,8 @@ SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
 In Claude Code, use the `/state` command (`.claude/commands/state.md`), which invokes the writer above:
 
 ```
-bash "$SS" init           # or: show
-bash "$SS" constraint "<entry text>"   # constraint | decision | infra | thread
-```
-
-Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `show`. If the type is empty or invalid, list the valid types — do not guess. `init` and `show` take no text; the four entry types take the text as one quoted argument.
-
-### Cursor — skill-triggered workflow (no `/state` command)
-
-Cursor has no `/state` slash command. When this skill is relevant (triggers below, or the user asks to remember something for the session), **read this skill and run the writer via Bash**:
-
-1. Read `$1` as the entry type (`constraint`, `decision`, `infra`, `thread`, `init`, `show`). If empty or invalid, STOP and list the valid types.
-2. Remaining args are entry text (required for the four entry types).
-3. Run:
-
-```
 bash "$SS" init
+bash "$SS" init-orchestrator   # init + default Cursor orchestrator constraints (idempotent)
 bash "$SS" show
 bash "$SS" constraint "<entry text>"
 bash "$SS" decision   "<entry text>"
@@ -62,7 +48,29 @@ bash "$SS" infra      "<entry text>"
 bash "$SS" thread     "<entry text>"
 ```
 
-4. Report the single line the script prints (or, for `show`/`init`, the command output).
+Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`. If the type is empty or invalid, list the valid types — do not guess. `init`, `init-orchestrator`, and `show` take no text; the four entry types take the text as one quoted argument.
+
+**Cursor orchestrator mode:** run `init-orchestrator` at session start so dispatch constraints re-inject every turn — see [cursor-orchestrator-gap.md](../../../docs/cursor-orchestrator-gap.md).
+
+### Cursor — skill-triggered workflow (no `/state` command)
+
+Cursor has no `/state` slash command. When this skill is relevant (triggers below, or the user asks to remember something for the session), **read this skill and run the writer via Bash**:
+
+1. Read `$1` as the entry type (`constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`). If empty or invalid, STOP and list the valid types.
+2. Remaining args are entry text (required for the four entry types).
+3. Run:
+
+```
+bash "$SS" init
+bash "$SS" init-orchestrator
+bash "$SS" show
+bash "$SS" constraint "<entry text>"
+bash "$SS" decision   "<entry text>"
+bash "$SS" infra      "<entry text>"
+bash "$SS" thread     "<entry text>"
+```
+
+4. Report the single line the script prints (or, for `show`/`init`/`init-orchestrator`, the command output).
 
 Keep entries terse. For `infra`, lead with the service name as the first word — e.g. `"rabbitmq broker on :5552 (docker-compose) — reuse"` — the writer stores `[surveyed:rabbitmq] …` so survey guards suppress only when a command names that exact surveyed subject.
 

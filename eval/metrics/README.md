@@ -41,6 +41,8 @@ Cursor agent sessions are captured as JSONL under:
 
 (subagent runs: `.../agent-transcripts/<parent-id>/subagents/<subagent-id>.jsonl`)
 
+**Orchestration signals** (`orchestration_signals` in JSON output): `task_dispatches`, `main_thread_edit_tools` (`Write`/`StrReplace`/`Delete`/`EditNotebook` on the **parent** transcript), and `orchestrator_collapse` (`true` when zero `Task` but edit tools present). Use to audit Cursor's orchestrator gap — see [cursor-orchestrator-gap.md](../../docs/cursor-orchestrator-gap.md).
+
 Each line is a JSON object. Assistant records use `role:"assistant"` with
 `message.content[]` blocks (`type:"text"`, `type:"tool_use"`). Tool calls expose
 `name` and `input` on the block; **Read** uses `input.path` (Claude Code uses
