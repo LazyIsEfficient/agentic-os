@@ -2,23 +2,36 @@
   "version": 1,
   "hooks": {
     "sessionStart": [
-      {
-        "command": ".cursor/hooks/session-state-inject.sh"
-      }
+      { "command": ".cursor/hooks/session-state-inject.sh" },
+      { "command": ".cursor/hooks/dispatch-gate-session-init.sh" }
     ],
     "beforeSubmitPrompt": [
-      {
-        "command": ".cursor/hooks/session-state-digest.sh"
-      }
+      { "command": ".cursor/hooks/session-state-digest.sh" }
     ],
     "preCompact": [
-      {
-        "command": ".cursor/hooks/session-state-checkpoint.sh"
-      }
+      { "command": ".cursor/hooks/session-state-checkpoint.sh" }
     ],
     "beforeShellExecution": [
       { "command": ".cursor/hooks/block-bad-bash.sh" },
       { "command": ".cursor/hooks/survey-before-act.sh" }
+    ],
+    "preToolUse": [
+      { "command": ".cursor/hooks/dispatch-gate-pre-tool.sh", "failClosed": true }
+    ],
+    "postToolUse": [
+      { "command": ".cursor/hooks/dispatch-gate-post-tool.sh" }
+    ],
+    "beforeReadFile": [
+      { "command": ".cursor/hooks/dispatch-gate-before-read.sh", "failClosed": true }
+    ],
+    "afterFileEdit": [
+      { "command": ".cursor/hooks/dispatch-gate-after-file-edit.sh" }
+    ],
+    "subagentStop": [
+      { "command": ".cursor/hooks/dispatch-gate-subagent-stop.sh" }
+    ],
+    "stop": [
+      { "command": ".cursor/hooks/dispatch-gate-stop.sh", "loop_limit": 8, "timeout": 120 }
     ]
   }
 }

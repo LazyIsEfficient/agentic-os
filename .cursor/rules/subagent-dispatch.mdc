@@ -7,6 +7,8 @@ alwaysApply: true
 
 This repo's operating model matches Claude Code: **you decompose, brief, review, and integrate; subagents do the work.** The main thread is for orchestration, not implementation.
 
+**Mechanical enforcement (Tier 0):** these patterns are backed by Cursor hooks that block the main thread when dispatch is skipped (research/impl/stop gates) — see [dispatch-enforcement.md](../../docs/dispatch-enforcement.md).
+
 ### Cursor `Task` tool — prerequisites (not Claude's `Agent` tool)
 
 | | Cursor (this IDE) | Claude Code |

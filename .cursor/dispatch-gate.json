@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "enabled": false,
+  "research_read_threshold": 3,
+  "impl_subagent_types": [
+    "engineer",
+    "godot-engineer",
+    "rust-engineer",
+    "web3-engineer",
+    "devops-engineer",
+    "phaser-engineer"
+  ],
+  "explore_subagent_types": [
+    "explore",
+    "generalPurpose"
+  ],
+  "review_subagent_types": [
+    "code-reviewer",
+    "security-reviewer",
+    "library-reviewer",
+    "data-model-verifier",
+    "bugbot",
+    "security-review"
+  ],
+  "documenter_subagent_types": [
+    "data-model-documenter"
+  ],
+  "write_tools": [
+    "Write",
+    "StrReplace",
+    "Delete"
+  ],
+  "research_tools": [
+    "Read",
+    "Grep",
+    "Glob",
+    "SemanticSearch"
+  ],
+  "code_path_prefixes": [
+    ".claude/skills/",
+    ".claude/agents/",
+    ".claude/commands/",
+    ".claude/workflows/",
+    "scripts/"
+  ],
+  "harness_exempt_prefixes": [
+    ".cursor/hooks/",
+    ".cursor/dispatch-gate.json",
+    ".cursor/hooks.json",
+    "scripts/lib/dispatch-gate",
+    "scripts/dispatch-gate",
+    "docs/dispatch-enforcement.md",
+    "assets/consumer/cursor-hooks.json",
+    "SESSION-STATE.md",
+    ".cursor/dispatch-ledger.json"
+  ],
+  "stop_hook_enabled": true,
+  "enforce_impl_gate": true,
+  "enforce_research_gate": true
+}

@@ -51,3 +51,9 @@ pocs/
 
 .cursor/session-state.checkpoints
 eval/metrics/runs/
+
+# Dispatch enforcement — per-session ledger, advisory lock dir, and audit log
+# (machine-local runtime state; the policy in .cursor/dispatch-gate.json IS committed).
+.cursor/dispatch-ledger.json
+.cursor/dispatch-ledger.json.lock
+.cursor/dispatch-gate-audit.jsonl
