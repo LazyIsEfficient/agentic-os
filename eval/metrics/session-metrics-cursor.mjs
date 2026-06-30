@@ -39,6 +39,9 @@ export function computeMetrics(path) {
   const seenTurns = new Set();
   const readCounts = new Map();
   const toolCallCounts = new Map();
+  let taskDispatches = 0;
+  let mainThreadEditTools = 0;
+  const EDIT_TOOLS = new Set(['Write', 'StrReplace', 'Delete', 'EditNotebook']);
 
   for (const line of lines) {
     let o;
@@ -66,6 +69,8 @@ export function computeMetrics(path) {
       const inp = c.input || {};
       const key = name + ' ' + JSON.stringify(canonicalize(inp));
       toolCallCounts.set(key, (toolCallCounts.get(key) || 0) + 1);
+      if (name === 'Task') taskDispatches++;
+      if (EDIT_TOOLS.has(name)) mainThreadEditTools++;
       if (name === 'Read') {
         const fp = readPath(inp);
         if (fp) readCounts.set(fp, (readCounts.get(fp) || 0) + 1);
@@ -91,6 +96,12 @@ export function computeMetrics(path) {
       repeat_reads: repeatReads,
       repeated_tool_calls: repeatedToolCalls,
     },
+    orchestration_signals: {
+      task_dispatches: taskDispatches,
+      main_thread_edit_tools: mainThreadEditTools,
+      orchestrator_collapse:
+        taskDispatches === 0 && mainThreadEditTools > 0,
+    },
   };
 }
 
@@ -112,5 +123,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`    files read >1x:       ${r.awareness_signals.repeat_read_files}`);
     for (const rr of r.awareness_signals.repeat_reads.slice(0, 10)) console.log(`      ${rr.reads}x  ${rr.file}`);
     console.log(`    repeated tool calls:  ${r.awareness_signals.repeated_tool_calls}`);
+    const o = r.orchestration_signals;
+    console.log(`  orchestration signals (Tier 0, parent transcript):`);
+    console.log(`    Task dispatches:      ${o.task_dispatches}`);
+    console.log(`    main-thread edits:    ${o.main_thread_edit_tools}`);
+    console.log(`    orchestrator_collapse:${o.orchestrator_collapse ? ' yes' : ' no'}`);
   }
 }

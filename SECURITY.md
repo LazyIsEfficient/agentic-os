@@ -28,6 +28,7 @@ The only barrier in front of a freshly pulled hook is each platform's **workspac
 **Shared shipped hook scripts (active after install):**
   - **Both platforms (ergonomics, not security):** `block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Blocks long `&&` chains and `cd && git` patterns in Claude (exit 2) / Cursor (`permission: deny` message).
   - **Both platforms (awareness harness):** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — Claude plain stdout; Cursor JSON stdout (requires `jq` at runtime for inject/digest). `SESSION-STATE.md` is governed by rule 7 below.
+  - **Cursor only (dispatch enforcement, registered but inert by default):** `dispatch-gate-session-init.sh`, `dispatch-gate-pre-tool.sh`, `dispatch-gate-post-tool.sh`, `dispatch-gate-before-read.sh`, `dispatch-gate-after-file-edit.sh`, `dispatch-gate-subagent-stop.sh`, `dispatch-gate-stop.sh` — registered across Cursor hook events (`sessionStart` / `preToolUse` / `postToolUse` / `beforeReadFile` / `afterFileEdit` / `subagentStop` / `stop`) but **ship disabled** (`.cursor/dispatch-gate.json` `"enabled": false`), so they no-op until explicitly enabled. See [docs/dispatch-enforcement.md](docs/dispatch-enforcement.md).
 
 **To disable:** delete the `hooks` key from `~/.claude/settings.json` or `~/.cursor/hooks.json`, or remove individual hook entries.
 

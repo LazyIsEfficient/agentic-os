@@ -1,0 +1,2 @@
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Implement feature","subagent_type":"engineer","prompt":"Implement X per brief"}}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Integrated engineer summary."}]}}
