@@ -367,7 +367,7 @@ dispatch_gate_research_denied() {
   threshold="$(printf '%s' "$cfg" | jq -r '.research_read_threshold // 3')"
   explore_done="$(printf '%s' "$ledger" | jq -r '.explore_dispatched // false')"
   reads="$(printf '%s' "$ledger" | jq -r '.research_reads // 0')"
-  [ "$(printf '%s' "$cfg" | jq -r '.enforce_research_gate // true')" = "true" ] || return 1
+  [ "$(printf '%s' "$cfg" | jq -r 'if .enforce_research_gate == false then "off" else "on" end')" = "on" ] || return 1
   [ "$explore_done" = "true" ] && return 1
   [ "$reads" -ge "$threshold" ]
 }
@@ -377,7 +377,7 @@ dispatch_gate_impl_denied() {
   local ledger="$2"
   local rel_path="$3"
   local impl_done
-  [ "$(printf '%s' "$cfg" | jq -r '.enforce_impl_gate // true')" = "true" ] || return 1
+  [ "$(printf '%s' "$cfg" | jq -r 'if .enforce_impl_gate == false then "off" else "on" end')" = "on" ] || return 1
   dispatch_gate_path_is_code "$rel_path" "$cfg" || return 1
   impl_done="$(printf '%s' "$ledger" | jq -r '.impl_completed // false')"
   [ "$impl_done" = "true" ] && return 1
@@ -736,7 +736,7 @@ dispatch_gate_handle_stop() {
   [ "$status" = "completed" ] || { dispatch_gate_stop_ok; return 0; }
 
   cfg="$(dispatch_gate_load_json_file "$(dispatch_gate_config_path)")" || { dispatch_gate_stop_ok; return 0; }
-  [ "$(printf '%s' "$cfg" | jq -r '.stop_hook_enabled // true')" = "true" ] || { dispatch_gate_stop_ok; return 0; }
+  [ "$(printf '%s' "$cfg" | jq -r 'if .stop_hook_enabled == false then "off" else "on" end')" = "on" ] || { dispatch_gate_stop_ok; return 0; }
 
   conversation_id="$(printf '%s' "$input" | jq -r '.conversation_id // .session_id // ""')"
   ledger="$(dispatch_gate_read_ledger "$conversation_id")" || { dispatch_gate_stop_ok; return 0; }

@@ -34,6 +34,19 @@ dispatch_gate_is_enabled || fail "missing enabled key must default to enabled"
 cp "$REPO/.cursor/dispatch-gate.json" "$GATE_CFG"
 pass "enabled:false disables the gate (jq // footgun closed)"
 
+# dispatch-gate test (flag footguns): the same `// true` bug affected every
+# default-true flag. With a ledger that WOULD be denied, setting each flag to
+# false must actually disable its gate.
+foot_led='{"research_reads":99,"explore_dispatched":false,"impl_completed":false}'
+foot_base="$(cat "$REPO/.cursor/dispatch-gate.json")"
+if dispatch_gate_research_denied "$(printf '%s' "$foot_base" | jq '.enforce_research_gate=false')" "$foot_led"; then
+  fail "enforce_research_gate:false must disable the research gate"
+fi
+if dispatch_gate_impl_denied "$(printf '%s' "$foot_base" | jq '.enforce_impl_gate=false')" "$foot_led" ".claude/skills/foo/SKILL.md"; then
+  fail "enforce_impl_gate:false must disable the impl gate"
+fi
+pass "enforce_*_gate:false disables gates (jq // footgun closed)"
+
 dispatch_gate_init_ledger "test-conv"
 ledger="$(dispatch_gate_read_ledger "test-conv")"
 [ "$(printf '%s' "$ledger" | jq -r '.research_reads')" = "0" ] || fail "ledger init research_reads"
