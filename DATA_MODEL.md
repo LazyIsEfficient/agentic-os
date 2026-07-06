@@ -4,12 +4,13 @@ Canonical catalog of data contracts that cross a boundary in this repo —
 persistence files, config policy, and the JSON payloads/decisions exchanged
 between Cursor's hook runtime and the dispatch-enforcement library.
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-06
 
 ## Change log
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-07-06 | fix/macos-bash-issue-with-validate-script | No-op: `scripts/validate.sh` changes (ulimit fd bump, check_tombstones grep refactor) are internal control flow only — no data contracts affected. |
 | 2026-06-29 | dispatch-enforcement docs | Initial catalog: dispatch-gate policy config, per-session ledger, audit log, hook event payload, and hook decision shapes. |
 
 ---
