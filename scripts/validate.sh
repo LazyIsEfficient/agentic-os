@@ -38,9 +38,13 @@ set -euo pipefail
 # soft limit is 256 (`launchctl limit maxfiles`), which a real library run
 # (100+ skill/agent/command files) can exceed, dying with "cannot duplicate
 # fd: Too many open files" or "ambiguous redirect". Raise this process's own
-# soft limit before doing any of that work; never touches the caller's shell,
-# and no-ops harmlessly if the hard limit is already lower.
-ulimit -n 4096 2>/dev/null || true
+# soft limit before doing any of that work — but only up, never down: a caller
+# whose shell already has a higher soft limit than 4096 must keep it, since
+# clamping to 4096 would needlessly shrink headroom for its whole process tree.
+# No-ops harmlessly if the hard limit is already lower than 4096.
+if [[ "$(ulimit -Sn)" != "unlimited" && "$(ulimit -Sn)" -lt 4096 ]]; then
+  ulimit -n 4096 2>/dev/null || true
+fi
 
 # Byte-literal matching everywhere. BSD grep/sed (macOS) mis-count offsets around
 # multibyte UTF-8 (e.g. the em-dash in MEMORY.md) under a UTF-8 locale, which
