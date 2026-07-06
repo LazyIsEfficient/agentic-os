@@ -31,6 +31,17 @@
 
 set -euo pipefail
 
+# macOS ships bash 3.2.57 (pre-GPLv3, frozen forever) as /bin/bash, which does
+# not reliably close process-substitution (`<(...)`) pipe fds until the whole
+# script exits — repeated `<(...)` inside loops (one grep per file, across the
+# invariant checks below) leaks fds. macOS's default per-process open-file
+# soft limit is 256 (`launchctl limit maxfiles`), which a real library run
+# (100+ skill/agent/command files) can exceed, dying with "cannot duplicate
+# fd: Too many open files" or "ambiguous redirect". Raise this process's own
+# soft limit before doing any of that work; never touches the caller's shell,
+# and no-ops harmlessly if the hard limit is already lower.
+ulimit -n 4096 2>/dev/null || true
+
 # Byte-literal matching everywhere. BSD grep/sed (macOS) mis-count offsets around
 # multibyte UTF-8 (e.g. the em-dash in MEMORY.md) under a UTF-8 locale, which
 # truncates `grep -oE` captures. C locale makes macOS and Linux behave identically.
@@ -818,11 +829,13 @@ check_tombstones() {
   local f ln
   for dir in skills agents commands; do
     [[ -d "$CLAUDE/$dir" ]] || continue
-    while IFS= read -r f; do
-      while IFS=: read -r ln _; do
-        [[ -n "$ln" ]] && fail tombstone "$f" "reference to a pruned artifact (line $ln) — repoint to a live successor or drop"
-      done < <(grep -nE "$re" "$f" 2>/dev/null)
-    done < <(find "$CLAUDE/$dir" -name '*.md' -type f)
+    # One recursive grep per directory instead of one process substitution per
+    # file: with 50-100+ files per dir, the per-file version stacks that many
+    # `<(...)` pipes, which bash 3.2 (macOS's /bin/bash) doesn't reclaim
+    # promptly — see the ulimit note near the top of this script.
+    while IFS=: read -r f ln _; do
+      [[ -n "$f" && -n "$ln" ]] && fail tombstone "$f" "reference to a pruned artifact (line $ln) — repoint to a live successor or drop"
+    done < <(grep -rnE --include='*.md' "$re" "$CLAUDE/$dir" 2>/dev/null)
   done
 }
 
