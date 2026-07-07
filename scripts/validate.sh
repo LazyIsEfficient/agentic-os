@@ -371,20 +371,69 @@ check_import_completeness() {
   return 0   # last while may exit non-zero ([[ -n '' ]] && …); set -e would abort dispatch
 }
 
-# ── Invariant 4: claude-imports ────────────────────────────────────────────────
-check_claude_imports() {
+# ── Invariant 4: claude-flat-sync ───────────────────────────────────────────────
+# CLAUDE.md is a GENERATED flat file (scripts/build-claude-md.sh): every
+# .claude/rules/<name>.md is embedded verbatim — with `](../` links rebased to
+# `](.claude/` — between marker comments:
+#   <!-- BEGIN RULE: .claude/rules/<name>.md --> ... <!-- END RULE -->
+# Gates (self-contained so it also runs against fixtures/tarballs lacking scripts/):
+#   (a) any @-import line must still resolve (generic; tag claude-imports)
+#   (b) no @-import of .claude/rules at all — flat means flat
+#   (c) every rules file on disk has a block whose body matches its source
+#   (d) no BEGIN marker cites a rules file that is not on disk
+# CLAUDE_LINK_REBASE must stay identical to LINK_REBASE in build-claude-md.sh.
+CLAUDE_LINK_REBASE='s#](\.\./#](.claude/#g; s#](\.claude/\.\./#](#g'
+check_claude_flat_sync() {
   local cf="$ROOT/CLAUDE.md"
   [[ -f "$cf" ]] || return 0
+  local line rel
   while IFS= read -r line; do
     [[ "$line" =~ ^@ ]] || continue
-    local rel="${line#@}"
+    rel="${line#@}"
     rel="${rel%%[[:space:]]*}"
     if [[ ! -f "$ROOT/$rel" ]]; then
       fail claude-imports "$cf" "@-import '$rel' does not resolve to an existing file"
     fi
+    if [[ "$rel" == .claude/rules/* ]]; then
+      fail claude-flat-sync "$cf" "@-import of '$rel' — CLAUDE.md is flat/generated; run scripts/build-claude-md.sh"
+    fi
   done < "$cf"
-  # CLAUDE.md @-imports .claude/rules/*.md — gate the imported set == files present.
-  check_import_completeness "$cf" ".claude/rules" "md" "claude-imports"
+  local rules_dir="$ROOT/.claude/rules"
+  [[ -d "$rules_dir" ]] || return 0
+  local f name
+  for f in "$rules_dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    name="$(basename "$f")"
+    if ! grep -qF "<!-- BEGIN RULE: .claude/rules/$name -->" "$cf"; then
+      fail claude-flat-sync "$cf" "rule '.claude/rules/$name' has no embedded block — run scripts/build-claude-md.sh"
+      continue
+    fi
+    if ! cmp -s <(awk -v m="<!-- BEGIN RULE: .claude/rules/$name -->" '
+          $0 == "<!-- END RULE -->" { found = 0 }
+          found { print }
+          $0 == m { found = 1 }' "$cf") \
+        <(sed "$CLAUDE_LINK_REBASE" "$f"); then
+      fail claude-flat-sync "$cf" "embedded block for '$name' differs from source — run scripts/build-claude-md.sh"
+    fi
+  done
+  # (d) blocks citing rules files that no longer exist
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    if [[ ! -f "$rules_dir/$name" ]]; then
+      fail claude-flat-sync "$cf" "embedded block cites missing rule '.claude/rules/$name' — run scripts/build-claude-md.sh"
+    fi
+  done < <(sed -n 's#^<!-- BEGIN RULE: \.claude/rules/\(.*\) -->$#\1#p' "$cf")
+  # (e) whole-file regeneration diff, when the builder is available. The block
+  # checks above are self-contained for fixtures/tarballs without scripts/, but
+  # they cannot see drift OUTSIDE marker blocks (preamble edits, sections
+  # injected between blocks, reordering) — the builder --check can.
+  local builder="$ROOT/scripts/build-claude-md.sh"
+  if [[ -f "$builder" ]]; then
+    if ! bash "$builder" --check >/dev/null 2>&1; then
+      fail claude-flat-sync "$cf" "CLAUDE.md differs from build-claude-md.sh output (drift outside rule blocks?) — run scripts/build-claude-md.sh"
+    fi
+  fi
+  return 0
 }
 
 # ── Invariant 4b: cursor-imports ───────────────────────────────────────────────
@@ -845,7 +894,7 @@ check_tombstones() {
 
 # ── Invariant 10: rules-parity ─────────────────────────────────────────────────
 # The operating-doctrine files are dual-maintained: .claude/rules/<name>.md
-# (plumbed via CLAUDE.md @-imports for Claude Code) and .cursor/rules/<name>.mdc
+# (flattened into CLAUDE.md by scripts/build-claude-md.sh for Claude Code) and .cursor/rules/<name>.mdc
 # (loaded via alwaysApply for Cursor). The two trees must carry the SAME SET of
 # rule names, so a rule added or removed in one tree can never be silently absent
 # from the other.
@@ -889,7 +938,7 @@ check_rules_name_parity() {
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
-check_claude_imports
+check_claude_flat_sync
 check_cursor_imports
 check_cursor_rules_format
 check_cursor_rules_frontmatter

@@ -7,7 +7,9 @@ The doctrine is split into focused rule files under `.cursor/rules/*.mdc`, impor
 @.cursor/rules/factual-correctness.mdc
 @.cursor/rules/memory-discipline.mdc
 @.cursor/rules/subagent-dispatch.mdc
+@.cursor/rules/briefing.mdc
 @.cursor/rules/grounding.mdc
 @.cursor/rules/review-tiers.mdc
 @.cursor/rules/verification.mdc
+@.cursor/rules/anti-patterns.mdc
 @.cursor/rules/communication.mdc

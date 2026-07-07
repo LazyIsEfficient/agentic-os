@@ -198,7 +198,7 @@ export HD='$($HooksDir -replace "'", "'\''")'
 export SRC='$($SrcFile -replace "'", "'\''")'
 jq --arg hd "`$HD" '
   walk(if type == "object" and has("command") then
-    .command |= gsub("\\\$HOME/.claude/hooks"; \$hd)
+    .command |= gsub("\\`$HOME/.claude/hooks"; `$hd)
   else . end) | .hooks' "`$SRC"
 "@
     $hooks = $hooksJsonText | ConvertFrom-Json

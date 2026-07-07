@@ -32,6 +32,8 @@ make_copy() {
   TMPDIRS+=("$dst")
   mkdir -p "$dst/scripts"
   cp "$VALIDATE" "$dst/scripts/validate.sh"
+  # backs invariant 4(e): whole-file CLAUDE.md drift detection via --check
+  cp "$SCRIPT_DIR/build-claude-md.sh" "$dst/scripts/build-claude-md.sh"
   cp -R "$REPO_ROOT/.claude" "$dst/.claude"
   # memory/ is gitignored; drop any local copy so the baseline matches CI/tarball
   rm -rf "$dst/.claude/memory"
@@ -135,6 +137,7 @@ printf 'See [[does-not-exist]] for more.\n' > "$c3/.claude/memory/note.md"
 assert_trips "case 3 dangling-ref (bad wikilink)" "$c3" dangling-ref
 
 # ── Case 4: claude-imports — append a nonexistent @-import ──────────────────────
+# CLAUDE.md is flat/generated, but any @-import someone sneaks in must still resolve.
 c4="$(make_copy)"
 printf '@.claude/rules/nonexistent.md\n' >> "$c4/CLAUDE.md"
 assert_trips "case 4 claude-imports (missing import)" "$c4" claude-imports
@@ -158,11 +161,30 @@ Body.
 EOF
 assert_trips "case 4f cursor-imports (rule file not @-imported)" "$c4f" cursor-imports
 
-# ── Case 4g: claude-imports — .claude/rules/*.md added but not @-imported ──────
-# Symmetric set-equality (#207) for CLAUDE.md <-> .claude/rules/*.md.
+# ── Case 4g: claude-flat-sync — .claude/rules/*.md added but not embedded ──────
+# CLAUDE.md is generated flat (build-claude-md.sh); a rules file with no embedded
+# BEGIN/END block means the flat file is stale.
 c4g="$(make_copy)"
 printf 'Orphan rule body.\n' > "$c4g/.claude/rules/orphan.md"
-assert_trips "case 4g claude-imports (rule file not @-imported)" "$c4g" claude-imports
+assert_trips "case 4g claude-flat-sync (rule file not embedded)" "$c4g" claude-flat-sync
+
+# ── Case 4h: claude-flat-sync — rule file edited without rebuilding CLAUDE.md ──
+c4h="$(make_copy)"
+printf '\nEdited without rebuild.\n' >> "$c4h/.claude/rules/verification.md"
+assert_trips "case 4h claude-flat-sync (embedded block drift)" "$c4h" claude-flat-sync
+
+# ── Case 4i: claude-flat-sync — @-import of .claude/rules reintroduced ─────────
+# Regression guard for the flat decision: even a RESOLVABLE rules import fails.
+c4i="$(make_copy)"
+printf '@.claude/rules/verification.md\n' >> "$c4i/CLAUDE.md"
+assert_trips "case 4i claude-flat-sync (rules @-import reintroduced)" "$c4i" claude-flat-sync
+
+# ── Case 4j: claude-flat-sync — drift OUTSIDE marker blocks ─────────────────────
+# The per-block checks can't see this; only the builder --check (4(e)) can.
+# Edit the generated preamble (line 1) without touching any rule block.
+c4j="$(make_copy)"
+awk 'NR==1{print "# Hand-edited title"; next} {print}' "$c4j/CLAUDE.md" > "$c4j/CLAUDE.md.tmp" && mv "$c4j/CLAUDE.md.tmp" "$c4j/CLAUDE.md"
+assert_trips "case 4j claude-flat-sync (preamble drift outside blocks)" "$c4j" claude-flat-sync
 
 # ── Case 4c: cursor-rules-format — stray .md in .cursor/rules/ ───────────────
 c4c="$(make_copy)"
