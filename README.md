@@ -22,7 +22,7 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 | **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
 | **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | Claude Code: `/skill-new`, `/agent-new`, `/state`. Cursor: no slash commands ship; use the `session-state` skill instead of `/state`. |
 | **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
-| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use `.cursor/rules/*.mdc` (Cursor) or `.claude/rules/` via `CLAUDE.md` (Claude Code). Not copied by the global installer. |
+| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use `.cursor/rules/*.mdc` (Cursor) or the flat `CLAUDE.md` (Claude Code — generated from `.claude/rules/` by `scripts/build-claude-md.sh`). Not copied by the global installer. |
 
 ### Supported platforms
 
@@ -384,7 +384,7 @@ check whether a skill applies and read its SKILL.md if so — even if the task s
 If there is even a 1% chance a skill might apply, load the skill first.
 ```
 
-Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files (parallel to `CLAUDE.md`).
+Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files. (`CLAUDE.md` is different: it is a generated FLAT file — `.claude/rules/*.md` embedded inline by `scripts/build-claude-md.sh`, no `@`-imports.)
 
 ---
 
@@ -483,7 +483,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 ├── agents/<agent-name>.md
 ├── commands/<command>.md # slash commands (author-facing + maintainer-only)
 ├── hooks/                # PreToolUse hooks (e.g. block-bad-bash.sh)
-├── rules/                # operating doctrine, @-imported by CLAUDE.md
+├── rules/                # operating doctrine, flattened into CLAUDE.md (build-claude-md.sh)
 └── workflows/            # multi-agent orchestration scripts
 ```
 
@@ -499,7 +499,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions
 
 ## Validating the library
 
-A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports (`CLAUDE.md` and `CURSOR.md`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports (`CURSOR.md`), `CLAUDE.md` flat-sync with `.claude/rules/` (`claude-flat-sync`, rebuilt by `scripts/build-claude-md.sh`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 
