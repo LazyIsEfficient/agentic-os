@@ -14,7 +14,7 @@
 #     The pinned asset is the same tree CI validated at release time.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.5.0/install-cursor.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.6.0/install-cursor.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install-cursor.ps1
@@ -50,8 +50,8 @@ if ($Dest -notmatch '^[/.a-zA-Z0-9._-]+$') {
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
 $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 
-$Version        = "v2.5.0"
-$ExpectedSha256 = "a012d5bf9066b9cb0992deaf6cf24500465157c1d264aa154cc792eccce7146c"
+$Version        = "v2.6.0"
+$ExpectedSha256 = "9edd168cd78b40314131b59785e7ae76888beea575296a1ff4b7c4dd086798a6"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
