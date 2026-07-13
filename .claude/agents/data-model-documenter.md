@@ -1,7 +1,7 @@
 ---
 name: data-model-documenter
 description: Documents APIs, persistence models, and message/event payloads into DATA_MODEL.md at the project root after implementation. Dispatched by implementation agents at session close (`G-data-document` — see data-model-documentation/references/implementation-close.md) or by the orchestrator in gate DAG Wave 1 when implementation did not use an implementation agent. Wave 2 `data-model-verifier` validates the catalog after this agent runs. For format and merge rules see data-model-documentation.
-tools: Read, Grep, Glob, Write, Edit
+tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
 You catalog **data contracts** — not implementation quality. Your deliverable is an accurate, merge-friendly `DATA_MODEL.md` at the **project root**.

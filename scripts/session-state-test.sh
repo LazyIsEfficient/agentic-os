@@ -39,8 +39,8 @@ cp "$SKILL_SRC/assets/SESSION-STATE.template.md" "$orch/.claude/skills/session-s
 export CLAUDE_PROJECT_DIR="$orch"
 bash "$orch/.claude/skills/session-state/scripts/session-state.sh" init-orchestrator >/dev/null
 orch_live="$(cat "$orch/SESSION-STATE.md")"
-has "init-orchestrator adds dispatch constraint" "$orch_live" "dispatch Task(engineer"
-has "init-orchestrator adds reviewer constraint" "$orch_live" "Task(code-reviewer)"
+has "init-orchestrator adds dispatch constraint" "$orch_live" "dispatch Agent(engineer"
+has "init-orchestrator adds reviewer constraint" "$orch_live" "Agent(code-reviewer)"
 bash "$orch/.claude/skills/session-state/scripts/session-state.sh" init-orchestrator 2>&1 | grep -q "already present" \
   && ok "init-orchestrator is idempotent" || no "init-orchestrator idempotent" "second run did not short-circuit"
 rm -rf "$orch"
