@@ -17,6 +17,8 @@ Save a fact iff **(a) decision-relevance** — a cold future session would act d
 - **A pointer to an external system** — a Linear project, dashboard, or channel the repo never names.
 - **A data representation** — e.g. timestamps stored as Unix epoch seconds, never a Date/ISO string; an enum's canonical values — facts that change how you read or write the data.
 
+The primary capture point is the end-of-session extraction pass (the Stop hook nudges the `memory-extraction` skill), so durable facts get swept up at session close — don't interrupt task work to write mid-conversation unless losing the fact to an abrupt end would be costly.
+
 ### Do NOT write to memory
 - Code patterns, file paths, architecture — derivable from the repo.
 - Git history or who-changed-what — `git log` / `git blame` are authoritative.
