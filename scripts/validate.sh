@@ -859,6 +859,82 @@ check_hook_registration() {
   done < <(find "$hooks_dir" -maxdepth 1 -type f -name '*.sh' | sort)
 }
 
+# ── Invariant 8(d): Claude hook-registration parity (consumer ⊆ dev) ────────────
+# The CURSOR tree is guarded end-to-end (check_hook_parity: project↔consumer;
+# check_hook_registration: script↔hooks.json). The CLAUDE tree had NO such guard —
+# 8(a)/8(b) only prove Claude command SHAPES are benign, nothing asserts the
+# consumer global template (assets/consumer/claude-settings.json) stays in step
+# with the dev tree (.claude/settings.json). So a hook could be registered for
+# consumers that dev never wired, or point at a script that was never vendored,
+# shipping a DEAD MECHANISM (the memory-extraction spike finding, issue #217).
+#
+# This is the Tier-0 ratchet that closes the gap, in the SUBSET direction — every
+# (event, script) the consumer manifest registers MUST:
+#   (a) resolve to a script that exists in .claude/hooks/, AND
+#   (b) be registered on the SAME event in .claude/settings.json (the dev tree).
+# Dev MAY register MORE than the consumer (e.g. a dev-only hook mid-rollout), so
+# the check is one-directional (consumer ⊆ dev), NOT set-equality. It is satisfied
+# in Phase 1 — the consumer manifest registers no memory-extract hook, so there is
+# nothing to violate — and catches the real drift at P4, when the consumer starts
+# registering memory-extract on Stop but the dev registration or the vendored
+# script disagrees. Guarded on both files existing, so it is inert until then.
+#
+# Parsing note: Claude's settings schema nests each event's commands inside an
+# inner "hooks": [ ] wrapper and may place "matcher"/"hooks"/"command" on one
+# physical line, so the Cursor-schema hook_event_script_pairs (which treats the
+# first "<key>": [ on a line as the event) mis-attributes them. We therefore treat
+# a "<key>": [ opener as an event ONLY when <key> is a known Claude Code hook event
+# name — robust for the real, closed event set (a new event would need adding here,
+# same maintenance contract as the TOMBSTONES list).
+CLAUDE_HOOK_EVENTS="PreToolUse PostToolUse Notification UserPromptSubmit Stop SubagentStop PreCompact SessionStart SessionEnd"
+claude_hook_event_script_pairs() {
+  local json_file="$1"
+  [[ -f "$json_file" ]] || return 0
+  awk -v events=" $CLAUDE_HOOK_EVENTS " '
+    # Event opener: "<event>": [  — only when <event> is a known Claude hook event,
+    # so the inner "hooks": [ wrapper (and inline "matcher": ...) never reset it.
+    /"[A-Za-z][A-Za-z0-9]*"[[:space:]]*:[[:space:]]*\[/ {
+      ev=$0
+      sub(/^[^"]*"/, "", ev); sub(/".*/, "", ev)
+      if (index(events, " " ev " ") > 0) event=ev
+    }
+    # Command value -> script basename (drop path prefix + trailing args + probes).
+    /"command"[[:space:]]*:[[:space:]]*"/ {
+      cmd=$0
+      sub(/.*"command"[[:space:]]*:[[:space:]]*"/, "", cmd); sub(/".*/, "", cmd)
+      sub(/.*\//, "", cmd)   # strip path prefix -> basename
+      sub(/ .*/, "", cmd)    # strip trailing args, keep the script name
+      if (event != "" && cmd !~ /-probe\.sh$/) print event "\t" cmd
+    }
+  ' "$json_file" | sort -u
+}
+
+check_claude_hook_registration() {
+  local dev="$CLAUDE/settings.json"
+  local consumer="$ROOT/assets/consumer/claude-settings.json"
+  # Only meaningful when both registration files exist (mirrors check_hook_parity).
+  [[ -f "$dev" && -f "$consumer" ]] || return 0
+  local dev_pairs consumer_pairs p base
+  dev_pairs="$(claude_hook_event_script_pairs "$dev")"
+  consumer_pairs="$(claude_hook_event_script_pairs "$consumer")"
+
+  # (b) consumer ⊆ dev: any (event, script) the consumer registers that is NOT
+  # registered on the same event in dev is drift (a consumer-only hook).
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && fail claude-hook-registration "$consumer" \
+      "(event, script) registered in assets/consumer/claude-settings.json but not on the same event in .claude/settings.json: ${p//$'\t'/ } — consumer hook set must be a subset of the dev tree"
+  done < <(comm -23 <(printf '%s\n' "$consumer_pairs") <(printf '%s\n' "$dev_pairs"))
+
+  # (a) every consumer-registered hook must resolve to a vendored .claude/hooks/
+  # script, else install would merge a command whose target never shipped.
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
+    base="${p##*$'\t'}"
+    [[ -f "$CLAUDE/hooks/$base" ]] || fail claude-hook-registration "$consumer" \
+      "consumer registers hook '$base' but no .claude/hooks/$base is vendored — install would wire a dead command"
+  done <<< "$consumer_pairs"
+}
+
 # ── Invariant 9: tombstones ────────────────────────────────────────────────────
 # Bare-name PROSE references to a pruned skill/agent/command route to a target that
 # no longer exists. Invariant 3 only sees markdown LINKS; a backtick `slug`, a
@@ -948,6 +1024,7 @@ check_hook_parity
 check_review_tiers
 check_hook_safety
 check_hook_registration
+check_claude_hook_registration
 check_tombstones
 check_rules_name_parity
 
