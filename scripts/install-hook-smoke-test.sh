@@ -35,10 +35,6 @@ merge_claude_hook_settings "$REPO" "$tmpdir"
 jq -e '.permissions.allow[0] == "Edit(foo)"' "$tmpdir/settings.json" >/dev/null
 jq -e '.hooks.SessionStart | length > 0' "$tmpdir/settings.json" >/dev/null
 
-merge_cursor_hook_settings "$REPO" "$tmpdir"
-jq -e '.hooks.beforeShellExecution | length == 2' "$tmpdir/hooks.json" >/dev/null
-jq -e '.hooks.beforeShellExecution[0].command == "hooks/block-bad-bash.sh"' "$tmpdir/hooks.json" >/dev/null
-
 # Unsafe CLAUDE_DIR must abort before copying files.
 if CLAUDE_DIR='/tmp/evil;whoami' bash "$REPO/install.sh" 2>/dev/null; then
   echo "FAIL install-hook-smoke: unsafe CLAUDE_DIR should abort" >&2

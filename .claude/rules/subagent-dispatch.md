@@ -2,8 +2,6 @@
 
 The default for any non-trivial work in this repo is **dispatch, don't do**. The orchestrator (you) decomposes, briefs, reviews, integrates. Subagents do the work.
 
-**Mechanical enforcement (Tier 0):** these patterns are backed by Cursor hooks that block the main thread when dispatch is skipped (research/impl/stop gates) — see [dispatch-enforcement.md](../../docs/dispatch-enforcement.md).
-
 ### Pattern 1 — Shaper → planner → fan-out
 Any vague request goes through a shaper before code is touched.
 

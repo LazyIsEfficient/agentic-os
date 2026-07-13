@@ -16,12 +16,8 @@ jobs:
       - run: bash scripts/validate.sh
       - run: bash scripts/validate-test.sh
       - run: bash scripts/install-paths-test.sh
-      - run: bash scripts/session-state-test-cursor.sh
-      - run: bash scripts/survey-guard-test-cursor.sh
-      - run: bash scripts/block-bad-bash-test-cursor.sh
       - run: bash scripts/install-hook-smoke-test.sh
       - run: bash scripts/memory-extract-hook-test.sh
-      - run: bash scripts/dispatch-gate-test.sh
   ship-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

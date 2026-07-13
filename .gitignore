@@ -17,10 +17,6 @@ SESSION-STATE.md
 .claude/session-state.checkpoints
 .claude/survey-guard.warns
 
-# Cursor — local overrides and runtime logs (do not commit)
-.cursor/cli-config.json
-.cursor/survey-guard.warns
-
 # Claude Code — agent worktrees (ephemeral, machine-local)
 .claude/worktrees/
 
@@ -49,11 +45,4 @@ pocs/
 # Release artifacts built by scripts/release.sh (not source)
 /agentic-os-*.tar.gz
 
-.cursor/session-state.checkpoints
 eval/metrics/runs/
-
-# Dispatch enforcement — per-session ledger, advisory lock dir, and audit log
-# (machine-local runtime state; the policy in .cursor/dispatch-gate.json IS committed).
-.cursor/dispatch-ledger.json
-.cursor/dispatch-ledger.json.lock
-.cursor/dispatch-gate-audit.jsonl

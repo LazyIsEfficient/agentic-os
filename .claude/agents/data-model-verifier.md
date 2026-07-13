@@ -27,12 +27,11 @@ Spawn with **only** the catalog diff (or path), changed section names, and **Sou
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts). REFUTED is Tier 1 only with quoted counterevidence, or Tier 0 when `verify-data-model-section.sh` exits nonzero. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). REFUTED is Tier 1 only with quoted counterevidence, or Tier 0 when `verify-data-model-section.sh` exits nonzero. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \

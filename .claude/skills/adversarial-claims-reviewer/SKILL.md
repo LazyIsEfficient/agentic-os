@@ -5,7 +5,7 @@ when_to_use: |
   Use when a document asserts formal or quantitative claims that could be false — derivations, theorems, statistical results, benchmark numbers, dimensional formulas — and the deliverable is a verdict on whether the claims hold as stated. The load-bearing signal: the document's value collapses if a central equation or number is wrong.
 
   Not when: reviewing source code for bugs or design — use `code-review-and-quality`. Not when the concern is security posture — use `security-engineering`. Not when scoring prose quality, persuasiveness, or style — use `content-ops`. Not when auditing skill/agent definitions — use `skill-library-review`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Adversarial Claims Reviewer
@@ -41,7 +41,7 @@ Full version with worked examples: [references/protocol.md](references/protocol.
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) — stochastic judgment proposes, deterministic verification disposes.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — stochastic judgment proposes, deterministic verification disposes.
 
 - **Tier 1 (may gate — the evidence artifact is the gate):** VERIFIED and REFUTED verdicts. Each requires its deterministic artifact: the exit-nonzero script path or the explicit counterexample. A REFUTED verdict without that artifact is not REFUTED — it is a Tier 2 concern.
 - **Tier 2 (advisory, never gates):** UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern. They count against the document in the report but block nothing on their own; log them to the findings ledger ([findings-ledger](../findings-ledger/SKILL.md)) so recurrence is measured.

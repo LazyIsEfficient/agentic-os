@@ -5,7 +5,7 @@ when_to_use: |
   Use when building or modifying anything that renders in a browser: debugging UI layout or interaction issues, diagnosing console errors or network failures, profiling Core Web Vitals, verifying a fix works in a real browser, or running automated UI tests through an agent.
 
   Not when: the change is backend-only, a CLI tool, or code that never runs in a browser — no DevTools session needed for those. Not when the task is authoring the automated frontend unit/component test suite (Jest + React Testing Library) — use `typescript-testing-frontend`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Browser Testing with DevTools

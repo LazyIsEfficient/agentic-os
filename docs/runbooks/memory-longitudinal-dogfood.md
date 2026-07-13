@@ -30,7 +30,7 @@ recorded here, not a script exit code.
 
 ## Preconditions
 
-- A live Claude Code (and/or Cursor) session with the memory-extraction mechanism
+- A live Claude Code session with the memory-extraction mechanism
   wired: `.claude/hooks/memory-extract.sh` present and registered on `Stop` in
   `.claude/settings.json` (dev tree — verify with `bash scripts/validate.sh`).
 - The `memory-extraction` skill exists at
@@ -84,7 +84,7 @@ recorded here, not a script exit code.
 
 Record, next to the `ck-dogfood` checkpoint, a short note:
 
-- date, harness (Claude Code / Cursor), model,
+- date, harness (Claude Code), model,
 - the convention used,
 - the memory file that was written (path + one-line content),
 - Session 2 verdict (applied cold: yes/no), with the agent's answer quoted.

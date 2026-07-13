@@ -42,7 +42,7 @@ Canonical contract: [implementation-close.md](../skills/data-model-documentation
 
 | Who | When | Action |
 |---|---|---|
-| **Implementation agents** (see above) | After local verification, before completion report | Foreground `Agent` / `Task` → `data-model-documenter` with changed paths + brief |
+| **Implementation agents** (see above) | After local verification, before completion report | Foreground `Agent` → `data-model-documenter` with changed paths + brief |
 | **Orchestrator** | Wave 1 | Include `G-data-document` **only if** no implementation agent ran it (main-thread impl, or completion report lacks `G-data-document:` status) |
 | **Orchestrator** | Wave 2 | `G-data-verify` when `DATA_MODEL.md` changed — always orchestrator-owned |
 
@@ -100,7 +100,7 @@ Orchestrators MUST NOT dispatch all nodes in a single message if Wave 2 applies.
 
 | Wave | Dispatch | Wait |
 |---|---|---|
-| **1** | Single message, multiple `Task` / `Agent` calls: all triggered Wave 1 nodes | All Wave 1 agents return |
+| **1** | Single message, multiple `Agent` calls: all triggered Wave 1 nodes | All Wave 1 agents return |
 | **2** | `data-model-verifier` (`readonly: true`) if `DATA_MODEL.md` changed | Verifier returns **pass** |
 | **Barrier** | Orchestrator synthesizes; address Tier 0/1 | `checkpoint:ship-ready` |
 
@@ -148,7 +148,6 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 | Artifact | Role |
 |---|---|
 | `.claude/commands/review-gate.md` | Maintainer command — executes this DAG on working-tree diff |
-| `.cursor/rules/subagent-dispatch.mdc` | Cursor orchestrator rule — points here for Pattern 3 |
 | `.claude/rules/subagent-dispatch.md` | Claude Code orchestrator rule — same gate DAG |
 | `.github/pull_request_template.md` | PR checkboxes (CI enforced) |
 | `scripts/gate-plan.sh` | Tier 0 planner — waves + checkboxes from diff |

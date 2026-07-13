@@ -5,7 +5,7 @@ when_to_use: |
   Use when writing or reviewing TypeScript backend tests: Jest unit tests for services and controllers (with mocked Prisma), or Supertest integration tests against a real isolated PostgreSQL test database. The key signals are `*.service.test.ts`, `*.controller.test.ts`, `*.integration.test.ts` files, or any request to test backend service logic or HTTP routes.
 
   Not when: the task is writing tests for React components or hooks — use typescript-testing-frontend. Not when the task is writing the production service/controller code itself — use the appropriate implementation skill.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # TypeScript Testing — Backend

@@ -5,7 +5,7 @@ when_to_use: |
   Use when designing or reviewing a Rust crate or Cargo workspace, writing async Rust with Tokio, building HTTP APIs with Axum, designing library APIs (trait hierarchies, error types, builder patterns), reviewing or writing `unsafe` code or FFI boundaries, resolving borrow-checker errors that suggest a design problem, profiling Rust services, or for any work in `.rs` or `Cargo.toml` files.
 
   Not when: the request is an adversarial security audit of unsafe soundness or supply-chain risk — use the `security-reviewer` agent. Not when the work is TypeScript or another language — use the corresponding language skill.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Rust Engineer

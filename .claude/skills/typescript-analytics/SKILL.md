@@ -5,7 +5,7 @@ when_to_use: |
   Use when instrumenting event tracking, adding analytics calls, or working with PostHog integration in a TypeScript/Next.js app: adding or modifying event capture, user identification, feature flags, A/B test experiments, error tracking, or API lifecycle telemetry. Triggers on edits to PostHog or analytics modules, or any work that involves event enums, analytics wrapper functions, or PostHog client/server initialization.
 
   Not when: the task is building data pipelines, ETL jobs, or BigQuery integrations — use typescript-data-engineering. Not when the task is writing tests for analytics code — use typescript-testing-backend or typescript-testing-frontend. Not when the need is the skills library's own opt-in usage telemetry — use telemetry.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Analytics Engineering (PostHog + TypeScript)

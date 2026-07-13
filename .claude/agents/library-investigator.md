@@ -24,7 +24,7 @@ Words like "comprehensive", "follows best practices", "fully validated", "robust
 
 ## No verdict — counts only
 
-You emit no overall verdict. Not pass, not fail, not hold, not "looks good." You emit four counts plus a per-VIOLATES evidence table. Each VIOLATES is tier-tagged per review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) as a FACT — the tier is a property of the check, not a judgment — and framed as a ratchet candidate for `validate.sh`. You state the tier; you never say "this blocks."
+You emit no overall verdict. Not pass, not fail, not hold, not "looks good." You emit four counts plus a per-VIOLATES evidence table. Each VIOLATES is tier-tagged per review-tiers (`.claude/rules/review-tiers.md`) as a FACT — the tier is a property of the check, not a judgment — and framed as a ratchet candidate for `validate.sh`. You state the tier; you never say "this blocks."
 
 ## Jurisdiction
 

@@ -61,14 +61,10 @@ if [ "$(printf '%s\n%s\n' "2.38" "$gitver" | sort -V | head -1)" != "2.38" ]; th
   exit 1
 fi
 
-# Reproducible payload: .claude + validate.sh + production .cursor/hooks + the
-# docs files referenced by shipped skills/rules (exclude *-probe.sh spike
-# fixtures — same allowlist as install-cursor.sh).
-ARCHIVE_PATHS=(.claude assets/consumer scripts/validate.sh scripts/lib/install-hook-settings.sh docs/awareness-harness-activation.md docs/cursor-orchestrator-gap.md docs/dispatch-enforcement.md)
-while IFS= read -r hook; do
-  [[ -n "$hook" ]] && ARCHIVE_PATHS+=("$hook")
-done < <(git -C "$ROOT" ls-tree -r --name-only "$REF^{tree}" .cursor/hooks 2>/dev/null \
-  | grep '\.sh$' | grep -v 'probe\.sh$' || true)
+# Reproducible payload: .claude + the consumer hook templates + validate.sh and
+# the install hook-merge helper it sources. Installers/README are excluded (they
+# embed the digest — including them would make the hash self-referential).
+ARCHIVE_PATHS=(.claude assets/consumer docs/awareness-harness-activation.md scripts/validate.sh scripts/lib/install-hook-settings.sh)
 git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
     "$REF^{tree}" "${ARCHIVE_PATHS[@]}" | gzip -n > "$ROOT/$ASSET"
 
@@ -106,7 +102,7 @@ Built $ASSET ($(wc -c < "$ROOT/$ASSET" | tr -d ' ') bytes)
 
 Next steps (see RELEASING.md):
   1. Pin VERSION=$VERSION and EXPECTED_SHA256=$SHA in install.sh, install.ps1,
-     install-cursor.sh, install-cursor.ps1, and update the version + digest in README.md.
+     and update the version + digest in README.md.
   2. Commit, then tag that commit: git tag $VERSION && git push origin $VERSION
   3. Create the release and upload the asset:
        gh release create $VERSION "$ASSET" -R $REPO_OWNER/$REPO_NAME \\

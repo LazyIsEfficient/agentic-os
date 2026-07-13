@@ -5,7 +5,7 @@ when_to_use: |
   Use when a monetization strategy arrives with the catalog shape but not per-SKU detail, when the team needs to build or re-tune the App Store / Google Play / Steam / web catalog, when a new region requires price localization, when a platform policy change requires re-architecting the catalog, or when A/B price tests need to be designed and tracked.
 
   Not when: the question is about in-game economy rates — use `game-balancer`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # IAP Manager

@@ -12,7 +12,7 @@ when_to_use: |
   [security](../security/SKILL.md). Not when the task is a
   general multi-axis code review (correctness, readability, architecture,
   performance) rather than application security engineering — use [code-review-and-quality](../code-review-and-quality/SKILL.md).
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Security Engineering
@@ -38,7 +38,7 @@ When reviewing code, think like a senior security researcher: trace user input t
 ## References
 
 - [references/owasp-top-10.md](references/owasp-top-10.md) — OWASP Top 10:2025 quick reference table
-- [references/cicd-security.md](references/cicd-security.md) — Cursor CLI security review workflow, scanned categories, supply-chain check
+- [references/cicd-security.md](references/cicd-security.md) — CI/CD security review methodology, scanned vulnerability categories, supply-chain check
 - [references/api-security.md](references/api-security.md) — auth patterns, Zod validation, rate limiting, CORS, headers, log sanitization, error handling
 - [references/infrastructure-security.md](references/infrastructure-security.md) — VPC isolation, Cloudflare Zero Trust, secrets management, encryption, IAM principles
 - [references/web3-smart-contracts.md](references/web3-smart-contracts.md) — required patterns, signature verification, on-chain rate limits, audit findings, Slither

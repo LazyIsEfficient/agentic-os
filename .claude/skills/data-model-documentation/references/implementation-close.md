@@ -11,7 +11,7 @@ After implementation and local verification pass, **before** reporting back to t
 ## Steps
 
 1. **Skip** when the diff is docs-only (same allowlist as ship gates — no contract-touching code).
-2. Otherwise dispatch a **foreground** subagent spawn — **`Agent`** (Claude Code) or **`Task`** (Cursor) — with `subagent_type: "data-model-documenter"`: include every changed path (untracked via `git add -N`), what was implemented, and instruction to merge into `DATA_MODEL.md` at project root per [data-model-documentation](../SKILL.md).
+2. Otherwise dispatch a **foreground** subagent spawn — **`Agent`** — with `subagent_type: "data-model-documenter"`: include every changed path (untracked via `git add -N`), what was implemented, and instruction to merge into `DATA_MODEL.md` at project root per [data-model-documentation](../SKILL.md).
 3. **Wait** for the documenter to return. Do not report complete until it finishes or you explicitly skip per step 1.
 
 ## Completion report

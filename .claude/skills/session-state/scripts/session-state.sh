@@ -7,22 +7,22 @@
 #
 # Usage:
 #   session-state.sh init                  # create SESSION-STATE.md from template
-#   session-state.sh init-orchestrator     # init + default Cursor orchestrator constraints
+#   session-state.sh init-orchestrator     # init + default orchestrator constraints
 #   session-state.sh show                  # print current state
 #   session-state.sh constraint "<text>"   # add a hard constraint
 #   session-state.sh decision   "<text>"   # add a dated settled decision
 #   session-state.sh infra      "<text>"   # add an existing-infra (survey) finding
 #   session-state.sh thread     "<text>"   # add an open thread / next step
 #
-# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR or
-# CURSOR_PROJECT_DIR), gitignored and per-developer. The template is SKILL-LOCAL (ships
+# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR),
+# gitignored and per-developer. The template is SKILL-LOCAL (ships
 # resolved relative to this script — so `init` works on a consumer where only the
 # skill directory is installed, not the repo root. This script lives at
 # .claude/skills/session-state/scripts/, so the project-root fallback is four up.
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}}"
+ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}"
 LIVE="$ROOT/SESSION-STATE.md"
 TPL="$SELF_DIR/../assets/SESSION-STATE.template.md"
 
@@ -72,10 +72,10 @@ case "$cmd" in
       echo "orchestrator constraints already present in $LIVE"
       exit 0
     fi
-    append_under "Constraints" "- Orchestrator-only: main thread must not Write/StrReplace/Delete/EditNotebook for implementation — dispatch Task(engineer|domain specialist)"
-    append_under "Constraints" "- Research >2 file reads/greps on main thread forbidden — dispatch Task(explore|generalPurpose)"
+    append_under "Constraints" "- Orchestrator-only: main thread must not Write/StrReplace/Delete/EditNotebook for implementation — dispatch Agent(engineer|domain specialist)"
+    append_under "Constraints" "- Research >2 file reads/greps on main thread forbidden — dispatch Agent(explore|generalPurpose)"
     append_under "Constraints" "- Skills: identify on main thread; run multi-step skill workflows only in dispatched subagents (brief with skill procedure)"
-    append_under "Constraints" "- Complete = Task(code-reviewer) + Task(security-reviewer) parallel readonly on current diff before saying done; library-reviewer when skills/agents change"
+    append_under "Constraints" "- Complete = Agent(code-reviewer) + Agent(security-reviewer) parallel readonly on current diff before saying done; library-reviewer when skills/agents change"
     echo "initialized $LIVE with orchestrator constraints"
     ;;
   show) ensure; cat "$LIVE" ;;

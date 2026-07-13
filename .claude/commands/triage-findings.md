@@ -11,9 +11,8 @@ You are triaging the stochastic-findings ledger per the tier doctrine in `.claud
 `$1` is an optional recurrence threshold (default 2); `$2` is an optional retire-age in days (default 14). Always run tally first (resolve ledger path per [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md)):
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 
 python3 "$LEDGER" tally

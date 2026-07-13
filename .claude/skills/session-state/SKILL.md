@@ -2,7 +2,7 @@
 name: session-state
 description: Maintain SESSION-STATE.md, the durable within-session memory that survives context compaction. Use when a constraint, settled decision, existing-infrastructure (survey) finding, or open thread must persist across a long session so it is not re-derived or re-litigated. Triggers on /state, "remember this for the session", "record this constraint/decision", or after surveying what already exists. For cross-session/personal memory use .claude/memory/ instead; for repo-derivable facts, do not record at all.
 when_to_use: A fact must survive context compaction WITHIN this session — a hard constraint, a settled decision, a survey result (existing infra to reuse), or an open thread/next step. Not for cross-session memory (.claude/memory/) and not for anything derivable from the repo.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Session State
@@ -18,12 +18,10 @@ compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Clau
 Writing via a script — not by editing the file from memory — is the point: it captures the fact even when attention is full. Resolve the writer project-first, then global install fallbacks ([path layout](../findings-ledger/references/install-paths.md)):
 
 ```
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
-# 1. Repo checkout (source of truth — never $PROJ/.cursor/skills/)
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
+# 1. Repo checkout (source of truth)
 SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
-# 2. Global Cursor (after install-cursor.sh)
-[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
-# 3. Global Claude Code (after install.sh)
+# 2. Global Claude Code (after install.sh)
 [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
 ```
 
@@ -40,7 +38,7 @@ In Claude Code, use the `/state` command (`.claude/commands/state.md`), which in
 
 ```
 bash "$SS" init
-bash "$SS" init-orchestrator   # init + default Cursor orchestrator constraints (idempotent)
+bash "$SS" init-orchestrator   # init + default orchestrator constraints (idempotent)
 bash "$SS" show
 bash "$SS" constraint "<entry text>"
 bash "$SS" decision   "<entry text>"
@@ -50,27 +48,7 @@ bash "$SS" thread     "<entry text>"
 
 Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`. If the type is empty or invalid, list the valid types — do not guess. `init`, `init-orchestrator`, and `show` take no text; the four entry types take the text as one quoted argument.
 
-**Cursor orchestrator mode:** run `init-orchestrator` at session start so dispatch constraints re-inject every turn — see [cursor-orchestrator-gap.md](../../../docs/cursor-orchestrator-gap.md).
-
-### Cursor — skill-triggered workflow (no `/state` command)
-
-Cursor has no `/state` slash command. When this skill is relevant (triggers below, or the user asks to remember something for the session), **read this skill and run the writer via Bash**:
-
-1. Read `$1` as the entry type (`constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`). If empty or invalid, STOP and list the valid types.
-2. Remaining args are entry text (required for the four entry types).
-3. Run:
-
-```
-bash "$SS" init
-bash "$SS" init-orchestrator
-bash "$SS" show
-bash "$SS" constraint "<entry text>"
-bash "$SS" decision   "<entry text>"
-bash "$SS" infra      "<entry text>"
-bash "$SS" thread     "<entry text>"
-```
-
-4. Report the single line the script prints (or, for `show`/`init`/`init-orchestrator`, the command output).
+**Orchestrator mode:** run `init-orchestrator` at session start so dispatch constraints re-inject every turn.
 
 Keep entries terse. For `infra`, lead with the service name as the first word — e.g. `"rabbitmq broker on :5552 (docker-compose) — reuse"` — the writer stores `[surveyed:rabbitmq] …` so survey guards suppress only when a command names that exact surveyed subject.
 
@@ -83,7 +61,7 @@ Keep entries terse. For `infra`, lead with the service name as the first word �
 
 ## Activation (on by default)
 
-The writer works as soon as the skill is installed (Claude: `/state`; Cursor: skill-triggered Bash above). **Hooks are active after `install.sh` / `install-cursor.sh`**. Hook JSON examples and security notes: [references/hook-setup.md](references/hook-setup.md). Operator guide: [docs/awareness-harness-activation.md](../../../docs/awareness-harness-activation.md).
+The writer works as soon as the skill is installed (via `/state`). **Hooks are active after `install.sh`**. Hook JSON examples and security notes: [references/hook-setup.md](references/hook-setup.md).
 
 ## Discipline
 

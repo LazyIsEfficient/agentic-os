@@ -1,6 +1,6 @@
 # Task block format
 
-Each task is one block: a YAML frontmatter for dispatchers (Cursor Background Agents, parallel runners, CI) plus prose for humans. The frontmatter is the dispatch contract; the prose is what the executing agent reads.
+Each task is one block: a YAML frontmatter for dispatchers (parallel runners, CI) plus prose for humans. The frontmatter is the dispatch contract; the prose is what the executing agent reads.
 
 ## Structure
 

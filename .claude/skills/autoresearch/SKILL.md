@@ -5,7 +5,7 @@ when_to_use: |
   Use when pre-launch optimizing conversion-focused content — landing pages, email sequences, ad copy, headlines, form pages, or CTA text — by generating and scoring 50+ variants before shipping. Triggers on "optimize this page", "run autoresearch", "score these variants", or "A/B test this copy".
 
   Not when: you need post-launch real-traffic A/B testing (that requires real analytics, not simulated scoring). Not when the task is designing or analyzing a live GROWTH EXPERIMENT or A/B test program — experiment management, logged data points, statistical significance — use `growth-engine`. Not when the task is auditing a LIVE landing-page URL for conversion (fetch the page, then score it across CRO dimensions like CTA visibility, social proof, trust signals, form friction) rather than generating and optimizing copy variants pre-launch — use `conversion-ops`. Not when you need a general quality gate on existing content — use `content-ops` instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Autoresearch Skill

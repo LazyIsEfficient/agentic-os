@@ -18,7 +18,7 @@ when_to_use: |
   Not when: hardening application code against OWASP vulnerabilities, implementing
   auth/sessions/input validation, or doing a cross-stack security review — use
   security-engineering instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Security Sanitizer
@@ -30,16 +30,15 @@ Scans and redacts PII / sensitive data from files in this repo. Uses only Python
 Resolve scripts project-first, then global install ([findings-ledger references/install-paths.md](../findings-ledger/references/install-paths.md) — same pattern, swap skill name):
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 SAN="$PROJ/.claude/skills/security/scripts/sanitizer.py"
-[ -f "$SAN" ] || SAN="$HOME/.cursor/skills/security/scripts/sanitizer.py"
 [ -f "$SAN" ] || SAN="$HOME/.claude/skills/security/scripts/sanitizer.py"
 ```
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
 | `scripts/sanitizer.py` | Scan or redact PII in files | `python3 "$SAN" --scan --dir . --recursive` |
-| `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | `cp "$PROJ/.claude/skills/security/scripts/pre-commit-hook.sh" .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` (or global `~/.cursor/skills/security/…`) |
+| `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | `cp "$PROJ/.claude/skills/security/scripts/pre-commit-hook.sh" .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` (or global `~/.claude/skills/security/…`) |
 
 ## Configuration
 

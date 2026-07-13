@@ -35,9 +35,9 @@ gate_plan_classify_paths() {
       .claude/skills/*|.claude/agents/*) GATE_IS_LIBRARY=true ;;
     esac
     case "$f" in
-      install.sh|install.ps1|install-cursor.sh|install-cursor.ps1) GATE_IS_SENSITIVE=true ;;
+      install.sh|install.ps1) GATE_IS_SENSITIVE=true ;;
       assets/consumer/*) GATE_IS_SENSITIVE=true ;;
-      .claude/hooks/*|.cursor/hooks/*) GATE_IS_SENSITIVE=true ;;
+      .claude/hooks/*) GATE_IS_SENSITIVE=true ;;
       SECURITY.md) GATE_IS_SENSITIVE=true ;;
       scripts/lib/install-hook-settings.sh) GATE_IS_SENSITIVE=true ;;
       scripts/validate.sh|scripts/validate-test.sh) GATE_IS_SENSITIVE=true ;;
@@ -46,7 +46,7 @@ gate_plan_classify_paths() {
     esac
     case "$f" in
       DATA_MODEL.md) GATE_IS_CODE_CHANGE=true; GATE_HAS_DATA_MODEL=true; continue ;;
-      *.md|*.mdc|LICENSE|NOTICE) continue ;;
+      *.md|LICENSE|NOTICE) continue ;;
       docs/*) continue ;;
       eval/metrics/runs/*) continue ;;
       .claude/memory/*) continue ;;

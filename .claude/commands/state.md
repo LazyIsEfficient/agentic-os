@@ -8,7 +8,7 @@ The user invoked `/state $ARGUMENTS`.
 
 `SESSION-STATE.md` is the live external-memory doc; hooks re-inject it each session and digest it each turn, so anything recorded here survives context compaction. Write to it **only** through the deterministic helper — never hand-edit the file.
 
-**Hooks are on by default** after install. To turn off, edit `~/.claude/settings.json` or project `.claude/settings.json` — see [docs/awareness-harness-activation.md](../../docs/awareness-harness-activation.md).
+**Hooks are on by default** after install. To turn off, edit `~/.claude/settings.json` or project `.claude/settings.json`.
 
 1. Read `$1` as the entry type. Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`. If `$1` is empty or not one of these, STOP and list the valid types — do not guess.
 2. The remaining arguments (`$2` onward) are the entry text (required for constraint/decision/infra/thread).

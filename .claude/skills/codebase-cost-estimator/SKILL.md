@@ -14,7 +14,7 @@ when_to_use: |
   Not when: the task is pricing a *future*
   project from a spec rather than measuring an existing codebase (there is no code to count
   yet) — scope the spec first, then return here once code exists.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Codebase Cost Estimator

@@ -18,7 +18,7 @@ so identical events byte-compare equal and team-shared diffs stay stable.
 | `fingerprint` | string (16 hex) | sha256 of `file + "\n" + normalize(claim)`, truncated to 16 chars. Groups re-sightings of the same defect. |
 | `file`        | string        | Repo-relative path the finding is about. |
 | `claim`       | string        | One-sentence claim summary, as the reviewer phrased it. |
-| `tier`        | 1 or 2        | Per review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`). Tier 0 checks live in validators and never enter the ledger. |
+| `tier`        | 1 or 2        | Per review-tiers (`.claude/rules/review-tiers.md`). Tier 0 checks live in validators and never enter the ledger. |
 | `source`      | string        | Emitting agent (`library-reviewer`, `code-reviewer`, …) or `triage` for transitions. |
 | `run_id`      | string or null | Identifier of the review run (branch, PR number, workflow id). Required on `add`; null only arises on transition events. Recurrence counts distinct run ids, so reuse the same id within one review run and use a fresh id per independent run. |
 | `date`        | string        | `YYYY-MM-DD`. |

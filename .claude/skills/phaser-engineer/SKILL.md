@@ -5,7 +5,7 @@ when_to_use: |
   Use when scaffolding a Phaser 3 + TypeScript + Vite project, designing or restructuring scenes, writing gameplay code (controllers, state machines, AI, physics), handling input, working with Arcade physics (Matter is covered for the Arcade-vs-Matter decision only; the Matter implementation deep-dive is not yet documented here), building animations or tweens, importing Tiled tilemaps, managing assets (atlases, audio sprites, dynamic loading), implementing save/load with versioning, profiling frame-budget issues, or reviewing a Phaser project for anti-patterns.
 
   Not when: the project is Godot/C# — use `godot-engineer` instead. Not when the question is about game mechanics or balance — use `game-systems-designer` or `game-balancer`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Phaser Engineer

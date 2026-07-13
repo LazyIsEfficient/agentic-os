@@ -13,13 +13,13 @@ when_to_use: |
   Not when conducting the review itself — use code-review-and-quality for source
   code or skill-library-review for library definitions; this skill only stores
   their unevidenced residue.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Findings Ledger
 
 Stochastic judgment proposes; deterministic verification disposes (tier
-doctrine: review-tiers — `.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`). This skill is the *proposes* side's
+doctrine: review-tiers — `.claude/rules/review-tiers.md`). This skill is the *proposes* side's
 inbox: a single append-only JSONL at `.claude/ledger/findings.jsonl` where
 Tier 2 findings accumulate fingerprinted, so the same defect phrased two ways
 across runs usually collides to one entry (a heuristic — see the limits doc)
@@ -54,12 +54,10 @@ All via [scripts/ledger.py](scripts/ledger.py) (python3, stdlib only; exit 0 =
 ok, 2 = setup/usage error; output ordering is deterministic). Resolve the script path first — [references/install-paths.md](references/install-paths.md):
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
-# 1. Repo checkout — never $PROJ/.cursor/skills/
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
+# 1. Repo checkout
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-# 2. Global Cursor (after install-cursor.sh)
-[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
-# 3. Global Claude Code (after install.sh)
+# 2. Global Claude Code (after install.sh)
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 
 python3 "$LEDGER" add \

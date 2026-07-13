@@ -12,7 +12,7 @@ when_to_use: |
   version tag, stakeholder comms) rather than the pipeline YAML — use `release-manager`.
   Not when the task is DevOps build-system, artifact-registry, or environment-promotion
   mechanics (rather than GitHub Actions YAML authoring) — use `devops-engineer`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Deployment Pipelines

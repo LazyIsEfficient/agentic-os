@@ -18,7 +18,7 @@ when_to_use: |
   drives deals or revenue, buyer-journey gaps) rather than SEO/search-driven —
   use revenue-intelligence; this skill's gap analysis is keyword/search-demand-driven.
   For deep content research and optimization use [autoresearch](../autoresearch/SKILL.md).
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # AI SEO Ops

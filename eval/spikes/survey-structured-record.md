@@ -2,7 +2,7 @@
 
 **Status:** Option B **implemented** (warn-first) — `[surveyed:name]` writer + hook matching shipped; **deny flip not merged** until evidence gate met.  
 **Issue:** [#145](https://github.com/LazyIsEfficient/agentic-os/issues/145) (S5-D warn → deny ratchet).  
-**Gate:** V2_DISPATCH evidence gate **not met** — no near-zero false-positive evidence from real `.claude/survey-guard.warns` / `.cursor/survey-guard.warns` use yet.
+**Gate:** evidence gate **not met** — no near-zero false-positive evidence from real `.claude/survey-guard.warns` use yet.
 
 ## Problem
 
@@ -19,17 +19,17 @@ Slice 2 already landed a **partial fix**: bracketed `[subject]` tokens with **wh
 
 ---
 
-## Current state (warn-first, both platforms)
+## Current state (warn-first)
 
-| Component | Claude | Cursor |
-|---|---|---|
-| Hook | `.claude/hooks/survey-before-act.sh` | `.cursor/hooks/survey-before-act.sh` |
-| Trigger | `PreToolUse(Bash)` | `beforeShellExecution` |
-| Provisioning detector | `docker run`, `docker compose up`, `docker-compose up`, `podman run`, `nerdctl run` | same |
-| Command parse | `jq -r '.tool_input.command'`; `sed` fallback if jq absent | `jq -r '.command'`; `sed` fallback |
-| Survey lookup | `## Existing infrastructure` bullets → extract `[A-Za-z0-9._-]+` subjects → whole-token match in command (case-insensitive) | same |
-| Decision | `permissionDecision: allow` + advisory | `permission: allow` + `agent_message` |
-| Measurement | append `.claude/survey-guard.warns` | append `.cursor/survey-guard.warns` |
+| Component | Claude |
+|---|---|
+| Hook | `.claude/hooks/survey-before-act.sh` |
+| Trigger | `PreToolUse(Bash)` |
+| Provisioning detector | `docker run`, `docker compose up`, `docker-compose up`, `podman run`, `nerdctl run` |
+| Command parse | `jq -r '.tool_input.command'`; `sed` fallback if jq absent |
+| Survey lookup | `## Existing infrastructure` bullets → extract `[A-Za-z0-9._-]+` subjects → whole-token match in command (case-insensitive) |
+| Decision | `permissionDecision: allow` + advisory |
+| Measurement | append `.claude/survey-guard.warns` |
 
 Writer path: `/state infra "[subject] …"` → `session-state.sh infra` → bullet under Existing infrastructure.
 
@@ -88,7 +88,7 @@ Add a dedicated, machine-parseable prefix so “infra prose” and “survey lat
 
 Applies to both options; Option B replaces the subject regex with `\[surveyed:([A-Za-z0-9._-]+)\]`.
 
-1. **Read** `$PROJECT_DIR/SESSION-STATE.md` (Claude: `CLAUDE_PROJECT_DIR`; Cursor: `CURSOR_PROJECT_DIR`).
+1. **Read** `$PROJECT_DIR/SESSION-STATE.md` (Claude: `CLAUDE_PROJECT_DIR`).
 2. **Extract subjects** only from `## Existing infrastructure` (or `## Surveyed services` if Option C) — ignore HTML comments (`<!-- … -->`).
 3. **Tokenize command:** lowercase; split on non-`[a-z0-9._-]` (preserve internal dots/dashes/underscores).
 4. **Match:** for each subject `s`, `grep -qxF "$s"` against token list. First hit → surveyed.
@@ -102,7 +102,7 @@ Applies to both options; Option B replaces the subject regex with `\[surveyed:([
 
 **Deterministic tests (existing + to add on implementation):**
 
-- `scripts/survey-guard-test.sh` / `scripts/survey-guard-test-cursor.sh` — keep 12/0 baseline.
+- `scripts/survey-guard-test.sh` — keep 12/0 baseline.
 - Add: `[surveyed:rabbitmq]` suppresses; `[rabbitmq]` without surveyed prefix does **not** (Option B).
 - Add: command `docker run … --name rabbitmq` matches; `… kafka-broker` does not match `[surveyed:broker]`.
 
@@ -164,7 +164,7 @@ Two failure classes:
 **Implementation checklist (deny PR, not this prep):**
 
 - [ ] Deny branch requires `command -v jq` before deny path; if jq missing → fail-open (allow, optionally warn).
-- [ ] Consider CI / install docs: `jq` as soft dependency for survey guard (already required for Cursor inject/digest).
+- [ ] Consider CI / install docs: `jq` as soft dependency for survey guard.
 - [ ] Keep sed fallback for warn-first detection only (provisioning regex still works on truncated prefix in common cases).
 
 ---
@@ -189,7 +189,7 @@ This spike is **prep only**. Sequence:
 1. **This PR** — design doc + issue checklist comment; optional hook comment pointers.
 2. **Implement Option B** — writer validation, hook regex, template + `/state` docs, migrate tests.
 3. **Operate warn-first** — accumulate `survey-guard.warns` from real sessions; review false-positive rate.
-4. **Evidence gate** — V2_DISPATCH sign-off when near-zero false positives demonstrated.
+4. **Evidence gate** — sign-off when near-zero false positives demonstrated.
 5. **Deny flip PR** — `allow` → `deny` on guard-positive only; jq required; fail-open matrix above; update SECURITY.md; **does not** close #145 until all prerequisites checked.
 
 ---
@@ -208,8 +208,6 @@ This spike is **prep only**. Sequence:
 
 ## References
 
-- `V2_ROADMAP.md` Slice 2 ratchet requirements
-- `scripts/survey-guard-test.sh`, `scripts/survey-guard-test-cursor.sh`
+- `scripts/survey-guard-test.sh`
 - `.claude/commands/state.md`, `.claude/skills/session-state/`
 - `SECURITY.md` rule 7 (untrusted injected data)
-- `eval/spikes/cursor-hook-capability.md` Spike B
