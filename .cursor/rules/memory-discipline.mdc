@@ -21,6 +21,7 @@ A non-obvious fact about the user, the project, or how to work — that a future
 - **Project memories** — decisions, deadlines, in-flight initiatives, who owns what. Convert relative dates to absolute (`"Thursday"` → `"2026-05-14"`).
 - **User memories** — role, expertise, preferences, mental models the user already has.
 - **Reference memories** — pointers to external systems (Linear projects, dashboards, channels).
+- **Convention memories** — standing house rules the user states as facts, including **data-format/representation** conventions (how data is stored, shaped, or encoded), not only procedures — e.g. `"timestamps are Unix epoch seconds, never a Date/ISO string"`, `"ids are ulid_ + 8 base-36 chars, never a UUID"`. Capture these **even when the current task doesn't exercise them yet**; a stated arbitrary convention isn't derivable from an early repo, so it belongs here, not in "Do NOT write" below.
 
 ### Do NOT write to memory
 - Code patterns, file paths, architecture — derivable from the repo.
