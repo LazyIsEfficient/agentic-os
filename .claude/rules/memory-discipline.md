@@ -10,12 +10,12 @@ Why in-repo: memory sits next to the work, is visible in the editor, and is giti
 - If a memory contradicts what the code says now, trust the code and update or remove the stale memory.
 
 ### Write memory whenever you learn something durable
-A non-obvious fact about the user, the project, or how to work — that a future session would otherwise have to relearn — must be saved before the conversation ends. Specifically:
+Save a fact iff **(a) decision-relevance** — a cold future session would act differently without it — **AND (b) non-derivability** — it can't be reconstructed from the repo, git history, or tools. Both clauses, every time; the examples below span the space, they don't bound it:
 
-- **Feedback memories** — every correction (`"don't do X"`, `"stop Xing"`) AND every quiet confirmation (`"yes that was right"`, accepting an unusual choice without pushback). Lead with the rule, then `**Why:**` and `**How to apply:**`.
-- **Project memories** — decisions, deadlines, in-flight initiatives, who owns what. Convert relative dates to absolute (`"Thursday"` → `"2026-05-14"`).
-- **User memories** — role, expertise, preferences, mental models the user already has.
-- **Reference memories** — pointers to external systems (Linear projects, dashboards, channels).
+- **A correction or fact about the user** — `"don't do X"`, a confirmed preference, their role or mental model; lead with the rule, then `**Why:**` and `**How to apply:**`.
+- **A project fact** — a decision, deadline, in-flight initiative, or who owns what; convert relative dates to absolute (`"Thursday"` → `"2026-05-14"`).
+- **A pointer to an external system** — a Linear project, dashboard, or channel the repo never names.
+- **A data representation** — e.g. timestamps stored as Unix epoch seconds, never a Date/ISO string; an enum's canonical values — facts that change how you read or write the data.
 
 ### Do NOT write to memory
 - Code patterns, file paths, architecture — derivable from the repo.
