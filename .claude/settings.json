@@ -29,6 +29,9 @@
     "PreCompact": [
       { "matcher": "auto",   "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" } ] },
       { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/memory-extract.sh" } ] }
     ]
   },
   "autoMode": {

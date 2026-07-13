@@ -526,6 +526,52 @@ awk '
 ' "$c36/.cursor/hooks.json" > "$c36/.cursor/hooks.json.tmp" && mv "$c36/.cursor/hooks.json.tmp" "$c36/.cursor/hooks.json"
 assert_trips "case 36 hooks-parity (hook in project file only)" "$c36" hooks-parity
 
+# ── Case 38: claude-hook-registration — consumer registers a hook dev lacks ────
+# Invariant 8(d) (consumer ⊆ dev). The Claude hook tree previously had NO
+# registration guard (check_hook_parity/registration are Cursor-only), so a
+# consumer manifest could register a Stop/PostToolUse hook the dev tree never
+# wired — shipping a dead mechanism (issue #217 spike finding). Seed a consumer
+# claude-settings.json that registers PostToolUse -> block-bad-bash.sh (an event
+# the real dev .claude/settings.json does not register that script on). The
+# command is shape-valid (passes hook-safety 8(b)), so only claude-hook-registration
+# may trip. make_copy does NOT copy assets/consumer/claude-settings.json, so the
+# baseline and every other case leave this invariant inert (both-files-exist guard).
+c38="$(make_copy)"
+mkdir -p "$c38/assets/consumer"
+cat > "$c38/assets/consumer/claude-settings.json" <<'JSON'
+{
+  "hooks": {
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/block-bad-bash.sh" } ] }
+    ]
+  }
+}
+JSON
+assert_trips "case 38 claude-hook-registration (consumer registers a hook dev lacks)" "$c38" claude-hook-registration
+
+# ── Case 39: claude-hook-registration — consumer ⊆ dev stays clean ─────────────
+# No-false-positive guard: a consumer manifest whose (event, script) pairs are a
+# subset of the dev tree must pass. PreToolUse -> block-bad-bash.sh IS registered
+# in the real dev .claude/settings.json, and the script exists in .claude/hooks/,
+# so the whole run must stay green.
+c39="$(make_copy)"
+mkdir -p "$c39/assets/consumer"
+cat > "$c39/assets/consumer/claude-settings.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/block-bad-bash.sh" } ] }
+    ]
+  }
+}
+JSON
+run_validate "$c39"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 39 claude-hook-registration (consumer subset stays clean)" pass
+else
+  report "case 39 claude-hook-registration (consumer subset stays clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."
