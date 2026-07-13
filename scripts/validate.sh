@@ -343,34 +343,6 @@ check_dangling_refs() {
   done
 }
 
-# Set-equality between a maintainer index file's @<subdir>/*.<ext> imports and the
-# rule files actually present in <subdir>. Resolution (does each import point at a
-# real file?) is handled by the per-line loops above; this catches the OTHER drift:
-# a rule file added to the dir without a matching @-import (stale index), or an
-# @-import naming a file that is not there. Fails listing each missing/extra entry.
-# (#207)
-#   $1 = index file (CLAUDE.md / CURSOR.md)  $2 = rules subdir (relative to ROOT)
-#   $3 = extension (md / mdc)                $4 = fail tag
-check_import_completeness() {
-  local cf="$1" subdir="$2" ext="$3" tag="$4"
-  [[ -f "$cf" ]] || return 0
-  local rules_dir="$ROOT/$subdir"
-  [[ -d "$rules_dir" ]] || return 0
-  local esc; esc="${subdir//./\\.}"            # escape dots for ERE matching
-  local imported on_disk only_disk only_import name
-  imported="$(grep -oE "^@${esc}/[^[:space:]]+\.${ext}" "$cf" | sed -E "s#^@${esc}/##" | sort -u)" || true
-  on_disk="$(find "$rules_dir" -maxdepth 1 -name "*.${ext}" -type f -exec basename {} \; | sort -u)" || true
-  only_disk="$(comm -13 <(printf '%s\n' "$imported") <(printf '%s\n' "$on_disk"))" || true
-  only_import="$(comm -23 <(printf '%s\n' "$imported") <(printf '%s\n' "$on_disk"))" || true
-  while IFS= read -r name; do
-    [[ -n "$name" ]] && fail "$tag" "$cf" "rule '$subdir/$name' exists but is not @-imported (stale maintainer index)"
-  done <<< "$only_disk"
-  while IFS= read -r name; do
-    [[ -n "$name" ]] && fail "$tag" "$cf" "@-import '$subdir/$name' has no matching file in $subdir/"
-  done <<< "$only_import"
-  return 0   # last while may exit non-zero ([[ -n '' ]] && …); set -e would abort dispatch
-}
-
 # ── Invariant 4: claude-flat-sync ───────────────────────────────────────────────
 # CLAUDE.md is a GENERATED flat file (scripts/build-claude-md.sh): every
 # .claude/rules/<name>.md is embedded verbatim — with `](../` links rebased to
@@ -436,48 +408,6 @@ check_claude_flat_sync() {
   return 0
 }
 
-# ── Invariant 4b: cursor-imports ───────────────────────────────────────────────
-check_cursor_imports() {
-  local cf="$ROOT/CURSOR.md"
-  [[ -f "$cf" ]] || return 0
-  while IFS= read -r line; do
-    [[ "$line" =~ ^@ ]] || continue
-    local rel="${line#@}"
-    rel="${rel%%[[:space:]]*}"
-    if [[ ! -f "$ROOT/$rel" ]]; then
-      fail cursor-imports "$cf" "@-import '$rel' does not resolve to an existing file"
-    fi
-  done < "$cf"
-  # CURSOR.md @-imports .cursor/rules/*.mdc — gate the imported set == files present.
-  check_import_completeness "$cf" ".cursor/rules" "mdc" "cursor-imports"
-}
-
-# ── Invariant 4c: cursor-rules-format ───────────────────────────────────────────
-# Cursor ignores plain .md in .cursor/rules/ — only .mdc with frontmatter loads.
-# Stale .md siblings would confuse maintainers and PR diffs (rename vs duplicate).
-check_cursor_rules_format() {
-  local rules_dir="$ROOT/.cursor/rules"
-  [[ -d "$rules_dir" ]] || return 0
-  local f
-  while IFS= read -r f; do
-    fail cursor-rules-format "$f" "plain .md in .cursor/rules/ is invalid — use .mdc with frontmatter (Cursor ignores .md)"
-  done < <(find "$rules_dir" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
-}
-
-# ── Invariant 4d: cursor-rules-frontmatter ──────────────────────────────────────
-# Cursor loads .mdc rules only when YAML frontmatter includes alwaysApply.
-check_cursor_rules_frontmatter() {
-  local rules_dir="$ROOT/.cursor/rules"
-  [[ -d "$rules_dir" ]] || return 0
-  local f
-  for f in "$rules_dir"/*.mdc; do
-    [[ -f "$f" ]] || continue
-    head -n 1 "$f" | grep -q '^---$' || fail cursor-rules-frontmatter "$f" "missing opening --- frontmatter delimiter"
-    head -n 20 "$f" | grep -q '^alwaysApply:' || fail cursor-rules-frontmatter "$f" "missing alwaysApply in frontmatter"
-    head -n 20 "$f" | grep -q '^description:' || fail cursor-rules-frontmatter "$f" "missing description in frontmatter"
-  done
-}
-
 # ── Invariant 5: memory-length ─────────────────────────────────────────────────
 check_memory_length() {
   local mf="$CLAUDE/memory/MEMORY.md"
@@ -492,13 +422,10 @@ check_memory_length() {
 # Allowlist of what install scripts MUST ship — exact equality, any drift fails.
 EXPECTED_DIRS="agents hooks skills"                       # sorted (Claude)
 EXPECTED_CMDS="agent-new.md skill-new.md state.md"  # sorted (Claude)
-EXPECTED_CURSOR_DIRS="agents hooks skills"                # sorted (Cursor — no commands)
 
 check_ship_manifest() {
   local sh="$ROOT/install.sh"
   local ps="$ROOT/install.ps1"
-  local shc="$ROOT/install-cursor.sh"
-  local psc="$ROOT/install-cursor.ps1"
 
   # ---- install.sh ----
   if [[ -f "$sh" ]]; then
@@ -529,28 +456,6 @@ check_ship_manifest() {
       | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
     compare_manifest "$ps" "$got_dirs" "$got_cmds"
   fi
-
-  # ---- install-cursor.sh ----
-  if [[ -f "$shc" ]]; then
-    local got_dirs; got_dirs="$(grep -oE '^[[:space:]]*install_dir[[:space:]]+"[^"]+"' "$shc" \
-      | sed -E 's/.*install_dir[[:space:]]+"([^"]+)".*/\1/' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
-    local got_cmds; got_cmds="$(grep -oE '"[^"]+\.md"' "$shc" 2>/dev/null \
-      | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//' || true)"
-    compare_cursor_manifest "$shc" "$got_dirs" "$got_cmds"
-  fi
-
-  # ---- install-cursor.ps1 ----
-  if [[ -f "$psc" ]]; then
-    local got_dirs; got_dirs="$(grep -oE 'Install-Dir[[:space:]]+"[^"]+"' "$psc" \
-      | sed -E 's/.*Install-Dir[[:space:]]+"([^"]+)".*/\1/' | sort -u)"
-    if grep -qE '^function[[:space:]]+Install-CursorHooks' "$psc"; then
-      got_dirs="$got_dirs"$'\n'"hooks"
-    fi
-    got_dirs="$(printf '%s\n' "$got_dirs" | grep -v '^$' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
-    local got_cmds; got_cmds="$(grep -oE '"[^"]+\.md"' "$psc" 2>/dev/null \
-      | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//' || true)"
-    compare_cursor_manifest "$psc" "$got_dirs" "$got_cmds"
-  fi
 }
 
 # Exact whole-token membership. `grep -w` treats '.' as a word character, so it
@@ -575,18 +480,6 @@ compare_manifest() {
     local c
     for c in $got_cmds;      do in_set "$c" $EXPECTED_CMDS || fail ship-manifest "$file" "ships unexpected command: $c"; done
     for c in $EXPECTED_CMDS; do in_set "$c" $got_cmds      || fail ship-manifest "$file" "missing expected command: $c"; done
-  fi
-}
-
-compare_cursor_manifest() {
-  local file="$1" got_dirs="$2" got_cmds="$3"
-  if [[ "$got_dirs" != "$EXPECTED_CURSOR_DIRS" ]]; then
-    local d
-    for d in $got_dirs;             do in_set "$d" $EXPECTED_CURSOR_DIRS || fail ship-manifest "$file" "ships unexpected dir: $d"; done
-    for d in $EXPECTED_CURSOR_DIRS; do in_set "$d" $got_dirs             || fail ship-manifest "$file" "missing expected dir: $d"; done
-  fi
-  if [[ -n "$got_cmds" ]]; then
-    fail ship-manifest "$file" "Cursor install must not ship commands (found: $got_cmds)"
   fi
 }
 
@@ -648,10 +541,9 @@ check_review_tiers() {
 # is safe; it denies the obvious exfil / destructive / obfuscation patterns in
 # shipped hook scripts, and forces hook *commands* to call a vendored hooks/
 # script rather than carry inline shell. Surfaces: `.claude/hooks/` + optional
-# dev `settings.json` (Claude Code), and `.cursor/hooks/` + optional
-# `hooks.json` (Cursor). The real defenses are layered (minimal auditable scripts
-# + no runtime fetch + human security review + the workspace-trust gate). See
-# SECURITY.md for the threat model and limits.
+# dev `settings.json` (Claude Code). The real defenses are layered (minimal
+# auditable scripts + no runtime fetch + human security review + the
+# workspace-trust gate). See SECURITY.md for the threat model and limits.
 #
 # Pattern@@@reason. `@@@` is the delimiter (no regex here contains it). Scope is
 # deliberately the shipped scripts only — NOT settings.json config — so the scan
@@ -682,15 +574,13 @@ HOOK_DENY=(
   '\b(id_rsa|\.git-credentials|\.npmrc)\b@@@credential-file access in a shipped hook'
 )
 
-# Scan a hooks directory for denylisted shell idioms. Shared by Claude and Cursor
-# surfaces (Invariant 8(a)). $2 is a human label for error messages (e.g. the
-# relative path ".claude/hooks/"). When $3 is "skip-probe", *-probe.sh files are
-# skipped: spike live-fire fixtures under .cursor/hooks/*-probe.sh are dev-only
-# (eval/spikes/cursor-hook-capability) — excluded from install-cursor ship surface.
-# Production .cursor/hooks/*.sh (JSON stdout contract) ship via install-cursor.*
-# into ~/.cursor/hooks/; Claude install still ships .claude/hooks/ (plain stdout).
+# Scan a hooks directory for denylisted shell idioms (Invariant 8(a)). $2 is a
+# human label for error messages (e.g. the relative path ".claude/hooks/").
+# install.sh ships .claude/hooks/*.sh onto consumer machines, so a bug or upstream
+# compromise there executes arbitrary shell downstream — this denies the obvious
+# exfil / destructive / obfuscation idioms.
 scan_hook_scripts_dir() {
-  local hooks_dir="$1" label="$2" skip_probe="${3:-}"
+  local hooks_dir="$1" label="$2"
   [[ -d "$hooks_dir" ]] || return 0
   local f entry re reason ln
   while IFS= read -r f; do
@@ -699,9 +589,6 @@ scan_hook_scripts_dir() {
       *.md) continue ;;
       *) fail hook-safety "$f" "non-.sh file in $label — only vendored *.sh shell hooks may ship (other interpreters evade the shell-idiom denylist)"; continue ;;
     esac
-    if [[ "$skip_probe" == "skip-probe" && "$f" == *-probe.sh ]]; then
-      continue
-    fi
     for entry in "${HOOK_DENY[@]}"; do
       re="${entry%%@@@*}"; reason="${entry##*@@@}"
       if grep -qE "$re" "$f"; then
@@ -731,64 +618,11 @@ check_hook_commands_in_file() {
   done < <(grep -E '"command"[[:space:]]*:' "$json_file" || true)
 }
 
-# ── Invariant 8(c): Cursor hook-registration parity ────────────────────────────
-# Two files register the SAME Cursor hook set with DIFFERENT path prefixes:
-#   .cursor/hooks.json                — project/in-repo  (.cursor/hooks/<name>.sh)
-#   assets/consumer/cursor-hooks.json — merged into ~/.cursor/hooks.json by
-#                                       install-cursor.sh        (hooks/<name>.sh)
-# They agree today but nothing gated drift. Assert both declare the SAME set of
-# (event, script-basename) pairs after normalizing the path prefix and ignoring
-# any *-probe.sh (probes are spike scripts, never shipped to consumers).
-#
-# Crude line-based JSON scan (no jq, per this script's constraint): track the
-# current event-array key, then for each "command" emit `event<TAB>basename`.
-hook_event_script_pairs() {
-  local json_file="$1"
-  [[ -f "$json_file" ]] || return 0
-  awk '
-    # Event-array opener: "<event>": [   — the trailing [ distinguishes it from
-    # "hooks": { (object) and "version": 1 (number), so neither is mistaken for an event.
-    /"[A-Za-z][A-Za-z0-9]*"[[:space:]]*:[[:space:]]*\[/ {
-      ev=$0
-      sub(/^[^"]*"/, "", ev); sub(/".*/, "", ev)
-      event=ev
-    }
-    # Hook command string: extract the value, reduce to the script basename,
-    # drop any trailing simple args, and skip probe scripts.
-    /"command"[[:space:]]*:[[:space:]]*"/ {
-      cmd=$0
-      sub(/.*"command"[[:space:]]*:[[:space:]]*"/, "", cmd); sub(/".*/, "", cmd)
-      sub(/.*\//, "", cmd)   # strip path prefix -> basename
-      sub(/ .*/, "", cmd)    # strip trailing args, keep the script name
-      if (event != "" && cmd !~ /-probe\.sh$/) print event "\t" cmd
-    }
-  ' "$json_file" | sort -u
-}
-
-check_hook_parity() {
-  local proj="$ROOT/.cursor/hooks.json"
-  local consumer="$ROOT/assets/consumer/cursor-hooks.json"
-  # Only meaningful when both registration files exist.
-  [[ -f "$proj" && -f "$consumer" ]] || return 0
-  local proj_pairs consumer_pairs p
-  proj_pairs="$(hook_event_script_pairs "$proj")"
-  consumer_pairs="$(hook_event_script_pairs "$consumer")"
-  while IFS= read -r p; do
-    [[ -n "$p" ]] && fail hooks-parity "$consumer" \
-      "(event, script) registered in .cursor/hooks.json but missing from assets/consumer/cursor-hooks.json: ${p//$'\t'/ }"
-  done < <(comm -23 <(printf '%s\n' "$proj_pairs") <(printf '%s\n' "$consumer_pairs"))
-  while IFS= read -r p; do
-    [[ -n "$p" ]] && fail hooks-parity "$proj" \
-      "(event, script) registered in assets/consumer/cursor-hooks.json but missing from .cursor/hooks.json: ${p//$'\t'/ }"
-  done < <(comm -13 <(printf '%s\n' "$proj_pairs") <(printf '%s\n' "$consumer_pairs"))
-}
-
 check_hook_safety() {
   # (a) Shipped hooks must be vendored *.sh shell scripts, scanned for the
   # denylist. The denylist models SHELL idioms, so a non-shell hook (.py/.js)
   # would evade it entirely — restrict shipped hooks to *.sh and reject the rest.
   scan_hook_scripts_dir "$CLAUDE/hooks" ".claude/hooks/"
-  scan_hook_scripts_dir "$ROOT/.cursor/hooks" ".cursor/hooks/" skip-probe
 
   # (b) Every hook "command" must invoke a vendored hooks/ script — no inline shell.
   check_hook_commands_in_file "$CLAUDE/settings.json" \
@@ -796,73 +630,15 @@ check_hook_safety() {
     '^[a-z][a-z0-9]* \.claude/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
     '<interpreter> .claude/hooks/<name>.sh [simple args]'
 
-  # Cursor hooks.json v1 schema — .cursor/hooks/<name>.sh [simple args] (no interpreter
-  # prefix; Cursor invokes the script path directly).
-  check_hook_commands_in_file "$ROOT/.cursor/hooks.json" \
-    '.cursor/hooks/' \
-    '^\.cursor/hooks/[A-Za-z0-9_-]+\.sh( [A-Za-z0-9_./=-]+)*$' \
-    '.cursor/hooks/<name>.sh [simple args]'
-
-  # Consumer global install templates (Invariant 8(b) — separate path prefixes).
+  # Consumer global install template (Invariant 8(b)).
   check_hook_commands_in_file "$ROOT/assets/consumer/claude-settings.json" \
     '.claude/hooks/' \
     '^bash \$HOME/.claude/hooks/[A-Za-z0-9_-]+\.sh$' \
     'bash $HOME/.claude/hooks/<name>.sh'
-
-  check_hook_commands_in_file "$ROOT/assets/consumer/cursor-hooks.json" \
-    'hooks/' \
-    '^hooks/[A-Za-z0-9_-]+\.sh$' \
-    'hooks/<name>.sh'
-}
-
-# ── Invariant 8(c): Cursor hook registration completeness ──────────────────────
-# 8(a)/8(b) prove shipped hook scripts are benign and that registered commands are
-# well-shaped — but nothing asserts the two SETS line up. A production script left
-# in .cursor/hooks/ but unregistered in .cursor/hooks.json, or a command pointing
-# at a script that no longer exists, both pass 8(a)/8(b) yet ship broken. This is
-# the deterministic registration-completeness ratchet (issue #205), scoped to the
-# PROJECT surface only (.cursor/hooks/ <-> .cursor/hooks.json). Consumer global
-# template parity (assets/consumer/cursor-hooks.json) is handled by #206.
-#   (1) every non-*-probe.sh script in .cursor/hooks/ is referenced by >=1 command
-#       (*-probe.sh are dev-only spike fixtures excluded from ship, per 8(a)).
-#   (2) every command path in .cursor/hooks.json resolves to a script that exists.
-# Basenames are matched robustly: a command may carry trailing args, so only the
-# first whitespace-delimited token (the script path) is considered.
-check_hook_registration() {
-  local hooks_dir="$ROOT/.cursor/hooks" hooks_json="$ROOT/.cursor/hooks.json"
-  [[ -d "$hooks_dir" && -f "$hooks_json" ]] || return 0
-
-  # Same grep/sed command-string parse as check_hook_commands_in_file (no jq).
-  local registered=" " cline cmdval cmdpath base
-  while IFS= read -r cline; do
-    cmdval="$(printf '%s' "$cline" | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/')"
-    [[ "$cmdval" == "$cline" ]] && continue
-    cmdpath="${cmdval%% *}"
-    case "$cmdpath" in
-      .cursor/hooks/*.sh) ;;
-      *) continue ;;   # non-vendored / odd-shape commands are 8(b)'s job
-    esac
-    base="${cmdpath##*/}"
-    if [[ ! -f "$hooks_dir/$base" ]]; then
-      fail hook-registration "$hooks_json" "command references a missing script: $cmdpath (no .cursor/hooks/$base on disk)"
-    fi
-    registered="$registered$base "
-  done < <(grep -E '"command"[[:space:]]*:' "$hooks_json" || true)
-
-  local f fb
-  while IFS= read -r f; do
-    fb="${f##*/}"
-    [[ "$fb" == *-probe.sh ]] && continue
-    if [[ "$registered" != *" $fb "* ]]; then
-      fail hook-registration "$f" "production hook script is not registered in .cursor/hooks.json (add a command entry, or rename to *-probe.sh if it is a dev-only spike)"
-    fi
-  done < <(find "$hooks_dir" -maxdepth 1 -type f -name '*.sh' | sort)
 }
 
 # ── Invariant 8(d): Claude hook-registration parity (consumer ⊆ dev) ────────────
-# The CURSOR tree is guarded end-to-end (check_hook_parity: project↔consumer;
-# check_hook_registration: script↔hooks.json). The CLAUDE tree had NO such guard —
-# 8(a)/8(b) only prove Claude command SHAPES are benign, nothing asserts the
+# 8(a)/8(b) only prove Claude command SHAPES are benign — nothing asserts the
 # consumer global template (assets/consumer/claude-settings.json) stays in step
 # with the dev tree (.claude/settings.json). So a hook could be registered for
 # consumers that dev never wired, or point at a script that was never vendored,
@@ -881,11 +657,11 @@ check_hook_registration() {
 #
 # Parsing note: Claude's settings schema nests each event's commands inside an
 # inner "hooks": [ ] wrapper and may place "matcher"/"hooks"/"command" on one
-# physical line, so the Cursor-schema hook_event_script_pairs (which treats the
-# first "<key>": [ on a line as the event) mis-attributes them. We therefore treat
-# a "<key>": [ opener as an event ONLY when <key> is a known Claude Code hook event
-# name — robust for the real, closed event set (a new event would need adding here,
-# same maintenance contract as the TOMBSTONES list).
+# physical line, so a naive parser that treats the first "<key>": [ on a line as
+# the event would mis-attribute them. We therefore treat a "<key>": [ opener as an
+# event ONLY when <key> is a known Claude Code hook event name — robust for the
+# real, closed event set (a new event would need adding here, same maintenance
+# contract as the TOMBSTONES list).
 CLAUDE_HOOK_EVENTS="PreToolUse PostToolUse Notification UserPromptSubmit Stop SubagentStop PreCompact SessionStart SessionEnd"
 claude_hook_event_script_pairs() {
   local json_file="$1"
@@ -912,7 +688,7 @@ claude_hook_event_script_pairs() {
 check_claude_hook_registration() {
   local dev="$CLAUDE/settings.json"
   local consumer="$ROOT/assets/consumer/claude-settings.json"
-  # Only meaningful when both registration files exist (mirrors check_hook_parity).
+  # Only meaningful when both registration files exist.
   [[ -f "$dev" && -f "$consumer" ]] || return 0
   local dev_pairs consumer_pairs p base
   dev_pairs="$(claude_hook_event_script_pairs "$dev")"
@@ -968,65 +744,16 @@ check_tombstones() {
   done
 }
 
-# ── Invariant 10: rules-parity ─────────────────────────────────────────────────
-# The operating-doctrine files are dual-maintained: .claude/rules/<name>.md
-# (flattened into CLAUDE.md by scripts/build-claude-md.sh for Claude Code) and .cursor/rules/<name>.mdc
-# (loaded via alwaysApply for Cursor). The two trees must carry the SAME SET of
-# rule names, so a rule added or removed in one tree can never be silently absent
-# from the other.
-#
-# This is a STRUCTURAL name-set check only — BODY content is deliberately NOT
-# compared. Two pairs legitimately diverge by design: subagent-dispatch (Claude
-# `Agent`/`Explore` tooling vs Cursor `Task`/`subagent_type`) and review-tiers
-# (`/triage-findings` command vs the `findings-ledger` skill, since Cursor ships
-# no slash commands). A body-equality gate would false-positive on those; name-set
-# parity catches the real regression (an orphaned rule in one tree) without it.
-check_rules_name_parity() {
-  local claude_rules="$CLAUDE/rules"
-  local cursor_rules="$ROOT/.cursor/rules"
-  [[ -d "$claude_rules" && -d "$cursor_rules" ]] || return 0
-  # Fork-free glob loops + parameter-expansion basenames (rule names are kebab-case,
-  # never contain spaces) build space-delimited sets; membership is a pure-bash
-  # substring test. No find/basename/grep/sort — same lean style as the other
-  # .cursor/rules checks above.
-  local f base
-  local claude_names=" " cursor_names=" "
-  for f in "$claude_rules"/*.md; do
-    [[ -e "$f" ]] || continue
-    base="${f##*/}"; base="${base%.md}"
-    claude_names+="$base "
-  done
-  for f in "$cursor_rules"/*.mdc; do
-    [[ -e "$f" ]] || continue
-    base="${f##*/}"; base="${base%.mdc}"
-    cursor_names+="$base "
-  done
-  for base in $claude_names; do
-    [[ "$cursor_names" == *" $base "* ]] || \
-      fail rules-parity "$cursor_rules" "rule '$base' exists in .claude/rules/ but has no .cursor/rules/$base.mdc twin"
-  done
-  for base in $cursor_names; do
-    [[ "$claude_names" == *" $base "* ]] || \
-      fail rules-parity "$claude_rules" "rule '$base' exists in .cursor/rules/ but has no .claude/rules/$base.md twin"
-  done
-}
-
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
 check_claude_flat_sync
-check_cursor_imports
-check_cursor_rules_format
-check_cursor_rules_frontmatter
 check_memory_length
 check_ship_manifest
-check_hook_parity
 check_review_tiers
 check_hook_safety
-check_hook_registration
 check_claude_hook_registration
 check_tombstones
-check_rules_name_parity
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

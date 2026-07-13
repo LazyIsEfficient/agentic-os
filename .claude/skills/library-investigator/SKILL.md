@@ -14,7 +14,7 @@ when_to_use: |
   positive sweep (sharded generate + adversarial verify) — run the audit-library
   command. Not when verifying claims in a formal/technical document — use
   adversarial-claims-reviewer.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Library Investigator
@@ -52,7 +52,7 @@ Counts first: `CONFORMS n / VIOLATES n / UNVERIFIABLE n / N-A n over N files × 
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`). Each VIOLATES states its tier as a fact about the check, not a gate.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). Each VIOLATES states its tier as a fact about the check, not a gate.
 
 ## References
 

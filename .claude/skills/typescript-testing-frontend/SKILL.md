@@ -5,7 +5,7 @@ when_to_use: |
   Use when writing or reviewing TypeScript frontend tests: Jest unit/integration tests for React components and hooks using React Testing Library, with Chakra UI, React Query, Zustand, and Next.js App Router. The key signals are `*.test.tsx` files, component test helpers, or any request to test a React UI, component behavior, or custom hook.
 
   Not when: the task is writing tests for backend services, controllers, or APIs — use typescript-testing-backend. Not when the task is running or verifying the UI in a real browser (Chrome DevTools, visual/layout/interaction verification) — use browser-testing-with-devtools.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # TypeScript Testing — Frontend

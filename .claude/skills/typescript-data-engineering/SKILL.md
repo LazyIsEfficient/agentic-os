@@ -5,7 +5,7 @@ when_to_use: |
   Use when building or modifying data pipelines, ETL jobs, event processors, message-broker producers/consumers (RabbitMQ, Kafka, SQS, BullMQ), Redis caching layers, database migrations (Prisma/Drizzle), BigQuery queries or warehouse integrations, or event-sourcing handlers in TypeScript. The key signal is data movement and transformation code, not application business logic.
 
   Not when: the task is writing PostHog analytics event capture — use typescript-analytics. Not when the task is writing tests for data pipeline code — use typescript-testing-backend.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Data Engineering (TypeScript)

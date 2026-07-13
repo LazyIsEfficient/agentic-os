@@ -32,7 +32,7 @@ runs when the user types `/<name>`. The filename is the command name.
 
 - Lists the tools the command body is permitted to invoke. Must cover what the
   body actually does, and nothing more.
-- **CRITICAL — dispatch tool name is platform-specific.** This repo's `.claude/commands/` run on **Claude Code** only (not shipped on Cursor). There the subagent-spawn tool is **`Agent`** (see agent `tools:` fields and [tool-allowlists.md](tool-allowlists.md)). An `allowed-tools` that lists `Task` instead of `Agent` is a **blocking** finding for a Claude Code command — the body's "dispatch via Agent" step silently fails. On **Cursor**, consumer orchestration uses the **`Task`** tool instead; do not flag `Task` in Cursor-only docs as a defect.
+- **CRITICAL — dispatch tool name.** The subagent-spawn tool is **`Agent`** (see agent `tools:` fields and [tool-allowlists.md](tool-allowlists.md)). An `allowed-tools` that lists `Task` instead of `Agent` is a **blocking** finding for a command — the body's "dispatch via Agent" step silently fails.
 - Body dispatches a subagent on Claude Code but `allowed-tools` omits `Agent` → **blocking**
   (the dispatch can't run).
 - Body writes a file but `allowed-tools` omits `Write`/`Edit` → **blocking**.

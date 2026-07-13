@@ -5,7 +5,7 @@ when_to_use: |
   Use when designing or restructuring Godot scenes, writing gameplay code in C#, handling input or physics, building UI with Control nodes, animating with AnimationPlayer/AnimationTree/Tween, implementing save/load systems, profiling and optimizing frame budgets, implementing WebSocket-based multiplayer, configuring export presets, or reviewing a Godot project for anti-patterns. Triggers on any work inside `.tscn`, `.tres`, `.gd`, or `.cs` files in a Godot project.
 
   Not when: the request is about game mechanics, balance, or narrative — use `game-systems-designer` or `game-balancer` instead. Not when the project is Phaser/TypeScript — use `phaser-engineer`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Godot Engineer

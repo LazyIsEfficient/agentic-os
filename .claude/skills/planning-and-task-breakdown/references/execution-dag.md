@@ -1,6 +1,6 @@
 # Execution DAG
 
-The DAG is a top-of-document summary of dependency edges. Dispatchers (Cursor Background Agents, CI matrices, parallel agent harnesses) read it first to know what can run when.
+The DAG is a top-of-document summary of dependency edges. Dispatchers (CI matrices, parallel agent harnesses) read it first to know what can run when.
 
 ## Syntax
 

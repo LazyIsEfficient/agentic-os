@@ -1,7 +1,7 @@
 # S0 — Hook capability spike (result)
 
 **Status:** DONE — de-risks Slice 1. **Env:** Claude Code `2.1.168`, macOS (darwin 25.3.0).
-**Roadmap:** [V2_ROADMAP.md](../../V2_ROADMAP.md) Slice 0. **Harness:** `eval/spikes/s0-hook-capability/` (reproducible, throwaway).
+**Roadmap:** Slice 0. **Harness:** `eval/spikes/s0-hook-capability/` (reproducible, throwaway).
 
 ## Verdict — all three needed capabilities are confirmed
 

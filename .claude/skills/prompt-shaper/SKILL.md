@@ -7,7 +7,7 @@ when_to_use: |
   Discriminator: triggers fire only when scope is missing. "Implement this fully-specified spec" is already scoped — skip shaping and execute. The /shape command is the unambiguous trigger; keyword matches are secondary hints.
 
   Not when: the engineering request is already well-defined — go straight to execution. Not when the intake is for marketing work — use `marketing-shaper`. Not when the intake is for game design — use `game-design-shaper`. If "plan"/"scope" arrives without a clear domain, ask one qualifying question first rather than assuming engineering.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Prompt Shaper

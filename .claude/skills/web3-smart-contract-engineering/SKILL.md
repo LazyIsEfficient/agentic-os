@@ -5,7 +5,7 @@ when_to_use: |
   Use when writing, reviewing, testing, or deploying Solidity smart contracts: token contracts (ERC20/721/1155), signature-gated payout systems, merkle-gated staking vaults, allocation modules, role-based proxies, factory patterns, or Hardhat/Foundry contract test suites. The key signal is any edit to `*.sol` files, `hardhat.config.*`, `foundry.toml`, or deploy scripts.
 
   Not when: the task is a security audit or adversarial review of contract logic — use security-engineering. Not when the task is TypeScript data pipelines that consume on-chain events — use typescript-data-engineering.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Web3 / Smart Contract Engineering

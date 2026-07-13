@@ -13,7 +13,7 @@ when_to_use: |
 
   Not when: reviewing application source code for bugs or design problems — use
   code-review-and-quality instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Skill Library Review
@@ -41,7 +41,7 @@ You operate read-only when reviewing. Cite `file:line` for every concrete findin
 
 Most expensive to fix → least expensive. Stop at first blocking issue if a quick verdict was requested.
 
-1. **Library shape** — is this a skill, an agent, an ambient rule, a command, or a workflow? Are two definitions doing one job, or is one doing two? For commands and workflows, review the frontmatter *against the body* — see [references/commands-and-workflows.md](references/commands-and-workflows.md) (command `argument-hint`/`allowed-tools`; Claude Code uses `Agent`, Cursor uses `Task`; workflow pure-literal `meta`, `node --check`, schema-guaranteed fields).
+1. **Library shape** — is this a skill, an agent, an ambient rule, a command, or a workflow? Are two definitions doing one job, or is one doing two? For commands and workflows, review the frontmatter *against the body* — see [references/commands-and-workflows.md](references/commands-and-workflows.md) (command `argument-hint`/`allowed-tools`; sub-agent invocation uses `Agent`; workflow pure-literal `meta`, `node --check`, schema-guaranteed fields).
 2. **Frontmatter correctness** — `name` matches file/dir, description structure, `tools` field validity
 3. **Description quality** — routing specificity, trigger vocabulary, proactive markers; verify any keyword collision against *both* skills' "not when" before flagging (see [references/description-and-routing.md](references/description-and-routing.md))
 4. **Tool allowlist coherence** — matches the declared role
@@ -50,7 +50,7 @@ Most expensive to fix → least expensive. Stop at first blocking issue if a qui
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) — stochastic judgment proposes, deterministic verification disposes.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — stochastic judgment proposes, deterministic verification disposes.
 
 - **Tier 0:** everything `scripts/validate.sh` already checks (frontmatter presence, kebab-case name/dir match, dangling links and `@`-imports). Cite the validator; don't re-find its territory.
 - **Tier 1 (may gate, evidence attached):** findings whose quoted live line *is* the reproducible evidence — a `tools:` line contradicting a declared read-only role, a cross-reference whose target path does not exist. State the line and the failing check.

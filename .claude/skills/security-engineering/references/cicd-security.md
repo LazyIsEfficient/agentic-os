@@ -1,42 +1,22 @@
-# CI/CD Security — Cursor CLI Automated Review
+# CI/CD Security — Automated Review
 
-## Security Review GitHub Action
+Run a security-focused, automated code review on every PR as a CI job. This
+reference captures the review methodology, the vulnerability categories worth
+scanning, and the supply-chain checks — independent of any specific review tool.
 
-The platform uses Cursor CLI integrated into GitHub Actions for automated security-focused code review on every PR.
+## Security review methodology
 
-**Workflow**: `.github/workflows/security-review.yml`
-
-```yaml
-name: Security Review
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-
-permissions:
-  contents: read
-  pull-requests: write
-```
-
-**Installation and auth**:
-
-```bash
-# Anti-pattern: curl | bash executes unverified code from the network. Always download, checksum-verify, then execute.
-# DO NOT USE: curl https://cursor.com/install -fsS | bash
-
-# SAFE: download + verify checksum before executing
-curl -fsSL https://cursor.com/install -o /tmp/cursor-install.sh
-sha256sum --check cursor-install.sha256  # pin the expected hash
-bash /tmp/cursor-install.sh
-# Authenticates via CURSOR_API_KEY GitHub secret
-```
-
-**3-Phase Review Methodology**:
+A security review on a PR proceeds in three phases:
 
 1. **Repository context**: Identify existing security frameworks, patterns, sanitization
 2. **Comparative analysis**: Compare new code against established security patterns
 3. **Vulnerability assessment**: Trace user input through to sensitive operations
 
-**Vulnerability Categories Scanned**:
+Trigger the job on `pull_request` (`opened`, `synchronize`, `reopened`,
+`ready_for_review`) with least-privilege permissions (`contents: read`,
+`pull-requests: write`).
+
+## Vulnerability categories to scan
 
 - **Input validation**: SQL/command/XXE/template/NoSQL injection, path traversal
 - **Auth & authorization**: Auth bypass, privilege escalation, JWT issues (weak signing, alg confusion, no expiry), IDOR
@@ -45,11 +25,11 @@ bash /tmp/cursor-install.sh
 - **Data exposure**: Sensitive data in logs, PII violations, API data leakage, debug exposure in production
 - **Business logic & financial**: Race conditions, TOCTOU, transaction replay, double-spending
 - **Config & supply chain**: Insecure defaults, missing security headers (CSP, HSTS), permissive CORS, vulnerable dependencies
-- **Web3 critical**: Private keys/mnemonics in client-bundle code → automatic `--request-changes`
+- **Web3 critical**: Private keys/mnemonics in client-bundle code → block the change
 
-**Output**: Structured markdown with File/Line/Severity/Category/Description/Exploit Scenario/Fix Recommendation. Emoji markers: 🚨 Critical, 🔒 Security, ⚡ Performance, ⚠️ Logic, ✅ Resolved.
+**Output**: Structured markdown with File/Line/Severity/Category/Description/Exploit Scenario/Fix Recommendation.
 
-**Deliberate out-of-scope** (to reduce false positives):
+## Deliberate out-of-scope (to reduce false positives)
 
 - UUIDs assumed unguessable
 - Environment variables and CLI flags trusted
@@ -58,15 +38,9 @@ bash /tmp/cursor-install.sh
 - Client-side auth checks (server is responsible)
 - Logging non-PII data
 
-## General Code Review Action
+## Smart contract review
 
-**Workflow**: `.github/workflows/cursor-code-review.yml`
-
-Runs alongside security review but covers broader quality — max 10 inline comments prioritizing critical issues. Checks existing comments and resolves fixed issues.
-
-## Smart Contract Review
-
-Smart contract repos use a dedicated Cursor review with `composer-1.5` model and `.cursorrules` enforcing:
+Smart contract repos warrant a dedicated review that enforces:
 
 1. **SECURITY FIRST** — flag vulnerabilities immediately
 2. Reentrancy attacks, access control, integer overflow/underflow
@@ -74,13 +48,14 @@ Smart contract repos use a dedicated Cursor review with `composer-1.5` model and
 4. Timestamp dependence, hardcoded addresses
 5. Unsafe delegate calls, front-running vulnerabilities
 
-## Supply Chain Check
+## Supply chain check
 
-**Workflow**: `.github/workflows/supply-chain-check.yml`
+Run a dependency audit on PR and push to main/staging, blocking on
+high-severity advisories:
 
 ```bash
 pnpm audit --audit-level=high
-./.github/scripts/check-vulnerable-packages.sh  # Custom blocking check
 ```
 
-Runs on PR and push to main/staging.
+Back it with a custom blocking check for known-vulnerable packages the audit
+tool misses.

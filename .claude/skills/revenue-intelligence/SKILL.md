@@ -8,7 +8,7 @@ when_to_use: |
   Use when extracting structured insights from Gong sales call transcripts (objections, buying signals, competitive mentions), proving content ROI by mapping content pieces to pipeline and closed revenue, generating unified client reports from GA4 + HubSpot + Ahrefs + Gong, identifying content gaps in the buyer journey, or detecting anomalies across marketing metrics.
 
   Not when: drafting or optimizing cold outbound sequences — even if seeded from Gong call data — use outbound-engine. This skill produces follow-up *drafts* from a specific call's context; sequence building, delivery, and optimization are outbound-engine's. Not when: the content-gap analysis is SEO/keyword-driven (competitor coverage, search demand) — use seo-ops; this skill's gap analysis is buyer-journey/pipeline-driven.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Revenue Intelligence

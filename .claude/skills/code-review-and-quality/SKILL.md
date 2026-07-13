@@ -5,7 +5,7 @@ when_to_use: |
   Use before merging any PR or change, after a feature implementation or bug fix, when evaluating code produced by another agent or model, when refactoring existing code, or when a change needs assessment across correctness, readability, architecture, security, and performance.
 
   Not when: the sole concern is a security audit — for cross-stack security audits (infra, CI/CD, Web3, agentic AI) use `security-engineering`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Code Review and Quality
@@ -53,7 +53,7 @@ After review is complete:
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) — stochastic judgment proposes, deterministic verification disposes.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — stochastic judgment proposes, deterministic verification disposes.
 
 - **Tier 0:** the CI gates themselves (tests, build, linters, validators). These hard-block on their own authority; cite them instead of re-finding what they catch.
 - **Tier 1 (may gate, evidence attached):** correctness and security findings demonstrated by a failing test, failing command, or concrete counterexample input — the artifact is the gate, the review only chose which artifact to produce. The missing-regression-test blocker is Tier 1: the evidence is the absent test.

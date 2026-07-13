@@ -1,6 +1,6 @@
 # Engineering Heresy — Agentic Framework
 
-A collection of skills and agents for [Claude Code](https://claude.ai/code) and [Cursor](https://cursor.com) that encode engineering workflows, content pipelines, game development, marketing ops, and more into reusable AI playbooks.
+A collection of skills and agents for [Claude Code](https://claude.ai/code) that encode engineering workflows, content pipelines, game development, marketing ops, and more into reusable AI playbooks.
 
 Install once, use in any project.
 
@@ -10,7 +10,7 @@ Install once, use in any project.
 
 ## Features
 
-AgenticOS (this repository) is a **curated library of AI playbooks** for serious, long-running work in software engineering, game development, marketing, and operations. You install it once into Claude Code or Cursor; from then on, your agent can follow proven workflows instead of improvising every task from scratch.
+AgenticOS (this repository) is a **curated library of AI playbooks** for serious, long-running work in software engineering, game development, marketing, and operations. You install it once into Claude Code; from then on, your agent can follow proven workflows instead of improvising every task from scratch.
 
 The product is not "more agents for the sake of agents." It is a **harness** — structure, guardrails, and reusable expertise wrapped around frontier models so you get **predictable quality at lower token cost**, especially across multi-step sessions where context compression would otherwise cause drift and rework. See [NORTH_STAR.md](NORTH_STAR.md) for the design thesis.
 
@@ -20,16 +20,13 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 |---|---|---|
 | **Skills** (37) | Step-by-step playbooks for a kind of work — code review, Rust engineering, SEO ops, game balancing, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
 | **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
-| **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | Claude Code: `/skill-new`, `/agent-new`, `/state`. Cursor: no slash commands ship; use the `session-state` skill instead of `/state`. |
+| **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | `/skill-new`, `/agent-new`, `/state`. |
 | **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
-| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use `.cursor/rules/*.mdc` (Cursor) or the flat `CLAUDE.md` (Claude Code — generated from `.claude/rules/` by `scripts/build-claude-md.sh`). Not copied by the global installer. |
+| **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use the flat `CLAUDE.md` (generated from `.claude/rules/` by `scripts/build-claude-md.sh`). Not copied by the global installer. |
 
-### Supported platforms
+### Supported platform
 
 - **[Claude Code](https://claude.ai/code)** — full install: skills, agents, hooks, and three consumer commands. Remote one-liner installs a **pinned, SHA-256–verified release** (`install.sh` / `install.ps1`).
-- **[Cursor](https://cursor.com)** — parallel install path: skills and agents from the shared `.claude/` tree, Cursor-native hooks, no slash commands. Remote one-liner: `install-cursor.sh` / `install-cursor.ps1`.
-
-Both paths share the same skill and agent markdown; only install location and hook wiring differ.
 
 ### Workflow domains
 
@@ -83,9 +80,9 @@ Skills and agents are grouped by the work they cover. Invoke the one that matche
 
 These are features of the **framework itself**, not individual skills:
 
-**Awareness harness (experimental)** — Fights the dominant failure mode of long agent sessions: losing track of settled decisions and existing infrastructure. Externalizes live session state in `SESSION-STATE.md`, re-injects it via hooks at session start and each turn, checkpoints before compaction, and nudges "survey before you provision." Includes deterministic metrics to compare hook-ON vs hook-OFF sessions. [Activation guide →](docs/awareness-harness-activation.md)
+**Awareness harness (experimental)** — Fights the dominant failure mode of long agent sessions: losing track of settled decisions and existing infrastructure. Externalizes live session state in `SESSION-STATE.md`, re-injects it via hooks at session start and each turn, checkpoints before compaction, and nudges "survey before you provision." Includes deterministic metrics to compare hook-ON vs hook-OFF sessions.
 
-**Orchestrator + ship gates** — Operating doctrine treats the main agent as an orchestrator that dispatches specialists (`Task` in Cursor, `Agent` in Claude Code) instead of doing multi-step work inline. After implementation, a fixed review DAG runs: code review, security review, optional library review, and conditional data-model documentation/verification. PR checkboxes and CI (`check-pr-ship-gates`) enforce the gate. Canonical graph: [gate-dag.md](.claude/references/gate-dag.md).
+**Orchestrator + ship gates** — Operating doctrine treats the main agent as an orchestrator that dispatches specialists (the `Agent` tool) instead of doing multi-step work inline. After implementation, a fixed review DAG runs: code review, security review, optional library review, and conditional data-model documentation/verification. PR checkboxes and CI (`check-pr-ship-gates`) enforce the gate. Canonical graph: [gate-dag.md](.claude/references/gate-dag.md).
 
 **Review tiers** — Findings are sorted by reproducibility: Tier 0 deterministic checks hard-block; Tier 1 LLM findings need an evidence artifact; Tier 2 is advisory and logged to the findings ledger for recurrence-based promotion into deterministic checks.
 
@@ -101,9 +98,9 @@ These are features of the **framework itself**, not individual skills:
 
 ### How to get started
 
-1. **Install** for your IDE — [Cursor](#cursor) or [Claude Code](#claude-code) section below.
-2. **Configure skill discipline** — add the Skills block from [Usage](#usage) to `~/.claude/CLAUDE.md` or Cursor User Rules so agents reach for skills by default.
-3. **Initialize session state** (optional but recommended for long sessions) — `/state init` (Claude Code) or `session-state.sh init` (Cursor).
+1. **Install** — see the [Claude Code](#claude-code) section below.
+2. **Configure skill discipline** — add the Skills block from [Usage](#usage) to `~/.claude/CLAUDE.md` so agents reach for skills by default.
+3. **Initialize session state** (optional but recommended for long sessions) — `/state init`.
 4. **Pick a workflow** — e.g. "Use `prompt-shaper` to scope this feature, then dispatch `engineer` to implement."
 5. **Contributing?** — scaffold with `/skill-new` or `/agent-new`, run `library-reviewer` on your diff, ensure `bash scripts/validate.sh` passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -115,61 +112,13 @@ Cloned-repo tooling for library authors: `/audit-library`, `/review-gate`, `/eva
 
 ## Install
 
-Two consumer paths — **Cursor** and **Claude Code** — share the same skill/agent markdown from this repo but install to different global config dirs. Each section below is self-contained; you do not need to read the other platform's section.
-
-Both remote one-liners install a **pinned release** and verify its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
+Install skills, agents, hooks, and three consumer commands into `~/.claude/`. The remote one-liner installs a **pinned release** and verifies its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
 - **Current release:** `v2.6.0`
 - **Asset:** `agentic-os-v2.6.0.tar.gz`
 - **SHA-256:** `9edd168cd78b40314131b59785e7ae76888beea575296a1ff4b7c4dd086798a6`
 
-### Cursor
-
-Install skills, agents, and **active** hook registration into `~/.cursor/`. Shared content is sourced from the repo's `.claude/` tree; Cursor-specific operating rules live in this repo under `.cursor/rules/*.mdc` (clone the repo into a project to use them — they are not copied by the global installer).
-
-**macOS / Linux — one-liner (no clone required):**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.6.0/install-cursor.sh | bash
-```
-
-**Or from a local clone:**
-
-```bash
-git clone https://github.com/LazyIsEfficient/agentic-os.git
-cd agentic-os
-./install-cursor.sh
-```
-
-Files are copied to `~/.cursor/skills/`, `~/.cursor/agents/`, and `~/.cursor/hooks/`. Existing files are not overwritten by default. Add `--force` to update everything.
-
-**Maintainer dev sync:** for active work on this repo, use the checkout paths (`.claude/skills/`, `.claude/agents/`, `.cursor/rules/`) directly — or symlink `~/.cursor/skills` / `~/.cursor/agents` to the repo's `.claude/` trees if you want global Cursor to track the clone live. Skill script paths: [findings-ledger/references/install-paths.md](.claude/skills/findings-ledger/references/install-paths.md) (repo uses `.claude/skills/`; `~/.cursor/skills/` is post-install only).
-
 **Persistent memory:** `.claude/memory/` is gitignored (machine-local). `validate.sh` scans it when present on your machine — fix dangling wikilinks locally; CI does not see memory files.
-
-**Custom install path:**
-
-```bash
-CURSOR_DIR=/path/to/.cursor ./install-cursor.sh
-```
-
-**Windows:** use `install-cursor.ps1` for parity (or run `install-cursor.sh` from Git Bash/WSL).
-
-**Session-state writer** (full resolution chain — see [install-paths.md](.claude/skills/findings-ledger/references/install-paths.md)):
-
-```bash
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
-SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
-[ -f "$SS" ] || SS="$HOME/.cursor/skills/session-state/scripts/session-state.sh"
-[ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
-bash "$SS" init
-```
-
-After `install-cursor.sh` only, the global `$HOME/.cursor/skills/…` path alone is usually enough.
-
-There is no `/state` slash command on Cursor. Invoke the `session-state` skill (or ask the agent to record a session fact) and it runs the writer via Bash — see [.claude/skills/session-state/SKILL.md](.claude/skills/session-state/SKILL.md).
-
-Restart Cursor after install so new skills and agents load.
 
 ### Claude Code
 
@@ -244,16 +193,6 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 
 ## What gets installed
 
-### Cursor (`install-cursor.sh`)
-
-| Directory | Contents |
-|---|---|
-| `~/.cursor/skills/` | Skill playbooks — Cursor discovers these globally; invoke by name in Agent chat |
-| `~/.cursor/agents/` | Subagent definitions — spawn by name when Cursor routes or when you request one |
-| `~/.cursor/hooks/` | Cursor-native hook scripts — registered globally in `~/.cursor/hooks.json` on install |
-
-> **Ship vs. in-repo-only.** The Cursor installer copies the full `skills/` and `agents/` trees from `.claude/` plus production hook scripts from `.cursor/hooks/` (spike `*-probe.sh` excluded). Slash commands do **not** ship on Cursor (no `/state`; use the `session-state` skill + writer). Maintainer-only commands and `workflows/` are repo-local. Operating doctrine for Cursor lives in this repo's `.cursor/rules/*.mdc` — clone into a project to use; it is not copied to `~/.cursor/` by `install-cursor.sh`.
-
 ### Claude Code (`install.sh`)
 
 | Directory | Contents |
@@ -297,32 +236,18 @@ Use the security-reviewer agent to audit this PR.
 
 ### Awareness harness (experimental)
 
-An in-development capability ([NORTH_STAR.md](NORTH_STAR.md) / [V2_ROADMAP.md](V2_ROADMAP.md)) that fights the dominant failure mode of long agent sessions: **awareness drift** — finite context compresses, so settled facts get re-derived and existing infrastructure gets rebuilt. It externalizes state and re-surfaces it deterministically via IDE hooks:
+An in-development capability ([NORTH_STAR.md](NORTH_STAR.md)) that fights the dominant failure mode of long agent sessions: **awareness drift** — finite context compresses, so settled facts get re-derived and existing infrastructure gets rebuilt. It externalizes state and re-surfaces it deterministically via IDE hooks:
 
-- **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. Hooks inject it at session start, inject a compact digest each turn, and checkpoint before compaction. Maintained only through the deterministic writer (Claude: `/state`; Cursor: `session-state` skill + Bash), never hand-edited.
+- **`SESSION-STATE.md`** — a live, gitignored constraints/decisions/infra/threads doc. Hooks inject it at session start, inject a compact digest each turn, and checkpoint before compaction. Maintained only through the deterministic writer (`/state`), never hand-edited.
 - **survey-before-act** — on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
 - **block-bad-bash** — nudges away from `cd && git` and long `&&` shell chains (ergonomics, not security; can block routine agent shell — remove the hook entry if annoying).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Ship posture:** hooks are **on by default** after install — `install.sh` / `install-cursor.sh` merge hook registration into `~/.claude/settings.json` and `~/.cursor/hooks.json`. Re-install **replaces the whole `hooks` block**. Remove the `hooks` key to disable.
+**Ship posture:** hooks are **on by default** after install — `install.sh` merges hook registration into `~/.claude/settings.json`. Re-install **replaces the whole `hooks` block**. Remove the `hooks` key to disable.
 
-**→ [Activation guide](docs/awareness-harness-activation.md)** — what's registered, how to turn off, verify steps.
+**→ [Activation guide](docs/awareness-harness-activation.md)** — what gets registered, how to verify it fired, and how to turn hooks off.
 
-**Cursor hook verification (automated — CI on every PR):**
-
-| Hook | Status | Gate script |
-|---|---|---|
-| `sessionStart` inject | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
-| `beforeSubmitPrompt` digest | **CONTRACT-VERIFIED** | `scripts/session-state-test-cursor.sh` |
-| `beforeShellExecution` block-bad-bash | **CONTRACT-VERIFIED** | `scripts/block-bad-bash-test-cursor.sh` |
-| `beforeShellExecution` survey | **CONTRACT-VERIFIED** | `scripts/survey-guard-test-cursor.sh` |
-| `preCompact` checkpoint | **CONTRACT-VERIFIED** (side-effect log) | `eval/spikes/cursor-hook-capability/run-automated.sh` |
-
-One-liner: `bash eval/spikes/cursor-hook-capability/run-automated.sh`. No manual Cursor UI repro is required — see [automated verification protocol](eval/spikes/cursor-hook-capability/LIVE-FIRE-PROTOCOL.md).
-
-See also [cursor hook capability spike](eval/spikes/cursor-hook-capability.md). Global `install-cursor.sh` copies the same production `.cursor/hooks/` scripts (excluding spike probes) to `~/.cursor/hooks/`.
-
-Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md) (dual-platform hook surface; Cursor install details in [#153](https://github.com/LazyIsEfficient/agentic-os/issues/153)).
+Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md).
 
 ### Configure ~/.claude/CLAUDE.md
 
@@ -340,51 +265,6 @@ If there is even a 1% chance a skill might apply, invoke it first.
 
 This is the single most impactful configuration step — without it, Claude treats skills as
 opt-in rather than default.
-
-### Configure Cursor rules + skill discipline
-
-Operating doctrine for this repo lives in `.cursor/rules/*.mdc` (YAML frontmatter with `alwaysApply: true`). Cursor requires the **`.mdc`** extension — plain `.md` files in `.cursor/rules/` are not loaded. Clone the repo into a project to use them, or copy the rules into your project's `.cursor/rules/`.
-
-`AGENTS.md` at the repo root is auto-loaded by Cursor (project-root plain markdown). Full doctrine: `.cursor/rules/*.mdc` (`alwaysApply: true`). `CURSOR.md` is the maintainer index (parallel to `CLAUDE.md`).
-
-**Orchestrator gap:** rules steer dispatch but do not enforce it on their own (Tier 2). The Tier 0/1 dispatch-gate hooks ([docs/dispatch-enforcement.md](docs/dispatch-enforcement.md)) enforce it mechanically but ship **disabled** by default. See [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md) for session-state constraints, User Rules, and transcript measurement.
-
-For **default skill invocation + orchestrator dispatch** across projects, add **both** blocks below to **Cursor Settings → Rules → User Rules** (`subagent-dispatch.mdc` alone is often insufficient — models may load skills inline instead of dispatching).
-
-**Skills + orchestration** (add to **Cursor Settings → Rules → User Rules**):
-
-```markdown
-## Skills
-
-You have a library of skills installed at `~/.cursor/skills/`. Before responding to any task,
-check whether a skill applies — even if the task seems simple.
-
-If there is even a 1% chance a skill might apply, identify it first. Do NOT run multi-step
-skill workflows on the main thread: brief a subagent (`Task`) with the skill procedure instead.
-
-## Orchestration (Cursor)
-
-You are an orchestrator. Use Agent mode and the `Task` tool for non-trivial work.
-- Implementation → `Task(engineer)` or domain specialist — not main-thread Write/StrReplace.
-- Research beyond 2–3 reads/greps → `Task(explore)` or `generalPurpose`.
-- Before saying done on code changes → `Task(code-reviewer)` + `Task(security-reviewer)` in parallel (readonly).
-- Fan out independent `Task` calls in one message; sequential dispatch when parallelizable is a bug.
-```
-
-For long sessions, run `session-state.sh init-orchestrator` (see [cursor-orchestrator-gap.md](docs/cursor-orchestrator-gap.md)) so constraints re-inject every turn.
-
-Legacy **skills-only** block (use the combined block above instead):
-
-```markdown
-## Skills
-
-You have a library of skills installed at `~/.cursor/skills/`. Before responding to any task,
-check whether a skill applies and read its SKILL.md if so — even if the task seems simple.
-
-If there is even a 1% chance a skill might apply, load the skill first.
-```
-
-Repo maintainers: `CURSOR.md` at the repo root `@`-imports enumerated `.cursor/rules/*.mdc` files. (`CLAUDE.md` is different: it is a generated FLAT file — `.claude/rules/*.md` embedded inline by `scripts/build-claude-md.sh`, no `@`-imports.)
 
 ---
 
@@ -487,7 +367,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 └── workflows/            # multi-agent orchestration scripts
 ```
 
-> Installers copy full `skills/`, `agents/`, and `hooks/` directories (commands are file-allowlisted on Claude Code only). `CLAUDE.md`, `CURSOR.md`, and `rules/` are repo-local and never installed.
+> Installers copy full `skills/`, `agents/`, and `hooks/` directories (commands are file-allowlisted). `CLAUDE.md` and `rules/` are repo-local and never installed.
 
 ---
 
@@ -499,7 +379,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions
 
 ## Validating the library
 
-A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports (`CURSOR.md`), `CLAUDE.md` flat-sync with `.claude/rules/` (`claude-flat-sync`, rebuilt by `scripts/build-claude-md.sh`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `CLAUDE.md` flat-sync with `.claude/rules/` (`claude-flat-sync`, rebuilt by `scripts/build-claude-md.sh`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 

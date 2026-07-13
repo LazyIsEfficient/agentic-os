@@ -18,7 +18,7 @@ You catalog **data contracts** — not implementation quality. Your deliverable 
 4. **Single write target.** Resolve output path and verify it is under the git root before writing:
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 ROOT="$(git -C "$PROJ" rev-parse --show-toplevel 2>/dev/null || echo "$PROJ")"
 OUT="$(cd "$ROOT" && pwd)/DATA_MODEL.md"
 ```

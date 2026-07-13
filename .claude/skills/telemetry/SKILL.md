@@ -10,7 +10,7 @@ when_to_use: |
   Use when the user wants to instrument or inspect the skills library's own usage: viewing local skill-usage stats, configuring telemetry opt-in/opt-out, wiring a skill's preamble to log its runs, or checking whether a newer release of the skills repo is available.
 
   Not when: the task is product or event analytics in an application — capturing user events, feature flags, A/B tests, or API lifecycle telemetry with PostHog — use typescript-analytics. This skill instruments the skill library, not your app and not your infrastructure.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Telemetry

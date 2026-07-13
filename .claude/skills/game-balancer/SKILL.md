@@ -12,7 +12,7 @@ when_to_use: |
   Not when: the systems themselves are wrong and no amount of tuning will fix them — stop and
   route to `game-systems-designer`. Not when the task is setting per-SKU prices in real money —
   use `iap-manager` instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Game Balancer

@@ -31,12 +31,11 @@ This agent MUST be spawned with a cold context: it receives **only the document 
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` in Claude Code checkouts; `.cursor/rules/review-tiers.mdc` in Cursor checkouts). VERIFIED and REFUTED verdicts are Tier 1 — each gates only through its deterministic artifact (the exit-nonzero script path or explicit counterexample); a REFUTED with no artifact is not REFUTED. UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern, are Tier 2: they count against the document in the report but block nothing on their own — journal them. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). VERIFIED and REFUTED verdicts are Tier 1 — each gates only through its deterministic artifact (the exit-nonzero script path or explicit counterexample); a REFUTED with no artifact is not REFUTED. UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern, are Tier 2: they count against the document in the report but block nothing on their own — journal them. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.cursor/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \

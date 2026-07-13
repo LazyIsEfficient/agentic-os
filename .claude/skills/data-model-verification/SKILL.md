@@ -5,7 +5,7 @@ when_to_use: |
   Use in Wave 2 of the gate DAG after `data-model-documenter`, when `DATA_MODEL.md` has new or changed `###` sections. The load-bearing signal: downstream agents may treat the catalog as ground truth — hallucinated properties must be caught before ship-ready.
 
   Not when: `DATA_MODEL.md` did not change, or only the changelog/header changed with no catalog section edits. Not when the task is authoring the catalog — use `data-model-documentation`. Not for general code review — use `code-reviewer`.
-compatibility: Requires Bash. Works in Claude Code and Cursor via install.sh / install-cursor.sh. Read-only — never writes `DATA_MODEL.md`.
+compatibility: Requires Bash. Works in Claude Code via install.sh. Read-only — never writes `DATA_MODEL.md`.
 ---
 
 # Data Model Verification
@@ -27,7 +27,7 @@ Skip: unchanged sections, changelog-only edits, template example sections marked
 When **Source** is a JSON Schema file (`.json` with `"properties"` or `$schema`), run deterministic extractors **before** manual quote verification:
 
 ```sh
-PROJ="${CURSOR_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
+PROJ="${CLAUDE_PROJECT_DIR:-.}"
 EDM="$PROJ/scripts/extract-data-model"
 bash "$EDM/json-schema.sh" path/to/schema.json > /tmp/shape.json
 bash "$EDM/verify-data-model-section.sh" \
@@ -67,7 +67,7 @@ bash "$EDM/verify-data-model-section.sh" \
 
 ## Tier discipline
 
-Tier definitions: review-tiers (`.claude/rules/review-tiers.md` or `.cursor/rules/review-tiers.mdc`) — stochastic judgment proposes, deterministic verification disposes.
+Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — stochastic judgment proposes, deterministic verification disposes.
 
 - **REFUTED** without Tier 0 script failure or `file:line` quote is not REFUTED — downgrade to UNVERIFIABLE
 - **hold** when REFUTED > 0 (Tier 0 extractor failure or Tier 1 counterexample)

@@ -7,7 +7,7 @@ when_to_use: |
   Platform dependency: the audit script, send script, and deliverability rules are Instantly-specific (Instantly v2 API, `{{firstName}}`-style variable syntax). The workflow, copy rules, expert panel, and capacity math are platform-agnostic. If the user runs Apollo, Lemlist, Smartlead, or another platform, surface this before proceeding — the strategy and copy still apply, but skip the audit/send scripts and adapt variable syntax to their platform.
 
   Not when: the request is intake/scoping with no defined ICP, sequence goal, or campaign structure — use `marketing-shaper` to produce the brief first, then bring it here. `outbound-engine` handles execution (sequences, copy, infrastructure, capacity), not strategy definition. Not when the task is drafting follow-ups from a specific sales-call (Gong) context — use `revenue-intelligence`; this skill owns cold-sequence building and delivery. Not when the request is A/B test design or statistical analysis of outbound variants across the wider motion — use `growth-engine` for the experiment framework; come back here for the copy variants it tests. Not when the request is general marketing campaign planning across multiple channels — use `marketing-shaper`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Outbound Engine

@@ -25,13 +25,13 @@ use `/state`; let the model discover facts in prompts 1–2 only.
 | Kind | Fact | Why it matters late |
 |---|---|---|
 | **Constraint** | OFF arm baseline is `claude --settings '{"hooks":{}}'` — **never** `--bare` (also strips LSP/plugins and confounds the comparison). | Prompt 10 docs must cite the correct OFF invocation. |
-| **Decision** | All new code in this scenario lives under `eval/metrics/` only; do **not** modify `.claude/hooks/` or `.cursor/hooks/`. | Prompt 9 must not touch hook files. |
+| **Decision** | All new code in this scenario lives under `eval/metrics/` only; do **not** modify `.claude/hooks/`. | Prompt 9 must not touch hook files. |
 | **Infra** | Self-tests for this package run via `bash session-metrics-test.sh && bash compare-test.sh` — do not invent a new runner or npm script. | Prompt 8 wiring must call these exact scripts. |
 
 **Expected late values (manual judge):**
 
 - OFF baseline documented as `'{"hooks":{}}'`, not `--bare`.
-- No edits under `.claude/hooks/` or `.cursor/hooks/`.
+- No edits under `.claude/hooks/`.
 - Test instructions reference `session-metrics-test.sh` and `compare-test.sh`.
 
 ## Prerequisites
@@ -61,7 +61,7 @@ the two self-test scripts, and fixtures/. Do not implement anything yet.
 ```
 We are adding a batch runner under eval/metrics/ only. Record these constraints for
 the rest of this session: (a) OFF arm baseline is claude --settings '{"hooks":{}}',
-never --bare; (b) do not modify .claude/hooks/ or .cursor/hooks/; (c) self-tests are
+never --bare; (b) do not modify .claude/hooks/; (c) self-tests are
 bash session-metrics-test.sh && bash compare-test.sh. Confirm you have captured them.
 ```
 

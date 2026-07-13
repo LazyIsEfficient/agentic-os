@@ -5,7 +5,7 @@ when_to_use: |
   Use when coordinating a monorepo release — maintaining the CHANGELOG and release assessment document, resolving merge conflicts on release branches, cutting a v-prefixed semver tag via GitHub CLI (`gh release create`), or communicating release status, risk, and asks to the broader team.
 
   Not when: the request is about CI/CD pipeline design or workflow YAML — use `deployment-pipelines` instead. This skill owns the CHANGELOG only as part of the release process, not standalone documentation authoring outside a release cut.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Cursor via install.sh / install-cursor.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
 ---
 
 # Release Manager

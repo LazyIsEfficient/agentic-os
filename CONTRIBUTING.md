@@ -54,26 +54,7 @@ git config core.hooksPath .githooks
 
 ## What ships to consumers
 
-`install.sh` / `install.ps1` ship the full `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). Everything else — `CLAUDE.md`, `CURSOR.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local and never installed. The validator enforces exact equality between the install scripts and this manifest (`EXPECTED_DIRS` / `EXPECTED_CMDS` in `scripts/validate.sh`), so changing what ships means updating the install scripts **and** the validator in the same PR.
-
-## Cursor maintainers
-
-Claude conventions above govern shared content under `.claude/`. Cursor adds a parallel consumer install and a repo-local hook surface.
-
-- **Install.** `install-cursor.sh` / `install-cursor.ps1` copy `skills/` and `agents/` from `.claude/` and production hook scripts from `.cursor/hooks/` into `~/.cursor/`, then merge active hook registration into `~/.cursor/hooks.json`. Changing what ships requires updating both Cursor install scripts and `EXPECTED_CURSOR_DIRS` in `scripts/validate.sh` in the same PR.
-- **Shared vs Cursor-specific.** Skill and agent markdown live in `.claude/`. Cursor-native production hooks live in `.cursor/hooks/` (ship globally); global registration in `~/.cursor/hooks.json`; this repo also ships project `.cursor/hooks.json`. Operating doctrine lives in `.cursor/rules/*.mdc` only — **plain `.md` is invalid** (`validate.sh` invariant `cursor-rules-format`). Clone this repo into a project to use rules; they are not copied by `install-cursor.sh`. Consumer install details: [README — Cursor](README.md#cursor).
-- **Hooks.** Active after global install. To disable, edit `~/.cursor/hooks.json`. See README [Awareness harness](README.md#awareness-harness-experimental).
-- **Gates for `.cursor/hooks/` changes.** Run all four before merging:
-
-  ```sh
-  bash scripts/session-state-test-cursor.sh
-  bash scripts/survey-guard-test-cursor.sh
-  bash scripts/block-bad-bash-test-cursor.sh
-  bash scripts/install-hook-smoke-test.sh
-  bash scripts/validate.sh
-  ```
-
-  CI runs the same set on every PR (`.github/workflows/validate.yml`). Add or rename a production hook → update `.cursor/hooks.json` if registering it; `validate.sh` checks command paths against the v1 schema.
+`install.sh` / `install.ps1` ship the full `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). Everything else — `CLAUDE.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local and never installed. The validator enforces exact equality between the install scripts and this manifest (`EXPECTED_DIRS` / `EXPECTED_CMDS` in `scripts/validate.sh`), so changing what ships means updating the install scripts **and** the validator in the same PR.
 
 ## What not to commit
 
