@@ -23,7 +23,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if ($Dest -notmatch '^[/.a-zA-Z0-9._-]+$') {
+if ($Dest -notmatch '^[/\\:.a-zA-Z0-9._-]+$') {
   throw "Error: unsafe -Dest (shell metacharacters not allowed): $Dest"
 }
 

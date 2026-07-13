@@ -41,7 +41,10 @@ fi
 if [[ -n "${SHIP_GATES_CHANGED_FILES:-}" ]]; then
   changed="$SHIP_GATES_CHANGED_FILES"
 else
-  changed="$(git -C "$REPO_ROOT" diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true)"
+  if ! changed="$(git -C "$REPO_ROOT" diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null)"; then
+    echo "check-pr-ship-gates: FAILED to compute diff between $BASE_SHA and $HEAD_SHA (fail-closed)" >&2
+    exit 1
+  fi
 fi
 if [[ -z "$changed" ]]; then
   echo "check-pr-ship-gates: no file changes between $BASE_SHA and $HEAD_SHA — OK"

@@ -18,7 +18,7 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 
 | Piece | What it is | How you use it |
 |---|---|---|
-| **Skills** (37) | Step-by-step playbooks for a kind of work — code review, Rust engineering, SEO ops, game balancing, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
+| **Skills** (38) | Step-by-step playbooks for a kind of work — code review, Rust engineering, SEO ops, game balancing, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
 | **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
 | **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | `/skill-new`, `/agent-new`, `/state`. |
 | **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
@@ -291,6 +291,7 @@ opt-in rather than default.
 | `iap-manager` | Design and operate the in-app purchase catalog |
 | `library-investigator` | Forensic, evidence-only library audit against RULESET.md |
 | `marketing-shaper` | Structure a vague marketing request into a scoped brief |
+| `memory-extraction` | Extract durable memories from a session into `.claude/memory/` at session close |
 | `outbound-engine` | Design and optimize cold outbound email campaigns on Instantly |
 | `phaser-engineer` | Build games in Phaser 3 with TypeScript |
 | `planning-and-task-breakdown` | Break work into ordered, parallel-dispatchable tasks |
