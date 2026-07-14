@@ -18,6 +18,7 @@ jobs:
       - run: bash scripts/install-paths-test.sh
       - run: bash scripts/install-hook-smoke-test.sh
       - run: bash scripts/memory-extract-hook-test.sh
+      - run: bash scripts/memory-inject-hook-test.sh
       - run: bash scripts/session-state-test.sh
       - run: bash scripts/survey-guard-test.sh
       - run: bash scripts/block-bad-bash-test.sh

@@ -21,7 +21,10 @@
       }
     ],
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" } ] }
+      { "hooks": [
+        { "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" },
+        { "type": "command", "command": "bash .claude/hooks/memory-inject.sh" }
+      ] }
     ],
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-digest.sh" } ] }
