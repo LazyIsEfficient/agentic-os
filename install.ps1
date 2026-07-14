@@ -33,8 +33,8 @@ $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — $ExpectedSha256 is the digest of the release asset
 # built from tag $Version.
-$Version        = "v2.6.0"
-$ExpectedSha256 = "9edd168cd78b40314131b59785e7ae76888beea575296a1ff4b7c4dd086798a6"
+$Version        = "v3.0.0"
+$ExpectedSha256 = "7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -189,33 +189,50 @@ if (Test-Path $HooksSrc) {
 function Install-ClaudeHookSettings {
   $SrcFile = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
   if (-not (Test-Path $SrcFile)) { return }
-  $DestFile = Join-Path $Dest "settings.json"
+  # $Dest exists by now (the hooks copy created $Dest\hooks). Convert-Path gives
+  # a full filesystem path so [IO.File]::WriteAllText — which resolves relative
+  # paths against .NET's CWD, not PowerShell's — always writes the right place.
+  $DestFile = Join-Path (Convert-Path -LiteralPath $Dest) "settings.json"
   $HooksDir = Join-Path $Dest "hooks"
-  $bash = Get-Command bash -ErrorAction SilentlyContinue
-  if ($bash) {
-    $hooksJsonText = & $bash.Source -c @"
-export HD='$($HooksDir -replace "'", "'\''")'
-export SRC='$($SrcFile -replace "'", "'\''")'
-jq --arg hd "`$HD" '
-  walk(if type == "object" and has("command") then
-    .command |= gsub("\\`$HOME/.claude/hooks"; `$hd)
-  else . end) | .hooks' "`$SRC"
-"@
-    $hooks = $hooksJsonText | ConvertFrom-Json
-    if (Test-Path $DestFile) {
-      $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
-      $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $hooks -Force
-      $destJson | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
-    } else {
-      @{ hooks = $hooks } | ConvertTo-Json -Depth 12 | Set-Content $DestFile -Encoding utf8
-    }
-    Write-Host "  OK hooks active -> $DestFile"
-  } elseif (-not (Test-Path $DestFile) -and $Dest -eq (Join-Path $env:USERPROFILE ".claude")) {
-    Copy-Item $SrcFile $DestFile
-    Write-Host "  OK hooks active -> $DestFile"
+
+  # Rewrite the template's `$HOME/.claude/hooks` token to the actual install
+  # hooks dir, then register. Done in NATIVE PowerShell (no bash/jq shell-out)
+  # so registration never silently no-ops on a Windows box that lacks jq — the
+  # previous version required bash+jq and, when either was missing, left hooks
+  # copied-but-unregistered on any re-install or custom -Dest. (The hooks are
+  # bash scripts and still need bash at RUNTIME, but that is not install-time's
+  # concern.) Forward slashes: bash-on-Windows accepts them and, unlike the
+  # backslash form, they need no JSON escaping. $Dest is validated at the top of
+  # this script to exclude `$`, so the replacement string is injection-safe.
+  $HooksDirFwd = ($HooksDir -replace '\\', '/')
+  $raw = Get-Content $SrcFile -Raw
+  $rewritten = $raw -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd
+
+  # Own the entire hooks key (replace it), preserving all other top-level keys —
+  # matches install.sh (`jq '.hooks = $h'`) and SECURITY.md.
+  if (Test-Path $DestFile) {
+    # Existing settings: merge. -Depth 100 so a consumer's deeply-nested keys
+    # round-trip intact. NOTE: on Windows PowerShell 5.1 this JSON round-trip
+    # can unwrap single-element arrays — the Windows smoke test (RELEASING.md
+    # step 6) must confirm hooks.PreToolUse stays an array on an EXISTING
+    # settings.json before tagging.
+    $hooks    = ($rewritten | ConvertFrom-Json).hooks
+    $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $hooks -Force
+    $out = $destJson | ConvertTo-Json -Depth 100
   } else {
-    Write-Warning "bash+jq required to install hook registration (custom -Dest needs jq path rewrite)"
+    # Fresh file (the common first install): the template is already exactly
+    # `{"hooks":{...}}` with correct array shapes — write its rewritten text
+    # VERBATIM, with no JSON round-trip, sidestepping the 5.1 array-unwrap
+    # entirely for this path.
+    $out = $rewritten
   }
+
+  # WriteAllText emits UTF-8 WITHOUT a BOM on BOTH PS 5.1 and 7. (`Set-Content
+  # -Encoding utf8` writes a BOM on 5.1, which a strict JSON parser — e.g. Node
+  # JSON.parse — rejects, silently breaking hook loading.)
+  [System.IO.File]::WriteAllText($DestFile, $out)
+  Write-Host "  OK hooks active -> $DestFile"
 }
 
 Install-ClaudeHookSettings

@@ -20,10 +20,13 @@ maintainer-only and is never shipped to consumers.
   **git ≥ 2.38** (for `git archive --mtime`). GitHub's auto-generated
   `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
   pin its digest.
-- **No self-referential hash.** The asset contains only the install *payload*
-  (`.claude/` plus `assets/consumer/`, `scripts/validate.sh`, and production
-  spike fixtures). It excludes `install.sh` / `install.ps1` / `README.md`, which
-  embed the digest — so embedding the digest in them never changes the asset's digest.
+- **No self-referential hash.** The asset contains only the install *payload* —
+  `.claude/`, `assets/consumer/`, `docs/awareness-harness-activation.md`, and the
+  two scripts the installer runs (`scripts/validate.sh` and
+  `scripts/lib/install-hook-settings.sh`). It excludes `install.sh` /
+  `install.ps1` / `README.md`, which embed the digest — so embedding the digest
+  in them never changes the asset's digest. (The authoritative list is
+  `ARCHIVE_PATHS` in `scripts/release.sh`.)
 - **What the pin defends against:** a tampered or corrupt asset download, and a
   moved/retagged release (the digest won't match). It does **not** by itself
   defend against a full repo compromise that rewrites the installer's embedded
