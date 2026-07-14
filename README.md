@@ -114,9 +114,9 @@ Cloned-repo tooling for library authors: `/audit-library`, `/review-gate`, `/eva
 
 Install skills, agents, hooks, and three consumer commands into `~/.claude/`. The remote one-liner installs a **pinned release** and verifies its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
-- **Current release:** `v3.0.0`
-- **Asset:** `agentic-os-v3.0.0.tar.gz`
-- **SHA-256:** `7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92`
+- **Current release:** `v3.0.1`
+- **Asset:** `agentic-os-v3.0.1.tar.gz`
+- **SHA-256:** `7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea`
 
 **Persistent memory:** `.claude/memory/` is gitignored (machine-local). `validate.sh` scans it when present on your machine — fix dangling wikilinks locally; CI does not see memory files.
 
@@ -127,7 +127,7 @@ Install skills, agents, hooks, and three consumer commands into `~/.claude/`. Th
 **One-liner (no clone required):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.1/install.sh | bash
 ```
 
 **Or from a local clone:**
@@ -145,7 +145,7 @@ Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/com
 **One-liner (no clone required):**
 
 ```powershell
-irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.1/install.ps1 | iex
 ```
 
 **Or from a local clone:**
@@ -166,11 +166,11 @@ out-of-band before trusting the one-liner, download the asset and check it
 yourself:
 
 ```bash
-curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v3.0.0/agentic-os-v3.0.0.tar.gz
+curl -fsSLO https://github.com/LazyIsEfficient/agentic-os/releases/download/v3.0.1/agentic-os-v3.0.1.tar.gz
 # macOS / BSD:
-echo "7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92  agentic-os-v3.0.0.tar.gz" | shasum -a 256 -c
+echo "7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea  agentic-os-v3.0.1.tar.gz" | shasum -a 256 -c
 # Linux (coreutils):
-echo "7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92  agentic-os-v3.0.0.tar.gz" | sha256sum -c
+echo "7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea  agentic-os-v3.0.1.tar.gz" | sha256sum -c
 ```
 
 There is intentionally no "track `main`" remote install path — to install

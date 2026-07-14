@@ -33,8 +33,8 @@ $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — $ExpectedSha256 is the digest of the release asset
 # built from tag $Version.
-$Version        = "v3.0.0"
-$ExpectedSha256 = "7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92"
+$Version        = "v3.0.1"
+$ExpectedSha256 = "7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea"
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 

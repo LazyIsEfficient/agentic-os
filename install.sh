@@ -25,8 +25,8 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 # Pinned release. Both values are produced together by scripts/release.sh and
 # must be updated together — EXPECTED_SHA256 is the digest of the release asset
 # built from tag $VERSION.
-VERSION="v3.0.0"
-EXPECTED_SHA256="7bf07e64924f552f52d3eeb09ce20579be13d2d6a773397b8937f43eb249de92"
+VERSION="v3.0.1"
+EXPECTED_SHA256="7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea"
 
 DEST="${CLAUDE_DIR:-$HOME/.claude}"
 FORCE=false
