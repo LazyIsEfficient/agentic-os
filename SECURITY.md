@@ -26,7 +26,7 @@ The only barrier in front of a freshly pulled hook is the **workspace-trust gate
 **Shipped hook scripts (active after install):**
   - **Ergonomics, not security:** `block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Blocks long `&&` chains and `cd && git` patterns (exit 2).
   - **Awareness harness:** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — plain stdout. `SESSION-STATE.md` is governed by rule 7 below.
-  - **Memory extraction:** `memory-extract.sh` — the end-of-session Stop hook that nudges the `memory-extraction` skill; plain stdout. Ships under `.claude/hooks/` but is **not** registered in the consumer `claude-settings.json` template, so it is inert on consumer installs (wired only in this repo's own `.claude/settings.json`).
+  - **Memory (write + read):** `memory-extract.sh` — the end-of-session Stop hook that nudges the `memory-extraction` skill — and `memory-inject.sh` — the SessionStart hook that surfaces the `.claude/memory/MEMORY.md` **index** so recorded facts re-enter context (#225). Both plain stdout. Both ship under `.claude/hooks/` but are **not** registered in the consumer `claude-settings.json` template, so they are inert on consumer installs (wired only in this repo's own `.claude/settings.json`). The `MEMORY.md` index `memory-inject.sh` injects is untrusted, user-local data governed by rule 7 below — gitignored, per-developer, and framed as DATA.
 
 **To disable:** delete the `hooks` key from `~/.claude/settings.json`, or remove individual hook entries.
 
