@@ -43,7 +43,12 @@ merge_claude_hook_settings() {
   hooks_json="$(_claude_hooks_json_for_dest "$src" "$dest/hooks")"
 
   if [[ -f "$dest_file" ]]; then
-    jq --argjson h "$hooks_json" '. * {hooks: $h}' "$dest_file" > "$dest_file.tmp" \
+    # Replace the ENTIRE hooks key (own it outright), preserving every other
+    # top-level key. `.hooks = $h` — NOT `. * {hooks:$h}`: the recursive-merge
+    # form would deep-merge, leaving stale consumer hook events behind and
+    # diverging from install.ps1 (Add-Member -Force) and SECURITY.md, which
+    # promise re-install replaces the whole hooks object.
+    jq --argjson h "$hooks_json" '.hooks = $h' "$dest_file" > "$dest_file.tmp" \
       && mv "$dest_file.tmp" "$dest_file"
   else
     jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"

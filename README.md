@@ -179,7 +179,7 @@ Maintainers: see [RELEASING.md](RELEASING.md) for how the pin is produced.
 
 #### Custom install path
 
-Hook registration paths are rewritten to match `CLAUDE_DIR` / `-Dest` at install (requires `jq` on bash).
+Hook registration paths are rewritten to match `CLAUDE_DIR` / `-Dest` at install. The macOS/Linux installer uses `jq` for this; the Windows installer does it natively in PowerShell (no `jq` needed).
 
 ```bash
 CLAUDE_DIR=/path/to/.claude ./install.sh

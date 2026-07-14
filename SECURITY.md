@@ -2,9 +2,11 @@
 
 ## Why this file exists
 
-Most of this library is **inert**: skills, agents, commands, and rules are Markdown — instructions a *model* reads. The worst case for a bad instruction is bad advice, with a human and the model in the loop.
+Most of this library is **passive**: skills, agents, commands, and rules are Markdown — instructions a *model* reads. The worst case for a bad instruction is bad advice, with a human and the model in the loop.
 
-**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines.** `install.sh` runs `install_dir "hooks"` and `chmod +x` on `.claude/hooks/*.sh`; `install.ps1` does the same. Once registered in the hook config (`settings.json`), a hook fires on routine events (e.g. `PreToolUse` on tool or shell activity, `SessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface, so it is the primary security concern.
+Some skills also ship **helper scripts** (`.claude/skills/*/scripts/*.py`, `*.sh`) — real executable code, not Markdown. Unlike hooks, these run **only when a user or agent explicitly invokes them**; they are never registered to fire on their own. That user-in-the-loop trust model is why they are not the primary concern here — but they are still third-party code you are choosing to run, so audit a skill's `scripts/` before executing it, exactly as you would any downloaded tool.
+
+**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines — with no invocation and no tool call.** `install.sh` runs `install_dir "hooks"` and `chmod +x` on `.claude/hooks/*.sh`; `install.ps1` does the same. Once registered in the hook config (`settings.json`), a hook fires on routine events (e.g. `PreToolUse` on tool or shell activity, `SessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface, so it is the primary security concern.
 
 ## Threat model — the supply chain
 
