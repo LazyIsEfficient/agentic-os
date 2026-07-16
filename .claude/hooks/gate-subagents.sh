@@ -7,7 +7,7 @@
 # reviewer/documenter sub-agent spawn that the CURRENT diff does not warrant, reusing
 # the SAME path classifier that drives the PR ship-gate (scripts/lib/gate-plan-lib.sh)
 # as the single source of truth. Engineer / Explore / general-purpose and every other
-# type are ALWAYS allowed — only the four review/document types are gated.
+# type are ALWAYS allowed — only the five review/document types are gated.
 #
 # Empirically verified surface (claude 2.1.202): PreToolUse fires on the `Agent`
 # spawn tool; tool_input carries `subagent_type`; permissionDecision:"deny" blocks the
@@ -35,6 +35,11 @@ dir="${CLAUDE_PROJECT_DIR:-.}"
 lib="$dir/scripts/lib/gate-plan-lib.sh"
 [ -r "$lib" ] || allow
 # shellcheck source=/dev/null
+# NOTE: sources a lib UNDER scripts/lib/ — outside the .claude/hooks/ tree that
+# validate.sh Invariant 8(a) scans. Safe today: this hook is wired ONLY in the repo's
+# own .claude/settings.json (dev), never the consumer template, and install.sh ships
+# skills/agents/hooks (not scripts/). If ever added to the consumer template, bring
+# gate-plan-lib.sh under the Invariant 8(a) scan or an equivalent review gate (SECURITY.md).
 . "$lib" 2>/dev/null || allow
 command -v gate_plan_classify_paths >/dev/null 2>&1 || allow   # lib didn't define it → allow
 git -C "$dir" rev-parse HEAD >/dev/null 2>&1 || allow           # no repo/HEAD → can't classify → allow
@@ -61,7 +66,16 @@ case "$st" in
     # deterministic suite + validate.sh are the cheaper reviewer). Threshold tuned by
     # the ablation (v4-1).
     if [ "${GATE_IS_CODE_CHANGE:-false}" = true ] || [ "${GATE_IS_LIBRARY:-false}" = true ]; then
+      # Total change size = tracked numstat + untracked new-file line counts. numstat
+      # OMITS untracked files, but the classifier counts them (ls-files --others) — keep
+      # the two in agreement so a large brand-new file isn't silently skipped.
       loc="$(git -C "$dir" diff HEAD --numstat 2>/dev/null | awk '{a+=$1+$2} END{print a+0}')"
+      untracked_loc="$(
+        git -C "$dir" ls-files --others --exclude-standard 2>/dev/null |
+          while IFS= read -r uf; do [ -n "$uf" ] && wc -l < "$dir/$uf" 2>/dev/null; done |
+          awk '{a+=$1} END{print a+0}'
+      )"
+      loc=$(( ${loc:-0} + ${untracked_loc:-0} ))
       [ "${loc:-0}" -ge 30 ] && warranted=true
     fi
     ;;

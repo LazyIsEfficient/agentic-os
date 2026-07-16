@@ -66,8 +66,16 @@ clean; printf 'one line\n' >> "$PROJ/code.sh"
 fire code-reviewer; expect "code-reviewer DENY on trivial (<30 LOC) code change" DENY
 clean; printf 'x\n%.0s' $(seq 1 40) >> "$PROJ/code.sh"
 fire code-reviewer; expect "code-reviewer ALLOW on non-trivial (>=30 LOC) code change" ALLOW
+clean; printf 'x\n%.0s' $(seq 1 40) > "$PROJ/newbig.sh"   # UNTRACKED new file — numstat omits it
+fire code-reviewer; expect "code-reviewer ALLOW on a large UNTRACKED new code file" ALLOW
 
-# 6. Fail-open: missing subagent_type, and malformed input.
+# 6. Fail-open when the classifier lib is unavailable (even on a sensitive diff).
+clean; printf 'edit\n' >> "$PROJ/install.sh"
+mv "$PROJ/scripts/lib/gate-plan-lib.sh" "$PROJ/scripts/lib/_off"
+fire security-reviewer; expect "fail-open: missing gate-plan-lib -> ALLOW on sensitive diff" ALLOW
+mv "$PROJ/scripts/lib/_off" "$PROJ/scripts/lib/gate-plan-lib.sh"
+
+# 7. Fail-open: missing subagent_type, and malformed input.
 clean; raw '{"tool_input":{}}'; expect "fail-open: no subagent_type -> ALLOW" ALLOW
 clean; raw 'not json'; expect "fail-open: malformed input -> ALLOW" ALLOW
 
