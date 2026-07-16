@@ -1,5 +1,6 @@
 ---
 name: game-balancer
+disable-model-invocation: true
 description: Use when tuning the numbers in a game — economy curves, progression rates, difficulty pacing, drop tables, win/loss odds, time-to-X targets, and currency velocities. Triggers on "balance pass", "tune the economy", "progression curve", "difficulty curve", "drop rate", "XP curve", "TTK", "time-to-content", "balance the economy", "spreadsheet model", "economy sim", or a system spec from game-systems-designer with `TBD` placeholders. Produces an economy spreadsheet, balance pass plan, sim outputs, and per-system balance tables. Stops at the numbers — does not change system rules or pricing. For systems design see game-systems-designer; for store catalog see iap-manager.
 when_to_use: |
   Use when a system spec from `game-systems-designer` arrives with `TBD by game-balancer`

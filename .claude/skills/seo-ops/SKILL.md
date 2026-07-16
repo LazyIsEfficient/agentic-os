@@ -1,5 +1,6 @@
 ---
 name: seo-ops
+disable-model-invocation: true
 description: >-
   AI-powered SEO operations: keyword intelligence, competitor gap analysis,
   Google Search Console optimization, and trend detection. Use when asked to

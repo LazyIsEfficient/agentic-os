@@ -1,5 +1,6 @@
 ---
 name: marketing-shaper
+disable-model-invocation: true
 description: >-
   Use to structure a vague marketing request into a well-scoped brief before any
   real work begins. Triggers on "shape this campaign", "plan this launch", "scope

@@ -1,5 +1,6 @@
 ---
 name: telemetry
+disable-model-invocation: true
 description: >-
   Internal utility for the skills library itself — opt-in, local-first,
   privacy-respecting usage telemetry and update checks. Provides version
