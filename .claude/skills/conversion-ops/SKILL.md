@@ -1,5 +1,6 @@
 ---
 name: conversion-ops
+disable-model-invocation: true
 description: >-
   AI-powered conversion rate optimization: landing page audits, CRO scoring,
   survey segmentation, and lead magnet generation. Use when asked to audit a

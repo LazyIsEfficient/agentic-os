@@ -1,5 +1,6 @@
 ---
 name: library-investigator
+disable-model-invocation: true
 description: Use when forensically auditing a Claude Code skill/agent/command/workflow library against RULESET.md by a fixed mechanical protocol — probing every file against the mechanically-checkable rules and reporting CONFORMS / VIOLATES / UNVERIFIABLE / N-A counts with quoted evidence. It casts NO judgment and emits NO pass/fail verdict; counts are the headline. Triggers on "investigate the library", "audit against RULESET", "find every violation", "forensic library audit", "evidence-only check". Not for routing/quality/single-responsibility judgment — use skill-library-review. Not the full sharded sweep — use the audit-library command.
 when_to_use: |
   Use when the deliverable is a fact sheet of rule violations across

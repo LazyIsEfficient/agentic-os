@@ -1,5 +1,6 @@
 ---
 name: revenue-intelligence
+disable-model-invocation: true
 description: >-
   AI-powered revenue intelligence: sales call insight extraction, content-to-revenue
   attribution, and multi-source client reporting. Use when asked to analyze sales

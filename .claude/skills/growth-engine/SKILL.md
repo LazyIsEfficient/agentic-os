@@ -1,5 +1,6 @@
 ---
 name: growth-engine
+disable-model-invocation: true
 description: >-
   Autonomous growth experimentation framework: creates experiments with
   hypotheses, logs data points, runs statistical analysis (bootstrap CI +
