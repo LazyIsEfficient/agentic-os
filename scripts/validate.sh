@@ -744,6 +744,32 @@ check_tombstones() {
   done
 }
 
+# ── Invariant 10: test-ci-coverage ─────────────────────────────────────────────
+# Convention: every scripts/*-test.sh is wired into the CI workflow so it actually
+# runs. A test that exists but is never invoked is a DEAD test — it gives false
+# assurance and rots silently (the exact recall-vs-enforcement failure #233 targets:
+# an intended check that nothing executes). This is the Tier-0 ratchet for that
+# class — add a scripts/*-test.sh and forget to reference it in
+# .github/workflows/validate.yml, and validate fails until it is wired in.
+#
+# Deterministic + FP-free: it only asserts the test's basename appears somewhere
+# in the workflow file (grep -F, literal). Guarded on BOTH files existing, so it
+# is inert in a shipped tarball/fixture (which carries neither scripts/ nor
+# .github/) and only ever runs in the source checkout.
+check_test_ci_coverage() {
+  local wf="$ROOT/.github/workflows/validate.yml"
+  local scripts_dir="$ROOT/scripts"
+  [[ -f "$wf" && -d "$scripts_dir" ]] || return 0
+  local t base
+  while IFS= read -r t; do
+    [[ -n "$t" ]] || continue
+    base="$(basename "$t")"
+    if ! grep -qF -- "$base" "$wf"; then
+      fail test-ci-coverage "$t" "test script not referenced in .github/workflows/validate.yml — wire it into CI or it never runs"
+    fi
+  done < <(find "$scripts_dir" -maxdepth 1 -name '*-test.sh' -type f | sort)
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
@@ -754,6 +780,7 @@ check_review_tiers
 check_hook_safety
 check_claude_hook_registration
 check_tombstones
+check_test_ci_coverage
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

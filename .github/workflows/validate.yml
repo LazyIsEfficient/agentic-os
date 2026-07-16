@@ -22,6 +22,7 @@ jobs:
       - run: bash scripts/session-state-test.sh
       - run: bash scripts/survey-guard-test.sh
       - run: bash scripts/block-bad-bash-test.sh
+      - run: bash scripts/setup-guard-test.sh
   ship-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

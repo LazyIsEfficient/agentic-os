@@ -17,6 +17,11 @@ SESSION-STATE.md
 .claude/session-state.checkpoints
 .claude/survey-guard.warns
 
+# setup-guard live manifest (per-project setup contract; injected into context ->
+# SECURITY.md rule-7 untrusted/user-local data, never committed to a shared
+# checkout). The committed schema is .claude/setup-guard.manifest.example.
+.claude/setup-guard.manifest
+
 # Claude Code — agent worktrees (ephemeral, machine-local)
 .claude/worktrees/
 

@@ -400,6 +400,30 @@ else
   report "case 39 claude-hook-registration (consumer subset stays clean)" fail "exit=$VRC; output:\n$VOUT"
 fi
 
+# ── Case 40: test-ci-coverage — a scripts/*-test.sh not wired into CI ──────────
+# Invariant 10. make_copy carries neither .github/ nor any *-test.sh, so this
+# invariant is inert in the baseline (Case 0) and every other case. Here we seed a
+# workflow that does NOT reference the orphan test → it must trip test-ci-coverage.
+c40="$(make_copy)"
+mkdir -p "$c40/.github/workflows"
+printf 'jobs:\n  validate:\n    steps:\n      - run: bash scripts/validate.sh\n' > "$c40/.github/workflows/validate.yml"
+printf '#!/usr/bin/env bash\ntrue\n' > "$c40/scripts/orphan-test.sh"
+assert_trips "case 40 test-ci-coverage (test not wired into CI)" "$c40" test-ci-coverage
+
+# ── Case 41: test-ci-coverage — a wired test stays clean (no false positive) ────
+# The same orphan test, now referenced in the workflow, must pass. Guards against
+# the check firing on a legitimately-wired test.
+c41="$(make_copy)"
+mkdir -p "$c41/.github/workflows"
+printf '#!/usr/bin/env bash\ntrue\n' > "$c41/scripts/orphan-test.sh"
+printf 'jobs:\n  validate:\n    steps:\n      - run: bash scripts/orphan-test.sh\n' > "$c41/.github/workflows/validate.yml"
+run_validate "$c41"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 41 test-ci-coverage (wired test stays clean)" pass
+else
+  report "case 41 test-ci-coverage (wired test stays clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."
