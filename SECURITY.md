@@ -6,7 +6,7 @@ Most of this library is **passive**: skills, agents, commands, and rules are Mar
 
 Some skills also ship **helper scripts** (`.claude/skills/*/scripts/*.py`, `*.sh`) — real executable code, not Markdown. Unlike hooks, these run **only when a user or agent explicitly invokes them**; they are never registered to fire on their own. That user-in-the-loop trust model is why they are not the primary concern here — but they are still third-party code you are choosing to run, so audit a skill's `scripts/` before executing it, exactly as you would any downloaded tool.
 
-**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines — with no invocation and no tool call.** `install.sh` runs `install_dir "hooks"` and `chmod +x` on `.claude/hooks/*.sh`; `install.ps1` does the same. Once registered in the hook config (`settings.json`), a hook fires on routine events (e.g. `PreToolUse` on tool or shell activity, `SessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface, so it is the primary security concern.
+**Hooks are different. They are executable code that the library distributes and that runs automatically on consumer machines — with no invocation and no tool call.** The Claude installers ship the full `.claude/hooks/*.sh` directory; `install.sh --codex` allowlists the compatible subset into the Codex hook directory. Once registered and trusted, a hook fires on routine events (e.g. `PreToolUse` on tool or shell activity, `SessionStart` on session open), runs with the user's full shell and permissions, and has **no sandbox**. This is the library's distributed executable surface, so it is the primary security concern.
 
 ## Threat model — the supply chain
 
@@ -15,7 +15,7 @@ The risk travels through the **distribution channel**. People install this libra
 - A **bug** in a shipped hook runs on everyone who installed it — not just the author.
 - An **upstream compromise** (a malicious PR merged, or a maintainer account/CI compromised) propagates arbitrary code to every downstream installer automatically. One poisoned commit → code execution on N machines. This is the classic supply-chain attack shape (`event-stream`, `xz`).
 
-The only barrier in front of a freshly pulled hook is the **workspace-trust gate** (the repo or project must be trusted before hooks run). That is a single one-time gate, **not** a sandbox.
+Claude relies on the **workspace-trust gate** before project hooks run. Codex additionally requires review and trust of each non-managed hook definition (and requires project trust for project-local hooks). These are execution gates, **not** sandboxes.
 
 ### What ships today
 
@@ -23,12 +23,18 @@ The only barrier in front of a freshly pulled hook is the **workspace-trust gate
 - Ships `.claude/hooks/*.sh` and marks them executable.
 - **Registers hooks globally** by merging `assets/consumer/claude-settings.json` into `~/.claude/settings.json`. At install time, template paths (`$HOME/.claude/hooks/…`) are rewritten to match the actual install `DEST` (supports custom `CLAUDE_DIR`). Only the `hooks` block is merged; other top-level keys are preserved. **Re-install replaces the entire `hooks` object** — custom hook entries are overwritten.
 
+**Codex (`install.sh --codex`)**
+- Ships only `session-state-inject.sh` and `session-state-checkpoint.sh` to the user or project Codex hook directory and marks them executable.
+- Registers `assets/consumer/codex-hooks.json` in `~/.codex/hooks.json` (user scope) or `.codex/hooks.json` (project scope). Re-install replaces only matcher groups marked `AgenticOS:` and preserves unrelated hook groups.
+- Hooks remain inert until the user reviews and trusts them with `/hooks`. Project hooks also require a trusted project.
+
 **Shipped hook scripts (active after install):**
   - **Ergonomics, not security:** `block-bad-bash.sh` — a `jq`-gated nudge, explicitly self-labeled *not a security control*. Blocks long `&&` chains and `cd && git` patterns (exit 2).
   - **Awareness harness:** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — plain stdout. `SESSION-STATE.md` is governed by rule 7 below.
   - **Memory (write + read):** `memory-extract.sh` — the end-of-session Stop hook that nudges the `memory-extraction` skill — and `memory-inject.sh` — the SessionStart hook that surfaces the `.claude/memory/MEMORY.md` **index** so recorded facts re-enter context (#225). Both plain stdout. Both ship under `.claude/hooks/` but are **not** registered in the consumer `claude-settings.json` template, so they are inert on consumer installs (wired only in this repo's own `.claude/settings.json`). The `MEMORY.md` index `memory-inject.sh` injects is untrusted, user-local data governed by rule 7 below — gitignored, per-developer, and framed as DATA.
 
 **To disable:** delete the `hooks` key from `~/.claude/settings.json`, or remove individual hook entries.
+For Codex, disable the entries with `/hooks` or set `[features].hooks = false`.
 
 ## Policy for shipped hooks
 
@@ -36,6 +42,7 @@ Every hook that ships to consumers MUST:
 
 1. **Live as a vendored `*.sh` shell script** under `.claude/hooks/`. Other interpreters evade the shell-idiom denylist and are rejected on file type. Hook `command` entries in any shipped hook config must *invoke* such a script — never carry inline shell:
    - `settings.json` — `<interpreter> .claude/hooks/<name>.sh [simple args]`
+   - `codex-hooks.json` — `bash "$HOME/.codex/hooks/<name>.sh"`
 2. **Make no runtime network call** — no `curl`/`wget`/`nc`/`scp`/`sftp`, no `/dev/tcp`, no pipe-to-shell (`… | bash`). Nothing is fetched or executed from the network at runtime.
 3. **Contain no dynamic/obfuscated execution** — no `eval`, no `base64 -d | sh`, no `source <(…)`, no inline `python -c` / `node -e`.
 4. **Touch no credentials, persistence, or privilege** — no `~/.ssh`/`~/.aws`/`~/.gnupg`/`id_rsa`/`.npmrc` access, no `crontab`/`launchctl`/`systemctl`/LaunchAgents, no `sudo`, no `chmod 777`, no recursive deletes of `$HOME`/`/`.
@@ -50,6 +57,7 @@ Every hook that ships to consumers MUST:
 - **(a) Denylist scan** of shipped hook *scripts* (`.claude/hooks/*.sh`).
 - **(b) Strict-shape allowlist** for hook *command* entries in config JSON:
   - `settings.json`: exactly `<interpreter> .claude/hooks/<name>.sh [simple args]`
+  - `codex-hooks.json`: exactly `bash "$HOME/.codex/hooks/<name>.sh"`
 
 Anything else — a chained `; curl…|bash`, a literal-newline statement, an `env` prefix, a `../` path traversal, a `$(…)` subshell — fails the shape and is rejected. This is an allowlist of *shape*, not a denylist of metacharacters (which is incompletable — an early denylist version missed the newline separator), so a single vendored call cannot become a chain.
 
@@ -59,14 +67,15 @@ Anything else — a chained `; curl…|bash`, a literal-newline statement, an `e
 
 ## Shipping the awareness harness
 
-The awareness harness (session-state hooks, survey-before-act, `/state` command, writer, skill) ships **active by default**: `install.sh` / `install.ps1` merge hook registration into the consumer's global config after copying scripts.
+The full Claude awareness harness (session-state hooks, survey-before-act, `/state` command, writer, skill) ships active by default. The Codex path registers only session-start injection and pre-compaction checkpointing; Codex requires explicit hook trust before they run.
 
 **Consumer template** (`assets/consumer/`):
 - `claude-settings.json` → `~/.claude/settings.json` (`hooks` block merged with `DEST`-relative paths; other top-level keys preserved; **re-install overwrites the whole `hooks` object**)
+- `codex-hooks.json` → user or project `hooks.json` (AgenticOS matcher groups merged with destination-relative paths; unrelated groups preserved)
 
 Invariant 8(b) validates this template. Human `security-reviewer` sign-off applies to hook script changes; the layered controls in Enforcement remain the real safety boundary — not the egress regex tripwire alone.
 
-**To turn off:** remove the `hooks` block from your global settings file.
+**To turn off:** remove the Claude `hooks` block from global settings. In Codex, use `/hooks` or disable the hooks feature.
 
 **Writer note:** the skill-local writer is not scanned by Invariant 8 (hooks dirs only). It is benign by construction (bash/awk/coreutils; no network/exec/persistence/credentials).
 

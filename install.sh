@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
-# Install Skills Library into your Claude Code global config.
+# Install AgenticOS for Claude Code (default) or Codex.
 #
 # Usage — pipe from GitHub (no clone required):
-#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.6.0/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.1/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/<release-tag>/install.sh | bash -s -- --codex
 #
 # Usage — from a local clone:
 #   ./install.sh
 #
 # Options:
-#   CLAUDE_DIR   Override the install destination (default: ~/.claude)
+#   --codex      Install Codex-compatible surfaces (Claude is the default)
+#   --project    With --codex, install into the current Git project
 #   --force      Overwrite existing files without prompting
+#
+# Environment overrides:
+#   CLAUDE_DIR       Claude destination (default: ~/.claude)
+#   CODEX_HOME       Codex config/agent destination (default: ~/.codex)
+#   CODEX_SKILLS_DIR Codex user skill destination (default: ~/.agents/skills)
+#   CODEX_PROJECT_DIR  Project root used by --codex --project
 #
 # Integrity: the remote install path downloads a PINNED release asset and
 # verifies its SHA-256 against EXPECTED_SHA256 below before extracting anything.
@@ -28,19 +36,73 @@ REPO_NAME="${REPO_NAME:-agentic-os}"
 VERSION="v3.0.1"
 EXPECTED_SHA256="7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea"
 
-DEST="${CLAUDE_DIR:-$HOME/.claude}"
 FORCE=false
+PLATFORM="claude"
+CODEX_SCOPE="user"
 
-if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
-  echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
-  exit 1
-fi
+usage() {
+  printf '%s\n' \
+    'Usage: ./install.sh [--claude|--codex] [--project] [--force]' \
+    '' \
+    '  --codex    Install Codex-compatible skills, agents, and hooks' \
+    '  --project  With --codex, install into the current Git project' \
+    '  --force    Overwrite existing AgenticOS files' \
+    '  --claude   Install for Claude Code (default)'
+}
 
 for arg in "$@"; do
   case "$arg" in
     --force) FORCE=true ;;
+    --codex) PLATFORM="codex" ;;
+    --claude) PLATFORM="claude" ;;
+    --project) CODEX_SCOPE="project" ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown option: $arg" >&2
+      exit 1
+      ;;
   esac
 done
+
+if [[ "$PLATFORM" != "codex" && "$CODEX_SCOPE" == "project" ]]; then
+  echo "Error: --project is only supported with --codex." >&2
+  exit 1
+fi
+
+if [[ "$PLATFORM" == "claude" ]]; then
+  DEST="${CLAUDE_DIR:-$HOME/.claude}"
+  if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
+    echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
+    exit 1
+  fi
+else
+  if [[ "$CODEX_SCOPE" == "project" ]]; then
+    if [[ -n "${CODEX_PROJECT_DIR:-}" ]]; then
+      CODEX_PROJECT_ROOT="$CODEX_PROJECT_DIR"
+    elif command -v git &>/dev/null && git rev-parse --show-toplevel &>/dev/null; then
+      CODEX_PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+    else
+      CODEX_PROJECT_ROOT="$(pwd)"
+    fi
+    CODEX_CONFIG_DIR="$CODEX_PROJECT_ROOT/.codex"
+    CODEX_SKILLS_DEST="$CODEX_PROJECT_ROOT/.agents/skills"
+  else
+    CODEX_CONFIG_DIR="${CODEX_HOME:-$HOME/.codex}"
+    CODEX_SKILLS_DEST="${CODEX_SKILLS_DIR:-$HOME/.agents/skills}"
+  fi
+  CODEX_AGENTS_DEST="$CODEX_CONFIG_DIR/agents"
+  CODEX_HOOKS_DEST="$CODEX_CONFIG_DIR/hooks"
+
+  for path in "$CODEX_CONFIG_DIR" "$CODEX_SKILLS_DEST"; do
+    if [[ ! "$path" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
+      echo "Error: unsafe Codex destination (shell metacharacters not allowed): $path" >&2
+      exit 1
+    fi
+  done
+fi
 
 # ── Resolve source ────────────────────────────────────────────────────────────
 
@@ -176,30 +238,126 @@ install_files() {
   [[ "$copied" -gt 0 ]] && echo "  ✓ $name ($copied ship-tagged) → $dest_dir"
 }
 
-echo ""
-echo "Installing to $DEST"
+install_tree_to() {
+  local src_dir="$1" dest_dir="$2" label="$3"
+  [[ -d "$src_dir" ]] || return 0
+  mkdir -p "$dest_dir"
+  if [[ "$FORCE" == "true" ]]; then
+    cp -r "$src_dir/." "$dest_dir/"
+  else
+    while IFS= read -r -d '' file; do
+      local rel="${file#"$src_dir"/}"
+      local target="$dest_dir/$rel"
+      if [[ ! -e "$target" ]]; then
+        mkdir -p "$(dirname "$target")"
+        cp "$file" "$target"
+      fi
+    done < <(find "$src_dir" -type f -print0)
+  fi
+  echo "  ✓ $label → $dest_dir"
+}
 
-install_dir "skills"
-install_dir "agents"
-# Commands: ship-tagged allowlist ONLY — list each file that installs into a
-# consumer's global namespace. The author-facing scaffolds plus /state (the
-# awareness-harness writer command — its skill + hooks ship alongside) are the
-# only consumer commands; maintainer-only commands (audit-library, review-gate,
-# triage-findings, eval-harness) stay in-repo and are never installed, to avoid
-# polluting the consumer's command namespace.
-install_files "commands" "skill-new.md" "agent-new.md" "state.md"
-# Workflows: NOTHING ships. The only workflow (audit-skill-library) is a
-# maintainer-only tool that stays in-repo and is never installed.
-install_dir "hooks"
+install_selected_files_to() {
+  local src_dir="$1" dest_dir="$2" label="$3"; shift 3
+  local copied=0 rel src target
+  mkdir -p "$dest_dir"
+  for rel in "$@"; do
+    src="$src_dir/$rel"
+    [[ -f "$src" ]] || continue
+    target="$dest_dir/$rel"
+    if [[ "$FORCE" == "true" || ! -e "$target" ]]; then
+      cp "$src" "$target"
+    fi
+    copied=$((copied + 1))
+  done
+  [[ "$copied" -gt 0 ]] && echo "  ✓ $label ($copied compatible) → $dest_dir"
+}
 
-# Ensure hook scripts are executable
-if [[ -d "$DEST/hooks" ]]; then
-  find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
+install_codex_agents() {
+  local src_dir="$SRC/agents" dest_dir="$CODEX_AGENTS_DEST"
+  local src name description tools sandbox target target_tmp
+  [[ -d "$src_dir" ]] || return 0
+  mkdir -p "$dest_dir"
+
+  while IFS= read -r -d '' src; do
+    name="$(awk '/^name:/{sub(/^name:[[:space:]]*/, ""); print; exit}' "$src")"
+    description="$(awk '/^description:/{sub(/^description:[[:space:]]*/, ""); print; exit}' "$src")"
+    tools="$(awk '/^tools:/{sub(/^tools:[[:space:]]*/, ""); print; exit}' "$src")"
+    [[ -n "$name" && -n "$description" ]] || continue
+    if grep -qF "'''" "$src"; then
+      echo "Error: cannot safely convert Codex agent $src (contains TOML literal delimiter)." >&2
+      exit 1
+    fi
+    target="$dest_dir/$name.toml"
+    if [[ "$FORCE" != "true" && -e "$target" ]]; then
+      continue
+    fi
+    sandbox="read-only"
+    if [[ "$tools" == *Edit* || "$tools" == *Write* ]]; then
+      sandbox="workspace-write"
+    fi
+    target_tmp="$target.tmp"
+    if ! {
+      printf "name = '%s'\n" "$name"
+      printf "description = '''\n%s\n'''\n" "$description"
+      printf "sandbox_mode = '%s'\n" "$sandbox"
+      printf "developer_instructions = '''\n"
+      printf "Use Codex-native tools and skill discovery when these role instructions use Claude-specific capability names or relative skill links.\n\n"
+      awk '
+        NR == 1 && $0 == "---" { fm=1; next }
+        fm && $0 == "---" { fm=0; body=1; next }
+        body { print }
+      ' "$src" \
+        | sed -E 's#\$PROJ/\.claude/skills/#$PROJ/.agents/skills/#g; s#\$HOME/\.claude/skills/#$HOME/.agents/skills/#g' \
+        | sed -E "s#\(\.\./skills/([^)]+)\)#(<$CODEX_SKILLS_DEST/\1>)#g; s#\(([a-z0-9-]+)\.md\)#(<$CODEX_AGENTS_DEST/\1.toml>)#g"
+      printf "\n'''\n"
+    } > "$target_tmp"; then
+      rm -f "$target_tmp"
+      echo "Error: failed to convert Codex agent $src." >&2
+      exit 1
+    fi
+    mv "$target_tmp" "$target"
+  done < <(find "$src_dir" -maxdepth 1 -name '*.md' -type f -print0)
+  echo "  ✓ agents (Codex TOML) → $dest_dir"
+}
+
+if [[ "$PLATFORM" == "claude" ]]; then
+  echo ""
+  echo "Installing Claude Code surfaces to $DEST"
+
+  install_dir "skills"
+  install_dir "agents"
+  # Commands: ship-tagged allowlist ONLY — list each file that installs into a
+  # consumer's global namespace. The author-facing scaffolds plus /state (the
+  # awareness-harness writer command — its skill + hooks ship alongside) are the
+  # only consumer commands; maintainer-only commands stay in-repo.
+  install_files "commands" "skill-new.md" "agent-new.md" "state.md"
+  # Workflows: NOTHING ships. The only workflow is maintainer-only.
+  install_dir "hooks"
+
+  if [[ -d "$DEST/hooks" ]]; then
+    find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
+  fi
+  merge_claude_hook_settings "$REPO_ROOT" "$DEST"
+
+  echo ""
+  echo "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
+else
+  echo ""
+  echo "Installing Codex skills to $CODEX_SKILLS_DEST"
+  echo "Installing Codex config surfaces to $CODEX_CONFIG_DIR"
+
+  install_tree_to "$SRC/skills" "$CODEX_SKILLS_DEST" "skills"
+  install_codex_agents
+  install_selected_files_to "$SRC/hooks" "$CODEX_HOOKS_DEST" "hooks" \
+    "session-state-inject.sh" "session-state-checkpoint.sh"
+  find "$CODEX_HOOKS_DEST" -name "*.sh" -exec chmod +x {} \;
+  merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR"
+
+  echo ""
+  echo "Done. Restart Codex to load the skills and agents. Review and trust the new hooks with /hooks."
+  echo "Claude slash commands and custom .claude/memory hooks were not installed; Codex uses skills/custom agents and its native memory system instead."
 fi
 
-merge_claude_hook_settings "$REPO_ROOT" "$DEST"
-
-echo ""
-echo "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 echo ""
 echo "To update later, re-run this script (add --force to overwrite customisations)."

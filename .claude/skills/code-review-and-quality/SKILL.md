@@ -5,7 +5,7 @@ when_to_use: |
   Use before merging any PR or change, after a feature implementation or bug fix, when evaluating code produced by another agent or model, when refactoring existing code, or when a change needs assessment across correctness, readability, architecture, security, and performance.
 
   Not when: the sole concern is a security audit — for cross-stack security audits (infra, CI/CD, Web3, agentic AI) use `security-engineering`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Code Review and Quality

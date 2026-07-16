@@ -5,7 +5,7 @@ when_to_use: |
   Use when a document asserts formal or quantitative claims that could be false — derivations, theorems, statistical results, benchmark numbers, dimensional formulas — and the deliverable is a verdict on whether the claims hold as stated. The load-bearing signal: the document's value collapses if a central equation or number is wrong.
 
   Not when: reviewing source code for bugs or design — use `code-review-and-quality`. Not when the concern is security posture — use `security-engineering`. Not when scoring prose quality, persuasiveness, or style — use `content-ops`. Not when auditing skill/agent definitions — use `skill-library-review`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Adversarial Claims Reviewer

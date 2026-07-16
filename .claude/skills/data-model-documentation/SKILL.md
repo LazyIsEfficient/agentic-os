@@ -5,7 +5,7 @@ when_to_use: |
   Use after any change that defines or modifies data crossing a boundary — HTTP handlers, GraphQL fields, protobuf/OpenAPI/JSON Schema, DB entities, Kafka/SQS payloads, websocket frames.
 
   Not when: the diff is docs-only, refactors with no contract change, or pure UI with no new/changed boundary types. Not when verifying an existing catalog — use `data-model-verification` / `data-model-verifier` (Wave 2).
-compatibility: Requires Bash. Works in Claude Code via install.sh. Agent writes `DATA_MODEL.md` at `$CLAUDE_PROJECT_DIR`.
+compatibility: Requires Bash. Works in Claude Code and Codex via install.sh. Writes `DATA_MODEL.md` at the active project root.
 ---
 
 # Data Model Documentation

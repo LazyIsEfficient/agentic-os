@@ -13,7 +13,7 @@ when_to_use: |
   Not when conducting the review itself — use code-review-and-quality for source
   code or skill-library-review for library definitions; this skill only stores
   their unevidenced residue.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Findings Ledger
@@ -57,8 +57,12 @@ ok, 2 = setup/usage error; output ordering is deterministic). Resolve the script
 PROJ="${CLAUDE_PROJECT_DIR:-.}"
 # 1. Repo checkout
 LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-# 2. Global Claude Code (after install.sh)
+# 2. Project Codex install
+[ -f "$LEDGER" ] || LEDGER="$PROJ/.agents/skills/findings-ledger/scripts/ledger.py"
+# 3. Global Claude Code install
 [ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# 4. Global Codex install
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 
 python3 "$LEDGER" add \
   --file <path> --claim "<one sentence>" --tier 2 \

@@ -543,7 +543,7 @@ check_review_tiers() {
 # script rather than carry inline shell. Surfaces: `.claude/hooks/` + optional
 # dev `settings.json` (Claude Code). The real defenses are layered (minimal
 # auditable scripts + no runtime fetch + human security review + the
-# workspace-trust gate). See SECURITY.md for the threat model and limits.
+# workspace/hook-trust gates). See SECURITY.md for the threat model and limits.
 #
 # Pattern@@@reason. `@@@` is the delimiter (no regex here contains it). Scope is
 # deliberately the shipped scripts only — NOT settings.json config — so the scan
@@ -635,6 +635,13 @@ check_hook_safety() {
     '.claude/hooks/' \
     '^bash \$HOME/.claude/hooks/[A-Za-z0-9_-]+\.sh$' \
     'bash $HOME/.claude/hooks/<name>.sh'
+
+  # Codex user/project install template. The script path is double-quoted so a
+  # trusted project root containing spaces remains a single shell argument.
+  check_hook_commands_in_file "$ROOT/assets/consumer/codex-hooks.json" \
+    '.codex/hooks/' \
+    '^bash \\"\$HOME/.codex/hooks/[A-Za-z0-9_-]+\.sh\\"$' \
+    'bash "$HOME/.codex/hooks/<name>.sh"'
 }
 
 # ── Invariant 8(d): Claude hook-registration parity (consumer ⊆ dev) ────────────
@@ -677,10 +684,14 @@ claude_hook_event_script_pairs() {
     # Command value -> script basename (drop path prefix + trailing args + probes).
     /"command"[[:space:]]*:[[:space:]]*"/ {
       cmd=$0
-      sub(/.*"command"[[:space:]]*:[[:space:]]*"/, "", cmd); sub(/".*/, "", cmd)
-      sub(/.*\//, "", cmd)   # strip path prefix -> basename
-      sub(/ .*/, "", cmd)    # strip trailing args, keep the script name
-      if (event != "" && cmd !~ /-probe\.sh$/) print event "\t" cmd
+      # Match from the vendored hooks/ segment rather than from the JSON string
+      # opener. This tolerates Codex commands that quote paths containing spaces
+      # (their first escaped quote would otherwise look like the JSON closer).
+      if (cmd ~ /hooks\/[A-Za-z0-9_-]+\.sh/) {
+        sub(/.*hooks\//, "", cmd)
+        sub(/\.sh.*/, ".sh", cmd)
+        if (event != "" && cmd !~ /-probe\.sh$/) print event "\t" cmd
+      }
     }
   ' "$json_file" | sort -u
 }
@@ -708,6 +719,27 @@ check_claude_hook_registration() {
     base="${p##*$'\t'}"
     [[ -f "$CLAUDE/hooks/$base" ]] || fail claude-hook-registration "$consumer" \
       "consumer registers hook '$base' but no .claude/hooks/$base is vendored — install would wire a dead command"
+  done <<< "$consumer_pairs"
+}
+
+check_codex_hook_registration() {
+  local dev="$CLAUDE/settings.json"
+  local consumer="$ROOT/assets/consumer/codex-hooks.json"
+  [[ -f "$dev" && -f "$consumer" ]] || return 0
+  local dev_pairs consumer_pairs p base
+  dev_pairs="$(claude_hook_event_script_pairs "$dev")"
+  consumer_pairs="$(claude_hook_event_script_pairs "$consumer")"
+
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && fail codex-hook-registration "$consumer" \
+      "(event, script) registered for Codex but not on the same event in .claude/settings.json: ${p//$'\t'/ }"
+  done < <(comm -23 <(printf '%s\n' "$consumer_pairs") <(printf '%s\n' "$dev_pairs"))
+
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
+    base="${p##*$'\t'}"
+    [[ -f "$CLAUDE/hooks/$base" ]] || fail codex-hook-registration "$consumer" \
+      "Codex registers hook '$base' but no .claude/hooks/$base is vendored"
   done <<< "$consumer_pairs"
 }
 
@@ -753,6 +785,7 @@ check_ship_manifest
 check_review_tiers
 check_hook_safety
 check_claude_hook_registration
+check_codex_hook_registration
 check_tombstones
 
 # ── Summary ────────────────────────────────────────────────────────────────────

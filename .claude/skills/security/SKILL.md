@@ -18,7 +18,7 @@ when_to_use: |
   Not when: hardening application code against OWASP vulnerabilities, implementing
   auth/sessions/input validation, or doing a cross-stack security review — use
   security-engineering instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Security Sanitizer
@@ -32,13 +32,15 @@ Resolve scripts project-first, then global install ([findings-ledger references/
 ```sh
 PROJ="${CLAUDE_PROJECT_DIR:-.}"
 SAN="$PROJ/.claude/skills/security/scripts/sanitizer.py"
+[ -f "$SAN" ] || SAN="$PROJ/.agents/skills/security/scripts/sanitizer.py"
 [ -f "$SAN" ] || SAN="$HOME/.claude/skills/security/scripts/sanitizer.py"
+[ -f "$SAN" ] || SAN="$HOME/.agents/skills/security/scripts/sanitizer.py"
 ```
 
 | Script | Purpose | Key Command |
 |--------|---------|-------------|
 | `scripts/sanitizer.py` | Scan or redact PII in files | `python3 "$SAN" --scan --dir . --recursive` |
-| `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | `cp "$PROJ/.claude/skills/security/scripts/pre-commit-hook.sh" .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` (or global `~/.claude/skills/security/…`) |
+| `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | Copy it from the resolved skill directory to `.git/hooks/pre-commit`, then `chmod +x` it |
 
 ## Configuration
 

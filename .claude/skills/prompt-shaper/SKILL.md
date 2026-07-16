@@ -7,7 +7,7 @@ when_to_use: |
   Discriminator: triggers fire only when scope is missing. "Implement this fully-specified spec" is already scoped — skip shaping and execute. The /shape command is the unambiguous trigger; keyword matches are secondary hints.
 
   Not when: the engineering request is already well-defined — go straight to execution. Not when the intake is for marketing work — use `marketing-shaper`. Not when the intake is for game design — use `game-design-shaper`. If "plan"/"scope" arrives without a clear domain, ask one qualifying question first rather than assuming engineering.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Prompt Shaper
@@ -32,7 +32,7 @@ If the type is ambiguous (e.g. "fix the slow dashboard" could be a bugfix or an 
 1. Read the request and the working directory; pick the brief type.
 2. Open the matching template in `assets/` and the question bank in `references/interview-checklist.md`.
 3. Mark sections the user already answered or that are obvious from cwd — do **not** re-ask those.
-4. **Round 1.** Batch 3–6 missing items into a single AskUserQuestion call, load-bearing gaps first.
+4. **Round 1.** Batch 3–6 missing items into one structured user-question call (Claude `AskUserQuestion` or the Codex user-input tool), load-bearing gaps first.
 5. Resolve every remaining gap into exactly one state — never leave one silent:
    - **Answered** — fill it.
    - **Assumed** — fill with a safe default, tag inline: `[Assumed: <value> — say if wrong]`.

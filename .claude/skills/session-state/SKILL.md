@@ -1,17 +1,17 @@
 ---
 name: session-state
-description: Maintain SESSION-STATE.md, the durable within-session memory that survives context compaction. Use when a constraint, settled decision, existing-infrastructure (survey) finding, or open thread must persist across a long session so it is not re-derived or re-litigated. Triggers on /state, "remember this for the session", "record this constraint/decision", or after surveying what already exists. For cross-session/personal memory use .claude/memory/ instead; for repo-derivable facts, do not record at all.
-when_to_use: A fact must survive context compaction WITHIN this session — a hard constraint, a settled decision, a survey result (existing infra to reuse), or an open thread/next step. Not for cross-session memory (.claude/memory/) and not for anything derivable from the repo.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+description: Maintain SESSION-STATE.md, the durable within-session memory that survives context compaction. Use when a constraint, settled decision, existing-infrastructure (survey) finding, or open thread must persist across a long session so it is not re-derived or re-litigated. Triggers on /state, "remember this for the session", "record this constraint/decision", or after surveying what already exists. For cross-session/personal memory use .claude/memory/ on Claude or native memories on Codex; for repo-derivable facts, do not record at all.
+when_to_use: A fact must survive context compaction WITHIN this session — a hard constraint, a settled decision, a survey result (existing infra to reuse), or an open thread/next step. Not for cross-session memory (.claude/memory/ on Claude, native memories on Codex) and not for anything derivable from the repo.
+compatibility: Requires Bash. Works in Claude Code and Codex via install.sh; Claude provides /state, while Codex invokes this skill by name or intent.
 ---
 
 # Session State
 
 `SESSION-STATE.md` (project root, gitignored; schema in this skill's `assets/SESSION-STATE.template.md`) is the harness's live external memory — NORTH_STAR Lever 3. A model's context compresses over a long session and settled facts drift; this file is the durable copy, re-surfaced by hooks:
 
-- **SessionStart** injects the whole file (turn one of every session).
-- **UserPromptSubmit** injects a compact digest — **Constraints + Decisions + Open threads** — each turn.
-- **PreCompact** checkpoints before context is compressed.
+- **SessionStart** injects the whole file (Claude and Codex).
+- **UserPromptSubmit** injects a compact digest — **Constraints + Decisions + Open threads** — each Claude turn.
+- **PreCompact** checkpoints before context is compressed (Claude and Codex).
 
 ## How to record (never hand-edit)
 
@@ -21,8 +21,12 @@ Writing via a script — not by editing the file from memory — is the point: i
 PROJ="${CLAUDE_PROJECT_DIR:-.}"
 # 1. Repo checkout (source of truth)
 SS="$PROJ/.claude/skills/session-state/scripts/session-state.sh"
-# 2. Global Claude Code (after install.sh)
+# 2. Project Codex install
+[ -f "$SS" ] || SS="$PROJ/.agents/skills/session-state/scripts/session-state.sh"
+# 3. Global Claude Code install
 [ -f "$SS" ] || SS="$HOME/.claude/skills/session-state/scripts/session-state.sh"
+# 4. Global Codex install
+[ -f "$SS" ] || SS="$HOME/.agents/skills/session-state/scripts/session-state.sh"
 ```
 
 | Type | Use for | Re-injected each turn? |
@@ -48,6 +52,10 @@ bash "$SS" thread     "<entry text>"
 
 Valid types: `constraint`, `decision`, `infra`, `thread`, `init`, `init-orchestrator`, `show`. If the type is empty or invalid, list the valid types — do not guess. `init`, `init-orchestrator`, and `show` take no text; the four entry types take the text as one quoted argument.
 
+### Codex
+
+Ask Codex to use `session-state`, for example: “Use session-state to record this decision: …”. The skill runs the same writer commands; no Claude slash command is installed. Codex re-injects the full state at session start and after compaction. Use Codex's native memory feature for cross-session personal memory.
+
 **Orchestrator mode:** run `init-orchestrator` at session start so dispatch constraints re-inject every turn.
 
 Keep entries terse. For `infra`, lead with the service name as the first word — e.g. `"rabbitmq broker on :5552 (docker-compose) — reuse"` — the writer stores `[surveyed:rabbitmq] …` so survey guards suppress only when a command names that exact surveyed subject.
@@ -61,7 +69,7 @@ Keep entries terse. For `infra`, lead with the service name as the first word �
 
 ## Activation (on by default)
 
-The writer works as soon as the skill is installed (via `/state`). **Hooks are active after `install.sh`**. Hook JSON examples and security notes: [references/hook-setup.md](references/hook-setup.md).
+The writer works as soon as the skill is installed. **Supported hooks are registered by `install.sh`**; Codex asks you to review and trust them with `/hooks` before they run. Hook JSON examples and security notes: [references/hook-setup.md](references/hook-setup.md).
 
 ## Discipline
 

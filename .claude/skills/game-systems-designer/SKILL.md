@@ -16,7 +16,7 @@ when_to_use: |
   `game-design-shaper` first. Not
   when the systems are locked and the team wants numbers tuned — use `game-balancer`. Not when
   the task is writing the engine implementation — use `godot-engineer`.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Game Systems Designer

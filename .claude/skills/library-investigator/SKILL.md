@@ -14,7 +14,7 @@ when_to_use: |
   positive sweep (sharded generate + adversarial verify) — run the audit-library
   command. Not when verifying claims in a formal/technical document — use
   adversarial-claims-reviewer.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Library Investigator
