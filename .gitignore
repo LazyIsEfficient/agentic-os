@@ -15,6 +15,7 @@ Thumbs.db
 # scripts/session-state.sh init.
 SESSION-STATE.md
 .claude/session-state.checkpoints
+.codex/session-state.checkpoints
 .claude/survey-guard.warns
 
 # setup-guard live manifest (per-project setup contract; injected into context ->

@@ -52,7 +52,8 @@ From a clean checkout of **`main`** at the commit you want to release:
    - `install.sh` — `VERSION` and `EXPECTED_SHA256`
    - `install.ps1` — `$Version` and `$ExpectedSha256`
    - `README.md` — the *Current release* block and the *Verifying the download*
-     command, plus the `vX.Y.Z` in all one-liner URLs
+     command, plus the `vX.Y.Z` in all one-liner URLs and the Codex
+     `<release-tag>` placeholder
 
 3. **Commit** the pin, then **tag that commit** and push the tag:
 
@@ -84,6 +85,9 @@ From a clean checkout of **`main`** at the commit you want to release:
    ```bash
    CLAUDE_DIR="$(mktemp -d)" bash -c \
      'curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash'
+
+   CODEX_HOME="$(mktemp -d)/.codex" CODEX_SKILLS_DIR="$(mktemp -d)/.agents/skills" bash -c \
+     'curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash -s -- --codex'
    ```
 
 The built `*.tar.gz` is a release artifact, not source — do not commit it.

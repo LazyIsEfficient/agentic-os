@@ -2,7 +2,7 @@
 name: memory-extraction
 description: End-of-session pass that persists durable facts from the CURRENT session into .claude/memory/. Runs IN-SESSION in the main agent (never via Task — a subagent starts cold with no transcript), prompted by the Stop hook's nudge. Triggers on "persist durable facts from this session", "run memory-extraction", "flush session memory", or "extract memory before close". Reads the in-context transcript plus existing memory, applies the durable-fact predicate below, and writes one file per fact plus one MEMORY.md index line — append-or-update, never clobbering a consumer's existing memory.
 when_to_use: At session close, when the Stop hook emits its nudge (or the user asks to flush/persist session memory). The invoking agent MUST hold the current session transcript in context, so this runs in-session and is never dispatched as a Task/subagent. Not for reading memory at session start (that is the `memory-inject` SessionStart hook, which surfaces the `MEMORY.md` index) and not for retrieval — this skill only extracts durable facts and writes them.
-compatibility: Pure prose skill — no scripts, no interpreter. Reads/writes plain Markdown under .claude/memory/. Works in Claude Code.
+compatibility: Pure prose skill for Claude Code's AgenticOS memory hooks. Codex installs the skill files for library completeness but does not register these hooks; use Codex native memories instead.
 ---
 
 # Memory extraction

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-paths-test.sh — deterministic path resolution for shipped skill scripts.
-# Exercises the PROJ → ~/.claude/skills fallback chain documented in
+# Exercises project/global Claude and Codex fallbacks documented in
 # .claude/skills/findings-ledger/references/install-paths.md
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,9 +17,9 @@ no() { printf 'FAIL  %s — %s\n' "$1" "$2"; F=$((F + 1)); }
 resolve_ledger() {
   local proj="${CLAUDE_PROJECT_DIR:-.}"
   local ledger="$proj/.claude/skills/$REL"
-  if [ ! -f "$ledger" ]; then
-    ledger="${HOME}/.claude/skills/$REL"
-  fi
+  [ -f "$ledger" ] || ledger="$proj/.agents/skills/$REL"
+  [ -f "$ledger" ] || ledger="${HOME}/.claude/skills/$REL"
+  [ -f "$ledger" ] || ledger="${HOME}/.agents/skills/$REL"
   printf '%s' "$ledger"
 }
 
@@ -41,6 +41,22 @@ export HOME="$fake_home"
 got="$(resolve_ledger)"
 exp="$fake_home/.claude/skills/$REL"
 [ "$got" = "$exp" ] && ok "falls back to ~/.claude/skills when project has no .claude tree" || no "claude global" "got=$got want=$exp"
+
+# 3 — project-scoped Codex fallback
+rm -rf "$fake_home/.claude"
+mkdir -p "$empty/.agents/skills/findings-ledger/scripts"
+cp "$REPO/.claude/skills/findings-ledger/scripts/ledger.py" "$empty/.agents/skills/findings-ledger/scripts/"
+got="$(resolve_ledger)"
+exp="$empty/.agents/skills/$REL"
+[ "$got" = "$exp" ] && ok "falls back to project .agents/skills" || no "codex project" "got=$got want=$exp"
+
+# 4 — global Codex fallback
+rm -rf "$empty/.agents"
+mkdir -p "$fake_home/.agents/skills/findings-ledger/scripts"
+cp "$REPO/.claude/skills/findings-ledger/scripts/ledger.py" "$fake_home/.agents/skills/findings-ledger/scripts/"
+got="$(resolve_ledger)"
+exp="$fake_home/.agents/skills/$REL"
+[ "$got" = "$exp" ] && ok "falls back to ~/.agents/skills" || no "codex global" "got=$got want=$exp"
 
 rm -rf "$empty" "$fake_home"
 unset CLAUDE_PROJECT_DIR HOME

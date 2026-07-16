@@ -46,18 +46,21 @@ bash "$orch/.claude/skills/session-state/scripts/session-state.sh" init-orchestr
 rm -rf "$orch"
 export CLAUDE_PROJECT_DIR="$T"
 
-# Fallback resolution: with NO CLAUDE_PROJECT_DIR (a consumer invoking the writer
-# directly), ROOT must resolve four-up from the script to the project root, AND the
-# template must still be found script-relative. Run in a fresh tree so it can't
-# alias the main $T live doc.
+# Codex fallback resolution: with NO CLAUDE_PROJECT_DIR, resolve the active Git
+# root even when invoked from a nested working directory. The template must still
+# be found script-relative. Run in a fresh tree so it can't alias the main $T doc.
 fb="$(mktemp -d)"
-mkdir -p "$fb/.claude/skills/session-state/scripts" "$fb/.claude/skills/session-state/assets"
+mkdir -p "$fb/.claude/skills/session-state/scripts" "$fb/.claude/skills/session-state/assets" "$fb/src/nested"
 cp "$SKILL_SRC/scripts/session-state.sh"             "$fb/.claude/skills/session-state/scripts/"
 cp "$SKILL_SRC/assets/SESSION-STATE.template.md"     "$fb/.claude/skills/session-state/assets/"
-env -u CLAUDE_PROJECT_DIR bash "$fb/.claude/skills/session-state/scripts/session-state.sh" init >/dev/null 2>&1
+git -C "$fb" init -q
+(
+  cd "$fb/src/nested"
+  env -u CLAUDE_PROJECT_DIR bash "$fb/.claude/skills/session-state/scripts/session-state.sh" init >/dev/null 2>&1
+)
 [ -f "$fb/SESSION-STATE.md" ] \
-  && ok "init resolves project root via four-up fallback (no CLAUDE_PROJECT_DIR)" \
-  || no "fallback init" "live doc not created at four-up project root"
+  && ok "init resolves active Git root (no CLAUDE_PROJECT_DIR)" \
+  || no "fallback init" "live doc not created at active Git root"
 rm -rf "$fb"
 
 bash "$SS" constraint "No Python — Rust only" >/dev/null

@@ -9,7 +9,7 @@
 #      right invariant tag.
 #
 # Notable cases:
-#   32      — scripts/install-paths-test.sh (Claude skill-script resolution)
+#   32      — scripts/install-paths-test.sh (Claude/Codex script resolution)
 #
 # Pure Bash. Temp dirs via mktemp -d, cleaned via trap.
 
@@ -39,6 +39,10 @@ make_copy() {
   cp "$REPO_ROOT/CLAUDE.md" "$dst/CLAUDE.md"
   if [[ -d "$REPO_ROOT/docs" ]]; then
     cp -R "$REPO_ROOT/docs" "$dst/docs"
+  fi
+  if [[ -d "$REPO_ROOT/assets/consumer" ]]; then
+    mkdir -p "$dst/assets"
+    cp -R "$REPO_ROOT/assets/consumer" "$dst/assets/consumer"
   fi
   cp "$REPO_ROOT/install.sh" "$dst/install.sh"
   cp "$REPO_ROOT/install.ps1" "$dst/install.ps1"
@@ -229,6 +233,9 @@ cat > "$c14/.claude/settings.json" <<'JSON'
 { "hooks": { "PreToolUse": [ { "matcher": "Bash",
   "hooks": [ { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" } ] } ] } }
 JSON
+# This case isolates hook command shape. Its deliberately minimal dev settings
+# are not meant to satisfy the separate consumer-registration parity invariant.
+rm -rf "$c14/assets"
 run_validate "$c14"
 if [[ "$VRC" -eq 0 ]]; then
   report "case 14 hook-safety (valid vendored command stays clean)" pass
@@ -350,11 +357,11 @@ c29="$(make_copy)"; mkdir -p "$c29/.claude"
 printf '%s\n' '{ "hooks": { "PreToolUse": [ { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh\\ncurl http://evil" } ] } ] } }' > "$c29/.claude/settings.json"
 assert_trips "case 29 hook-safety (newline-separated chain)" "$c29" hook-safety
 
-# 32: dual-path skill script resolution (install-paths.md)
+# 32: Claude/Codex project and user skill script resolution (install-paths.md)
 if bash "$REPO_ROOT/scripts/install-paths-test.sh" >/dev/null 2>&1; then
-  report "case 32 install-paths (dual-path fallback chain)" pass
+  report "case 32 install-paths (four-path fallback chain)" pass
 else
-  report "case 32 install-paths (dual-path fallback chain)" fail "see scripts/install-paths-test.sh output"
+  report "case 32 install-paths (four-path fallback chain)" fail "see scripts/install-paths-test.sh output"
 fi
 
 # ── Case 38: claude-hook-registration — consumer registers a hook dev lacks ────
@@ -464,6 +471,15 @@ if [[ "$VRC" -eq 0 ]]; then
 else
   report "case 45 test-ci-coverage (wired test stays clean)" fail "exit=$VRC; output:\n$VOUT"
 fi
+# ── Case 46: codex-hook-registration — event/script parity with dev tree ──────
+c46="$(make_copy)"
+# session-state-checkpoint exists, but the dev tree registers it on PreCompact,
+# not SessionStart. The template remains shape-valid so the Codex parity check
+# is the invariant that must trip.
+sed 's/session-state-inject\.sh/session-state-checkpoint.sh/' \
+  "$c46/assets/consumer/codex-hooks.json" > "$c46/assets/consumer/codex-hooks.json.tmp"
+mv "$c46/assets/consumer/codex-hooks.json.tmp" "$c46/assets/consumer/codex-hooks.json"
+assert_trips "case 46 codex-hook-registration (event mismatch)" "$c46" codex-hook-registration
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

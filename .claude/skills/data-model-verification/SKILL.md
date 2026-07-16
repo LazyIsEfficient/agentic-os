@@ -5,7 +5,7 @@ when_to_use: |
   Use in Wave 2 of the gate DAG after `data-model-documenter`, when `DATA_MODEL.md` has new or changed `###` sections. The load-bearing signal: downstream agents may treat the catalog as ground truth — hallucinated properties must be caught before ship-ready.
 
   Not when: `DATA_MODEL.md` did not change, or only the changelog/header changed with no catalog section edits. Not when the task is authoring the catalog — use `data-model-documentation`. Not for general code review — use `code-reviewer`.
-compatibility: Requires Bash. Works in Claude Code via install.sh. Read-only — never writes `DATA_MODEL.md`.
+compatibility: Requires Bash. Works in Claude Code and Codex via install.sh. Read-only — never writes `DATA_MODEL.md`.
 ---
 
 # Data Model Verification

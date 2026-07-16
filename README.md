@@ -86,7 +86,7 @@ These are features of the **framework itself**, not individual skills:
 
 **Review tiers** — Findings are sorted by reproducibility: Tier 0 deterministic checks hard-block; Tier 1 LLM findings need an evidence artifact; Tier 2 is advisory and logged to the findings ledger for recurrence-based promotion into deterministic checks.
 
-**Persistent memory** — Two layers: within-session facts in `SESSION-STATE.md` (hook-driven, gitignored); cross-session personal/project memory in `.claude/memory/` (gitignored, in-repo when you clone). Never hand-edit session state — use `/state` or the `session-state` writer script.
+**Persistent memory** — Two layers on Claude Code: within-session facts in `SESSION-STATE.md` and cross-session memory in `.claude/memory/`. The Codex install keeps the portable session-state layer but leaves cross-session recall to Codex's native memory system. Never hand-edit session state — use `/state` on Claude or invoke `session-state` on Codex.
 
 **Deterministic validation** — `scripts/validate.sh` is an LLM-free gate on every PR: frontmatter, naming, dangling links, ship manifest, hook safety, tombstones for removed skills, and more. Install scripts refuse to copy a library that fails validation. Enable `.githooks` pre-commit for local enforcement.
 
@@ -98,9 +98,9 @@ These are features of the **framework itself**, not individual skills:
 
 ### How to get started
 
-1. **Install** — see the [Claude Code](#claude-code) section below.
-2. **Configure skill discipline** — add the Skills block from [Usage](#usage) to `~/.claude/CLAUDE.md` so agents reach for skills by default.
-3. **Initialize session state** (optional but recommended for long sessions) — `/state init`.
+1. **Install** — choose [Claude Code](#claude-code) or [Codex](#codex).
+2. **Configure skill discipline** — use `CLAUDE.md` on Claude or `AGENTS.md` on Codex for durable repository guidance.
+3. **Initialize session state** (optional for long sessions) — `/state init` on Claude, or ask Codex to use `session-state` and initialize it.
 4. **Pick a workflow** — e.g. "Use `prompt-shaper` to scope this feature, then dispatch `engineer` to implement."
 5. **Contributing?** — scaffold with `/skill-new` or `/agent-new`, run `library-reviewer` on your diff, ensure `bash scripts/validate.sh` passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -112,7 +112,7 @@ Cloned-repo tooling for library authors: `/audit-library`, `/review-gate`, `/eva
 
 ## Install
 
-Install skills, agents, hooks, and three consumer commands into `~/.claude/`. The remote one-liner installs a **pinned release** and verifies its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
+Install for Claude Code by default, or pass `--codex` for Codex. The remote one-liner installs a **pinned release** and verifies its SHA-256 before extracting anything — see [Verifying the download](#verifying-the-download).
 
 - **Current release:** `v3.0.1`
 - **Asset:** `agentic-os-v3.0.1.tar.gz`
@@ -158,6 +158,38 @@ cd agentic-os
 
 Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files. (The remote install uses `tar`, which ships with Windows 10 1803+.)
 
+### Codex
+
+Codex support is present in this branch and becomes available through the pinned remote installer in the first release that contains it. Until that release is tagged, install from a local clone:
+
+```bash
+git clone https://github.com/LazyIsEfficient/agentic-os.git
+cd agentic-os
+./install.sh --codex
+```
+
+After release, the verified one-liner is:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/<release-tag>/install.sh | bash -s -- --codex
+```
+
+The default Codex install is user-scoped: skills go to `~/.agents/skills/`, converted custom agents go to `$CODEX_HOME/agents/` (default `~/.codex/agents/`), and supported hooks go beside them. Existing files are preserved unless `--force` is passed.
+
+For a project-scoped install from a local AgenticOS clone, point at the target repository:
+
+```bash
+CODEX_PROJECT_DIR=/path/to/target-project ./install.sh --codex --project
+```
+
+Once a release containing Codex support is tagged, you can instead run the remote one-liner from the target repository and append `--project` after `--codex`.
+
+This writes `.agents/skills/`, `.codex/agents/`, and `.codex/hooks.json` in the Git root. Codex loads project config and hooks only for trusted projects. Restart Codex after installation and use `/hooks` to review and trust the installed hooks.
+
+If a Codex `hooks.json` already exists, `jq` is required for the non-destructive merge. Without `jq`, skills and agents still install and the installer leaves the existing hook file unchanged with a warning.
+
+See [Codex compatibility](docs/codex-compatibility.md) for the exact surface mapping and intentional omissions.
+
 #### Verifying the download
 
 The remote install path downloads the pinned release asset and aborts if its
@@ -189,6 +221,12 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 .\install.ps1 -Dest "C:\path\to\.claude"
 ```
 
+For a custom user-scoped Codex location:
+
+```bash
+CODEX_HOME=/path/to/.codex CODEX_SKILLS_DIR=/path/to/.agents/skills ./install.sh --codex
+```
+
 ---
 
 ## What gets installed
@@ -204,13 +242,23 @@ CLAUDE_DIR=/path/to/.claude ./install.sh
 
 > **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
+### Codex (`install.sh --codex`)
+
+| Surface | User scope | Project scope | Contents |
+|---|---|---|---|
+| Skills | `~/.agents/skills/` | `.agents/skills/` | The full skill library in Codex's native discovery locations |
+| Agents | `~/.codex/agents/` | `.codex/agents/` | Generated TOML custom agents; read-only Claude roles receive `sandbox_mode = "read-only"` |
+| Hooks | `~/.codex/hooks.json` | `.codex/hooks.json` | Session-state injection and pre-compaction checkpointing; unrelated existing hooks are preserved |
+
+Claude commands are not copied because Codex custom prompts are deprecated in favor of skills. Claude's `.claude/memory/` extraction/injection hooks are also omitted because Codex has its own memory system. Agent tool allowlists have no exact Codex equivalent; generated agents use read-only/workspace-write sandbox modes and otherwise inherit the parent task's permissions.
+
 ---
 
 ## Usage
 
 ### Invoking a skill
 
-In any Claude Code conversation, reference a skill by name:
+In either Claude Code or Codex, reference a skill by name:
 
 ```
 Use the code-review-and-quality skill to review this diff before merge.
@@ -222,7 +270,7 @@ Or use a slash command if configured:
 /rust-engineer
 ```
 
-Agents are spawned automatically when Claude Code routes a task (e.g. `engineer`, `code-reviewer`), or you can request one explicitly:
+Agents can be routed automatically or requested explicitly:
 
 ```
 Use the security-reviewer agent to audit this PR.
@@ -230,9 +278,9 @@ Use the security-reviewer agent to audit this PR.
 
 ### Skills vs Agents
 
-**Skills** are instruction playbooks — they tell Claude *how* to do a specific type of work (code review, Rust engineering, smart-contract development). They are stateless and composable.
+**Skills** are instruction playbooks — they tell the coding agent *how* to do a specific type of work (code review, Rust engineering, smart-contract development). They are stateless and composable.
 
-**Agents** are role definitions — they give Claude a persona, a tool allowlist, and a mandate (e.g. a full-stack engineer, a security auditor). Agents can invoke skills.
+**Agents** are role definitions — they give the coding agent a mandate (e.g. a full-stack engineer or security auditor). Claude uses tool allowlists; Codex uses generated custom-agent TOML and sandbox modes. Agents can invoke skills.
 
 ### Awareness harness (experimental)
 
@@ -243,7 +291,7 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md)) that fights the do
 - **block-bad-bash** — nudges away from `cd && git` and long `&&` shell chains (ergonomics, not security; can block routine agent shell — remove the hook entry if annoying).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
-**Ship posture:** hooks are **on by default** after install — `install.sh` merges hook registration into `~/.claude/settings.json`. Re-install **replaces the whole `hooks` block**. Remove the `hooks` key to disable.
+**Ship posture:** Claude hooks are on by default and replace the `hooks` block in `~/.claude/settings.json`. Codex installs only the documented portable subset, preserves unrelated hook groups, and requires hook review/trust. Disable Codex hooks through `/hooks` or `[features].hooks = false`.
 
 **→ [Activation guide](docs/awareness-harness-activation.md)** — what gets registered, how to verify it fired, and how to turn hooks off.
 

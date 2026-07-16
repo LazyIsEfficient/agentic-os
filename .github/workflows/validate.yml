@@ -17,6 +17,7 @@ jobs:
       - run: bash scripts/validate-test.sh
       - run: bash scripts/install-paths-test.sh
       - run: bash scripts/install-hook-smoke-test.sh
+      - run: bash scripts/install-codex-smoke-test.sh
       - run: bash scripts/memory-extract-hook-test.sh
       - run: bash scripts/memory-inject-hook-test.sh
       - run: bash scripts/gate-subagents-test.sh
