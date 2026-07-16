@@ -18,6 +18,12 @@
           { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
           { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/gate-subagents.sh" }
+        ]
       }
     ],
     "SessionStart": [
