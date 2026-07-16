@@ -44,6 +44,7 @@ ORDER=(
   subagent-dispatch
   briefing
   grounding
+  execution
   review-tiers
   verification
   anti-patterns

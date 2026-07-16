@@ -1,5 +1,6 @@
 ---
 name: skill-library-review
+disable-model-invocation: true
 description: Use when reviewing or auditing a library of Claude Code skills, agents, slash commands, and workflows — frontmatter correctness, routing quality, tool allowlists, command arg-hints, workflow meta/phase coherence, cross-reference coherence, single-responsibility, file structure, and anti-pattern detection. Triggers on mentions of "review skills", "audit agents", "skill library", "agent definition review", "review this command", "review this workflow", "is this skill right", or when iterating on `.claude/skills/`, `.claude/agents/`, `.claude/commands/`, or `.claude/workflows/` directories. For code review of source code see code-review-and-quality.
 when_to_use: |
   Use when reviewing or auditing `.claude/skills/`, `.claude/agents/`,

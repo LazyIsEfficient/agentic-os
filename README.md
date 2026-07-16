@@ -299,20 +299,46 @@ Treat any hook-injected file as untrusted data — see [SECURITY.md](SECURITY.md
 
 ### Configure ~/.claude/CLAUDE.md
 
-Skills are available to Claude, but Claude won't automatically reach for them unless instructed to. Add the following to `~/.claude/CLAUDE.md` to make Claude check for a relevant skill before responding to any task:
+Skills are available to Claude, but Claude won't automatically reach for them unless instructed to. Add the following to `~/.claude/CLAUDE.md` to give Claude a **routing table** — concrete signals that map to a skill, with an explicit default of **no skill** unless a signal matches:
 
 ```markdown
 ## Skills
 
-You have a library of skills installed at `~/.claude/skills/`. Before responding to any task,
-check whether a skill applies and invoke it with the `Skill` tool if so — even if the task
-seems simple.
+You have a library of skills installed at `~/.claude/skills/`. Skills are opt-in, not
+reflexive. **Default: use NO skill.** Reach for one only when a concrete signal below
+matches the task in front of you — a real file type, tool, or artifact, not a vague
+topical association. When several signals match, prefer the most specific. When none
+match, proceed without a skill.
 
-If there is even a 1% chance a skill might apply, invoke it first.
+| Signal in the task | Skill to invoke |
+|---|---|
+| Editing `.rs` / `Cargo.toml`; Rust, Tokio, Axum, borrow-checker work | `rust-engineer` |
+| Editing `.sol`; Hardhat/Foundry; ERC-20/721/1155; on-chain logic | `web3-smart-contract-engineering` |
+| A Godot project — `.tscn`/`.gd`/`.cs`, scene tree, signals, autoload | `godot-engineer` |
+| A Phaser 3 + TypeScript game — scenes, Arcade physics, tilemaps | `phaser-engineer` |
+| TS backend tests — `*.service.test.ts`, `*.integration.test.ts`, Supertest | `typescript-testing-backend` |
+| TS React tests — `*.test.tsx`, React Testing Library | `typescript-testing-frontend` |
+| PostHog analytics — event capture, feature flags, experiments | `typescript-analytics` |
+| TS ETL, message queues, migrations, BigQuery, event sourcing | `typescript-data-engineering` |
+| Editing `.github/workflows/**`, `action.yml`; CI/CD, OIDC, runners | `deployment-pipelines` |
+| Verifying/debugging something in a real browser — DOM, console, network | `browser-testing-with-devtools` |
+| Reviewing a diff/PR for correctness before merge | `code-review-and-quality` |
+| Auth, crypto, injection, supply-chain, or any security-sensitive path | `security-engineering` |
+| Scanning or redacting committed PII / secrets | `security` |
+| A vague engineering ask with no clear scope, repos, or "done" | `prompt-shaper` |
+| A large, multi-repo, or parallelizable effort that needs decomposing | `planning-and-task-breakdown` |
+| Cutting a release — CHANGELOG, release branch, version tag | `release-manager` |
+
+Nothing here fires "just in case." A plain edit, a question, or an already-scoped
+implementation gets no skill. Specialized advisory or heavy skills (marketing, content,
+SEO, growth, sales, game design, cost estimation, library audits, telemetry) are
+**manual-only** — invoke them explicitly with `/<skill-name>` when you deliberately want
+that workflow; they will not auto-trigger.
 ```
 
-This is the single most impactful configuration step — without it, Claude treats skills as
-opt-in rather than default.
+This is the single most impactful configuration step — it turns an unbounded library into a
+small set of high-signal triggers, so Claude reaches for a skill when one genuinely matches
+and stays out of the way otherwise.
 
 ---
 

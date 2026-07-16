@@ -1,5 +1,6 @@
 ---
 name: game-systems-designer
+disable-model-invocation: true
 description: Use when designing the systems of a game from a locked concept — core loops, meta loops, player verbs, progression, content systems, level structure, and narrative integration. Triggers on "game design doc", "GDD", "system spec", "core loop design", "progression design", "level design", "MDA", or "design the systems". Produces a design doc plus per-system specs that game-balancer numbers, iap-manager stocks, and godot-engineer builds. Stops at design — no number tuning, pricing, or engine code. For balance numbers see game-balancer; for the engine implementation see godot-engineer.
 when_to_use: |
   Use when a locked game concept is ready to be turned into a definition of what the game is

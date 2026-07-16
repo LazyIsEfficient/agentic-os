@@ -16,7 +16,14 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
-          { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
+          { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" },
+          { "type": "command", "command": "bash .claude/hooks/setup-guard.sh" }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/gate-subagents.sh" }
         ]
       }
     ],

@@ -1,5 +1,6 @@
 ---
 name: adversarial-claims-reviewer
+disable-model-invocation: true
 description: Use when adversarially reviewing a document that makes formal or technical claims — math derivations, physics papers, statistical analyses, benchmark reports, whitepapers. Inventories every equation and quantitative claim, verifies each AS NAMED in the text (never a paraphrase or a neighboring statement), and classifies VERIFIED / REFUTED / UNVERIFIABLE / VACUOUS. Triggers on "check this paper", "verify these claims", "is this derivation right", "review this proof", "audit this benchmark", "does the math hold up". For source-code review see code-review-and-quality; for skill/agent library audits see skill-library-review; for content quality scoring see content-ops.
 when_to_use: |
   Use when a document asserts formal or quantitative claims that could be false — derivations, theorems, statistical results, benchmark numbers, dimensional formulas — and the deliverable is a verdict on whether the claims hold as stated. The load-bearing signal: the document's value collapses if a central equation or number is wrong.

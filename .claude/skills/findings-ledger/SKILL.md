@@ -1,5 +1,6 @@
 ---
 name: findings-ledger
+disable-model-invocation: true
 description: Use when recording, tallying, or triaging stochastic review findings — the append-only JSONL ledger where Tier 2 (advisory, unevidenced) reviewer output goes instead of blocking language. Triggers on "log this finding", "ledger add", "tally the findings", "triage findings", "is this finding recurring", "retire this noise", or whenever a reviewer produces an unevidenced concern that should be measured for recurrence rather than chased. For the review itself see code-review-and-quality or skill-library-review; for verifying formal claims with deterministic evidence see adversarial-claims-reviewer.
 when_to_use: |
   Use when a reviewer (human or agent) produced a Tier 2 finding — pure LLM

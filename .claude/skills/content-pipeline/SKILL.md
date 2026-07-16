@@ -1,5 +1,6 @@
 ---
 name: content-pipeline
+disable-model-invocation: true
 description: >-
   Non-interactive content-production toolkit: mine quotable moments from podcast
   RSS feeds and meeting notes, discover clip-worthy moments in video transcripts,

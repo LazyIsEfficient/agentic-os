@@ -407,15 +407,79 @@ else
   report "case 39 claude-hook-registration (consumer subset stays clean)" fail "exit=$VRC; output:\n$VOUT"
 fi
 
-# ── Case 40: codex-hook-registration — event/script parity with dev tree ──────
+# ── Cases 40-43: cache-hygiene — volatile content in shipped prose (Invariant 10) ─
+# Shipped prose (CLAUDE.md, SKILL.md, agent .md) is the cache-layer-2 stable prefix;
+# per-session/per-run drift baked into it busts the prompt cache (issue #235). The
+# invariant is a byte-stability tripwire scoped to avoid FPs: fenced/inline code is
+# blanked first, and bare ISO dates are exempt (they are legitimate examples).
+
+# 40: full ISO-8601 date-TIME (time-of-day) in flowing prose trips.
 c40="$(make_copy)"
+skill40="$(find "$c40/.claude/skills" -name SKILL.md -type f | sort | head -1)"
+printf '\nEvent recorded at 2026-07-16T14:30:05Z in the log.\n' >> "$skill40"
+assert_trips "case 40 cache-hygiene (full timestamp in prose)" "$c40" cache-hygiene
+
+# 41: a UUID (per-run/session id) in flowing prose trips.
+c41="$(make_copy)"
+skill41="$(find "$c41/.claude/skills" -name SKILL.md -type f | sort | head -1)"
+printf '\nSession f0cc4e0b-108b-4524-81d4-a571c5c776b3 owns this run.\n' >> "$skill41"
+assert_trips "case 41 cache-hygiene (UUID in prose)" "$c41" cache-hygiene
+
+# 42: a template placeholder for a volatile value ({{TODAY}}) in flowing prose trips.
+c42="$(make_copy)"
+skill42="$(find "$c42/.claude/skills" -name SKILL.md -type f | sort | head -1)"
+printf '\nThe current date is {{TODAY}} as of this turn.\n' >> "$skill42"
+assert_trips "case 42 cache-hygiene (template placeholder in prose)" "$c42" cache-hygiene
+
+# 43: no-false-positive guard — the SAME volatile-looking strings stay CLEAN when
+# they live only in a fenced code block, an inline `code` span, or a bare ISO date
+# (no time). This is the discriminator: it trips iff the exemptions are broken.
+c43="$(make_copy)"
+skill43="$(find "$c43/.claude/skills" -name SKILL.md -type f | sort | head -1)"
+{
+  printf '\nExample timestamp format:\n\n```\n2026-07-16T14:30:05Z\n```\n\n'
+  printf 'Inline: use `2026-07-16T14:30:05Z` or id `f0cc4e0b-108b-4524-81d4-a571c5c776b3`.\n'
+  printf 'Convert Thursday to 2026-07-16 for the record.\n'
+} >> "$skill43"
+run_validate "$c43"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 43 cache-hygiene (examples in code/bare date stay clean)" pass
+else
+  report "case 43 cache-hygiene (examples in code/bare date stay clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+
+# ── Case 44: test-ci-coverage — a scripts/*-test.sh not wired into CI ──────────
+# Invariant 11. make_copy carries neither .github/ nor any *-test.sh, so this
+# invariant is inert in the baseline (Case 0) and every other case. Here we seed a
+# workflow that does NOT reference the orphan test → it must trip test-ci-coverage.
+c44="$(make_copy)"
+mkdir -p "$c44/.github/workflows"
+printf 'jobs:\n  validate:\n    steps:\n      - run: bash scripts/validate.sh\n' > "$c44/.github/workflows/validate.yml"
+printf '#!/usr/bin/env bash\ntrue\n' > "$c44/scripts/orphan-test.sh"
+assert_trips "case 44 test-ci-coverage (test not wired into CI)" "$c44" test-ci-coverage
+
+# ── Case 45: test-ci-coverage — a wired test stays clean (no false positive) ────
+# The same orphan test, now referenced in the workflow, must pass. Guards against
+# the check firing on a legitimately-wired test.
+c45="$(make_copy)"
+mkdir -p "$c45/.github/workflows"
+printf '#!/usr/bin/env bash\ntrue\n' > "$c45/scripts/orphan-test.sh"
+printf 'jobs:\n  validate:\n    steps:\n      - run: bash scripts/orphan-test.sh\n' > "$c45/.github/workflows/validate.yml"
+run_validate "$c45"
+if [[ "$VRC" -eq 0 ]]; then
+  report "case 45 test-ci-coverage (wired test stays clean)" pass
+else
+  report "case 45 test-ci-coverage (wired test stays clean)" fail "exit=$VRC; output:\n$VOUT"
+fi
+# ── Case 46: codex-hook-registration — event/script parity with dev tree ──────
+c46="$(make_copy)"
 # session-state-checkpoint exists, but the dev tree registers it on PreCompact,
 # not SessionStart. The template remains shape-valid so the Codex parity check
 # is the invariant that must trip.
 sed 's/session-state-inject\.sh/session-state-checkpoint.sh/' \
-  "$c40/assets/consumer/codex-hooks.json" > "$c40/assets/consumer/codex-hooks.json.tmp"
-mv "$c40/assets/consumer/codex-hooks.json.tmp" "$c40/assets/consumer/codex-hooks.json"
-assert_trips "case 40 codex-hook-registration (event mismatch)" "$c40" codex-hook-registration
+  "$c46/assets/consumer/codex-hooks.json" > "$c46/assets/consumer/codex-hooks.json.tmp"
+mv "$c46/assets/consumer/codex-hooks.json.tmp" "$c46/assets/consumer/codex-hooks.json"
+assert_trips "case 46 codex-hook-registration (event mismatch)" "$c46" codex-hook-registration
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

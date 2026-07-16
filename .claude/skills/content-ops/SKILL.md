@@ -1,5 +1,6 @@
 ---
 name: content-ops
+disable-model-invocation: true
 description: >-
   Auto-assembles a domain-specific expert panel (7–10 experts), scores any
   content or strategy artifact against a typed rubric, and iterates until the

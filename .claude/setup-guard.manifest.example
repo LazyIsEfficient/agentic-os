@@ -1,0 +1,24 @@
+# setup-guard manifest — schema/example (committed). The LIVE file is
+# .claude/setup-guard.manifest (gitignored, per-developer; SECURITY.md rule 7:
+# a hook-injected file is an untrusted prompt-injection channel, so it must stay
+# per-project and never be committed to a shared/multi-writer checkout).
+#
+# Copy this to .claude/setup-guard.manifest and edit for your project.
+#
+# One rule per line, "|"-delimited. "#" comments and blank lines are ignored.
+#   <test-command-substring> | <fixture-path> | <generator-hint>
+#
+#   test-command-substring : if the about-to-run Bash command CONTAINS this
+#                            literal, the rule applies (matched with grep -F).
+#   fixture-path           : project-relative (or absolute) path to a GENERATED
+#                            fixture. If it is missing on disk, setup is missing.
+#   generator-hint         : the command your project declares generates it.
+#                            Shown to the model as DATA; NEVER executed by the hook.
+#
+# When a test command is about to run and its fixture is absent, the hook injects
+# an additionalContext reminder (permissionDecision "allow" — advisory, never a
+# block) so the generator runs proactively instead of the test failing.
+
+npm test        | tests/fixtures/generated.json | npm run generate:fixtures
+pytest          | build/schema.json             | make schema
+go test ./...   | testdata/golden.bin           | go run ./cmd/gen-golden
