@@ -27,6 +27,7 @@ printf 'model\n' > "$PROJ/DATA_MODEL.md"
 printf 'x\n' > "$PROJ/code.sh"
 git -C "$PROJ" add -A >/dev/null 2>&1
 git -C "$PROJ" commit -qm base
+git -C "$PROJ" branch -M main   # name the base branch 'main' for the branch-diff fallback
 
 P=0; F=0
 ok(){ printf 'PASS  %s\n' "$1"; P=$((P+1)); }
@@ -78,6 +79,13 @@ mv "$PROJ/scripts/lib/_off" "$PROJ/scripts/lib/gate-plan-lib.sh"
 # 7. Fail-open: missing subagent_type, and malformed input.
 clean; raw '{"tool_input":{}}'; expect "fail-open: no subagent_type -> ALLOW" ALLOW
 clean; raw 'not json'; expect "fail-open: malformed input -> ALLOW" ALLOW
+
+# 8. Branch-diff fallback: clean working tree but a COMMITTED change vs base → warranted.
+clean
+git -C "$PROJ" checkout -qb work >/dev/null 2>&1   # work on a branch; 'main' stays at base
+mkdir -p "$PROJ/.claude/agents"; printf 'committed\n' > "$PROJ/.claude/agents/committed.md"
+git -C "$PROJ" add -A >/dev/null 2>&1; git -C "$PROJ" commit -qm "committed library change" >/dev/null 2>&1
+fire library-reviewer; expect "branch-fallback: committed .claude/agents change on a clean tree -> ALLOW" ALLOW
 
 echo ""
 echo "gate-subagents-test: $P passed, $F failed."

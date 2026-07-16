@@ -44,12 +44,26 @@ lib="$dir/scripts/lib/gate-plan-lib.sh"
 command -v gate_plan_classify_paths >/dev/null 2>&1 || allow   # lib didn't define it → allow
 git -C "$dir" rev-parse HEAD >/dev/null 2>&1 || allow           # no repo/HEAD → can't classify → allow
 
-# The changes a reviewer would examine: working tree + staged + untracked.
+# The changes a reviewer would examine: UNCOMMITTED work (tree + staged + untracked)
+# if any; ELSE the committed branch diff vs its base. This repo commits work on a
+# branch and reviews it vs main, so a clean tree here means "review the committed
+# branch," not "nothing to review" — without this fallback the gate under-triggers on
+# already-committed work. `diffbase` drives both the classifier and the LOC count.
+diffbase="HEAD"
 changed="$(
   { git -C "$dir" diff --name-only HEAD 2>/dev/null
     git -C "$dir" diff --name-only --cached 2>/dev/null
     git -C "$dir" ls-files --others --exclude-standard 2>/dev/null; } | sort -u
 )"
+if [ -z "$changed" ]; then
+  for b in origin2/main origin/main main; do
+    if git -C "$dir" rev-parse --verify -q "$b" >/dev/null 2>&1; then
+      mb="$(git -C "$dir" merge-base HEAD "$b" 2>/dev/null || true)"
+      [ -n "${mb:-}" ] && { diffbase="$mb"; changed="$(git -C "$dir" diff --name-only "$mb" HEAD 2>/dev/null || true)"; }
+      break
+    fi
+  done
+fi
 # Sets GATE_IS_SENSITIVE / GATE_IS_LIBRARY / GATE_HAS_DATA_MODEL / GATE_IS_CODE_CHANGE.
 # Do NOT gate on its exit code — gate_plan_run legitimately returns non-zero when a
 # wave is empty; gate_plan_reset (first line of classify) guarantees the flags are set.
@@ -69,7 +83,7 @@ case "$st" in
       # Total change size = tracked numstat + untracked new-file line counts. numstat
       # OMITS untracked files, but the classifier counts them (ls-files --others) — keep
       # the two in agreement so a large brand-new file isn't silently skipped.
-      loc="$(git -C "$dir" diff HEAD --numstat 2>/dev/null | awk '{a+=$1+$2} END{print a+0}')"
+      loc="$(git -C "$dir" diff "$diffbase" --numstat 2>/dev/null | awk '{a+=$1+$2} END{print a+0}')"
       untracked_loc="$(
         git -C "$dir" ls-files --others --exclude-standard 2>/dev/null |
           while IFS= read -r uf; do [ -n "$uf" ] && wc -l < "$dir/$uf" 2>/dev/null; done |
