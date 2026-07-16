@@ -54,7 +54,7 @@ git config core.hooksPath .githooks
 
 ## What ships to consumers
 
-`install.sh` / `install.ps1` ship the full `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). Everything else — `CLAUDE.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local and never installed. The validator enforces exact equality between the install scripts and this manifest (`EXPECTED_DIRS` / `EXPECTED_CMDS` in `scripts/validate.sh`), so changing what ships means updating the install scripts **and** the validator in the same PR.
+The default Claude path in `install.sh` / `install.ps1` ships the full `skills/`, `agents/`, and `hooks/` directories plus three commands (`skill-new.md`, `agent-new.md`, `state.md`). `install.sh --codex` ships the skills, converts agents to Codex TOML, and allowlists the Codex-compatible hooks; it does not ship Claude commands or custom memory hooks. Everything else — `CLAUDE.md`, `rules/`, maintainer commands, `workflows/`, `pocs/` — is repo-local. The validator enforces the Claude manifest and both hook-registration templates, so changing shipped surfaces means updating the installers, tests, and validator together.
 
 ## What not to commit
 

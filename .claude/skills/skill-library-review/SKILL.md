@@ -13,7 +13,7 @@ when_to_use: |
 
   Not when: reviewing application source code for bugs or design problems — use
   code-review-and-quality instead.
-compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code via install.sh.
+compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Claude Code and Codex via install.sh.
 ---
 
 # Skill Library Review

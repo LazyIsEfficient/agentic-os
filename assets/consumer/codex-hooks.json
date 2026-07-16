@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.codex/hooks/session-state-inject.sh\"",
+            "statusMessage": "AgenticOS: loading session state"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.codex/hooks/session-state-checkpoint.sh\"",
+            "statusMessage": "AgenticOS: checkpointing session state"
+          }
+        ]
+      }
+    ]
+  }
+}

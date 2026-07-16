@@ -14,15 +14,21 @@
 #   session-state.sh infra      "<text>"   # add an existing-infra (survey) finding
 #   session-state.sh thread     "<text>"   # add an open thread / next step
 #
-# Pure Bash + coreutils. The live doc lives at the PROJECT ROOT (CLAUDE_PROJECT_DIR),
-# gitignored and per-developer. The template is SKILL-LOCAL (ships
+# Pure Bash + coreutils. The live doc lives at the project root, gitignored and
+# per-developer. Claude provides CLAUDE_PROJECT_DIR; Codex resolves the active
+# Git root (or the current directory outside Git). The template is SKILL-LOCAL (ships
 # resolved relative to this script — so `init` works on a consumer where only the
-# skill directory is installed, not the repo root. This script lives at
-# .claude/skills/session-state/scripts/, so the project-root fallback is four up.
+# skill directory is installed, not the AgenticOS source repository.
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/../../../.." && pwd)}"
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  ROOT="$CLAUDE_PROJECT_DIR"
+elif command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  ROOT="$(git rev-parse --show-toplevel)"
+else
+  ROOT="$(pwd)"
+fi
 LIVE="$ROOT/SESSION-STATE.md"
 TPL="$SELF_DIR/../assets/SESSION-STATE.template.md"
 
