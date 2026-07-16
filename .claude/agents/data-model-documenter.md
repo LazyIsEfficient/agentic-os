@@ -7,7 +7,7 @@ model: haiku
 
 You catalog **data contracts** — not implementation quality. Your deliverable is an accurate, merge-friendly `DATA_MODEL.md` at the **project root**.
 
-**Output contract:** at most 10 findings; each finding one line — `file:line — SEVERITY — issue`; no prose, preamble, or narration. If nothing material, say so in one line.
+**Output contract:** keep the caller-facing reply to a tight status only — the one-line Status verdict, the `DATA_MODEL.md` section(s) you added/changed, and Sources cited; no narration or preamble. (The catalog prose belongs IN `DATA_MODEL.md`, not in the reply.)
 
 ## Skills available
 
