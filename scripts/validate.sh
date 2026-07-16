@@ -744,6 +744,77 @@ check_tombstones() {
   done
 }
 
+# ── Invariant 10: cache-hygiene ─────────────────────────────────────────────────
+# Shipped PROSE — CLAUDE.md, .claude/skills/*/SKILL.md, .claude/agents/*.md — is
+# loaded verbatim into the model's system-prompt prefix, which the provider prompt-
+# caches (cache layer 2). That cache keys on BYTES: a byte-identical prefix is a
+# cache hit; ANY per-session/per-run drift in it re-tokenizes the whole prefix and
+# voids the cache for that session (v4 token-efficiency milestone, issue #235). So
+# shipped prose must stay byte-stable — no volatile values baked into the loaded text.
+#
+# This is a TRIPWIRE for the obvious volatile-content smells, scoped to avoid FPs.
+# Fenced code blocks (``` / ~~~) AND inline `code` spans are BLANKED first — a
+# date/timestamp shown as an EXAMPLE is fine; the target is volatile content in the
+# FLOWING prose. Line-numbering is preserved (stripped regions become blank lines)
+# so reported line numbers point at the real source line. Bare ISO dates
+# (YYYY-MM-DD, no time-of-day) are deliberately NOT flagged — they are legitimate
+# formatting examples (the memory rule's `"Thursday"` -> `2026-05-14`). What trips:
+#   - a full ISO-8601 date-TIME (a time-of-day in flowing prose reads as now(),
+#     never a stable example)
+#   - a UUID (a per-run/session/correlation id)
+#   - a template/injection marker that pulls a volatile value ({{TODAY}}, $(date),
+#     ${SESSION_ID}, %DATE%, ...)
+# Docs that must NAME these forbidden forms live in docs/ (out of scope for this
+# scan) or wrap them in `code`/fences (blanked) — see docs/caching-rules.md.
+#
+# Pattern@@@reason; `@@@` is the delimiter (no regex here contains it). All patterns
+# run case-insensitively (grep -i), so the UUID/marker forms need no case variants.
+CACHE_HYGIENE_DENY=(
+  '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}@@@full ISO-8601 date-time (time-of-day) in loaded prose — a per-session timestamp busts the prompt cache; drop the time or move the example into `code`/a fenced block'
+  '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@@@UUID in loaded prose — a per-run/session id busts the prompt cache; remove it or keep it out of shipped prose'
+  '\$\(date\b@@@command-substitution of date in loaded prose — resolves per-run and busts the prompt cache'
+  '\{\{[^}]*(date|today|now|time|session|run|uuid|random|timestamp)[^}]*\}\}@@@template placeholder for a volatile value in loaded prose — substituted per-session, busts the prompt cache'
+  '\$\{?(SESSION_ID|RUN_ID|RANDOM|TIMESTAMP|EPOCH)\b@@@shell interpolation of a volatile value in loaded prose — resolves per-run and busts the prompt cache'
+  '%(DATE|TIME|RANDOM)%@@@Windows-style volatile variable in loaded prose — substituted per-run and busts the prompt cache'
+)
+
+# Blank out fenced code blocks and inline `code` spans, PRESERVING line count so
+# grep -n line numbers still map to the source. Fence markers and in-fence lines
+# become empty lines; inline spans are excised in place.
+strip_code() {
+  awk '
+    {
+      line=$0
+      t=line; sub(/^[ \t]*/, "", t)
+      if (t ~ /^(```+|~~~+)/) { infence = !infence; print ""; next }  # fence marker line
+      if (infence) { print ""; next }                                 # inside a fence
+      while (match(line, /`[^`]*`/)) {                                 # excise inline `code` spans
+        line = substr(line, 1, RSTART-1) substr(line, RSTART+RLENGTH)
+      }
+      print line
+    }
+  ' "$1"
+}
+
+check_cache_hygiene() {
+  local files=()
+  [[ -f "$ROOT/CLAUDE.md" ]] && files+=("$ROOT/CLAUDE.md")
+  [[ -d "$CLAUDE/skills" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/skills" -name SKILL.md -type f | sort)
+  [[ -d "$CLAUDE/agents" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/agents" -maxdepth 1 -name '*.md' -type f | sort)
+  # Guard empty-array expansion under bash 3.2 + set -u (tarball with no prose).
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  local f scanned entry re reason ln
+  for f in "${files[@]}"; do
+    scanned="$(strip_code "$f")"
+    for entry in "${CACHE_HYGIENE_DENY[@]}"; do
+      re="${entry%%@@@*}"; reason="${entry##*@@@}"
+      while IFS=: read -r ln _; do
+        [[ -n "$ln" ]] && fail cache-hygiene "$f" "$reason (line $ln)"
+      done < <(printf '%s\n' "$scanned" | grep -inE "$re" || true)
+    done
+  done
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
@@ -754,6 +825,7 @@ check_review_tiers
 check_hook_safety
 check_claude_hook_registration
 check_tombstones
+check_cache_hygiene
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
