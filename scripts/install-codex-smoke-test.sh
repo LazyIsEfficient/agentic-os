@@ -34,6 +34,19 @@ grep -q "^sandbox_mode = 'read-only'$" "$config/agents/code-reviewer.toml" || fa
 [[ ! -e "$config/hooks/memory-extract.sh" ]] || fail "Claude memory hook should not install for Codex"
 [[ ! -d "$home/.claude" ]] || fail "Codex install polluted Claude home"
 
+# The user-scoped writer must target the active project, not its global install
+# location under $HOME/.agents/skills. Exercise it from a nested directory so
+# Codex's Git-root fallback is covered with CLAUDE_PROJECT_DIR unset.
+user_project="$tmp/user project"
+mkdir -p "$user_project/src/nested"
+git -C "$user_project" init -q
+(
+  cd "$user_project/src/nested"
+  HOME="$home" bash "$skills/session-state/scripts/session-state.sh" init >/dev/null
+)
+[[ -f "$user_project/SESSION-STATE.md" ]] || fail "user-scoped writer missed active project root"
+[[ ! -f "$home/SESSION-STATE.md" ]] || fail "user-scoped writer created SESSION-STATE.md in HOME"
+
 # When Codex is available locally, make it load the generated configuration.
 if command -v codex &>/dev/null; then
   CODEX_HOME="$config" codex debug prompt-input 'config smoke test' >/dev/null 2>&1 \
@@ -70,6 +83,28 @@ HOME="$home" CODEX_PROJECT_DIR="$project" bash "$REPO/install.sh" --codex --proj
 [[ -f "$project/.agents/skills/autoresearch/SKILL.md" ]] || fail "project skill install missing"
 [[ -f "$project/.codex/agents/engineer.toml" ]] || fail "project agent install missing"
 [[ -f "$project/.codex/hooks.json" ]] || fail "project hook registration missing"
+
+# Execute the installed Codex checkpoint hook in a project with no .claude
+# directory. It must write a visible checkpoint and propagate write failures.
+printf '%s\n' '# Session state' > "$project/SESSION-STATE.md"
+(
+  cd "$project"
+  printf '%s' '{"trigger":"auto"}' | bash .codex/hooks/session-state-checkpoint.sh
+)
+grep -q 'trigger=auto state_present=yes' "$project/.codex/session-state.checkpoints" \
+  || fail "Codex PreCompact hook did not write its checkpoint"
+[[ ! -d "$project/.claude" ]] || fail "Codex checkpoint hook created a Claude directory"
+
+blocked_project="$tmp/checkpoint blocked"
+mkdir -p "$blocked_project"
+git -C "$blocked_project" init -q
+printf '%s\n' 'not-a-directory' > "$blocked_project/.codex"
+if (
+  cd "$blocked_project"
+  printf '%s' '{"trigger":"manual"}' | bash "$config/hooks/session-state-checkpoint.sh"
+) >/dev/null 2>&1; then
+  fail "Codex checkpoint hook hid an unwritable checkpoint destination"
+fi
 if command -v jq &>/dev/null; then
   jq -e --arg p "$project/.codex/hooks/session-state-inject.sh" \
     '.hooks.SessionStart[0].hooks[0].command | contains($p)' "$project/.codex/hooks.json" >/dev/null \

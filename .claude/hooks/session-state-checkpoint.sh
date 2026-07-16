@@ -6,10 +6,26 @@
 # by the SessionStart/UserPromptSubmit hooks; injecting from PreCompact itself
 # depends on its output contract, confirmed as Slice 1's first follow-up.
 set -uo pipefail
-dir="${CLAUDE_PROJECT_DIR:-.}"
-log="$dir/.claude/session-state.checkpoints"
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  dir="$CLAUDE_PROJECT_DIR"
+  checkpoint_dir="$dir/.claude"
+elif command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  dir="$(git rev-parse --show-toplevel)"
+  checkpoint_dir="$dir/.codex"
+else
+  dir="$(pwd)"
+  checkpoint_dir="$dir/.codex"
+fi
+log="$checkpoint_dir/session-state.checkpoints"
 event="$(cat)"
 trigger="$(printf '%s' "$event" | sed -n 's/.*"trigger"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
 present="no"; [ -r "$dir/SESSION-STATE.md" ] && present="yes"
-printf 'compaction-checkpoint trigger=%s state_present=%s\n' "${trigger:-unknown}" "$present" >> "$log"
+if ! mkdir -p "$checkpoint_dir"; then
+  echo "session-state-checkpoint: cannot create checkpoint directory: $checkpoint_dir" >&2
+  exit 1
+fi
+if ! printf 'compaction-checkpoint trigger=%s state_present=%s\n' "${trigger:-unknown}" "$present" >> "$log"; then
+  echo "session-state-checkpoint: cannot write checkpoint: $log" >&2
+  exit 1
+fi
 exit 0
