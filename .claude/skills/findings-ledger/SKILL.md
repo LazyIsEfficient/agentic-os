@@ -23,7 +23,8 @@ doctrine: review-tiers — `.claude/rules/review-tiers.md`). This skill is the *
 inbox: a single append-only JSONL at `.claude/ledger/findings.jsonl` where
 Tier 2 findings accumulate fingerprinted, so the same defect reported twice
 across runs collides to one entry — deterministically when the reviewer passes
-a `--category`, heuristically on claim wording when it doesn't — and recurrence across independent runs — not rhetoric — decides what gets
+a `--category`, heuristically on claim wording when it doesn't — and
+recurrence across independent runs — not rhetoric — decides what gets
 investigated.
 
 ## The ledger file
@@ -35,7 +36,9 @@ investigated.
 - **Gitignored by default** (machine-local noise). **Team-shared mode**, two
   options: (a) commit `ledger.py export --out <path>` output — one line per
   fingerprint with category, file, count and first/last seen, **no claim
-  text** — to any tracked path; no `.gitignore` change needed. (b) Commit the
+  text** — to any tracked path outside `.claude/ledger/`; no `.gitignore`
+  change needed. `file` and `symbol` are still reviewer-supplied free text
+  and get committed, so review the export before pushing. (b) Commit the
   raw ledger: in `.gitignore`, replace the `.claude/ledger/` line with
   `.claude/ledger/*.lock` (the lock sidecar stays local). Append-only + stable
   ordering keeps either diff reviewable.
@@ -81,8 +84,10 @@ python3 "$LEDGER" export --out <path>
 
 - `add` computes the fingerprint (see Categories below) and labels a
   sighting `RECURRING` only when an earlier sighting came from a different
-  `--run-id`; a repeat within the same run stays `NEW`. A `--tier 1` finding without
-  `--evidence` is demoted to tier 2 automatically — the tier rule, enforced.
+  `--run-id`; a repeat within the same run stays `NEW`. A `--tier 1` finding
+  without `--evidence` is demoted to tier 2 automatically — the tier rule,
+  enforced. Control characters (newline, tab, …) in `--file`, `--category`
+  or `--symbol` are rejected.
 - Recurrence counts **distinct run ids**, not raw sightings — an agent
   repeating itself within one run cannot cross the threshold alone.
 - `triage` lists fingerprints at/over the recurrence threshold as promotion
@@ -93,7 +98,8 @@ python3 "$LEDGER" export --out <path>
 - `promote` refuses to record `PROMOTED` without `--evidence` — a promotion
   *is* its encoded check.
 - `export` writes the deduplicated per-fingerprint summary (sorted,
-  byte-deterministic JSONL) to `--out`, and refuses to overwrite the ledger.
+  byte-deterministic JSONL) to `--out`, and refuses any `--out` inside the
+  ledger's directory.
 
 ## Categories (structured fingerprints)
 
@@ -119,12 +125,13 @@ longer matters, and paraphrases collide.
   | `secret-exposure` | credential or token logged, committed or leaked |
 
 - `--symbol` (optional, requires `--category`) — the function, heading, or
-  config key the finding is about. Backticks and a trailing `()` are stripped,
-  so `` `check_token()` `` and `check_token` match. Omit it for file-level
-  findings.
+  config key the finding is about. Backticks and a trailing `()` are
+  stripped, so `` `check_token()` ``, `` `check_token`() ``, `check_token ()`
+  and `check_token` match. Omit it for file-level findings.
 - Without `--category`, `add` uses the legacy text fingerprint (scheme 1),
-  unchanged — existing entries keep their identity. The two schemes never
-  match each other, so stick to one per defect.
+  unchanged — existing entries keep their identity. A scheme 1 and a
+  scheme 2 sighting of the same defect get different fingerprints, so stick
+  to one scheme per defect.
 
 Reviewers should pass both whenever the finding names a defect class and a
 location, reusing the same slug for the same class across runs:

@@ -50,7 +50,9 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
+import unicodedata
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -132,12 +134,11 @@ def fingerprint(file, claim):
 
 
 def normalize_path(file):
-    """`./a\\b.md`, `a//b.md` and `a/b.md` are the same file."""
+    """Scheme 2 only. `./a\\b.md`, `a//b.md`, `a/./b.md` and `a/b.md/` are
+    the same file. `..` is left alone (resolving it needs the filesystem)."""
     t = file.strip().replace("\\", "/")
-    t = re.sub(r"/+", "/", t)
-    while t.startswith("./"):
-        t = t[2:]
-    return t
+    parts = [seg for seg in t.split("/") if seg not in ("", ".")]
+    return ("/" if t.startswith("/") else "") + "/".join(parts)
 
 
 def normalize_category(category):
@@ -150,15 +151,23 @@ def normalize_symbol(symbol):
     """Reviewers write `foo`, foo() and foo for the same function."""
     if symbol is None:
         return ""
-    t = symbol.strip().strip("`").strip()
-    if t.endswith("()"):
-        t = t[:-2]
+    t = symbol.strip()
+    while True:  # peel `foo`(), `foo()`, foo () in any nesting order
+        u = t.strip("`").strip()
+        if u.endswith("()"):
+            u = u[:-2].strip()
+        if u == t:
+            break
+        t = u
     return re.sub(r"\s+", " ", t)
 
 
 def structured_fingerprint(file, category, symbol=None):
-    """Scheme 2. The "v2" tag and newline count keep its payloads distinct
-    from scheme 1's (normalize() collapses newlines out of the claim)."""
+    """Scheme 2. Its payload is newline-joined, so it CAN equal a scheme 1
+    payload when `file` contains newlines (file="v2\\nx\\ncat", claim="sym"
+    vs file="x", category="cat", symbol="sym"). cmd_add prevents that by
+    rejecting control characters in --file/--category/--symbol; callers of
+    this function must do the same."""
     payload = "\n".join(
         ("v2", normalize_path(file), category, normalize_symbol(symbol)))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:FINGERPRINT_LEN]
@@ -314,7 +323,15 @@ def trunc(s, width=72):
 
 # ── subcommands ────────────────────────────────────────────────────────────────
 
+def has_control_chars(s):
+    return any(unicodedata.category(c) == "Cc" for c in s)
+
+
 def cmd_add(args):
+    for flag, value in (("--file", args.file), ("--category", args.category),
+                        ("--symbol", args.symbol)):
+        if value is not None and has_control_chars(value):
+            die(f"{flag} contains a control character (newline, tab, ...); not allowed")
     path = resolve_ledger(args, must_exist=False)
     tier = args.tier
     evidence = args.evidence
@@ -447,9 +464,12 @@ EXPORT_KEYS = ("fingerprint", "fingerprint_scheme", "category", "symbol", "file"
 def cmd_export(args):
     path = resolve_ledger(args, must_exist=True)
     out = Path(args.out)
-    if out.resolve() == path.resolve():
-        die(f"--out {out} is the ledger itself; export would overwrite it")
-    rows = [summarize(fp, evs) for fp, evs in group(read_events(path)).items()]
+    # Covers the ledger, its .lock sidecar, and anything else ledger.py owns.
+    if out.resolve().is_relative_to(path.parent.resolve()):
+        die(f"--out {out} is inside the ledger directory {path.parent}; pick a path outside it")
+    with locked(path):
+        events = read_events(path)
+    rows = [summarize(fp, evs) for fp, evs in group(events).items()]
     rows.sort(key=lambda r: r["fingerprint"])
     lines = []
     for r in rows:
@@ -457,9 +477,19 @@ def cmd_export(args):
         lines.append(json.dumps({k: r[k] for k in EXPORT_KEYS},
                                 sort_keys=True, ensure_ascii=False))
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_name(out.name + ".tmp")
-    tmp.write_text("".join(l + "\n" for l in lines), encoding="utf-8")
-    os.replace(tmp, out)
+    # mkstemp creates a fresh file with O_EXCL: no following a planted
+    # symlink, and concurrent exports never share a temp file.
+    fd, tmp = tempfile.mkstemp(dir=out.parent, prefix=f".{out.name}.", suffix=".tmp")
+    try:
+        mask = os.umask(0)
+        os.umask(mask)
+        os.chmod(tmp, 0o666 & ~mask)  # mkstemp's 0600 would make the committed file owner-only
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("".join(l + "\n" for l in lines))
+        os.replace(tmp, out)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
     print(f"exported {len(rows)} fingerprint(s) to {out}")
 
 

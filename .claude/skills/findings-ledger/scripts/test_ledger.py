@@ -15,6 +15,7 @@ Run: python3 -I .claude/skills/findings-ledger/scripts/test_ledger.py
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -27,7 +28,7 @@ LEDGER_PY = SCRIPTS_DIR / "ledger.py"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
-    from ledger import fingerprint, normalize
+    from ledger import fingerprint, normalize, structured_fingerprint
 except ImportError as exc:
     print(f"SETUP ERROR: cannot import ledger.py ({exc})")
     sys.exit(2)
@@ -308,7 +309,7 @@ def check_legacy_entries():
 #     deterministic, and never overwrites the ledger.
 def check_export():
     with tempfile.TemporaryDirectory() as td:
-        lp = Path(td) / "findings.jsonl"
+        lp = Path(td) / "ledger" / "findings.jsonl"
         secret = "token verification swallows exceptions"
         cat = ("--category", "fail-open", "--symbol", "check_token")
         add(lp, file="src/auth.py", claim=secret, run_id="r1", date="2026-10-01", extra=cat)
@@ -347,6 +348,107 @@ check_structured_fingerprints()
 check_same_run_guard()
 check_legacy_entries()
 check_export()
+
+
+# 12. Gate-review fixes on PR #288.
+def check_cross_scheme_collision_blocked():
+    # The collision is real at the function level (evidence for the guard)...
+    check("scheme 1/2 payloads can coincide when file holds newlines",
+          fingerprint("v2\nx\ncat", "sym") == structured_fingerprint("x", "cat", "sym"))
+    # ...so the CLI must refuse control characters before hashing.
+    with tempfile.TemporaryDirectory() as td:
+        lp = Path(td) / "findings.jsonl"
+        ok = add(lp, file="x", claim="real", run_id="r1",
+                 extra=("--category", "cat", "--symbol", "sym"))
+        forged = add(lp, file="v2\nx\ncat", claim="sym", run_id="r2")
+        tab_sym = add(lp, file="x", claim="c", run_id="r3",
+                      extra=("--category", "cat", "--symbol", "s\tym"))
+        esc_cat = add(lp, file="x", claim="c", run_id="r4",
+                      extra=("--category", "cat\x1b"))
+        check("forged newline --file is rejected (exit 2)", forged.returncode == 2,
+              f"rc={forged.returncode} {forged.stdout}")
+        check("control char in --symbol / --category rejected (exit 2)",
+              (tab_sym.returncode, esc_cat.returncode) == (2, 2),
+              f"rc={tab_sym.returncode},{esc_cat.returncode}")
+        check("no forged recurrence recorded",
+              ok.returncode == 0 and len(events_of(lp)) == 1, f"{len(events_of(lp))} events")
+
+
+def check_symbol_and_path_normalization():
+    base = structured_fingerprint("src/auth.py", "fail-open", "check_token")
+    variants = ["check_token ()", "`check_token`()", "`check_token()`", "check_token()",
+                " `check_token` "]
+    bad = [v for v in variants if structured_fingerprint("src/auth.py", "fail-open", v) != base]
+    check("symbol variants fingerprint like the bare name", not bad, f"diverged: {bad}")
+    paths = ["src/./auth.py", "src/auth.py/", "./src//auth.py", "src\\auth.py"]
+    bad = [p for p in paths if structured_fingerprint(p, "fail-open", "check_token") != base]
+    check("scheme 2 path variants (./, trailing /) collapse", not bad, f"diverged: {bad}")
+    check("scheme 1 still hashes the raw path (byte-stable)",
+          fingerprint("src/./auth.py", "c") != fingerprint("src/auth.py", "c"))
+
+
+def check_export_hardening():
+    import argparse
+    import contextlib
+    import io
+    import ledger
+    with tempfile.TemporaryDirectory() as td:
+        lp = Path(td) / "ledger" / "findings.jsonl"
+        add(lp, file="f.md", claim="c", run_id="r1", extra=("--category", "stale-doc"))
+        lock = lp.with_name(lp.name + ".lock")
+        lock_before = lock.read_bytes() if lock.exists() else None
+        for target in (lock, lp.parent / "summary.jsonl"):
+            r = run_cli(lp, "export", "--out", str(target))
+            check(f"export refuses --out inside the ledger dir ({target.name})",
+                  r.returncode == 2, f"rc={r.returncode}")
+        check("lock sidecar untouched by refused export",
+              lock.is_file() and not lock.is_symlink()
+              and (lock.read_bytes() if lock.exists() else None) == lock_before)
+        check("refused export creates nothing", not (lp.parent / "summary.jsonl").exists())
+
+        out_dir = Path(td) / "shared"
+        out_dir.mkdir()
+        out = out_dir / "fp.jsonl"
+        victim = Path(td) / "victim.txt"
+        victim.write_text("keep me\n")
+        try:
+            (out_dir / "fp.jsonl.tmp").symlink_to(victim)
+        except (OSError, NotImplementedError):
+            print("SKIP  export symlink check (symlinks unavailable)")
+        else:
+            r = run_cli(lp, "export", "--out", str(out))
+            check("export does not write through a planted <out>.tmp symlink",
+                  r.returncode == 0 and victim.read_text() == "keep me\n" and out.is_file(),
+                  f"rc={r.returncode} victim={victim.read_text()!r}")
+        check("export leaves no temp files behind",
+              sorted(p.name for p in out_dir.iterdir() if p.name != "fp.jsonl.tmp") == ["fp.jsonl"],
+              f"{sorted(p.name for p in out_dir.iterdir())}")
+        if os.name == "posix":
+            mask = os.umask(0)
+            os.umask(mask)
+            check("export file honours umask (not mkstemp's 0600)",
+                  (out.stat().st_mode & 0o777) == (0o666 & ~mask), oct(out.stat().st_mode))
+
+        # The read happens under the ledger lock.
+        calls = []
+        real_locked = ledger.locked
+
+        def spy(path):
+            calls.append(Path(path))
+            return real_locked(path)
+
+        ledger.locked = spy
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                ledger.cmd_export(argparse.Namespace(ledger=str(lp), out=str(out_dir / "spy.jsonl")))
+        finally:
+            ledger.locked = real_locked
+        check("export reads the ledger under locked()", calls == [lp], f"{calls}")
+
+
+check_cross_scheme_collision_blocked()
+check_symbol_and_path_normalization()
+check_export_hardening()
 
 print()
 if FAILURES:

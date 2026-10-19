@@ -65,18 +65,29 @@ actually cover the defect.
 ## Structured fingerprints (scheme 2)
 
 When `add` gets `--category`, the claim text is excluded from the hash: the
-identity is file + defect class + symbol. Normalization: the path has
-surrounding whitespace trimmed, backslashes turned into `/`, duplicate
-slashes collapsed and leading `./` removed; the category is lowercased and
-must be kebab-case; the symbol has surrounding whitespace and backticks
-stripped, a trailing `()` dropped, and internal whitespace collapsed.
+identity is file + defect class + symbol. Normalization (scheme 2 only;
+scheme 1 hashes the trimmed raw path): the path has surrounding whitespace
+trimmed, backslashes turned into `/`, empty and `.` segments dropped (so
+`a//b`, `./a/b`, `a/./b` and `a/b/` all become `a/b`; `..` is kept as is);
+the category is lowercased and must be kebab-case; the symbol has
+backticks, a trailing `()` and surrounding whitespace peeled in any order
+(`` `f`() ``, `f ()`, `` `f()` `` all become `f`) and internal whitespace
+collapsed.
+
+`add` rejects control characters (Unicode category Cc: newline, tab, ESC, …)
+in `--file`, `--category` and `--symbol` with exit 2. Both schemes hash
+newline-joined payloads, so without this guard a crafted
+`--file $'v2\nx\ncat' --claim sym` (scheme 1) would produce the same
+fingerprint as `--file x --category cat --symbol sym` (scheme 2) and fake a
+recurrence. Code that calls `structured_fingerprint()` directly must apply
+the same check.
 
 Limits: identity is now only as good as the category choice. Two reviewers
 who pick different slugs for one defect still diverge (keep to the seed
 vocabulary in SKILL.md), and two distinct defects of the same class on the
-same symbol collide (a too-early promotion candidate, cheap to dismiss). A
-scheme 1 and a scheme 2 fingerprint never match. Renames still break
-grouping.
+same symbol collide (a too-early promotion candidate, cheap to dismiss).
+The same defect recorded once per scheme gets two fingerprints. Renames
+still break grouping.
 
 ## Text fingerprint normalization (scheme 1) — a heuristic, not identity
 
@@ -157,8 +168,16 @@ by fingerprint, with sorted keys and no claim text:
 Commit the output to any tracked path outside `.claude/ledger/` (e.g.
 `.claude/ledger-shared/<name>.jsonl`). The file is rewritten in full on each
 run (atomic replace) and is byte-identical for an unchanged ledger, so diffs
-show only real changes. `export` refuses an `--out` equal to the ledger
-path. It is a read-only summary: `ledger.py` does not read exports back, and
+show only real changes. The temp file is created with `mkstemp` in the
+output directory (no writing through a planted symlink, no clash between
+concurrent exports) and given the usual umask-derived mode. `export` reads
+the ledger under the same lock as writers, and refuses any `--out` inside
+the ledger's directory (the ledger, its `.lock` sidecar, or a sibling).
+
+**What gets committed:** no claim text, but `file` and `symbol` are
+reviewer-supplied free text copied verbatim from the first event. In
+team-shared mode they land in git history, so review the export like any
+other committed artifact. It is a read-only summary: `ledger.py` does not read exports back, and
 counts in exports from different clones are per-clone (summing them assumes
 the clones never reused a run id).
 
