@@ -139,6 +139,60 @@ printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$R2" "$BASH_BIN" "$HOOK" 2>/dev/nul
 [[ -z "$(ls -A "$TMP/elsewhere")" ]] || fail "wrote through a symlinked reviews dir"
 pass "symlinked .claude/reviews is refused"
 
+# 11b. Committed dangling .gitignore symlink must not create a file outside
+#      the repo (F1), and a symlinked .claude/ is refused.
+R3="$TMP/repo3"
+git clone -q "$R" "$R3"
+mkdir -p "$R3/.claude/reviews"
+ln -s "$TMP/outside-gitignore" "$R3/.claude/reviews/.gitignore"
+printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$R3" "$BASH_BIN" "$HOOK" 2>/dev/null
+[[ ! -e "$TMP/outside-gitignore" ]] || fail "wrote through a dangling .gitignore symlink"
+[[ -z "$(find "$R3/.claude/reviews" -name '*.json')" ]] || fail "wrote a verdict despite a symlinked .gitignore"
+pass "dangling .gitignore symlink is refused"
+R4="$TMP/repo4"
+git clone -q "$R" "$R4"
+mkdir -p "$TMP/outside-claude"
+ln -s "$TMP/outside-claude" "$R4/.claude"
+printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$R4" "$BASH_BIN" "$HOOK" 2>/dev/null
+[[ -z "$(ls -A "$TMP/outside-claude")" ]] || fail "wrote through a symlinked .claude"
+pass "symlinked .claude is refused"
+
+# 11c. Transcript fallback refuses a symlink (even inside projects/) and
+#      non-.jsonl files.
+rm -f "$(artifact data-model-verifier)"
+ln -s "$TMP/evil.jsonl" "$CFG/projects/p/s/subagents/link.jsonl"
+cp "$T" "$CFG/projects/p/s/subagents/agent-a1.txt"
+for p in "$CFG/projects/p/s/subagents/link.jsonl" "$CFG/projects/p/s/subagents/agent-a1.txt"; do
+  payload2="$(jq -cn --arg p "$p" '{agent_type: "data-model-verifier", agent_transcript_path: $p}')"
+  err="$(printf '%s' "$payload2" | CLAUDE_CONFIG_DIR="$CFG" CLAUDE_PROJECT_DIR="$R" "$BASH_BIN" "$HOOK" 2>&1 >/dev/null)"
+  [[ ! -e "$(artifact data-model-verifier)" ]] || fail "transcript $p was read"
+  [[ "$err" == *"not a regular .jsonl"* ]] || fail "transcript $p note: $err"
+done
+pass "symlinked / non-.jsonl transcripts are refused"
+
+# 11d. Size cap: a valid verdict after > MAX_BYTES of text is not captured.
+rm -f "$(artifact code-reviewer)"
+{ head -c 1100000 /dev/zero | tr '\0' 'a'; printf '\n\n'; msg code-reviewer pass; } > "$TMP/big.txt"
+jq -Rs '{agent_type: "code-reviewer", last_assistant_message: .}' < "$TMP/big.txt" > "$TMP/big.json"
+err="$(CLAUDE_PROJECT_DIR="$R" "$BASH_BIN" "$HOOK" < "$TMP/big.json" 2>&1 >/dev/null)"
+[[ ! -e "$(artifact code-reviewer)" ]] || fail "oversized message was captured"
+[[ "$err" == *"over 1048576 bytes"* ]] || fail "size cap note: $err"
+pass "final message over the size cap is not captured"
+
+# 11e. Worktree: payload cwd wins over CLAUDE_PROJECT_DIR.
+git -C "$R" worktree add -q -b wt "$TMP/wt"
+echo y > "$TMP/wt/b.ts"
+git -C "$TMP/wt" add -A
+git -C "$TMP/wt" commit -q -m wt
+WT_HEAD="$(git -C "$TMP/wt" rev-parse HEAD)"
+payload3="$(jq -cn --arg m "$(msg code-reviewer pass "$WT_HEAD")" --arg c "$TMP/wt" \
+  '{agent_type: "code-reviewer", last_assistant_message: $m, cwd: $c}')"
+printf '%s' "$payload3" | CLAUDE_PROJECT_DIR="$R" "$BASH_BIN" "$HOOK" 2>/dev/null
+jq -e --arg h "$WT_HEAD" '.head == $h' "$TMP/wt/.claude/reviews/$WT_HEAD-code-reviewer.json" >/dev/null \
+  || fail "worktree verdict not captured in the worktree"
+[[ ! -e "$REVIEWS/$WT_HEAD-code-reviewer.json" ]] || fail "worktree verdict landed in the main checkout"
+pass "worktree review binds to the worktree HEAD via payload cwd"
+
 # 12. Missing jq fails open.
 mkdir -p "$TMP/nojq-bin"
 err="$(printf '{}' | PATH="$TMP/nojq-bin" CLAUDE_PROJECT_DIR="$R" "$BASH_BIN" "$HOOK" 2>&1)" || fail "missing jq exit nonzero"

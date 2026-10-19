@@ -67,6 +67,7 @@ expect_reject verifier-unevidenced-hold.txt "needs an evidenced" "verifier unevi
 
 expect_reject duplicate-key.txt "duplicate JSON key: verdict" "duplicate key rejected"
 expect_reject duplicate-key-nested.txt "duplicate JSON key: findings.0.tier" "nested duplicate key rejected"
+expect_reject duplicate-key-container.txt "duplicate JSON key: findings" "duplicate key with array/object values rejected"
 
 set +e
 out="$(bash "$PARSE" --expect-head 0123456789abcdef0123456789abcdef01234567 "$FIX/pass.txt")"

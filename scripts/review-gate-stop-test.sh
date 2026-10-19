@@ -9,6 +9,9 @@ BASH_BIN="$(command -v bash)"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+# Fail-open session markers land under $TMPDIR; keep them inside this run.
+export TMPDIR="$TMP/tmpdir"
+mkdir -p "$TMPDIR"
 
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
@@ -53,7 +56,13 @@ run() {
   err="$(cat "$errf")"; rm -f "$errf"
 }
 
-expect_allow() { [[ -z "$out" ]] || fail "$1: expected allow, got: $out"; pass "$1"; }
+# Allow = no stdout, or JSON without a decision (e.g. a systemMessage warning).
+expect_allow() {
+  [[ -z "$out" ]] || printf '%s' "$out" | jq -e 'has("decision") | not' >/dev/null 2>&1 \
+    || fail "$1: expected allow, got: $out"
+  pass "$1"
+}
+expect_silent() { [[ -z "$out" ]] || fail "$1: expected no output, got: $out"; pass "$1"; }
 # expect_block <label> [needle...] — block JSON whose reason contains each needle.
 expect_block() {
   local label="$1" needle; shift
@@ -139,11 +148,11 @@ verdict "$TMP/code" code-reviewer pass
 run "$TMP/code"; expect_allow "precondition: reviewed HEAD passes"
 echo "dirty" >> "$TMP/code/src/app.ts"
 run "$TMP/code"
-expect_block "dirty tracked file blocks" "commit first"
+expect_block "dirty tracked file blocks" "Verdicts bind to a HEAD sha"
 git -C "$TMP/code" checkout -q -- src/app.ts
 echo "new" > "$TMP/code/src/new.ts"
 run "$TMP/code"
-expect_block "untracked qualifying file blocks" "commit first" "src/new.ts"
+expect_block "untracked qualifying file blocks" "Verdicts bind to a HEAD sha" "src/new.ts"
 rm -f "$TMP/code/src/new.ts"
 
 # 13. Dirty docs-only changes do not trigger the commit-first block.
@@ -155,7 +164,7 @@ rm -f "$TMP/code/DRAFT.md"
 new_repo "$TMP/dirtyonly"
 echo "x" > "$TMP/dirtyonly/main.py"
 run "$TMP/dirtyonly"
-expect_block "dirty-only qualifying change blocks" "commit first"
+expect_block "dirty-only qualifying change blocks" "Verdicts bind to a HEAD sha"
 
 # 15. stop_hook_active passes.
 run "$TMP/dirtyonly" '{"stop_hook_active":true}'
@@ -167,8 +176,11 @@ out="$(cd "$TMP/dirtyonly" && printf '{}' | AGENTIC_OS_REVIEW_GATE=off CLAUDE_PR
 rm -f "$errf"
 expect_allow "AGENTIC_OS_REVIEW_GATE=off passes"
 
-# 17. Missing jq fails open with a stderr note.
+# 17. Missing jq fails open with a stderr note (PATH has every tool but jq).
 mkdir -p "$TMP/nojq-bin"
+for t in git head sed id mkdir cat dirname grep sort paste; do
+  ln -sf "$(command -v "$t")" "$TMP/nojq-bin/$t"
+done
 errf="$(mktemp)"
 set +e
 out="$(cd "$TMP/dirtyonly" && printf '{}' | PATH="$TMP/nojq-bin" CLAUDE_PROJECT_DIR="$TMP/dirtyonly" "$BASH_BIN" "$HOOK" 2>"$errf")"
@@ -176,13 +188,22 @@ rc=$?
 set -e
 err="$(cat "$errf")"; rm -f "$errf"
 [[ "$rc" == 0 ]] || fail "missing jq exit $rc"
-[[ "$err" == *"jq not found"*"fail-open"* ]] || fail "missing jq stderr note: $err"
+[[ "$err" == "review-gate-stop: jq not found — gate skipped (fail-open)" ]] || fail "missing jq stderr note: $err"
+printf '%s' "$out" | jq -e '.systemMessage | contains("jq not found")' >/dev/null || fail "missing jq systemMessage: $out"
 expect_allow "missing jq fails open"
 
-# 18. Malformed payload fails open.
+# 18. Malformed payload fails open; the note prints once per session.
 run "$TMP/dirtyonly" 'not json'
 expect_allow "malformed payload fails open"
 [[ "$err" == *"fail-open"* ]] || fail "malformed payload stderr note: $err"
+run "$TMP/dirtyonly" '{"session_id":"sess-1", broken'
+[[ "$err" == *"fail-open"* ]] || fail "first fail-open of a session must note: $err"
+run "$TMP/dirtyonly" '{"session_id":"sess-1", broken'
+[[ -z "$err" ]] || fail "second fail-open of the same session must be silent: $err"
+expect_silent "fail-open note printed once per session"
+run "$TMP/dirtyonly" '{"session_id":"sess-2", broken'
+[[ "$err" == *"fail-open"* ]] || fail "a new session notes again: $err"
+pass "fail-open note repeats for a new session"
 
 # 19. No resolvable default branch fails open.
 new_repo "$TMP/nomain"
@@ -227,5 +248,90 @@ new_repo "$TMP/dm"
 commit_file "$TMP/dm" DATA_MODEL.md
 run "$TMP/dm"
 expect_block "DATA_MODEL.md change requires review" "code-reviewer"
+
+# 23. Artifacts are excluded from the change set even without the dir's own
+#     .gitignore (a consumer repo that doesn't ignore .claude/reviews/).
+rm -f "$TMP/dm/.claude/reviews/.gitignore"
+verdict "$TMP/dm" code-reviewer pass
+verdict "$TMP/dm" security-reviewer pass
+rm -f "$TMP/dm/.claude/reviews/.gitignore"
+run "$TMP/dm"; expect_allow "un-ignored .claude/reviews/ artifacts are not changes"
+
+# 24. Untracked .claude/worktrees/ content is excluded; other untracked noise
+#     blocks with a reason that forbids committing unrelated files.
+mkdir -p "$TMP/dm/.claude/worktrees/agent-1"
+echo "x" > "$TMP/dm/.claude/worktrees/agent-1/app.ts"
+run "$TMP/dm"; expect_allow "untracked .claude/worktrees/ is not a change"
+echo "log" > "$TMP/dm/build.log"
+run "$TMP/dm"
+expect_block "untracked noise blocks without telling the model to commit it" \
+  "commit only the changes you intend to ship" "Never commit files you did not create" "tell the user"
+rm -f "$TMP/dm/build.log"
+
+# 25. Planner failure fails open with a note (not silently "nothing required").
+new_repo "$TMP/pfail"
+mkdir -p "$TMP/pfail/.claude/hooks" "$TMP/pfail/scripts"
+cp "$HOOK" "$TMP/pfail/.claude/hooks/"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP/pfail/scripts/gate-plan.sh"
+git -C "$TMP/pfail" add -A
+git -C "$TMP/pfail" commit -q -m tooling
+run "$TMP/pfail" '{"stop_hook_active":false}' "$TMP/pfail/.claude/hooks/review-gate-stop.sh"
+expect_allow "planner failure fails open"
+[[ "$err" == *"planner failed"* ]] || fail "planner failure note: $err"
+
+# 26. A hook outside the repo never runs the repo's scripts/gate-plan.sh.
+new_repo "$TMP/evilplan"
+mkdir -p "$TMP/evilplan/scripts"
+printf '#!/usr/bin/env bash\ntouch "%s"\n' "$TMP/evil-ran" > "$TMP/evilplan/scripts/gate-plan.sh"
+git -C "$TMP/evilplan" add -A
+git -C "$TMP/evilplan" commit -q -m planner
+run "$TMP/evilplan"
+[[ ! -e "$TMP/evil-ran" ]] || fail "hook outside the repo executed the repo's gate-plan.sh"
+expect_block "outside hook uses the fallback planner, not the repo's script" "code-reviewer" "security-reviewer"
+
+# 27. Worktrees: the payload cwd wins over CLAUDE_PROJECT_DIR; the planner of
+#     the hook's own checkout is used for a worktree of the same repo.
+new_repo "$TMP/wtmain"
+mkdir -p "$TMP/wtmain/.claude/hooks" "$TMP/wtmain/scripts/lib"
+cp "$HOOK" "$TMP/wtmain/.claude/hooks/"
+cp "$REPO/scripts/gate-plan.sh" "$TMP/wtmain/scripts/"
+cp "$REPO/scripts/lib/gate-plan-lib.sh" "$TMP/wtmain/scripts/lib/"
+git -C "$TMP/wtmain" add -A
+git -C "$TMP/wtmain" commit -q -m tooling
+git -C "$TMP/wtmain" checkout -q main
+git -C "$TMP/wtmain" merge -q --ff-only feat
+git -C "$TMP/wtmain" worktree add -q -b wtfeat "$TMP/wt"
+commit_file "$TMP/wt" .claude/agents/x.md
+wt_payload="$(jq -cn --arg c "$TMP/wt" '{stop_hook_active: false, cwd: $c}')"
+errf="$(mktemp)"
+out="$(printf '%s' "$wt_payload" | CLAUDE_PROJECT_DIR="$TMP/wtmain" "$BASH_BIN" "$TMP/wtmain/.claude/hooks/review-gate-stop.sh" 2>"$errf")"
+rm -f "$errf"
+expect_block "worktree diff is gated via payload cwd, with the repo planner" "library-reviewer"
+for a in code-reviewer security-reviewer library-reviewer; do verdict "$TMP/wt" "$a" pass; done
+out="$(printf '%s' "$wt_payload" | CLAUDE_PROJECT_DIR="$TMP/wtmain" "$BASH_BIN" "$TMP/wtmain/.claude/hooks/review-gate-stop.sh" 2>/dev/null)"
+expect_allow "worktree verdicts for the worktree HEAD pass"
+
+# 28. A repo with only `master` (no origin) still has a base.
+mkdir -p "$TMP/master"
+git -C "$TMP/master" init -q -b master
+git -C "$TMP/master" config user.email t@example.com
+git -C "$TMP/master" config user.name t
+echo "# r" > "$TMP/master/README.md"
+git -C "$TMP/master" add -A
+git -C "$TMP/master" commit -q -m init
+git -C "$TMP/master" checkout -q -b feat
+commit_file "$TMP/master" src/a.rs
+run "$TMP/master"
+expect_block "master is a default-branch fallback" "vs master" "code-reviewer"
+
+# 29. origin/HEAD moved onto HEAD: no silent pass — the user is warned.
+new_repo "$TMP/moved"
+commit_file "$TMP/moved" src/a.ts
+git -C "$TMP/moved" update-ref refs/remotes/origin/HEAD HEAD
+run "$TMP/moved"
+expect_allow "moved origin/HEAD allows"
+printf '%s' "$out" | jq -e '.systemMessage | contains("no commits beyond origin/HEAD") and contains("main")' >/dev/null \
+  || fail "moved origin/HEAD must warn via systemMessage: '$out'"
+pass "moved origin/HEAD warns the user"
 
 echo "review-gate-stop-test: OK"
