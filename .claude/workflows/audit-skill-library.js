@@ -114,6 +114,10 @@ const DEDUP_SCHEMA = {
 
 const RUBRIC = ".claude/skills/skill-library-review/SKILL.md";
 
+// Every agent() names a specialist via opts.agentType (same registry as the
+// Agent tool) — no untyped dispatch. Discovery is a plain search (Explore);
+// generate/verify/backstops are library audits (library-reviewer).
+
 // ---------------------------------------------------------------------------
 // Phase: Discover — derive the skill list (not auto-provided).
 // ---------------------------------------------------------------------------
@@ -129,6 +133,7 @@ if (args && Array.isArray(args.skills) && args.skills.length > 0) {
       `For each path, output ONLY the skill slug (the directory name between ".claude/skills/" and "/SKILL.md").`,
     {
       label: "discover-skills",
+      agentType: "Explore",
       phase: "Discover",
       schema: {
         type: "object",
@@ -171,6 +176,7 @@ async function generateStage(skill, _orig, _index) {
       `If the skill is clean, return an empty findings array — invent nothing.`,
     {
       label: `generate:${skill}`,
+      agentType: "library-reviewer",
       phase: "Generate",
       schema: FINDINGS_SCHEMA,
     }
@@ -218,6 +224,7 @@ async function verifyStage(candidateFindings, _skill, index) {
         `the reciprocal-tiebreaker check still fails. Otherwise isReal:false.`,
       {
         label: `verify:${f.skill}:${index}-${i}`,
+        agentType: "library-reviewer",
         phase: "Verify",
         schema: VERDICT_SCHEMA,
       }
@@ -278,6 +285,7 @@ const reattributed = await agent(
     `Findings JSON:\n${JSON.stringify(verified)}`,
   {
     label: "backstop-1-reattribute",
+    agentType: "library-reviewer",
     phase: "Backstop",
     schema: FINDINGS_SCHEMA,
   }
@@ -322,6 +330,7 @@ const deduped = await agent(
     `Findings JSON:\n${JSON.stringify(attributedFindings)}`,
   {
     label: "backstop-2-body-dedup",
+    agentType: "library-reviewer",
     phase: "Backstop",
     schema: DEDUP_SCHEMA,
   }
