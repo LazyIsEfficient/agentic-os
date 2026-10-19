@@ -67,12 +67,34 @@ If verification fails, do not dispatch gate agents.
 
 Clears when:
 
-- [ ] Every **required** node (non-`?` or triggered `?`) has returned
+- [ ] Every **required** node (non-`?` or triggered `?`) has returned — for the four verdict-emitting reviewers this is checked mechanically by the [Stop gate](#stop-gate-tier-0) from captured artifacts, not by hand
 - [ ] Tier 0/1 findings from gate agents are fixed or explicitly waived
 - [ ] Tier 2 findings logged to findings ledger (advisory — do not block alone)
 - [ ] PR description checkboxes match dispatched agents (see `.github/pull_request_template.md`)
 
 Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, release.
+
+---
+
+## Stop gate (Tier 0)
+
+Pattern 3 is enforced by two hooks ([#258](https://github.com/LazyIsEfficient/agentic-os/issues/258)), so an unreviewed qualifying diff cannot silently end a session. The orchestrator **does not hand-record verdicts**.
+
+1. **Capture — `SubagentStop` → `.claude/hooks/review-verdict-capture.sh`.** When `code-reviewer`, `security-reviewer`, `library-reviewer` or `data-model-verifier` finishes, the hook runs `parse-verdict.sh --expect-head "$(git rev-parse HEAD)"` on its `last_assistant_message` and writes the normalized verdict to `.claude/reviews/<HEAD-sha>-<agent>.json` (exits 0/2/3 only). Reviewers stay read-only; the hook writes the artifact.
+2. **Gate — `Stop` → `.claude/hooks/review-gate-stop.sh`.** Computes changed paths (merge-base with `origin/HEAD` → `origin/main` → `main`, plus uncommitted and untracked), asks the planner which reviewers are required, and returns `{"decision":"block","reason":…}` when:
+   - qualifying changes are **uncommitted** (verdicts bind to a SHA — commit first), or
+   - a required reviewer has **no artifact for the current HEAD**, or its verdict is **`hold`**.
+
+   `fix-before-merge` does not block (a proposal, per [review-tiers](../rules/review-tiers.md)); it is listed as info. `data-model-documenter` emits no verdict and is not checked. `stop_hook_active` true → allow, so each stop attempt blocks at most once.
+
+| Concern | Behavior |
+|---|---|
+| Planner | `scripts/gate-plan.sh` when the hook runs from this project's own `.claude/hooks/`; otherwise (consumer installs) any non-docs path (not `*.md` other than `DATA_MODEL.md`, `LICENSE`, `NOTICE`, `docs/**`) requires `code-reviewer` + `security-reviewer` |
+| Fail-open | Missing `jq`/`git`, unparseable payload, no HEAD, no default branch, git or planner error → stderr note, allow |
+| Opt-out | `AGENTIC_OS_REVIEW_GATE=off` in Claude Code's environment |
+| Re-review | After any new commit, HEAD changes and old artifacts no longer count — re-dispatch the required reviewers |
+
+CI does not read these artifacts yet (committing a verdict file would change HEAD); `check-pr-ship-gates.sh` still checks PR checkboxes.
 
 ---
 
@@ -154,5 +176,7 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 | `scripts/check-pr-ship-gates.sh` | Tier 0 PR checkbox gate (uses gate-plan-lib) |
 | `scripts/implementation-close-test.sh` | Tier 0 — implementation agents declare `G-data-document` close |
 | [review-verdict.md](review-verdict.md) | Gate reviewer brief (base ref + paths only) and `agentic-os/review-verdict@1` output contract |
-| `scripts/parse-verdict.sh` | Tier 0 — validates and normalizes a reviewer's verdict block (exit 0 pass / 1 invalid / 2 hold / 3 fix-before-merge) |
+| `scripts/parse-verdict.sh` | Tier 0 — validates and normalizes a reviewer's verdict block (exit 0 pass / 1 invalid / 2 hold / 3 fix-before-merge); wrapper for the shipped `.claude/hooks/lib/parse-verdict.sh` |
+| `.claude/hooks/review-verdict-capture.sh` | SubagentStop — writes `.claude/reviews/<HEAD>-<agent>.json` from a reviewer's verdict block |
+| `.claude/hooks/review-gate-stop.sh` | Stop — Tier 0 gate on captured verdicts for the current HEAD |
 | `data-model-documentation/references/implementation-close.md` | Session-close contract for implementation agents (shipped with skill) |

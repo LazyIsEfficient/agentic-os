@@ -65,11 +65,8 @@ expect_reject unknown-agent.txt "agent must be one of" "unknown agent rejected"
 expect_reject verifier-fix-before-merge.txt "only emit pass|hold" "verifier fix-before-merge rejected"
 expect_reject verifier-unevidenced-hold.txt "needs an evidenced" "verifier unevidenced hold rejected"
 
-if command -v python3 >/dev/null 2>&1; then
-  expect_reject duplicate-key.txt "duplicate JSON key: verdict" "duplicate key rejected"
-else
-  echo "SKIP duplicate key (python3 not installed)"
-fi
+expect_reject duplicate-key.txt "duplicate JSON key: verdict" "duplicate key rejected"
+expect_reject duplicate-key-nested.txt "duplicate JSON key: findings.0.tier" "nested duplicate key rejected"
 
 set +e
 out="$(bash "$PARSE" --expect-head 0123456789abcdef0123456789abcdef01234567 "$FIX/pass.txt")"

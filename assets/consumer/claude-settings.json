@@ -24,6 +24,13 @@
     "PreCompact": [
       { "matcher": "auto",   "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] },
       { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/review-gate-stop.sh" } ] }
+    ],
+    "SubagentStop": [
+      { "matcher": "code-reviewer|security-reviewer|library-reviewer|data-model-verifier",
+        "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/review-verdict-capture.sh" } ] }
     ]
   }
 }

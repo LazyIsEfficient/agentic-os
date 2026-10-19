@@ -39,7 +39,12 @@
       { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash .claude/hooks/session-state-checkpoint.sh" } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/memory-extract.sh" } ] }
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/memory-extract.sh" } ] },
+      { "hooks": [ { "type": "command", "command": "bash .claude/hooks/review-gate-stop.sh" } ] }
+    ],
+    "SubagentStop": [
+      { "matcher": "code-reviewer|security-reviewer|library-reviewer|data-model-verifier",
+        "hooks": [ { "type": "command", "command": "bash .claude/hooks/review-verdict-capture.sh" } ] }
     ]
   },
   "autoMode": {

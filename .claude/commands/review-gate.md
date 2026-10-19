@@ -9,9 +9,10 @@ Run the mandatory **Pattern 3 — Build + review pairing** gate on the current w
 
 ## Step 0 — `checkpoint:impl-verified`
 
-1. Run `git status --porcelain`. If empty, stop: **no changes to review.**
+1. Run `git diff --name-only origin/main...HEAD` and `git status --porcelain`. If both are empty, stop: **no changes to review.**
 2. List every changed path **including untracked files** (plain `git diff` omits them). Use `git add -N <untracked>` so contract/agent files appear in the diff.
 3. Run local verification: `bash scripts/validate.sh` on any non-docs-only diff; plus task-specific checks. If verification fails, stop — do not dispatch gate agents. Optional: `bash scripts/gate-plan.sh` to list required gate nodes.
+4. **Commit before dispatching reviewers.** Verdicts bind to `git rev-parse HEAD`; the Stop gate ([gate-dag.md](../references/gate-dag.md) § Stop gate) only accepts artifacts for the current HEAD and blocks on uncommitted qualifying changes.
 
 ## Step 1 — Compute triggered nodes
 
@@ -48,7 +49,7 @@ After Wave 1 completes:
 
 ## Step 4 — `checkpoint:ship-ready`
 
-1. Summarize every gate agent verdict; `bash scripts/parse-verdict.sh --expect-head "$(git rev-parse HEAD)"` on each report (exit 0 = `pass`; 1 = malformed — re-dispatch that reviewer; 2 = evidenced `hold`; 3 = `fix-before-merge`).
+1. Do **not** hand-record verdicts. The `SubagentStop` hook (`review-verdict-capture.sh`) already parsed each reviewer's block and wrote `.claude/reviews/<HEAD>-<agent>.json` (`jq .verdict .claude/reviews/"$(git rev-parse HEAD)"-*.json` to list them). A reviewer with no artifact emitted a malformed or stale-head block — re-dispatch it. `hold` = evidenced tier 0/1; `fix-before-merge` = advisory.
 2. Fix Tier 0/1 findings; log Tier 2 to findings ledger ([findings-ledger](../skills/findings-ledger/SKILL.md)).
 3. Do **not** mark work complete until all required nodes ran and findings are addressed.
 

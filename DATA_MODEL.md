@@ -2,7 +2,8 @@
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
 cross-session memory files, the Claude Code Stop-hook memory-extraction
-contracts, and the PreToolUse general-purpose-ban hook I/O.
+contracts, the PreToolUse general-purpose-ban hook I/O, and the reviewer
+verdict contract with its SubagentStop capture / Stop gate hooks.
 
 **Last updated:** 2026-10-19
 
@@ -10,6 +11,7 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-stop-gate (#258) | Added `ReviewVerdictArtifact` (`.claude/reviews/<HEAD>-<agent>.json`, content = `ReviewVerdictNormalized`), `ReviewVerdictCaptureHookIO` (SubagentStop `review-verdict-capture.sh`), and `ReviewGateStopHookIO` (Stop `review-gate-stop.sh`, `{"decision":"block","reason"}`). Updated `ReviewVerdict` / `ReviewVerdictNormalized`: parser moved to `.claude/hooks/lib/parse-verdict.sh` (`scripts/parse-verdict.sh` is now a wrapper) and now ships with hooks; duplicate-key check is `jq --stream` (python3 dependency removed; new fixture `duplicate-key-nested.txt`); all parser line citations re-cut. |
 | 2026-10-19 | fix/audit-scan-scripts (security fix round 2) | Updated `ReviewScanReport`: new `skipped` reason `"manifest resolves outside the repo root"` (both scripts); new check-imports rules `js-import-outside-root` / `py-import-outside-root`; new security-scan copy/containment `error` reasons (npm-audit, pip-audit, cargo-audit); noted text-output control-char escaping and per-line script prefix; every line citation re-verified and shifted to current files. |
 | 2026-10-19 | fix/audit-scan-scripts (gate fixes) | Updated `ReviewScanReport`: new top-level `skipped` array (`{path, reason}`) in both scripts; optional scanner `notes` array (security-scan only); removed stale `"no files in scope"` reason; exit 2 adds missing `--paths` entry, security-scan exit 3 adds no-file-in-scope, check-imports exit 4 adds helper failure / unparseable manifest; added env inputs table (`SECURITY_SCAN_NPM_REGISTRY`, `SECURITY_SCAN_GITLEAKS_CONFIG`, `PYTHONPATH`); `file` path normalization corrected; every line citation re-verified against current files. |
 | 2026-10-19 | fix/audit-scan-scripts | Added `ReviewScanReport`: shared `--json` stdout payload + exit-code contract for the new `scripts/security-scan.sh` and `scripts/check-imports.sh` (consumed by reviewers as Tier 0/1 evidence). |
@@ -188,6 +190,54 @@ Block / steer (`memory-extract.sh:72`):
 
 ---
 
+### ReviewGateStopHookIO
+
+| Field | Value |
+|---|---|
+| **Kind** | `message` |
+| **Ingestion route** | The Claude Code **Stop** hook, registered in `.claude/settings.json:41-44` (alongside `memory-extract.sh`; consumer copy `assets/consumer/claude-settings.json:28-30`). INPUT is the Stop event JSON on **stdin**, truncated to the first 4 MiB (`head -c 4194304`, `review-gate-stop.sh:47`). Reads `ReviewVerdictArtifact` files and git state only — never LLM output (`:3-6`). **Fails open**: missing `jq`/`git`, unparseable payload, no HEAD, no default branch, git or planner errors → one stderr line `review-gate-stop: <reason> — gate skipped (fail-open)`, exit 0 (`:33-35`,`:41`). |
+| **Source** | `.claude/hooks/review-gate-stop.sh` (lines 37–138) |
+
+**INPUT** (Stop event, stdin) — only these fields are consumed:
+
+```json
+{ "stop_hook_active": false, "cwd": "/repo" }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `stop_hook_active` | boolean | no | `.stop_hook_active // false`; `true` → allow (exit 0, no output) — one block per stop attempt — `:10`,`:48-49` |
+| `cwd` | string | no | Used to locate the git root only when `CLAUDE_PROJECT_DIR` is unset/empty; else `$PWD`. Not a git repo → allow silently — `:51-54` |
+
+**Environment:**
+
+| Var | Use |
+|---|---|
+| `AGENTIC_OS_REVIEW_GATE` | Exactly `off` → allow immediately (opt-out) — `:9`,`:43` |
+| `CLAUDE_PROJECT_DIR` | Preferred directory for `git rev-parse --show-toplevel` — `:51`,`:54` |
+| `SHIP_GATES_CHANGED_FILES` | Not read from the caller; set by the hook when invoking `scripts/gate-plan.sh --checkboxes` (only when the hook runs from the same repo's `.claude/hooks/`) — `:73-77`,`:83` |
+
+**Decision inputs** (`:58-101`): default branch ref first of `origin/HEAD`, `origin/main`, `main`; changed paths = `merge-base..HEAD` + tracked-dirty + untracked, minus `.claude/reviews/`; required reviewers = planner output ∩ the four reviewer names, or (consumer fallback) `code-reviewer` + `security-reviewer` whenever any changed path is not docs (`*.md` other than `DATA_MODEL.md`, `LICENSE`, `NOTICE`, `docs/*`) — `:80-98`. No changes or no required reviewers → allow.
+
+**OUTPUT** (stdout) — exactly one of:
+
+Allow: no output, exit 0 (`:43`,`:49`,`:54`,`:71`,`:101`,`:129`).
+
+Block (`:103`, built with `jq -cn`):
+
+```json
+{"decision":"block","reason":"review-gate: <text>"}
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `decision` | string | only when blocking | Literal `"block"` — `:103` |
+| `reason` | string | only when blocking | Prefixed `review-gate: `. Either (a) uncommitted/untracked qualifying changes — lists up to 5 dirty paths and says commit first, then dispatch the required agents (`:107-112`); or (b) `HEAD <12-char sha> has changes vs <ref> that require review.` plus `No captured verdict ... from: <agents>` (`:133`), `Evidenced hold from: <agents>` (`:135`), and advisory `fix-before-merge from: <agents>` info (`:137`) |
+
+Always exits `0` (`:103`; blocks via the JSON `decision`, not the exit code). `fix-before-merge` never blocks on its own (`:23-24`,`:123`,`:129`).
+
+---
+
 ### ReviewScanReport
 
 | Field | Value |
@@ -275,13 +325,13 @@ Skipped object (`skip`, `security-scan.sh:186-188`, `check-imports.sh:204-206`):
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | Emitted by gate reviewer agents as the **only** fenced `json` block of their final output, placed at the very end (`review-verdict.md:32-36`); consumed by `scripts/parse-verdict.sh [--expect-head <sha>] [FILE]` from the file argument or stdin (`parse-verdict.sh:7-8`,`:31-50`). Emitters: `code-reviewer`, `security-reviewer`, `library-reviewer` (verdict `pass`\|`fix-before-merge`\|`hold`) and `data-model-verifier` (`pass`\|`hold` only, parser-enforced) — `review-verdict.md:11-16`; each agent's `## Verdict block` section. `library-investigator` and `adversarial-claims-reviewer` are exempt (`review-verdict.md:18-20`). |
-| **Source** | `.claude/references/review-verdict.md` (Shape lines 30–74, rejections 87–94); `scripts/parse-verdict.sh` (framing lines 52–76, duplicate-key check 78–97, validation 99–145, post-demotion checks 153–161); emitters `.claude/agents/code-reviewer.md:62-68`, `.claude/agents/security-reviewer.md:67-73`, `.claude/agents/library-reviewer.md:67-73`, `.claude/agents/data-model-verifier.md:72-78`; fixtures `scripts/fixtures/review-verdict/*.txt`, tests `scripts/parse-verdict-test.sh` |
-| **Notes** | `.claude/references/review-verdict.md` and `scripts/parse-verdict.sh` are repo-side tooling and do NOT ship via `install.sh` (only `.claude/agents/` ships); each emitting agent restates the enum, required fields, and demotion rule inline in its `## Verdict block` (`review-verdict.md:7-9`; e.g. `code-reviewer.md:64`). |
+| **Ingestion route** | Emitted by gate reviewer agents as the **only** fenced `json` block of their final output, placed at the very end (`review-verdict.md:32-36`); consumed by the parser `.claude/hooks/lib/parse-verdict.sh [--expect-head <sha>] [FILE]` from the file argument or stdin (`lib/parse-verdict.sh:10-12`,`:35-54`). `scripts/parse-verdict.sh` is now a one-line wrapper that `exec`s it (`scripts/parse-verdict.sh:4`; `review-verdict.md:98-99`). In-session consumer: the SubagentStop hook `review-verdict-capture.sh` (see `ReviewVerdictCaptureHookIO`). Emitters: `code-reviewer`, `security-reviewer`, `library-reviewer` (verdict `pass`\|`fix-before-merge`\|`hold`) and `data-model-verifier` (`pass`\|`hold` only, parser-enforced) — `review-verdict.md:11-16`; each agent's `## Verdict block` section. `library-investigator` and `adversarial-claims-reviewer` are exempt (`review-verdict.md:18-20`). |
+| **Source** | `.claude/references/review-verdict.md` (Shape lines 30–74, rejections 87–94); `.claude/hooks/lib/parse-verdict.sh` (framing lines 56–80, duplicate-key check 84–104, validation 106–150, post-demotion checks 159–166); wrapper `scripts/parse-verdict.sh`; emitters `.claude/agents/code-reviewer.md:62-68`, `.claude/agents/security-reviewer.md:67-73`, `.claude/agents/library-reviewer.md:67-73`, `.claude/agents/data-model-verifier.md:72-78`; fixtures `scripts/fixtures/review-verdict/*.txt`, tests `scripts/parse-verdict-test.sh` |
+| **Notes** | The parser now ships to consumers with the hooks (`lib/parse-verdict.sh:6-8`; `review-verdict.md:98-99`; `install.sh:336` `install_dir "hooks"`). `.claude/references/review-verdict.md` and `scripts/` remain repo-side and do NOT ship (`review-verdict.md:7-9`), so each emitting agent restates the enum, required fields, and demotion rule inline in its `## Verdict block` (e.g. `code-reviewer.md:64`). Agent emitter line ranges not re-verified this run. |
 
-**Framing** (`parse-verdict.sh:52-76`; `review-verdict.md:32-36`): an opening fence line matching `^[[:space:]]*```json[[:space:]]*$` and a closing line matching `^[[:space:]]*```[[:space:]]*$` (`parse-verdict.sh:56-57`). The output must contain **exactly one** such block and only whitespace may follow its closing fence. Rejected with exit `1`: zero blocks (`:61`,`:71`), an unterminated block (`:62`,`:72`), more than one block — including a `json` block quoted inside a longer fence (`:63`,`:73`; fixtures `multiple-blocks.txt`, `nested-quote-override.txt`), or any non-whitespace after the closing fence (`:59`,`:64`,`:74`; fixture `trailing-text.txt`). Text *before* the block is allowed. The block body must parse as JSON (`:99`) and contain exactly one value (`:124`) that is an object (`:126`).
+**Framing** (`lib/parse-verdict.sh:56-80`; `review-verdict.md:32-36`): an opening fence line matching `^[[:space:]]*```json[[:space:]]*$` and a closing line matching `^[[:space:]]*```[[:space:]]*$` (`lib/parse-verdict.sh:60-61`). The output must contain **exactly one** such block and only whitespace may follow its closing fence. Rejected with exit `1`: zero blocks (`:65`,`:75`), an unterminated block (`:66`,`:76`), more than one block — including a `json` block quoted inside a longer fence (`:67`,`:77`; fixtures `multiple-blocks.txt`, `nested-quote-override.txt`), or any non-whitespace after the closing fence (`:63`,`:68`,`:78`; fixture `trailing-text.txt`). Text *before* the block is allowed. The block body must parse as JSON (`:82`) and contain exactly one value (`:129`) that is an object (`:131`).
 
-**Duplicate keys** (`parse-verdict.sh:78-97`): when `python3` is on PATH, the block is parsed with `python3 -I` using an `object_pairs_hook` that rejects any repeated key at any object level (stderr `parse-verdict: duplicate JSON key: <k>`, exit `1`; fixture `duplicate-key.txt`). Python syntax errors are ignored there and left to jq (`:91-92`). If `python3` is missing, a stderr warning is printed and the check is skipped (`:96`).
+**Duplicate keys** (`lib/parse-verdict.sh:84-104`; `review-verdict.md:92-94`): checked with `jq --stream` over raw tokens (before jq's last-key-wins collapse) — a value path that is "closed" and then seen again means its key was repeated, at any depth. Rejection: stderr `parse-verdict: duplicate JSON key: <dot.path>` (`:98`,`:103`), exit `1` (fixtures `duplicate-key.txt`, `duplicate-key-nested.txt`); a scan failure is also exit `1` (`:102`). Runs only when the block holds exactly one JSON value (`:89`); the multi-value case is rejected by validation. The former `python3` check is gone — no python dependency, because the parser now lives under `.claude/hooks/`, where Invariant 8 bans inline interpreters (`:84-85`).
 
 **Shape** (`review-verdict.md:38-56`):
 
@@ -307,30 +357,94 @@ Skipped object (`skip`, `security-scan.sh:186-188`, `check-imports.sh:204-206`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `schema` | string literal | yes | Exactly `agentic-os/review-verdict@1` — `parse-verdict.sh:128-129` |
-| `agent` | enum string | yes | One of `code-reviewer` \| `security-reviewer` \| `library-reviewer` \| `data-model-verifier`; anything else rejected (fixture `unknown-agent.txt`) — `parse-verdict.sh:104`,`:130-131`; `review-verdict.md:61` |
-| `base` | string (non-blank) | yes | Base ref diffed against, e.g. `origin/main` — `parse-verdict.sh:132` |
-| `head` | string | yes | Full commit SHA, regex `^([0-9a-f]{40}\|[0-9a-f]{64})$` (lowercase hex) — `parse-verdict.sh:133-134`. With `--expect-head <sha>`, must equal `<sha>` exactly or exit `1` — `parse-verdict.sh:35-37`,`:135-136`; `review-verdict.md:104` |
-| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold` — `parse-verdict.sh:137-138`. `data-model-verifier` may emit only `pass` \| `hold`; `fix-before-merge` from it is rejected (fixture `verifier-fix-before-merge.txt`) — `parse-verdict.sh:139-140`; `review-verdict.md:64` |
-| `findings` | array of Finding | yes | May be empty; non-array rejected — `parse-verdict.sh:141-143` |
+| `schema` | string literal | yes | Exactly `agentic-os/review-verdict@1` — `lib/parse-verdict.sh:133-134` |
+| `agent` | enum string | yes | One of `code-reviewer` \| `security-reviewer` \| `library-reviewer` \| `data-model-verifier`; anything else rejected (fixture `unknown-agent.txt`) — `lib/parse-verdict.sh:109`,`:135-136`; `review-verdict.md:61` |
+| `base` | string (non-blank) | yes | Base ref diffed against, e.g. `origin/main` — `lib/parse-verdict.sh:137` |
+| `head` | string | yes | Full commit SHA, regex `^([0-9a-f]{40}\|[0-9a-f]{64})$` (lowercase hex) — `lib/parse-verdict.sh:138-139`. With `--expect-head <sha>`, must equal `<sha>` exactly or exit `1` — `lib/parse-verdict.sh:39-41`,`:140-141`; `review-verdict.md:107` |
+| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold` — `lib/parse-verdict.sh:142-143`. `data-model-verifier` may emit only `pass` \| `hold`; `fix-before-merge` from it is rejected (fixture `verifier-fix-before-merge.txt`) — `lib/parse-verdict.sh:144-145`; `review-verdict.md:64` |
+| `findings` | array of Finding | yes | May be empty; non-array rejected — `lib/parse-verdict.sh:146-148` |
 
-Finding (each element must be an object — `parse-verdict.sh:107`):
+Finding (each element must be an object — `lib/parse-verdict.sh:112`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `tier` | number | yes | `0` \| `1` \| `2` — `parse-verdict.sh:109-110` |
-| `severity` | enum string | yes | `critical` \| `high` \| `medium` \| `low` — `parse-verdict.sh:111-112`. Prose blocking / should-fix / nit map to `high`-or-`critical` / `medium` / `low` — `review-verdict.md:73-74` |
-| `file` | string (non-blank) | yes | Repo-relative path by convention (`review-verdict.md:68`); parser checks only non-blank string — `parse-verdict.sh:113-114` |
-| `line` | integer ≥ 1 \| null | no | Omitted or `null` = file-level finding — `parse-verdict.sh:115-116` |
-| `summary` | string (non-blank) | yes | One sentence — `parse-verdict.sh:117-118` |
-| `evidence` | string \| null | no (schema) | Must be a string when present — `parse-verdict.sh:119-120`. Contract-required for tier 0/1 (`review-verdict.md:71`); absence is not a validation error but triggers demotion (see `ReviewVerdictNormalized`) |
+| `tier` | number | yes | `0` \| `1` \| `2` — `lib/parse-verdict.sh:114-115` |
+| `severity` | enum string | yes | `critical` \| `high` \| `medium` \| `low` — `lib/parse-verdict.sh:116-117`. Prose blocking / should-fix / nit map to `high`-or-`critical` / `medium` / `low` — `review-verdict.md:73-74` |
+| `file` | string (non-blank) | yes | Repo-relative path by convention (`review-verdict.md:68`); parser checks only non-blank string — `lib/parse-verdict.sh:118-119` |
+| `line` | integer ≥ 1 \| null | no | Omitted or `null` = file-level finding — `lib/parse-verdict.sh:120-121` |
+| `summary` | string (non-blank) | yes | One sentence — `lib/parse-verdict.sh:122-123` |
+| `evidence` | string \| null | no (schema) | Must be a string when present — `lib/parse-verdict.sh:124-125`. Contract-required for tier 0/1 (`review-verdict.md:71`); absence is not a validation error but triggers demotion (see `ReviewVerdictNormalized`) |
 
-**Cross-field rejections** (evaluated after demotion, only when the schema checks above pass — `parse-verdict.sh:153-168`; `review-verdict.md:87-91`), each exit `1`:
+**Cross-field rejections** (evaluated after demotion, only when the schema checks above pass — `lib/parse-verdict.sh:159-173`; `review-verdict.md:87-91`), each exit `1`:
 
-- `verdict: pass` with one or more tier 0/1 findings that still carry evidence after demotion (fixture `pass-contradiction.txt`) — `parse-verdict.sh:157-158`.
-- `agent: data-model-verifier` with `verdict: hold` and zero evidenced tier 0/1 findings — rejected, NOT downgraded (fixture `verifier-unevidenced-hold.txt`) — `parse-verdict.sh:159-160`.
+- `verdict: pass` with one or more tier 0/1 findings that still carry evidence after demotion (fixture `pass-contradiction.txt`) — `lib/parse-verdict.sh:162-163`.
+- `agent: data-model-verifier` with `verdict: hold` and zero evidenced tier 0/1 findings — rejected, NOT downgraded (fixture `verifier-unevidenced-hold.txt`) — `lib/parse-verdict.sh:164-165`.
 
-Unknown extra keys at either level are not rejected; they are dropped from the normalized output (`parse-verdict.sh:148`,`:166`).
+Unknown extra keys at either level are not rejected; they are dropped from the normalized output (`lib/parse-verdict.sh:153`,`:171`).
+
+---
+
+### ReviewVerdictArtifact
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | One JSON file per (HEAD, reviewer) at `<git-root>/.claude/reviews/<HEAD-sha>-<agent>.json`. **Writer:** only the SubagentStop hook `review-verdict-capture.sh` (reviewers are read-only and never write it — `review-verdict-capture.sh:3-4`; `review-verdict.md:120-126`). **Reader:** only the Stop hook `review-gate-stop.sh` (`review-gate-stop.sh:116-120`; `review-verdict.md:126-128`). |
+| **Source** | `.claude/hooks/review-verdict-capture.sh` (lines 47–52, 77–97); `.claude/hooks/review-gate-stop.sh` (lines 115–127); `.claude/references/review-verdict.md` (lines 118–128); `.gitignore:29-31` |
+
+**Content:** exactly the `ReviewVerdictNormalized` JSON (see that section — fields are not duplicated here): the parser's stdout written verbatim plus a trailing newline (`printf '%s\n' "$out"`, `review-verdict-capture.sh:93`).
+
+**Write conditions** (all must hold, else nothing is written — `review-verdict-capture.sh`):
+
+| Rule | Detail |
+|---|---|
+| Agent allowlist | `agent_type` exactly one of `code-reviewer` \| `security-reviewer` \| `library-reviewer` \| `data-model-verifier`; anything else exits silently — `:42-45` |
+| HEAD-bound parse | Parser run as `lib/parse-verdict.sh --expect-head "$head"`, where `head` = `git rev-parse --verify -q HEAD` of the git root — `:50-51`, `:77` |
+| Exit filter | Only parse exits `0` / `2` / `3` (pass / hold / fix-before-merge); exit `1` (invalid, stale head) writes nothing — `:78-82` |
+| Agent match | Normalized `.agent` must equal the subagent's `agent_type` — `:84-85` |
+| Directory safety | Refuses when `.claude/reviews` is a symlink — `:88` |
+
+**Filename:** `<head>-<agent>.json`; `head` must match `^([0-9a-f]{40}|[0-9a-f]{64})$` (`:52`) and `agent` is the allowlisted `agent_type`, so the name cannot leave `.claude/reviews/` (`:17-18`).
+
+**Atomic write / overwrite:** temp file `mktemp "$reviews/.tmp.XXXXXX"` then `mv -f` onto the final name (`:92-93`); a re-review of the same HEAD by the same agent overwrites the prior file. On failure the temp file is removed (`:96`).
+
+**Self-gitignore:** on first creation of the dir, a `.claude/reviews/.gitignore` containing the single line `*` is written if absent (`review-verdict-capture.sh:89-90`). The repo `.gitignore` also lists `.claude/reviews/` (`.gitignore:31`), and `review-gate-stop.sh` excludes `^\.claude/reviews/` from its changed-path set (`review-gate-stop.sh:65`,`:69-70`).
+
+**Read rules** (`review-gate-stop.sh:116-127`): for each required reviewer `a`, reads `$root/.claude/reviews/$head-$a.json` and accepts it only when `.agent == a` AND `.head == <current HEAD>` and `.verdict` is in `pass` \| `fix-before-merge` \| `hold` (`:118-120`). `pass` → satisfied; `fix-before-merge` → satisfied (listed as advisory info); `hold` → block; missing / malformed / mismatched → treated as missing → block (`:121-126`).
+
+---
+
+### ReviewVerdictCaptureHookIO
+
+| Field | Value |
+|---|---|
+| **Kind** | `message` |
+| **Ingestion route** | The Claude Code **SubagentStop** hook, registered with matcher `code-reviewer\|security-reviewer\|library-reviewer\|data-model-verifier` in `.claude/settings.json:45-47` (consumer copy: `assets/consumer/claude-settings.json:31-33`, path `$HOME/.claude/hooks/review-verdict-capture.sh`). INPUT is the SubagentStop event JSON on **stdin**, truncated to the first 4 MiB (`head -c $((MAX_BYTES * 4))`, `MAX_BYTES=1048576` — `review-verdict-capture.sh:28`,`:39`). Side effect: writes `ReviewVerdictArtifact`. **Fails open**: every error prints one `review-verdict-capture: <note>` line to stderr and exits 0 (`:23-24`,`:30`). |
+| **Source** | `.claude/hooks/review-verdict-capture.sh` (lines 26–97) |
+
+**INPUT** (SubagentStop event, stdin) — only these fields are consumed:
+
+```json
+{ "agent_type": "code-reviewer", "last_assistant_message": "<final text>", "agent_transcript_path": "~/.claude/projects/.../x.jsonl", "cwd": "/repo" }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `agent_type` | string | yes (effectively) | Read as `.agent_type // empty \| strings`; not in the 4-name allowlist → exit 0, no output — `:40`,`:42-45`. Unparseable payload → fail-open note — `:40` |
+| `last_assistant_message` | string | no | Primary source of the reviewer's final message — `:54`. Over `MAX_BYTES` (1 MiB) or empty → not captured — `:74-75` |
+| `agent_transcript_path` | string | no | Fallback only when `last_assistant_message` is empty — `:56-57`. Leading `~` expanded; must be a regular non-symlink `*.jsonl` file whose dir resolves under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects` — `:59-63`. Only the last `MAX_BYTES` read; the last `type == "assistant"` entry's `.message.content` (string, or joined `text` parts of an array) is used — `:64-71` |
+| `cwd` | string | no | Used to locate the git root only when `CLAUDE_PROJECT_DIR` is unset/empty; else falls back to `$PWD` — `:47-50` |
+
+**Environment:**
+
+| Var | Use |
+|---|---|
+| `CLAUDE_PROJECT_DIR` | Preferred directory for `git rev-parse --show-toplevel` — `:47`,`:50` |
+| `CLAUDE_CONFIG_DIR` | Root of the transcript containment check (`<dir>/projects`), default `$HOME/.claude` — `:61` |
+
+Requires `jq` and `git` on PATH and `lib/parse-verdict.sh` next to the hook; absence of any → fail-open note (`:32-37`).
+
+**OUTPUT:** nothing on stdout in any path; always exit `0` (`:30`,`:44`,`:94`,`:97`). Diagnostics go to stderr only.
 
 ---
 
@@ -339,16 +453,16 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | Output of `bash scripts/parse-verdict.sh [--expect-head <sha>] [FILE]` (stdin when FILE omitted; `parse-verdict.sh:7-8`,`:31-50`). On exit `0`, `2` or `3` a single line of compact JSON is printed to **stdout** (`parse-verdict.sh:183-190`); on exit `1` nothing is printed to stdout and one `parse-verdict: <reason>` line per error goes to **stderr** (`parse-verdict.sh:26`,`:178-180`). Consumers: gate orchestration / Stop hook / CI. |
-| **Source** | `scripts/parse-verdict.sh` (exit codes lines 17–22, normalization 147–175, emit 183–190); `.claude/references/review-verdict.md` (Normalization + rejections lines 76–94, exit codes 96–113) |
-| **Notes** | Parser and reference doc are repo-side tooling, not shipped by `install.sh` (`review-verdict.md:7-9`). |
+| **Ingestion route** | Output of `bash .claude/hooks/lib/parse-verdict.sh [--expect-head <sha>] [FILE]` (or the `scripts/parse-verdict.sh` wrapper, `scripts/parse-verdict.sh:4`); stdin when FILE omitted (`lib/parse-verdict.sh:10-12`,`:35-54`). On exit `0`, `2` or `3` a single line of compact JSON is printed to **stdout** (`lib/parse-verdict.sh:188-195`); on exit `1` nothing is printed to stdout and one `parse-verdict: <reason>` line per error goes to **stderr** (`lib/parse-verdict.sh:30`,`:183-185`). Consumer: `review-verdict-capture.sh` (SubagentStop), which persists the stdout JSON as `ReviewVerdictArtifact` (`review-verdict-capture.sh:77-93`); also CI / manual use. |
+| **Source** | `.claude/hooks/lib/parse-verdict.sh` (exit codes lines 21–26, normalization 152–180, emit 188–195); `.claude/references/review-verdict.md` (Normalization + rejections lines 76–94, exit codes 107–116) |
+| **Notes** | The parser ships with the hooks (`lib/parse-verdict.sh:6-8`; `review-verdict.md:98-99`); the reference doc is repo-side only (`review-verdict.md:7-9`). |
 
-**Exit codes** (`parse-verdict.sh:17-22`,`:186-190`; `review-verdict.md:106-113`):
+**Exit codes** (`lib/parse-verdict.sh:21-26`,`:191-195`; `review-verdict.md:109-116`):
 
 | Exit | Meaning |
 |---|---|
 | `0` | Valid; normalized `verdict` is `pass` |
-| `1` | Invalid: block count/position (zero, >1, unterminated, trailing text), invalid JSON, not exactly one value, duplicate keys, schema/enum/required-field/agent violation, a cross-field rejection (pass contradiction, `data-model-verifier` `fix-before-merge` or unevidenced `hold`), or `--expect-head` mismatch; also usage error, unreadable file, or missing `jq` (`parse-verdict.sh:26-29`,`:36-46`,`:69-76`,`:94`,`:99`,`:178-180`) |
+| `1` | Invalid: block count/position (zero, >1, unterminated, trailing text), invalid JSON, not exactly one value, duplicate keys, schema/enum/required-field/agent violation, a cross-field rejection (pass contradiction, `data-model-verifier` `fix-before-merge` or unevidenced `hold`), or `--expect-head` mismatch; also usage error, unreadable file, missing `jq`, or duplicate-key scan failure (`lib/parse-verdict.sh:30-33`,`:40-44`,`:50`,`:73-80`,`:82`,`:102-103`,`:181`,`:183-185`) |
 | `2` | Valid; normalized `verdict` is `hold` (at least one tier 0/1 finding survived demotion) |
 | `3` | Valid; normalized `verdict` is `fix-before-merge`, including a downgraded unevidenced `hold` |
 
@@ -360,24 +474,24 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `schema` | string literal | yes | Passed through — `parse-verdict.sh:166` |
-| `agent` | enum string | yes | Passed through (already validated against the four-agent enum) — `parse-verdict.sh:166` |
-| `base` | string | yes | Passed through — `parse-verdict.sh:166` |
-| `head` | string | yes | Passed through; equals `--expect-head` when that flag was given — `parse-verdict.sh:166` |
-| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold`. A `hold` with zero findings at tier ≤ 1 after demotion is rewritten to `fix-before-merge` — `parse-verdict.sh:170-172`. Never fires for `data-model-verifier` (that case is rejected first — `:159-160`) |
-| `findings` | array of NormalizedFinding | yes | Each input finding mapped through `normalize_finding` — `parse-verdict.sh:166` |
-| `verdict_demoted_from` | string literal `"hold"` | no | Present only when the `hold` → `fix-before-merge` downgrade fired — `parse-verdict.sh:171` |
+| `schema` | string literal | yes | Passed through — `lib/parse-verdict.sh:171` |
+| `agent` | enum string | yes | Passed through (already validated against the four-agent enum) — `lib/parse-verdict.sh:171` |
+| `base` | string | yes | Passed through — `lib/parse-verdict.sh:171` |
+| `head` | string | yes | Passed through; equals `--expect-head` when that flag was given — `lib/parse-verdict.sh:171` |
+| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold`. A `hold` with zero findings at tier ≤ 1 after demotion is rewritten to `fix-before-merge` — `lib/parse-verdict.sh:175-177`. Never fires for `data-model-verifier` (that case is rejected first — `:164-165`) |
+| `findings` | array of NormalizedFinding | yes | Each input finding mapped through `normalize_finding` — `lib/parse-verdict.sh:171` |
+| `verdict_demoted_from` | string literal `"hold"` | no | Present only when the `hold` → `fix-before-merge` downgrade fired — `lib/parse-verdict.sh:176` |
 
-NormalizedFinding (`parse-verdict.sh:147-151`):
+NormalizedFinding (`lib/parse-verdict.sh:152-156`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `demoted_from` | number (`0` \| `1`) | no | Present only when the input tier was 0/1 and `evidence` was missing, `null`, or whitespace-only; holds the original tier — `parse-verdict.sh:149-150` |
-| `tier` | number | yes | `0` \| `1` \| `2`; set to `2` on demotion — `parse-verdict.sh:150` |
-| `severity` | enum string | yes | Passed through — `parse-verdict.sh:148` |
-| `file` | string | yes | Passed through — `parse-verdict.sh:148` |
-| `line` | integer ≥ 1 \| null | yes | Always present; omitted input → `null` — `parse-verdict.sh:148` |
-| `summary` | string | yes | Passed through — `parse-verdict.sh:148` |
-| `evidence` | string \| null | yes | Always present; omitted input → `null`; a blank string is kept as-is (even when demoted) — `parse-verdict.sh:148` |
+| `demoted_from` | number (`0` \| `1`) | no | Present only when the input tier was 0/1 and `evidence` was missing, `null`, or whitespace-only; holds the original tier — `lib/parse-verdict.sh:154-155` |
+| `tier` | number | yes | `0` \| `1` \| `2`; set to `2` on demotion — `lib/parse-verdict.sh:155` |
+| `severity` | enum string | yes | Passed through — `lib/parse-verdict.sh:153` |
+| `file` | string | yes | Passed through — `lib/parse-verdict.sh:153` |
+| `line` | integer ≥ 1 \| null | yes | Always present; omitted input → `null` — `lib/parse-verdict.sh:153` |
+| `summary` | string | yes | Passed through — `lib/parse-verdict.sh:153` |
+| `evidence` | string \| null | yes | Always present; omitted input → `null`; a blank string is kept as-is (even when demoted) — `lib/parse-verdict.sh:153` |
 
-Key order: `demoted_from` is emitted first in a demoted finding; `verdict_demoted_from` last at top level (`parse-verdict.sh:150`,`:171`). Consumers should not rely on key order.
+Key order: `demoted_from` is emitted first in a demoted finding; `verdict_demoted_from` last at top level (`lib/parse-verdict.sh:155`,`:176`). Consumers should not rely on key order.
