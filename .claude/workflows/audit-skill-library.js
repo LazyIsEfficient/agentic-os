@@ -117,6 +117,8 @@ const RUBRIC = ".claude/skills/skill-library-review/SKILL.md";
 // Every agent() names a specialist via opts.agentType (same registry as the
 // Agent tool) — no untyped dispatch. Discovery is a plain search (Explore);
 // generate/verify/backstops are library audits (library-reviewer).
+// The typed persona postdates the recorded false-positive measurements, so
+// re-measure the FP rate on the next run.
 
 // ---------------------------------------------------------------------------
 // Phase: Discover — derive the skill list (not auto-provided).
@@ -156,7 +158,8 @@ log(`Discovered ${skills.length} skills to audit.`);
 // ---------------------------------------------------------------------------
 async function generateStage(skill, _orig, _index) {
   const result = await agent(
-    `You are auditing ONE skill: "${skill}".\n\n` +
+    `This prompt's output contract overrides your agent persona: return only the schema JSON; do not run ledger.py or write any file; do not emit a verdict section.\n\n` +
+      `You are auditing ONE skill: "${skill}".\n\n` +
       `GROUNDING DISCIPLINE — read before you claim (no working from memory):\n` +
       `1. Read .claude/skills/${skill}/SKILL.md in full.\n` +
       `2. Read every file under .claude/skills/${skill}/references/ and /assets/ that the SKILL.md links.\n` +
@@ -196,7 +199,8 @@ async function verifyStage(candidateFindings, _skill, index) {
   for (let i = 0; i < candidateFindings.length; i++) {
     const f = candidateFindings[i];
     const verdict = await agent(
-      `You are an ADVERSARIAL VERIFIER. DEFAULT TO REJECT. A finding stands ONLY\n` +
+      `This prompt's output contract overrides your agent persona: return only the schema JSON; do not run ledger.py or write any file; do not emit a verdict section.\n\n` +
+        `You are an ADVERSARIAL VERIFIER. DEFAULT TO REJECT. A finding stands ONLY\n` +
         `if it survives your own independent re-read — never trust the generator.\n\n` +
         `Candidate finding (finding #${index}-${i}):\n` +
         `  about-skill: ${f.skill}\n` +
@@ -277,7 +281,8 @@ phase("Backstop");
 // verifier already re-attributed into `skill`; here we re-attribute once more
 // from the finding's own title + evidence as the authoritative safety net.
 const reattributed = await agent(
-  `BACKSTOP 1 — meta-skill mis-attribution re-attribution.\n` +
+  `This prompt's output contract overrides your agent persona: return only the schema JSON; do not run ledger.py or write any file; do not emit a verdict section.\n\n` +
+    `BACKSTOP 1 — meta-skill mis-attribution re-attribution.\n` +
     `A meta-skill reviewer (e.g. the agent reviewing "skill-library-review") can\n` +
     `attribute findings about OTHER skills to itself. For each finding below,\n` +
     `re-derive the skill it is REALLY about from its TITLE and EVIDENCE alone, and\n` +
@@ -317,7 +322,8 @@ if (finalFindings.length !== verified.length) {
 // issue whose title never said "CRM"). Fetch open issues WITH bodies and drop
 // any finding whose evidence/substance already appears in an issue body.
 const deduped = await agent(
-  `BACKSTOP 2 — dedup candidate findings against existing issue BODIES, not just titles.\n` +
+  `This prompt's output contract overrides your agent persona: return only the schema JSON; do not run ledger.py or write any file; do not emit a verdict section.\n\n` +
+    `BACKSTOP 2 — dedup candidate findings against existing issue BODIES, not just titles.\n` +
     `Run: gh issue list --state open --limit 200 --json number,title,body\n` +
     `Then for EACH finding below, check whether its substance (the evidence/quote,\n` +
     `the file path, the specific defect) already appears anywhere in an existing\n` +
