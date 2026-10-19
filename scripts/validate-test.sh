@@ -46,6 +46,8 @@ make_copy() {
   fi
   cp "$REPO_ROOT/install.sh" "$dst/install.sh"
   cp "$REPO_ROOT/install.ps1" "$dst/install.ps1"
+  # backs invariant 14 (install-pins): README carries the release pin too
+  cp "$REPO_ROOT/README.md" "$dst/README.md"
   printf '%s' "$dst"
 }
 
@@ -594,6 +596,32 @@ export const meta = {
 JS
 run_validate "$c56"
 assert_not_flagged "case 56 names (workflow meta.name ending in t parses intact)" names "wf-test.js"
+
+# 57: install-pins — install.sh VERSION/EXPECTED_SHA256 is canonical; every
+# other pin (ps1, both header URLs, README block/URLs/digests, retired hooks)
+# must agree with it.
+pin_case() {
+  local label="$1" file="$2" sed_expr="$3" needle="$4" c
+  c="$(make_copy)"
+  sed -E "$sed_expr" "$c/$file" > "$c/$file.tmp" && mv "$c/$file.tmp" "$c/$file"
+  assert_fails_on "$label" "$c" install-pins "$needle"
+}
+pin_case "case 57a install-pins (install.ps1 \$Version drift)" install.ps1 \
+  's/^\$Version([[:space:]]*)= "v[0-9.]+"/$Version\1= "v0.0.1"/' 'install.ps1 — $Version "v0.0.1"'
+pin_case "case 57b install-pins (stale install.ps1 header URL)" install.ps1 \
+  's#agentic-os/v[0-9.]+/install.ps1#agentic-os/v2.6.0/install.ps1#' 'references release v2.6.0'
+pin_case "case 57c install-pins (install.sh header URL drift)" install.sh \
+  's#agentic-os/v[0-9.]+/install.sh \| bash$#agentic-os/v9.9.9/install.sh | bash#' 'install.sh — references release v9.9.9'
+pin_case "case 57d install-pins (install.ps1 digest drift)" install.ps1 \
+  's/^\$ExpectedSha256([[:space:]]*)= "[0-9a-f]+"/$ExpectedSha256\1= "0000000000000000000000000000000000000000000000000000000000000000"/' 'ExpectedSha256 differs'
+pin_case "case 57e install-pins (README current release drift)" README.md \
+  's/^- \*\*Current release:\*\* `v[0-9.]+`/- **Current release:** `v0.0.2`/' 'Current release'
+pin_case "case 57f install-pins (README verify digest drift)" README.md \
+  's/^echo "[0-9a-f]{64}  agentic-os-/echo "1111111111111111111111111111111111111111111111111111111111111111  agentic-os-/' 'in a verify command'
+pin_case "case 57g install-pins (retired-hook lists disagree)" install.sh \
+  's/^RETIRED_HOOKS=""/RETIRED_HOOKS="old-hook.sh"/' 'RetiredHooks'
+pin_case "case 57h install-pins (non-tag VERSION)" install.sh \
+  's/^VERSION="v[0-9.]+"/VERSION="main"/' 'not a vX.Y.Z release tag'
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

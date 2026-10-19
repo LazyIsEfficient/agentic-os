@@ -2,7 +2,8 @@
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
 cross-session memory files, the Claude Code Stop-hook memory-extraction
-contracts, and the PreToolUse general-purpose-ban hook I/O.
+contracts, the PreToolUse general-purpose-ban hook I/O, and the installer's
+consumer-side manifest and hook registration.
 
 **Last updated:** 2026-10-19
 
@@ -10,6 +11,7 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-installer-lifecycle (issue #272) | Added `AgenticOsInstallManifest` (new `.agentic-os-manifest.json` per install root, written by `install.sh` / `install.ps1`, read back cross-version and cross-installer to decide update / keep / prune / uninstall) and `ConsumerHookRegistration` (installer-owned entries in consumer `settings.json` / Codex `hooks.json`: exact-command ownership, `RETIRED_HOOKS` / `$RetiredHooks` stripped from every event, new uninstall mode). `scripts/validate.sh` install-pins invariant is CLI output only — no contract. |
 | 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
 | 2026-10-19 | fix/audit-validate-rules | No-op: new `scripts/validate.sh` static checks (R4/R6/R9/R12/R13, skill-length, workflow-agent-type, no-general-purpose), a `warn()` helper emitting `WARN [tag]: path — reason`, and a warning count in the summary line are human-readable CLI output with no machine consumer in the repo (no file outside `scripts/validate*.sh` references the `WARN [` line). Warnings never change the exit code. No API/persistence/message changes. |
 | 2026-10-19 | fix/audit-ledger-fp | Added findings-ledger contracts (issue #279): `FindingsLedgerEvent` (append-only JSONL event log; new optional `fingerprint_scheme` / `category` / `symbol` keys, structured scheme-2 fingerprint, RECURRING only on a sighting from a different `run_id`; `add` rejects control characters in `--file`/`--category`/`--symbol`; scheme-2 path/symbol normalization) and `FindingsLedgerExportRow` (new `export` per-fingerprint summary, no claim text but raw `file`/`symbol` free text; refuses `--out` inside the ledger directory, reads under the lock, atomic `mkstemp` + `os.replace` write). Line citations refreshed after PR #288 review fixes. |
@@ -22,6 +24,71 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
 | 2026-07-06 | fix/macos-bash-issue-with-validate-script | No-op: `scripts/validate.sh` changes (ulimit fd bump, check_tombstones grep refactor) are internal control flow only — no data contracts affected. |
+
+---
+
+### AgenticOsInstallManifest
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | File `.agentic-os-manifest.json` (`MANIFEST_NAME`, `install.sh:54`; `$ManifestName`, `install.ps1:60`) at each install root on the consumer machine: Claude dest `${CLAUDE_DIR:-$HOME/.claude}` (`install.sh:107`) or `install.ps1 -Dest` (default `$env:USERPROFILE\.claude`, `install.ps1:33`,`:146`); with `install.sh --codex`, **two** manifests — the Codex skills dir (`${CODEX_SKILLS_DIR:-$HOME/.agents/skills}`, or `<project>/.agents/skills` with `--project`) and the Codex config dir (`${CODEX_HOME:-$HOME/.codex}`, or `<project>/.codex`) (`install.sh:113-126`,`:606-607`). **Written** by `write_manifest` (`install.sh:269-281`) from `sync_finish` (`:405-407`) and by `Write-Manifest` (`install.ps1:203-216`, called at `:548`), only on a non-dry-run install, atomically: write `<manifest>.tmp`, then `mv` / `Move-Item -Force` (`install.sh:279-280`, `install.ps1:214-215`). **Read** at the start of every install (`install.sh:307`, `install.ps1:478`) and uninstall (`install.sh:443`, `install.ps1:402`) — possibly by a different release or by the other installer (`install.ps1:202`). **Deleted** by `--uninstall` / `-Uninstall` after unmodified tracked files are removed (`install.sh:469-470`, `install.ps1:416-417`). |
+| **Source** | `install.sh` (lines 19-23, 54, 242-281, 293-412, 433-472); `install.ps1` (lines 16-20, 60, 157-216, 389-419, 474-548) |
+
+**Shape** (exact byte layout of both writers — `install.sh:272-278`, `install.ps1:205-212`):
+
+```json
+{
+  "schema": 1,
+  "name": "agentic-os",
+  "version": "v3.0.1",
+  "source": "release",
+  "platform": "claude",
+  "files": [
+    {"path": "agents/code-reviewer.md", "sha256": "<64 lowercase hex>"},
+    {"path": "hooks/block-bad-bash.sh", "sha256": "<64 lowercase hex>"}
+  ]
+}
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `schema` | integer | yes | Literal `1` (`install.sh:272`, `install.ps1:205`). Not checked on read |
+| `name` | string | yes | Literal `"agentic-os"` (`install.sh:272`, `install.ps1:205`). Not checked on read |
+| `version` | string | yes | `VERSION` (`install.sh:45`) / `$Version` (`install.ps1:51`), e.g. `v3.0.1`; written even for a local-clone install. Not checked on read |
+| `source` | enum string | yes | `"release"` (pinned tarball) \| `"local-clone"` (`SOURCE_KIND`, `install.sh:168`,`:171`; `$SourceKind`, `install.ps1:73`,`:76`). Not checked on read |
+| `platform` | enum string | yes | `"claude"` \| `"codex"` — `install.sh` passes `claude` (`:580`) or `codex` for both Codex roots (`:606-607`); `install.ps1` always writes `"claude"` (`:206`). Not checked on read |
+| `files` | array of FileEntry | yes | One entry per file this release ships to that root (may be `[]`), sorted by path in byte order (`LC_ALL=C sort`, `install.sh:250`; `StringComparer::Ordinal`, `install.ps1:196-200`) |
+
+FileEntry (one per line, exactly `{"path": "<rel>", "sha256": "<hex>"}` — `install.sh:276`, `install.ps1:210`):
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `path` | string | yes | Relative to **that** root, `/`-separated, no leading `./` (`install.sh:249`, `install.ps1:175`). Claude root: `skills/…`, `agents/…`, `commands/…`, `hooks/…`; Codex skills root: `<skill>/…` (no `skills/` prefix); Codex config root: `agents/<name>.toml`, `hooks/…` (`install.sh:599-607`). Release paths are restricted to `[A-Za-z0-9._@+-]` segments, else the install aborts (`install.sh:299-303`, `install.ps1:475-477`), so no JSON escaping is done (`install.sh:267-268`) |
+| `sha256` | string (64 hex, lowercase) | yes | SHA-256 of the **release copy** of the file (`nsha`, `install.sh:340`; `$nsha`, `install.ps1:498-499`) — also for a file kept because the user modified it, so a later run still sees it as modified |
+
+**Read filters** (an entry failing any is silently ignored, so a tampered manifest cannot aim removal outside its root — `install.sh:253-254`, `install.ps1:181-182`):
+
+- `install.sh` `read_manifest` (`:255-265`) is a line-wise `awk` regex, **not** a JSON parser: it matches `"path": "[^"]*", "sha256": "[0-9a-f]+"` once per line (`:258`), so it depends on the one-entry-per-line, exact-spacing form above. Drops entries whose sha is not 64 chars, whose path is outside `^[A-Za-z0-9._@+/-]+$`, starts with `/`, or has a `..` segment (`:262`). Output de-duplicated (`sort -u`, `:264`). Unparseable content yields zero entries (install then treats every file as pre-manifest; uninstall removes nothing but still deletes the manifest).
+- `install.ps1` `Read-Manifest` (`:183-194`) parses with `ConvertFrom-Json`; keeps entries where `path` and `sha256` are strings, `sha256 -cmatch '^[0-9a-f]{64}$'` (case-sensitive, so uppercase hex is dropped, as in `install.sh` — `:189`), and `Test-SafeRel` passes (same charset / no leading `/` / no `..` segment — `:159`,`:165-167`). Unlike `install.sh`, malformed JSON is not read as zero entries: `ConvertFrom-Json` throws (`$ErrorActionPreference = "Stop"`, `:36`, `:187`) and the install or uninstall aborts.
+
+**Lifecycle semantics** (per path, comparing release sha `n`, manifest sha `o`, on-disk sha `c` — `sync_place`, `install.sh:323-366`; `install.ps1:487-520`):
+
+| Case | Action | Re-recorded in new manifest? |
+|---|---|---|
+| in manifest, not in release, missing on disk | nothing | no |
+| in manifest, not in release, under `hooks/`, `jq` missing | kept with warning (cannot be unregistered first; `install.sh:328-332`) | yes (`o`) |
+| in manifest, not in release, `c == o` | removed (`no longer shipped`) | no |
+| in manifest, not in release, `c != o` | kept with warning ("now yours") | no — untracked from now on |
+| in release, missing on disk | added | yes (`n`) |
+| `c == n` | unchanged | yes |
+| `o` present and `c == o` | updated to release copy | yes |
+| path under `hooks/`, otherwise differs | always replaced; old copy saved as `<file>.bak.<YYYYmmddHHMMSS>` (`install.sh:350-355`, `install.ps1:507-512`) | yes |
+| `--force` / `-Force` | overwritten | yes |
+| no `o` (pre-manifest install), differs | kept with warning, counted as legacy | yes (`n`) |
+| `o` present, `c` differs from both | kept with warning | yes (`n`) |
+
+Retired skill directories (`TOMBSTONES` from `scripts/validate.sh`, `install.sh:229`, `install.ps1:141-143`): files not tracked by the old manifest are removed only with `--prune-legacy` / `-PruneLegacy` (`install.sh:368-388`, `install.ps1:522-537`). Uninstall removes each tracked file whose on-disk sha equals the manifest sha, keeps modified ones, prunes emptied dirs, then deletes the manifest; with no manifest it removes nothing (`install.sh:433-472`, `install.ps1:398-419`).
 
 ---
 
@@ -60,6 +127,43 @@ Deny (`block-general-purpose.sh:36`, `:61-62`):
 | `hookSpecificOutput.hookEventName` | string | yes | Literal `"PreToolUse"` — `:36`, `:62` |
 | `hookSpecificOutput.permissionDecision` | string | yes | Literal `"deny"` — `:36`, `:62` |
 | `hookSpecificOutput.permissionDecisionReason` | string | yes | Prefixed `block-general-purpose: `. Gives the cause (general-purpose/untyped, `jq` missing, or unparseable payload) followed by the specialist list `$SPECIALISTS` — `:31`, `:43`, `:61`, `:66` |
+
+---
+
+### ConsumerHookRegistration
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Consumer-owned config the installer reads and rewrites in place. **Claude:** `<DEST>/settings.json`, DEST canonicalized with `pwd -P` (`install-hook-settings.sh:217-219`,`:263-264`); merged on install by `merge_claude_hook_settings` (`:208-253`, called `install.sh:588`) and stripped on uninstall by `unregister_claude_hook_settings` (`:257-290`, called `install.sh:550` before files are removed at `:551`); `install.ps1` `Update-ClaudeHookSettings "merge"` / `"uninstall"` (`install.ps1:306-385`, called `:539`, `:396`). **Codex:** `$CODEX_CONFIG_DIR/hooks.json` (`install-hook-settings.sh:84`,`:123`), via `merge_codex_hook_settings` (`:80-116`, `install.sh:616`) / `unregister_codex_hook_settings` (`:120-145`, `install.sh:555`, before `:556-557`). Existing file rewritten via `<file>.tmp` + `mv`; `cp -p` keeps a 0600 mode (`install-hook-settings.sh:236-248`, `:29-31`). A missing file is created from the rewritten template (`:113`, `:250`; ps1 writes it verbatim, `install.ps1:320-327`). **Merge without `jq`:** template copied only when no file exists (Claude: only when DEST is `~/.claude`), else a warning and no change, return 0 (`install-hook-settings.sh:88-97`,`:222-230`). **Unregister without `jq` fails closed:** when the config file exists, prints `Error: jq is required to unregister AgenticOS hooks from <file> … Nothing was removed.` and returns 1 (`:131-134`,`:272-275`); under `set -e` (`install.sh:37`) that aborts `--uninstall` before `uninstall_root` deletes any file. With no config file (or, Claude, no DEST dir) it returns 0 (`:125-128`,`:262`,`:266-269`). `install.ps1` does not use `jq`. Dry run writes nothing in the install dir (`:29-31`,`:144`,`:289`). |
+| **Source** | `scripts/lib/install-hook-settings.sh` (lines 13-40, 47-145, 149-290); templates `assets/consumer/claude-settings.json`, `assets/consumer/codex-hooks.json`; `install.ps1` (lines 242-385); `RETIRED_HOOKS` `install.sh:48-52`, `$RetiredHooks` `install.ps1:54-58` |
+
+**Shape** (only the fields the installer reads or writes; all other keys are preserved untouched):
+
+```json
+{ "hooks": { "<Event>": [ { "matcher": "Bash", "hooks": [
+  { "type": "command", "command": "bash /Users/me/.claude/hooks/block-bad-bash.sh", "onFailure": "block", "statusMessage": "AgenticOS: …" }
+] } ] } }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `hooks` | object | no | Absent → treated as `{}` on merge, left absent on uninstall. Non-object → error, file untouched (`install-hook-settings.sh:193-194`, `install.ps1:337-339`). On uninstall, removed entirely if stripping empties a non-empty object (`install-hook-settings.sh:203`,`:76`; `install.ps1:365-366`) |
+| `hooks.<Event>` | array of Group | no | Events shipped: Claude `PreToolUse`, `SessionStart`, `UserPromptSubmit`, `PreCompact` (`claude-settings.json:3-27`); Codex `SessionStart`, `PreCompact` (`codex-hooks.json:3-26`). Claude merge: a non-array value for a shipped event → error (`install-hook-settings.sh:198-199`, `install.ps1:358-360`). An event emptied by stripping is deleted; one that was already `[]` is kept (`install-hook-settings.sh:186-189`) |
+| Group `.matcher` | string | no | Copied from the template; never used for ownership |
+| Group `.hooks` | array of Handler | yes | A group emptied by stripping is dropped (`install-hook-settings.sh:184`, `install.ps1:280`) |
+| Handler `.type` | string | yes | Template literal `"command"` |
+| Handler `.command` | string | yes | Template `$HOME/.claude/hooks` / `$HOME/.codex/hooks` rewritten to `<dest>/hooks` (`install-hook-settings.sh:151-160`,`:47-56`; `install.ps1:313`). **Claude ownership key:** a handler is AgenticOS-owned only when its whole command, trimmed and with runs of `/` collapsed, equals a template command or `bash $HOME/.claude/hooks/<retired>` — each in the literal, canonical-DEST, and as-given-DEST forms (`install-hook-settings.sh:162-169`,`:178-180`,`:191-192`; `install.ps1:254-271`). Compound commands are never owned |
+| Handler `.onFailure` | string | no | Template sets `"block"` on the `Agent\|Task` handler (`claude-settings.json:14`) |
+| Handler `.statusMessage` | string | no | **Codex ownership key:** a group is owned when any handler's `statusMessage` starts with `AgenticOS:` (`install-hook-settings.sh:63-64`; `codex-hooks.json:10`,`:22`) |
+
+**Merge / uninstall semantics:**
+
+- Claude merge: retired handlers stripped from **every** event; in each shipped event, template handlers stripped and the template groups appended; re-running is byte-identical (`install-hook-settings.sh:170-173`,`:195-200`; `install.ps1:340-363`).
+- Claude uninstall: template + retired handlers stripped from every event (`install-hook-settings.sh:174`,`:202`; `install.ps1:340`).
+- Codex merge / uninstall: owned groups stripped from every event; merge then appends the template groups (`install-hook-settings.sh:58-78`). Codex does not use the retired-hook list (`install.sh:555`,`:616`).
+- Retired names: `RETIRED_HOOKS` (space-separated) / `$RetiredHooks` (array), both currently empty (`install.sh:52`, `install.ps1:58`); each must match `^[A-Za-z0-9._-]+\.sh$` or the install exits (`install-hook-settings.sh:18-21`).
+- Uninstall prints `unregister hook: <command>` for each removed command (`install-hook-settings.sh:33-40`, `install.ps1:371-375`).
 
 ---
 

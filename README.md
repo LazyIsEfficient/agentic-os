@@ -138,7 +138,7 @@ cd agentic-os
 ./install.sh
 ```
 
-Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/commands/`. Existing files are not overwritten by default. Add `--force` to update everything.
+Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/commands/`, and `~/.claude/hooks/`. To update, re-run the installer; to remove AgenticOS, run it with `--uninstall`. See [Updating and uninstalling](#updating-and-uninstalling).
 
 #### Windows (PowerShell)
 
@@ -156,7 +156,7 @@ cd agentic-os
 .\install.ps1
 ```
 
-Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files. (The remote install uses `tar`, which ships with Windows 10 1803+.)
+Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, `%USERPROFILE%\.claude\commands\`, and `%USERPROFILE%\.claude\hooks\`. Update and uninstall follow the same rules as on macOS/Linux, with `-Force`, `-PruneLegacy`, `-Uninstall`, and `-DryRun`. The PowerShell lifecycle has not been run in CI yet. (The remote install uses `tar`, which ships with Windows 10 1803+.)
 
 ### Codex
 
@@ -174,7 +174,7 @@ After release, the verified one-liner is:
 curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/<release-tag>/install.sh | bash -s -- --codex
 ```
 
-The default Codex install is user-scoped: skills go to `~/.agents/skills/`, converted custom agents go to `$CODEX_HOME/agents/` (default `~/.codex/agents/`), and supported hooks go beside them. Existing files are preserved unless `--force` is passed.
+The default Codex install is user-scoped: skills go to `~/.agents/skills/`, converted custom agents go to `$CODEX_HOME/agents/` (default `~/.codex/agents/`), and supported hooks go beside them. Update and uninstall work as for Claude (`--codex --uninstall`), with one manifest in the skills directory and one in the Codex config directory.
 
 For a project-scoped install from a local AgenticOS clone, point at the target repository:
 
@@ -226,6 +226,18 @@ For a custom user-scoped Codex location:
 ```bash
 CODEX_HOME=/path/to/.codex CODEX_SKILLS_DIR=/path/to/.agents/skills ./install.sh --codex
 ```
+
+### Updating and uninstalling
+
+Each install writes `.agentic-os-manifest.json` in its destination. The manifest lists every installed file and its SHA-256, and the installer uses it on the next run:
+
+- **Update:** re-run the installer. A file you have not changed since install is replaced with the new release's copy. A file you changed is kept, and the installer names it in a warning. Add `--force` to overwrite those too.
+- **Hooks are always refreshed.** A shipped hook script is security-relevant, so the installer always replaces it with the release copy. If you had edited it, your version is saved as `<file>.bak.<timestamp>` and the installer warns you.
+- **Prune:** a file that a new release no longer ships is removed if you have not changed it. If you have, it is kept with a warning. Hooks that a release retires are unregistered from `settings.json`, and their files are pruned the same way. Directories left empty are removed.
+- **Your files are never touched.** Anything not listed in a manifest, such as your own skills or hooks, is left alone.
+- **Installs from before manifests existed:** the first run adopts the install. Files that differ from the release are kept and named. Retired skill directories, such as `security-and-hardening`, are reported but not removed. Pass `--prune-legacy` to remove them; each file is listed before it is deleted.
+- **Uninstall:** `./install.sh --uninstall` (`--codex --uninstall` for Codex, `.\install.ps1 -Uninstall` on Windows). Removes every unchanged manifest file and keeps changed ones with a warning. Removes only the AgenticOS hook entries from `settings.json` or `hooks.json`, leaving your own hooks and the rest of the file in place. Finally removes the manifest. It prints each file removed or kept.
+- **Preview:** add `--dry-run` (`-DryRun`) to any of the above to print what would change without changing anything.
 
 ---
 

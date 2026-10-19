@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# install-hook-settings.sh — merge consumer hook registration into global config.
-# Sourced by install.sh (not executed directly).
+# install-hook-settings.sh — merge consumer hook registration into global config,
+# and remove it again on uninstall. Sourced by install.sh (not executed directly).
 
 _validate_install_dest() {
   local dest="$1"
@@ -9,6 +9,37 @@ _validate_install_dest() {
     exit 1
   fi
 }
+
+# Space-separated retired hook basenames → JSON array. Names are validated so
+# they can only ever form a `bash <hooks dir>/<name>` command.
+_retired_hooks_json() {
+  local name
+  for name in $1; do
+    if [[ ! "$name" =~ ^[A-Za-z0-9._-]+\.sh$ ]]; then
+      echo "Error: invalid retired hook name: $name" >&2
+      exit 1
+    fi
+  done
+  jq -nc --arg r "$1" '$r | split(" ") | map(select(length > 0))'
+}
+
+# Scratch file for an unregister rewrite. A real run writes beside the target
+# (`cp -p` keeps a 0600 settings file 0600 across the `mv`); a dry run writes
+# outside the install dir so it leaves no trace there.
+_unregister_tmp() {
+  if [[ "$2" == "true" ]]; then mktemp; else cp -p "$1" "$1.tmp"; printf '%s' "$1.tmp"; fi
+}
+
+# Print every hook command present in $1 but not in $2, one per line, prefixed.
+_report_removed_hook_commands() {
+  local before="$1" after="$2" prefix="$3" cmd
+  local q='[.hooks | .. | objects | select(has("command")) | .command | strings] | unique | .[]'
+  while IFS= read -r cmd; do
+    if [[ -n "$cmd" ]]; then printf '%sunregister hook: %s\n' "$prefix" "$cmd"; fi
+  done < <(comm -23 <(jq -r "$q" "$before" | LC_ALL=C sort) <(jq -r "$q" "$after" | LC_ALL=C sort))
+}
+
+# ── Codex ──────────────────────────────────────────────────────────────────────
 
 # Rewrite the Codex consumer template from its default ~/.codex/hooks location
 # to CODEX_HOME or a project-local .codex/hooks directory. The commands remain
@@ -23,6 +54,28 @@ _codex_hooks_json_for_dest() {
     ) | .hooks
   ' "$src"
 }
+
+# A matcher group is AgenticOS-owned when any handler carries the `AgenticOS:`
+# status marker. Owned groups are stripped from EVERY event (so a group whose
+# event a later release stopped shipping is unregistered too) and events emptied
+# by that are dropped; merge then appends the template's groups.
+_CODEX_HOOKS_JQ='
+  def agenticos_group:
+    any(.hooks[]?; ((.statusMessage? // "") | startswith("AgenticOS:")));
+  def strip_events: reduce keys_unsorted[] as $e (.;
+    if (.[$e] | type) == "array" and any(.[$e][]; agenticos_group)
+    then (.[$e] | map(select((agenticos_group | not)))) as $s
+      | if ($s | length) == 0 then del(.[$e]) else .[$e] = $s end
+    else . end);
+  if $mode == "merge" then
+    .hooks = reduce ($incoming | keys_unsorted[]) as $event
+      ((.hooks // {}) | strip_events;
+        .[$event] = ((.[$event] // []) + $incoming[$event]))
+  elif .hooks == null then .
+  else (.hooks | strip_events) as $h
+    | if ($h | length) == 0 and (.hooks | length) > 0 then del(.hooks) else .hooks = $h end
+  end
+'
 
 merge_codex_hook_settings() {
   local repo_root="$1" dest="$2"
@@ -47,20 +100,10 @@ merge_codex_hook_settings() {
   hooks_json="$(_codex_hooks_json_for_dest "$src" "$dest/hooks")"
 
   if [[ -f "$dest_file" ]]; then
-    # Preserve unrelated Codex hooks. Reinstall replaces only matcher groups
-    # whose handlers carry the AgenticOS status marker, making the merge
-    # idempotent without taking ownership of the user's entire hooks object.
-    if ! jq --argjson incoming "$hooks_json" '
-      def agenticos_group:
-        any(.hooks[]?; ((.statusMessage? // "") | startswith("AgenticOS:")));
-      .hooks = reduce ($incoming | keys_unsorted[]) as $event
-        (.hooks // {};
-          .[$event] = (
-            ((.[$event] // []) | map(select((agenticos_group | not))))
-            + $incoming[$event]
-          )
-        )
-    ' "$dest_file" > "$dest_file.tmp"; then
+    # Preserve unrelated Codex hooks; replace only AgenticOS-marked groups, so
+    # the merge is idempotent without owning the user's whole hooks object.
+    if ! jq --arg mode merge --argjson incoming "$hooks_json" "$_CODEX_HOOKS_JQ" \
+        "$dest_file" > "$dest_file.tmp"; then
       rm -f "$dest_file.tmp"
       echo "Error: failed to merge AgenticOS hooks into $dest_file (is it valid JSON?)." >&2
       return 1
@@ -71,6 +114,37 @@ merge_codex_hook_settings() {
   fi
   echo "  ✓ Codex hooks active → $dest_file"
 }
+
+# Remove AgenticOS-marked groups from $1/hooks.json, printing each command
+# removed. $2 = "true" for dry-run (report only).
+unregister_codex_hook_settings() {
+  local dest="$1" dry="${2:-false}"
+  _validate_install_dest "$dest"
+  local dest_file="$dest/hooks.json" prefix="  - "
+  [[ "$dry" == "true" ]] && prefix="  [dry-run] "
+  if [[ ! -f "$dest_file" ]]; then
+    echo "  · no $dest_file — no hook entries to unregister"
+    return 0
+  fi
+  # Fail closed: removing hook files while they stay registered would make
+  # every hook invocation error.
+  if ! command -v jq &>/dev/null; then
+    echo "Error: jq is required to unregister AgenticOS hooks from $dest_file — install jq, or remove its AgenticOS: groups by hand first. Nothing was removed." >&2
+    return 1
+  fi
+  local out
+  out="$(_unregister_tmp "$dest_file" "$dry")"
+  if ! jq --arg mode uninstall --argjson incoming '{}' "$_CODEX_HOOKS_JQ" \
+      "$dest_file" > "$out"; then
+    rm -f "$out"
+    echo "Error: failed to unregister AgenticOS hooks from $dest_file (is it valid JSON?)." >&2
+    return 1
+  fi
+  _report_removed_hook_commands "$dest_file" "$out" "$prefix"
+  if [[ "$dry" == "true" ]]; then rm -f "$out"; else mv "$out" "$dest_file"; fi
+}
+
+# ── Claude ─────────────────────────────────────────────────────────────────────
 
 # Rewrite Claude template commands: $HOME/.claude/hooks → $hooks_dir (install DEST).
 # Requires jq. Returns JSON object for the hooks key only.
@@ -85,8 +159,54 @@ _claude_hooks_json_for_dest() {
   ' "$src"
 }
 
+# A handler is AgenticOS-owned only when its whole command (trimmed, runs of `/`
+# collapsed) EQUALS an owned command: a template command, or `bash <hooks
+# dir>/<name>` for a RETIRED hook. Each is recognised in the literal
+# `$HOME/.claude/hooks/...` form older no-jq installs copied verbatim, and with
+# the hooks dir substituted (canonical DEST, or DEST as given, which older
+# installs wrote). Compound/piped commands that merely contain our path are the
+# consumer's and are kept. Only groups (and events) emptied by stripping are
+# dropped, so a consumer's own empty entries survive.
+#   merge:     retired handlers are stripped from every event; in each event we
+#              ship, template handlers are stripped and our groups appended.
+#              Events we don't ship and other top-level keys are untouched;
+#              re-running is byte-identical.
+#   uninstall: template + retired handlers are stripped from every event.
+# A non-object `hooks`, or (merge) a non-array value for an event we ship, fails
+# closed.
+_CLAUDE_HOOKS_JQ='
+  def norm: sub("^\\s+"; "") | sub("\\s+$"; "") | gsub("/+"; "/");
+  def forms: ., gsub("\\$HOME/\\.claude/hooks"; $canon), gsub("\\$HOME/\\.claude/hooks"; $given);
+  def owned_in($set): (type == "string") and (norm as $c | $set | index([$c]) != null);
+  def strip($set):
+    map(if (.hooks | type) == "array" and any(.hooks[]; .command? | owned_in($set))
+        then (.hooks |= map(select((.command? | owned_in($set)) | not)))
+          | select((.hooks | length) > 0)
+        else . end);
+  def strip_events($set): reduce keys_unsorted[] as $e (.;
+    if (.[$e] | type) == "array" and (.[$e] | length) > 0
+    then (.[$e] | strip($set)) as $s
+      | if ($s | length) == 0 then del(.[$e]) else .[$e] = $s end
+    else . end);
+  ([$tpl[0] | .. | objects | select(has("command")) | .command | strings | forms | norm] | unique) as $tplset
+  | ([$retired[] | "bash $HOME/.claude/hooks/" + . | forms | norm] | unique) as $retset
+  | if (.hooks != null and (.hooks | type) != "object")
+    then error("hooks is not an object") else . end
+  | if $mode == "merge" then
+      ((.hooks // {}) | strip_events($retset)) as $existing
+      | .hooks = reduce ($incoming | keys_unsorted[]) as $event ($existing;
+          if ((.[$event] // []) | type) != "array"
+          then error("hooks.\($event) is not an array") else . end
+          | .[$event] = (((.[$event] // []) | strip($tplset)) + $incoming[$event]))
+    elif .hooks == null then .
+    else (.hooks | strip_events($tplset + $retset)) as $h
+      | if ($h | length) == 0 and (.hooks | length) > 0 then del(.hooks) else .hooks = $h end
+    end
+'
+
+# $3 = space-separated retired hook basenames (optional).
 merge_claude_hook_settings() {
-  local repo_root="$1" dest="$2"
+  local repo_root="$1" dest="$2" retired="${3:-}"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
   [[ -f "$src" ]] || return 0
@@ -109,45 +229,18 @@ merge_claude_hook_settings() {
     return 0
   fi
 
-  local hooks_json
+  local hooks_json retired_json
   hooks_json="$(_claude_hooks_json_for_dest "$src" "$dest/hooks")"
+  retired_json="$(_retired_hooks_json "$retired")"
 
   if [[ -f "$dest_file" ]]; then
-    # Merge per event; never take ownership of the consumer's hooks object.
-    # A handler is AgenticOS-owned only when its whole command (trimmed, runs of
-    # `/` collapsed) EQUALS a template command: in the literal
-    # `$HOME/.claude/hooks/...` form older no-jq installs copied verbatim, or
-    # with the hooks dir substituted (canonical DEST, or DEST as given, which
-    # older installs wrote). Compound/piped commands that merely contain our
-    # path are the consumer's and are kept. In each event we ship, owned
-    # handlers are stripped, groups left empty by that are dropped, then our
-    # groups are appended. Events we don't ship and other top-level keys are
-    # untouched; re-running is byte-identical.
-    # A non-object `hooks`, or a non-array value for an event we ship, fails
-    # closed. `cp -p` first so the rewrite keeps the file's mode (settings.json
-    # may hold `env` secrets at 0600).
+    # `cp -p` first so the rewrite keeps the file's mode (settings.json may hold
+    # `env` secrets at 0600).
     cp -p "$dest_file" "$dest_file.tmp"
-    if ! jq --argjson incoming "$hooks_json" --slurpfile tpl "$src" \
-        --arg canon "$dest/hooks" --arg given "${given%/}/hooks" '
-      def norm: sub("^\\s+"; "") | sub("\\s+$"; "") | gsub("/+"; "/");
-      ([$tpl[0] | .. | objects | select(has("command")) | .command | strings]
-        | map(., gsub("\\$HOME/\\.claude/hooks"; $canon),
-                 gsub("\\$HOME/\\.claude/hooks"; $given))
-        | map(norm) | unique) as $owned
-      | def owned_cmd: (type == "string") and (norm as $c | $owned | index([$c]) != null);
-      def strip_owned:
-        map(if (.hooks | type) == "array"
-            then .hooks |= map(select((.command? | owned_cmd) | not))
-            else . end)
-        | map(select((.hooks | type) != "array" or (.hooks | length) > 0));
-      if (.hooks != null and (.hooks | type) != "object")
-      then error("hooks is not an object") else . end
-      | (.hooks // {}) as $existing
-      | .hooks = reduce ($incoming | keys_unsorted[]) as $event ($existing;
-          if ((.[$event] // []) | type) != "array"
-          then error("hooks.\($event) is not an array") else . end
-          | .[$event] = (((.[$event] // []) | strip_owned) + $incoming[$event]))
-    ' "$dest_file" > "$dest_file.tmp"; then
+    if ! jq --arg mode merge --argjson incoming "$hooks_json" --slurpfile tpl "$src" \
+        --argjson retired "$retired_json" \
+        --arg canon "$dest/hooks" --arg given "${given%/}/hooks" \
+        "$_CLAUDE_HOOKS_JQ" "$dest_file" > "$dest_file.tmp"; then
       rm -f "$dest_file.tmp"
       echo "Error: failed to merge AgenticOS hooks into $dest_file (needs valid JSON with an object \"hooks\")." >&2
       return 1
@@ -157,4 +250,41 @@ merge_claude_hook_settings() {
     jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"
   fi
   echo "  ✓ hooks active → $dest_file"
+}
+
+# Remove AgenticOS-owned handlers (template + retired) from $2/settings.json,
+# printing each command removed. $4 = "true" for dry-run (report only).
+unregister_claude_hook_settings() {
+  local repo_root="$1" dest="$2" retired="${3:-}" dry="${4:-false}"
+  _validate_install_dest "$dest"
+  local src="$repo_root/assets/consumer/claude-settings.json" prefix="  - "
+  [[ "$dry" == "true" ]] && prefix="  [dry-run] "
+  [[ -d "$dest" ]] || return 0
+  local given="$dest"
+  dest="$(cd "$dest" && pwd -P)"
+  local dest_file="$dest/settings.json"
+  if [[ ! -f "$dest_file" ]]; then
+    echo "  · no $dest_file — no hook entries to unregister"
+    return 0
+  fi
+  # Fail closed: removing hook files while they stay registered would make
+  # every hook invocation error (and an `onFailure: block` hook deny the tool).
+  if ! command -v jq &>/dev/null; then
+    echo "Error: jq is required to unregister AgenticOS hooks from $dest_file — install jq, or remove its AgenticOS entries by hand first. Nothing was removed." >&2
+    return 1
+  fi
+  local retired_json
+  retired_json="$(_retired_hooks_json "$retired")"
+  local out
+  out="$(_unregister_tmp "$dest_file" "$dry")"
+  if ! jq --arg mode uninstall --argjson incoming '{}' --slurpfile tpl "$src" \
+      --argjson retired "$retired_json" \
+      --arg canon "$dest/hooks" --arg given "${given%/}/hooks" \
+      "$_CLAUDE_HOOKS_JQ" "$dest_file" > "$out"; then
+    rm -f "$out"
+    echo "Error: failed to unregister AgenticOS hooks from $dest_file (needs valid JSON with an object \"hooks\")." >&2
+    return 1
+  fi
+  _report_removed_hook_commands "$dest_file" "$out" "$prefix"
+  if [[ "$dry" == "true" ]]; then rm -f "$out"; else mv "$out" "$dest_file"; fi
 }
