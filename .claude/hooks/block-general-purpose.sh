@@ -13,12 +13,14 @@
 # Mechanism verified in issue #230: PreToolUse fires on Agent spawns, the payload
 # carries subagent_type, and permissionDecision "deny" blocks the spawn.
 #
-# FAILS CLOSED — unlike the ergonomics hooks (block-bad-bash.sh,
-# survey-before-act.sh), which fail open. This hook enforces a policy, so a
-# missing jq or an unparseable payload denies the spawn with a message saying
-# why, instead of letting an unchecked spawn through. The settings matcher
-# already limits this hook to Agent|Task calls, so failing closed cannot block
-# any other tool.
+# FAILS CLOSED on failures INSIDE this script, unlike the ergonomics hooks
+# (block-bad-bash.sh, survey-before-act.sh), which fail open. This hook
+# enforces a policy, so a missing jq or an unparseable payload denies the spawn
+# with a message saying why, instead of letting an unchecked spawn through. The
+# settings matcher already limits this hook to Agent|Task calls, so failing
+# closed cannot block any other tool. Failures OUTSIDE the script (it can't
+# start, or it times out) are non-blocking errors in Claude Code. Only the
+# hook entry's `"onFailure": "block"` (v2.1.295+) closes that gap.
 #
 # There is deliberately no bypass switch (env var, flag file): anything the
 # model could set itself would defeat the ban. To exempt a session, run it

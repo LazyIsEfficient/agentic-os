@@ -13,6 +13,10 @@ REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOOK="$REPO/.claude/hooks/block-general-purpose.sh"
 
 if ! command -v jq >/dev/null 2>&1; then
+  if [ -n "${CI:-}" ]; then
+    echo "block-general-purpose-test: jq not found in CI — refusing to skip" >&2
+    exit 1
+  fi
   echo "block-general-purpose-test: jq not found — needed to build payloads; skipping" >&2
   exit 0
 fi

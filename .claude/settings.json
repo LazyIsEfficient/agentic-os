@@ -21,7 +21,7 @@
       {
         "matcher": "Agent|Task",
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/block-general-purpose.sh" }
+          { "type": "command", "command": "bash .claude/hooks/block-general-purpose.sh", "onFailure": "block" }
         ]
       }
     ],
