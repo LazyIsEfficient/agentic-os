@@ -21,7 +21,7 @@ Claude relies on the **workspace-trust gate** before project hooks run. Codex ad
 
 **Claude Code (`install.sh` / `install.ps1`)**
 - Ships `.claude/hooks/*.sh` and marks them executable.
-- **Registers hooks globally** by merging `assets/consumer/claude-settings.json` into `~/.claude/settings.json`. At install time, template paths (`$HOME/.claude/hooks/…`) are rewritten to match the actual install `DEST` (supports custom `CLAUDE_DIR`). Only the `hooks` block is merged; other top-level keys are preserved. **Re-install replaces the entire `hooks` object** — custom hook entries are overwritten.
+- **Registers hooks globally** by merging `assets/consumer/claude-settings.json` into `~/.claude/settings.json`. At install time, template paths (`$HOME/.claude/hooks/…`) are rewritten to match the actual install `DEST` (supports custom `CLAUDE_DIR`). Only the `hooks` block is merged; other top-level keys are preserved. The merge is **per event**: a hook handler counts as AgenticOS-owned when its `command` references a script the template registers, under the install hooks dir or the literal `$HOME/.claude/hooks/`. Install strips owned handlers (dropping matcher groups that become empty) and appends the template's groups. Your own hooks, including events AgenticOS doesn't ship and handlers you added inside an AgenticOS group, are preserved. Re-install is idempotent. Existing hook *files* in `~/.claude/hooks/` are only overwritten with `--force` / `-Force`.
 
 **Codex (`install.sh --codex`)**
 - Ships only `session-state-inject.sh` and `session-state-checkpoint.sh` to the user or project Codex hook directory and marks them executable.

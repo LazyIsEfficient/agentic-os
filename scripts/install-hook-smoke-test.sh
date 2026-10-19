@@ -35,6 +35,69 @@ merge_claude_hook_settings "$REPO" "$tmpdir"
 jq -e '.permissions.allow[0] == "Edit(foo)"' "$tmpdir/settings.json" >/dev/null
 jq -e '.hooks.SessionStart | length > 0' "$tmpdir/settings.json" >/dev/null
 
+# Merge preserves consumer hooks (#270): their own PreToolUse Bash hook, an
+# event we don't ship, a consumer handler mixed into a group with ours; old-style
+# AgenticOS entries (literal $HOME template + DEST-rewritten) are replaced.
+cat > "$tmpdir/settings.json" <<EOF
+{
+  "permissions": {"allow": ["Edit(foo)"]},
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "bash /opt/my-guard.sh"}]},
+      {"matcher": "Bash", "hooks": [
+        {"type": "command", "command": "bash \$HOME/.claude/hooks/block-bad-bash.sh"},
+        {"type": "command", "command": "bash $tmpdir/hooks/survey-before-act.sh"},
+        {"type": "command", "command": "bash $tmpdir/hooks/my-own-hook.sh"}
+      ]}
+    ],
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "bash $tmpdir/hooks/session-state-inject.sh"}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "bash $tmpdir/hooks/session-state-digest.sh.local"}]}
+    ],
+    "Notification": [
+      {"hooks": [{"type": "command", "command": "say done"}]}
+    ]
+  }
+}
+EOF
+merge_claude_hook_settings "$REPO" "$tmpdir"
+s="$tmpdir/settings.json"
+check() { jq -e --arg d "$tmpdir/hooks" "$1" "$s" >/dev/null || { echo "FAIL install-hook-smoke: $2" >&2; jq . "$s" >&2; exit 1; }; }
+count() { echo "[.hooks[][] | .hooks[]? | .command | select(endswith(\"/$1\"))] | length"; }
+check '.permissions.allow[0] == "Edit(foo)"' "non-hooks key lost"
+check '.hooks.Notification == [{"hooks":[{"type":"command","command":"say done"}]}]' "unshipped consumer event changed"
+check '.hooks.PreToolUse[0] == {"matcher":"Bash","hooks":[{"type":"command","command":"bash /opt/my-guard.sh"}]}' "consumer PreToolUse group lost"
+check '.hooks.PreToolUse[1] == {"matcher":"Bash","hooks":[{"type":"command","command":("bash " + $d + "/my-own-hook.sh")}]}' "consumer handler in mixed group lost"
+check '.hooks.UserPromptSubmit[0].hooks[0].command == ("bash " + $d + "/session-state-digest.sh.local")' "lookalike consumer hook treated as AgenticOS-owned"
+check '[.. | strings | select(contains("$HOME"))] | length == 0' "old \$HOME-style AgenticOS entry not replaced"
+for h in block-bad-bash.sh survey-before-act.sh session-state-inject.sh session-state-digest.sh; do
+  check "$(count "$h") == 1" "$h not registered exactly once"
+done
+check "$(count session-state-checkpoint.sh) == 2" "PreCompact auto+manual not registered exactly once each"
+# Every event and group in the template is present, in order, at the tail.
+template="$(_claude_hooks_json_for_dest "$REPO/assets/consumer/claude-settings.json" "$tmpdir/hooks")"
+jq -e --argjson t "$template" '. as $s | all($t | keys_unsorted[]; . as $e | $s.hooks[$e][-($t[$e] | length):] == $t[$e])' "$s" >/dev/null \
+  || { echo "FAIL install-hook-smoke: template groups missing from merged settings" >&2; exit 1; }
+
+# Second install is byte-identical.
+cp "$s" "$tmpdir/first.json"
+merge_claude_hook_settings "$REPO" "$tmpdir"
+if ! cmp -s "$s" "$tmpdir/first.json"; then
+  echo "FAIL install-hook-smoke: re-install not idempotent" >&2
+  diff "$tmpdir/first.json" "$s" >&2 || true
+  exit 1
+fi
+
+# Invalid JSON fails closed and leaves the file untouched.
+echo '{not json' > "$s"
+if merge_claude_hook_settings "$REPO" "$tmpdir" 2>/dev/null; then
+  echo "FAIL install-hook-smoke: invalid settings.json should fail the merge" >&2
+  exit 1
+fi
+[[ "$(cat "$s")" == '{not json' ]] || { echo "FAIL install-hook-smoke: invalid settings.json was modified" >&2; exit 1; }
+
 # Unsafe CLAUDE_DIR must abort before copying files.
 if CLAUDE_DIR='/tmp/evil;whoami' bash "$REPO/install.sh" 2>/dev/null; then
   echo "FAIL install-hook-smoke: unsafe CLAUDE_DIR should abort" >&2

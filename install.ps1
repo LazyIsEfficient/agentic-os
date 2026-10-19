@@ -178,13 +178,9 @@ Install-Files "commands" @("skill-new.md", "agent-new.md", "state.md")
 # Workflows: NOTHING ships. The only workflow (audit-skill-library) is a
 # maintainer-only tool that stays in-repo and is never installed.
 
-$HooksSrc  = Join-Path $Src "hooks"
-$HooksDest = Join-Path $Dest "hooks"
-if (Test-Path $HooksSrc) {
-  New-Item -ItemType Directory -Force -Path $HooksDest | Out-Null
-  Copy-Item -Path "$HooksSrc\*" -Destination $HooksDest -Recurse -Force
-  Write-Host "  OK hooks -> $HooksDest"
-}
+# Same as install.sh's `install_dir "hooks"`: existing hook files are only
+# overwritten with -Force.
+Install-Dir "hooks"
 
 function Install-ClaudeHookSettings {
   $SrcFile = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
@@ -208,17 +204,62 @@ function Install-ClaudeHookSettings {
   $raw = Get-Content $SrcFile -Raw
   $rewritten = $raw -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd
 
-  # Own the entire hooks key (replace it), preserving all other top-level keys —
-  # matches install.sh (`jq '.hooks = $h'`) and SECURITY.md.
+  # Merge per event, same semantics as install.sh (scripts/lib/
+  # install-hook-settings.sh) and SECURITY.md: strip AgenticOS-owned handlers
+  # (command references a script our template registers, under this install's
+  # hooks dir or the literal `$HOME/.claude/hooks`) from every event, drop
+  # groups left empty, append ours. Consumer hooks and all other top-level keys
+  # are preserved; re-install is idempotent.
   if (Test-Path $DestFile) {
-    # Existing settings: merge. -Depth 100 so a consumer's deeply-nested keys
-    # round-trip intact. NOTE: on Windows PowerShell 5.1 this JSON round-trip
-    # can unwrap single-element arrays — the Windows smoke test (RELEASING.md
-    # step 6) must confirm hooks.PreToolUse stays an array on an EXISTING
-    # settings.json before tagging.
-    $hooks    = ($rewritten | ConvertFrom-Json).hooks
+    # -Depth 100 so a consumer's deeply-nested keys round-trip intact. NOTE: on
+    # Windows PowerShell 5.1 this JSON round-trip can unwrap single-element
+    # arrays — the Windows smoke test (RELEASING.md step 6) must confirm
+    # hooks.PreToolUse stays an array on an EXISTING settings.json before tagging.
+    $names = @([regex]::Matches($raw, '\$HOME/\.claude/hooks/([^/\s"'']+)') |
+      ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $prefixes = @('$HOME/.claude/hooks/', "$HooksDirFwd/")
+    $isOwned = {
+      param([string]$Cmd)
+      if (-not $Cmd) { return $false }
+      foreach ($n in $names) { foreach ($p in $prefixes) {
+        $path = $p + $n
+        $i = $Cmd.IndexOf($path, [StringComparison]::Ordinal)
+        while ($i -ge 0) {
+          $end = $i + $path.Length
+          $before = if ($i -eq 0) { '' } else { $Cmd.Substring($i - 1, 1) }
+          $after  = if ($end -ge $Cmd.Length) { '' } else { $Cmd.Substring($end, 1) }
+          if (($before -in @('', ' ', '"', "'")) -and ($after -in @('', ' ', '"', "'", ';'))) { return $true }
+          $i = $Cmd.IndexOf($path, $i + 1, [StringComparison]::Ordinal)
+        }
+      } }
+      return $false
+    }
+
+    $incoming = ($rewritten | ConvertFrom-Json).hooks
     $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
-    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue $hooks -Force
+    $merged = [ordered]@{}
+    if ($destJson.PSObject.Properties['hooks'] -and $destJson.hooks) {
+      foreach ($ev in $destJson.hooks.PSObject.Properties) {
+        $groups = $ev.Value
+        if ($groups -isnot [System.Array]) { $merged[$ev.Name] = $groups; continue }
+        $kept = @()
+        foreach ($g in $groups) {
+          if ($g -is [psobject] -and $g.PSObject.Properties['hooks'] -and $g.hooks -is [System.Array]) {
+            $handlers = @($g.hooks | Where-Object { -not (& $isOwned ([string]$_.command)) })
+            if ($handlers.Count -eq 0) { continue }
+            $g.hooks = $handlers
+          }
+          $kept += ,$g
+        }
+        if ($kept.Count -eq 0 -and $groups.Count -gt 0 -and -not $incoming.PSObject.Properties[$ev.Name]) { continue }
+        $merged[$ev.Name] = $kept
+      }
+    }
+    foreach ($ev in $incoming.PSObject.Properties) {
+      $existing = if ($merged.Contains($ev.Name)) { @($merged[$ev.Name]) } else { @() }
+      $merged[$ev.Name] = @($existing) + @($ev.Value)
+    }
+    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]$merged) -Force
     $out = $destJson | ConvertTo-Json -Depth 100
   } else {
     # Fresh file (the common first install): the template is already exactly

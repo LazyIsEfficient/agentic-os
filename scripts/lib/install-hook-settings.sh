@@ -105,13 +105,53 @@ merge_claude_hook_settings() {
   hooks_json="$(_claude_hooks_json_for_dest "$src" "$dest/hooks")"
 
   if [[ -f "$dest_file" ]]; then
-    # Replace the ENTIRE hooks key (own it outright), preserving every other
-    # top-level key. `.hooks = $h` — NOT `. * {hooks:$h}`: the recursive-merge
-    # form would deep-merge, leaving stale consumer hook events behind and
-    # diverging from install.ps1 (Add-Member -Force) and SECURITY.md, which
-    # promise re-install replaces the whole hooks object.
-    jq --argjson h "$hooks_json" '.hooks = $h' "$dest_file" > "$dest_file.tmp" \
-      && mv "$dest_file.tmp" "$dest_file"
+    # Merge per event; never take ownership of the consumer's hooks object.
+    # A hook handler is AgenticOS-owned when its command references one of the
+    # scripts our template registers, under either the install hooks dir or the
+    # literal `$HOME/.claude/hooks` (what older no-jq installs copied verbatim).
+    # Owned handlers are stripped from EVERY event, groups left empty by that
+    # are dropped, then our groups are appended. Consumer handlers — including
+    # ones they added inside a group we created — are kept in place, other
+    # top-level keys are untouched, and re-running is byte-identical.
+    local owned_names
+    owned_names="$(jq -c '
+      [.. | objects | select(has("command")) | .command
+        | capture("\\$HOME/\\.claude/hooks/(?<n>[^/\\s\"'"'"']+)") | .n] | unique
+    ' "$src")"
+    if ! jq --argjson incoming "$hooks_json" --argjson names "$owned_names" \
+        --arg hd "$dest/hooks/" '
+      def owned_cmd:
+        . as $c
+        | any($names[] as $n | ("$HOME/.claude/hooks/", $hd) | . + $n;
+            . as $p
+            | any($c | indices($p)[];
+                ($c[. - 1:.] | IN("", " ", "\"", "'"'"'"))
+                and ($c[(. + ($p | length)):(. + ($p | length) + 1)]
+                     | IN("", " ", "\"", "'"'"'", ";"))));
+      def strip_owned:
+        map(if (.hooks | type) == "array"
+            then .hooks |= map(select(((.command? // "") | owned_cmd) | not))
+            else . end)
+        | map(select((.hooks | type) != "array" or (.hooks | length) > 0));
+      (.hooks // {}) as $existing
+      | .hooks = (
+          reduce ($existing | keys_unsorted[]) as $event ({};
+            ($existing[$event]) as $groups
+            | if ($groups | type) != "array" then .[$event] = $groups
+              else ($groups | strip_owned) as $kept
+                | if ($kept | length) == 0 and ($groups | length) > 0
+                     and ($incoming | has($event) | not)
+                  then . else .[$event] = $kept end
+              end)
+          | reduce ($incoming | keys_unsorted[]) as $event (.;
+              .[$event] = ((.[$event] // []) + $incoming[$event]))
+        )
+    ' "$dest_file" > "$dest_file.tmp"; then
+      rm -f "$dest_file.tmp"
+      echo "Error: failed to merge AgenticOS hooks into $dest_file (is it valid JSON?)." >&2
+      return 1
+    fi
+    mv "$dest_file.tmp" "$dest_file"
   else
     jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"
   fi
