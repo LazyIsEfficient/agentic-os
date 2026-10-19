@@ -99,12 +99,13 @@ Both hooks locate the git root from the payload's `cwd` (falling back to `CLAUDE
 | Fail-open | Missing `jq`/`git`, unparseable payload, no HEAD, no default branch, git or planner error → allow, with a stderr + `systemMessage` note once per session |
 | Opt-out | `AGENTIC_OS_REVIEW_GATE=off` in Claude Code's environment |
 | Re-review | After any new commit, HEAD changes and old artifacts no longer count — re-dispatch the required reviewers |
+| Untracked noise | An untracked file that is not ignored (e.g. `build.log`) counts as an uncommitted change. It forces one continuation per turn, though never a loop. Fix: add it to `.gitignore`, or set `AGENTIC_OS_REVIEW_GATE=off` |
 | Consumers | Add `.claude/reviews/` and `.claude/worktrees/` to your `.gitignore`. The installer does not edit project ignore files. The capture hook's own `*` `.gitignore` and the gate's exclusions already keep both out of the change set |
 
 **Threat model — a process gate, not an adversarial control.** It stops a session from *forgetting* to run reviewers. It does not stop anything determined to skip them:
 - Artifacts are unauthenticated. Any process with write access to the repo, including the model's own Bash tool, can write a `pass` file.
 - A diff can edit `scripts/gate-plan.sh` to choose its own reviewers, or `.claude/agents/*-reviewer.md` to redefine them.
-- Moving the default-branch refs only produces a warning.
+- Moving the default-branch refs produces at most a warning. If every candidate ref is moved, a single-ref repo's only ref is moved, or commits land directly on the default branch, the gate allows with no warning at all.
 
 Treat it as a guard against omission. Human review of the PR is still the control for the adversarial case ([SECURITY.md](../../SECURITY.md)).
 
@@ -164,7 +165,7 @@ SHIP_GATES_CHANGED_FILES="path/to/changed" bash scripts/gate-plan.sh --json
 | `is_sensitive` only (e.g. `SECURITY.md`, `install.sh`, hooks, gate scripts `scripts/gate-plan.sh` / `scripts/lib/gate-plan-lib.sh` / `scripts/check-pr-ship-gates.sh` / `scripts/parse-verdict.sh` and their tests `scripts/gate-plan-test.sh` / `scripts/check-pr-ship-gates-test.sh`) | `G-security-review`, `G-data-document` |
 | `is_code_change` and/or `is_library` | `G-code-review`, `G-security-review`, `G-data-document` |
 | `is_library` | + `G-library-review` |
-| `DATA_MODEL.md` in diff after Wave 1 | + `G-data-verify` (`data-model-verifier`) |
+| `DATA_MODEL.md` in the committed diff (documenter ran and was committed before Wave 1) | + `G-data-verify` (`data-model-verifier`) |
 
 `DATA_MODEL.md` is **not** docs-only — agent-maintained catalog changes require full gates.
 

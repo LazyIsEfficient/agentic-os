@@ -195,18 +195,10 @@ err="$(cat "$errf")"; rm -f "$errf"
 printf '%s' "$out" | jq -e '.systemMessage | contains("jq not found")' >/dev/null || fail "missing jq systemMessage: $out"
 expect_allow "missing jq fails open"
 
-# 18. Malformed payload fails open; the note prints once per session.
+# 18. Malformed payload fails open.
 run "$TMP/dirtyonly" 'not json'
 expect_allow "malformed payload fails open"
 [[ "$err" == *"fail-open"* ]] || fail "malformed payload stderr note: $err"
-run "$TMP/dirtyonly" '{"session_id":"sess-1", broken'
-[[ "$err" == *"fail-open"* ]] || fail "first fail-open of a session must note: $err"
-run "$TMP/dirtyonly" '{"session_id":"sess-1", broken'
-[[ -z "$err" ]] || fail "second fail-open of the same session must be silent: $err"
-expect_silent "fail-open note printed once per session"
-run "$TMP/dirtyonly" '{"session_id":"sess-2", broken'
-[[ "$err" == *"fail-open"* ]] || fail "a new session notes again: $err"
-pass "fail-open note repeats for a new session"
 
 # 19. No resolvable default branch fails open.
 new_repo "$TMP/nomain"
@@ -216,6 +208,27 @@ git -C "$TMP/nomain" branch -q -D main 2>/dev/null || true
 run "$TMP/nomain"
 expect_allow "no default branch fails open"
 [[ "$err" == *"no default branch"* ]] || fail "no default branch stderr note: $err"
+
+# 19b. The fail-open note prints once per session (top-level session_id only).
+run "$TMP/nomain" '{"session_id":"sess-1","x":{"session_id":"nested"}}'
+[[ "$err" == *"fail-open"* ]] || fail "first fail-open of a session must note: $err"
+[[ -e "$TMPDIR/agentic-os-review-gate-$(id -u)/sess-1" ]] || fail "marker keyed by the top-level session_id"
+[[ ! -e "$TMPDIR/agentic-os-review-gate-$(id -u)/nested" ]] || fail "nested session_id must not be used"
+run "$TMP/nomain" '{"session_id":"sess-1"}'
+[[ -z "$err" ]] || fail "second fail-open of the same session must be silent: $err"
+expect_silent "fail-open note printed once per session"
+run "$TMP/nomain" '{"session_id":"sess-2"}'
+[[ "$err" == *"fail-open"* ]] || fail "a new session notes again: $err"
+pass "fail-open note repeats for a new session"
+run "$TMP/nomain" '{"session_id":"../evil"}'
+[[ "$err" == *"fail-open"* ]] || fail "unsafe session_id gets no marker (note repeats): $err"
+[[ ! -e "$TMPDIR/evil" ]] || fail "unsafe session_id escaped the marker dir"
+pass "unsafe session_id is not used as a marker name"
+
+# 19c. Payload cwd outside any repo falls back to CLAUDE_PROJECT_DIR.
+out="$(printf '%s' "$(jq -cn --arg c "$TMP/nogit" '{stop_hook_active: false, cwd: $c}')" \
+  | CLAUDE_PROJECT_DIR="$TMP/dirtyonly" "$BASH_BIN" "$HOOK" 2>/dev/null)"
+expect_block "cwd outside a repo falls back to CLAUDE_PROJECT_DIR" "Verdicts bind to a HEAD sha"
 
 # 20. origin/main is preferred over a stale local main.
 new_repo "$TMP/remote-up"

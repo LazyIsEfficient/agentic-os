@@ -11,6 +11,7 @@ verdict contract with its SubagentStop capture / Stop gate hooks.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-stop-gate (#258, PR #293 round 3) | `ReviewGateStopHookIO` only. `session_id` is now read top-level only with `jq -r '.session_id // empty \| strings'` after the jq and `stop_hook_active` checks, and kept only on a full `^[A-Za-z0-9_-]{1,128}$` match. This replaces the sed extraction, which a verifier REFUTED because it could pick up a nested `session_id`. The jq-missing and unparseable-payload fail-open notes therefore have no session id and repeat every turn. Git root: payload `cwd`, `CLAUDE_PROJECT_DIR` and `$PWD` are tried in order, and the first one inside a git repo wins. Before, a non-repo `cwd` exited silently; now the hook exits silently only when none of the three is in a repo. All citations in the section re-cut (source now lines 47–216). |
 | 2026-10-19 | fix/audit-stop-gate (#258, PR #293 round 2) | Post-cold-review hook changes. Both hooks resolve the git root from payload `cwd` first, then `CLAUDE_PROJECT_DIR`, then `$PWD`. `ReviewGateStopHookIO`: new stdin field `session_id` (sed-extracted); new allow output `{"systemMessage": string}` for the moved-base warning and for fail-open notes, which print once per session via marker `${TMPDIR:-/tmp}/agentic-os-review-gate-<uid>/<session_id>`; default-branch candidates gain `origin/master` and `master`; exclusions add `.claude/worktrees/` and untracked nested repos; dirty-tree reason text changed; planner used only from the hook's own checkout with the same git common dir. `ReviewVerdictArtifact` / `ReviewVerdictCaptureHookIO`: refuses symlinked `.claude`, `.claude/reviews`, `.claude/reviews/.gitignore` and a `reviews` dir resolving outside the root; `.gitignore` and verdict both written via mktemp + mv; size cap measured in bytes (`wc -c`). `ReviewVerdict`: removed the emitter-range caveat (ranges re-checked, unchanged). Every citation in the five review sections re-cut, including `review-verdict.md` (+1 line shift). |
 | 2026-10-19 | fix/audit-stop-gate (#258) | Added `ReviewVerdictArtifact` (`.claude/reviews/<HEAD>-<agent>.json`, content = `ReviewVerdictNormalized`), `ReviewVerdictCaptureHookIO` (SubagentStop `review-verdict-capture.sh`), and `ReviewGateStopHookIO` (Stop `review-gate-stop.sh`, `{"decision":"block","reason"}`). Updated `ReviewVerdict` / `ReviewVerdictNormalized`: parser moved to `.claude/hooks/lib/parse-verdict.sh` (`scripts/parse-verdict.sh` is now a wrapper) and now ships with hooks; duplicate-key check is `jq --stream` (python3 dependency removed; new fixture `duplicate-key-nested.txt`); all parser line citations re-cut. |
 | 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
@@ -250,8 +251,8 @@ Block / steer (`memory-extract.sh:72`):
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | The Claude Code **Stop** hook, registered in `.claude/settings.json:41-43` (alongside `memory-extract.sh`; consumer copy `assets/consumer/claude-settings.json:28-29`). INPUT is the Stop event JSON on **stdin**, truncated to the first 4 MiB (`head -c 4194304`, `review-gate-stop.sh:53`). Reads `ReviewVerdictArtifact` files and git state only — never LLM output (`:2-6`). **Fails open** (`:42-45`, `fail_open` `:60-74`): missing `jq`/`git` (`:76-77`), unparseable payload (`:79`), no HEAD (`:87`), no default branch (`:93`), no merge-base (`:94`), `git diff`/`git ls-files` failure (`:108-110`), planner failure (`:162`,`:175`) → allow with a note, at most once per session (see OUTPUT). |
-| **Source** | `.claude/hooks/review-gate-stop.sh` (lines 47–205) |
+| **Ingestion route** | The Claude Code **Stop** hook, registered in `.claude/settings.json:41-43` (alongside `memory-extract.sh`; consumer copy `assets/consumer/claude-settings.json:28-29`). INPUT is the Stop event JSON on **stdin**, truncated to the first 4 MiB (`head -c 4194304`, `review-gate-stop.sh:53`). Reads `ReviewVerdictArtifact` files and git state only — never LLM output (`:2-6`). **Fails open** (`:42-45`, `fail_open` `:61-75`): missing `jq`/`git` (`:77-78`), unparseable payload (`:80`), no HEAD (`:98`), no default branch (`:104`), no merge-base (`:105`), `git diff`/`git ls-files` failure (`:119-121`), planner failure (`:173`,`:186`) → allow with a note, at most once per session when a `session_id` was read (see OUTPUT). |
+| **Source** | `.claude/hooks/review-gate-stop.sh` (lines 47–216) |
 
 **INPUT** (Stop event, stdin) — only these fields are consumed:
 
@@ -261,30 +262,30 @@ Block / steer (`memory-extract.sh:72`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `session_id` | string | no | Extracted with `sed` (no `jq`, so the jq-missing path can use it); captured only when it matches `[A-Za-z0-9_-]{1,128}`, first match wins — `:55-56`. Keys the once-per-session fail-open marker; absent/non-matching → no de-duplication (note printed every time) — `:64` |
-| `stop_hook_active` | boolean | no | `.stop_hook_active // false`; `true` → allow (exit 0, no output) — one block per stop attempt — `:14`,`:79-80` |
-| `cwd` | string | no | **Preferred** directory for `git rev-parse --show-toplevel` (worktree-aware); when empty/absent, falls back to `CLAUDE_PROJECT_DIR`, then `$PWD`. Not a git repo → allow silently — `:15-16`,`:82-84` |
+| `session_id` | string | no | **Top-level only**, read with `jq -r '.session_id // empty \| strings'` after the jq-present and `stop_hook_active` checks (`:83-84`); kept only if the whole value matches `^[A-Za-z0-9_-]{1,128}$`, otherwise treated as empty (`:85`). Initialised empty (`:55-57`), so on the jq-missing (`:77`) and unparseable-payload (`:80`) paths there is no session id and those fail-open notes repeat every turn. Keys the once-per-session fail-open marker; empty → no de-duplication (note printed every time) — `:65` |
+| `stop_hook_active` | boolean | no | `.stop_hook_active // false`; `true` → allow (exit 0, no output) — one block per stop attempt — `:14`,`:80-81` |
+| `cwd` | string | no | `.cwd // empty \| strings`. First candidate for the git root: candidates are payload `cwd`, then `CLAUDE_PROJECT_DIR`, then `$PWD`; empty candidates are skipped and the first one where `git rev-parse --show-toplevel` succeeds wins (worktree-aware). A `cwd` outside any repo falls through to the next candidate. Only when none of the three is inside a git repo → allow silently (exit 0, no output) — `:15-16`,`:87-95` |
 
 **Environment:**
 
 | Var | Use |
 |---|---|
 | `AGENTIC_OS_REVIEW_GATE` | Exactly `off` → allow immediately (opt-out) — `:13`,`:51` |
-| `CLAUDE_PROJECT_DIR` | Fallback directory for the git root when payload `cwd` is empty/absent — `:83` |
-| `TMPDIR` | Parent of the fail-open marker dir `${TMPDIR:-/tmp}/agentic-os-review-gate-<uid>` (`id -u`) — `:63` |
-| `SHIP_GATES_CHANGED_FILES` | Not read from the caller; set by the hook when invoking `scripts/gate-plan.sh --checkboxes` — `:145` |
+| `CLAUDE_PROJECT_DIR` | Second git-root candidate, tried when payload `cwd` is empty/absent or not inside a git repo; then `$PWD` — `:90` |
+| `TMPDIR` | Parent of the fail-open marker dir `${TMPDIR:-/tmp}/agentic-os-review-gate-<uid>` (`id -u`) — `:64` |
+| `SHIP_GATES_CHANGED_FILES` | Not read from the caller; set by the hook when invoking `scripts/gate-plan.sh --checkboxes` — `:156` |
 
 **Decision inputs:**
 
-- Default branch ref: first that resolves of `origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`; none → fail-open — `:20-21`,`:88-93`. Base = `merge-base(ref, HEAD)` — `:94`.
-- Moved-base warning: when the merge-base equals HEAD (no commits beyond `ref`) but `rev-list --count <r>..HEAD` ≥ 1 for another resolving candidate `r`, sets `review-gate: HEAD has no commits beyond <ref> but has commits beyond <r> — if <ref> was moved, the gate is checking the wrong base.` — `:96-105`.
-- Changed paths = `git diff --name-only <base> HEAD` + `git diff --name-only HEAD` + `git ls-files --others --exclude-standard`, minus paths under `.claude/reviews/` and `.claude/worktrees/` (`strip_noise`), and minus untracked `dir/` entries where `<root>/<dir>.git` exists (nested repos / worktrees) — `:17-19`,`:107-117`. "Dirty" = tracked-dirty + untracked after the same filtering — `:116`.
-- Planner: `<x>/scripts/gate-plan.sh` is used only when the hook's own physical dir ends in `/.claude/hooks` (`<x>` = the prefix), `<x>` and the reviewed root share the same physical `git rev-parse --git-common-dir` (covers worktrees), and the script exists — `:34-40`,`:125-139`. Required reviewers = planner output ∩ the four reviewer names (`:144-149`). Otherwise (consumer fallback) `code-reviewer` + `security-reviewer` whenever any changed path is not `''`, `*.md` (except `DATA_MODEL.md`), `LICENSE`, `NOTICE`, or `docs/*` — `:38-40`,`:151-159`.
-- No changed paths or no required reviewers → allow (`:123`,`:163`).
+- Default branch ref: first that resolves of `origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`; none → fail-open — `:20-21`,`:99-104`. Base = `merge-base(ref, HEAD)` — `:105`.
+- Moved-base warning: when the merge-base equals HEAD (no commits beyond `ref`) but `rev-list --count <r>..HEAD` ≥ 1 for another resolving candidate `r`, sets `review-gate: HEAD has no commits beyond <ref> but has commits beyond <r> — if <ref> was moved, the gate is checking the wrong base.` — `:107-116`.
+- Changed paths = `git diff --name-only <base> HEAD` + `git diff --name-only HEAD` + `git ls-files --others --exclude-standard`, minus paths under `.claude/reviews/` and `.claude/worktrees/` (`strip_noise`), and minus untracked `dir/` entries where `<root>/<dir>.git` exists (nested repos / worktrees) — `:17-19`,`:118-128`. "Dirty" = tracked-dirty + untracked after the same filtering — `:127`.
+- Planner: `<x>/scripts/gate-plan.sh` is used only when the hook's own physical dir ends in `/.claude/hooks` (`<x>` = the prefix), `<x>` and the reviewed root share the same physical `git rev-parse --git-common-dir` (covers worktrees), and the script exists — `:34-40`,`:136-150`. Required reviewers = planner output ∩ the four reviewer names (`:155-160`). Otherwise (consumer fallback) `code-reviewer` + `security-reviewer` whenever any changed path is not `''`, `*.md` (except `DATA_MODEL.md`), `LICENSE`, `NOTICE`, or `docs/*` — `:38-40`,`:162-170`.
+- No changed paths or no required reviewers → allow (`:134`,`:174`).
 
 **OUTPUT** (stdout) — exactly one of:
 
-Allow, silent: no output, exit 0 (`:51`,`:80`,`:84`; and `:119-122` when no warning is set).
+Allow, silent: no output, exit 0 (`:51`,`:81`,`:95`; and `:130-133` when no warning is set).
 
 Allow with message (`{"systemMessage": string}`):
 
@@ -292,10 +293,10 @@ Allow with message (`{"systemMessage": string}`):
 {"systemMessage":"review-gate: HEAD has no commits beyond origin/main but has commits beyond main — ..."}
 ```
 
-- Moved-base warning on an allow path — built with `jq -cn` (`allow`, `:119-122`; reached from `:123`,`:163`,`:196`).
-- Fail-open note `review-gate-stop: <reason> — gate skipped (fail-open)` — also echoed to stderr; built with `printf` (no `jq`), JSON-safe only because notes contain literals and fixed ref names (`:58-61`,`:71-72`). Printed **once per session**: when `session_id` was captured and the marker dir `${TMPDIR:-/tmp}/agentic-os-review-gate-<uid>` exists (created `mkdir -m 700` if absent) as a real directory, not a symlink, owned by the user, an existing marker file `<dir>/<session_id>` → exit 0 with no output at all; else the marker is created and the note printed (`:62-70`). If the dir check fails, the note is printed without de-duplication.
+- Moved-base warning on an allow path — built with `jq -cn` (`allow`, `:130-133`; reached from `:134`,`:174`,`:207`).
+- Fail-open note `review-gate-stop: <reason> — gate skipped (fail-open)` — also echoed to stderr; built with `printf` (no `jq`), JSON-safe only because notes contain literals and fixed ref names (`:59-62`,`:72-73`). Printed **once per session**: when a valid `session_id` was read and the marker dir `${TMPDIR:-/tmp}/agentic-os-review-gate-<uid>` exists (created `mkdir -m 700` if absent) as a real directory, not a symlink, owned by the user, an existing marker file `<dir>/<session_id>` → exit 0 with no output at all; else the marker is created and the note printed (`:63-71`). If `session_id` is empty (always so for the jq-missing and unparseable-payload notes) or the dir check fails, the note is printed without de-duplication.
 
-Block (`block`, `:165-170`, built with `jq -cn`):
+Block (`block`, `:176-181`, built with `jq -cn`):
 
 ```json
 {"decision":"block","reason":"review-gate: <text>"}
@@ -304,10 +305,10 @@ Block (`block`, `:165-170`, built with `jq -cn`):
 | Name | Type | Required | Notes |
 |---|---|---|---|
 | `systemMessage` | string | only on allow-with-message | See above. Never emitted together with `decision` |
-| `decision` | string | only when blocking | Literal `"block"` — `:168` |
-| `reason` | string | only when blocking | Prefixed `review-gate: `; when a moved-base warning is set, ` Warning: <warning without its review-gate: prefix>` is appended (`:166-167`). Either (a) dirty paths that themselves require reviewers (`:174-176`): `uncommitted or untracked changes need review (<up to 5 dirty paths>). Verdicts bind to a HEAD sha, so commit only the changes you intend to ship, then dispatch <all required agents> <how>. Never commit files you did not create for this task (user work in progress, build output); if such files are what remains, tell the user instead of committing them.` (`:178`); or (b) `HEAD <12-char sha> has changes vs <ref> that require review.` (`:198`) plus `No captured verdict for this HEAD from: <agents>. Dispatch exactly these agents (subagent_type as named) <how>.` (`:200`), `Evidenced hold from: <agents> — fix the tier 0/1 findings, commit, and re-dispatch those agents.` (`:202`), and `Info (advisory, not blocking): fix-before-merge from: <agents>.` (`:204`). `<how>` = `with only the base ref (<ref>) and the changed paths; each must end with its agentic-os/review-verdict@1 block, which the SubagentStop hook records in .claude/reviews/` (`:172`); agent lists are comma-joined (`list`, `:171`) |
+| `decision` | string | only when blocking | Literal `"block"` — `:179` |
+| `reason` | string | only when blocking | Prefixed `review-gate: `; when a moved-base warning is set, ` Warning: <warning without its review-gate: prefix>` is appended (`:177-178`). Either (a) dirty paths that themselves require reviewers (`:185-188`): `uncommitted or untracked changes need review (<up to 5 dirty paths>). Verdicts bind to a HEAD sha, so commit only the changes you intend to ship, then dispatch <all required agents> <how>. Never commit files you did not create for this task (user work in progress, build output); if such files are what remains, tell the user instead of committing them.` (`:189`); or (b) `HEAD <12-char sha> has changes vs <ref> that require review.` (`:209`) plus `No captured verdict for this HEAD from: <agents>. Dispatch exactly these agents (subagent_type as named) <how>.` (`:211`), `Evidenced hold from: <agents> — fix the tier 0/1 findings, commit, and re-dispatch those agents.` (`:213`), and `Info (advisory, not blocking): fix-before-merge from: <agents>.` (`:215`). `<how>` = `with only the base ref (<ref>) and the changed paths; each must end with its agentic-os/review-verdict@1 block, which the SubagentStop hook records in .claude/reviews/` (`:183`); agent lists are comma-joined (`list`, `:182`) |
 
-Always exits `0` (`:73`,`:121`,`:169`; blocks via the JSON `decision`, not the exit code). `fix-before-merge` never blocks on its own (`:31-32`,`:190`,`:196`).
+Always exits `0` (`:74`,`:132`,`:180`; blocks via the JSON `decision`, not the exit code). `fix-before-merge` never blocks on its own (`:31-32`,`:201`,`:207`).
 
 ---
 

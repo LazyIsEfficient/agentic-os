@@ -41,7 +41,10 @@ Claude relies on the **workspace-trust gate** before project hooks run. Codex ad
     **Limitation: a process gate, not an adversarial control.** It catches a session that *forgets* review. It does not stop one that is determined to skip it:
     - The artifacts are unauthenticated. Anything with repo write access, including the model's Bash tool, can write a `pass` file for HEAD.
     - The diff under review can edit `scripts/gate-plan.sh` to choose its own reviewers, or `.claude/agents/*-reviewer.md` to redefine what they check.
-    - Moving `origin/HEAD` onto HEAD only triggers a warning.
+    - The base ref is whatever the local refs say. Moving `origin/HEAD` onto HEAD triggers a warning only when another candidate ref still shows HEAD ahead of it. The gate allows **with no warning** in three cases:
+      - the repo has a single candidate ref and it is moved to HEAD;
+      - every candidate ref (`origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`) is moved to HEAD;
+      - commits land directly on the default branch, so HEAD equals the base.
 
     The control for those cases remains human PR review, and CI once it checks artifacts. See the design on #258. Opt out with `AGENTIC_OS_REVIEW_GATE=off` in Claude Code's own environment (set at launch, or via a settings `env` entry). An `export` inside a Bash tool call runs in a child shell and does not reach hooks.
   - **Awareness harness:** `session-state-inject.sh`, `session-state-digest.sh`, `session-state-checkpoint.sh`, `survey-before-act.sh` — plain stdout. `SESSION-STATE.md` is governed by rule 7 below.

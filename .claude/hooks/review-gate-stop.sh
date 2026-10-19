@@ -12,8 +12,8 @@
 # Flow:
 #   - AGENTIC_OS_REVIEW_GATE=off in Claude Code's environment → allow (opt-out).
 #   - stop_hook_active true → allow. One block per stop attempt, never a loop.
-#   - Git root from the payload's `cwd` (worktree-aware), else
-#     CLAUDE_PROJECT_DIR. Not a git repo → allow silently.
+#   - Git root from the payload's `cwd` (worktree-aware); if that is not in a
+#     git repo, CLAUDE_PROJECT_DIR, then PWD. None in a repo → allow silently.
 #   - Changed paths = merge-base(default branch, HEAD)..HEAD + uncommitted +
 #     untracked-not-ignored, excluding .claude/reviews/, .claude/worktrees/ and
 #     untracked nested repos/worktrees.
@@ -52,8 +52,9 @@ REVIEWERS="code-reviewer security-reviewer library-reviewer data-model-verifier"
 
 input="$(head -c 4194304)"
 
-# session_id without jq (the jq-missing path needs it too); safe charset only.
-sid="$(printf '%s' "$input" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9_-]\{1,128\}\)".*/\1/p' | head -1)"
+# Set from the payload (via jq) once jq is known to exist. Without jq or with
+# an unparseable payload there is no session id, so that note repeats per turn.
+sid=""
 
 # Notes contain only literals and fixed ref names (no quotes/backslashes), so
 # they are JSON-safe without jq.
@@ -79,9 +80,19 @@ command -v git >/dev/null 2>&1 || fail_open "git not found"
 active="$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null)" || fail_open "unparseable payload"
 [[ "$active" == "true" ]] && exit 0
 
-dir="$(printf '%s' "$input" | jq -r '.cwd // empty | strings')"
-[[ -n "$dir" ]] || dir="${CLAUDE_PROJECT_DIR:-$PWD}"
-root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# Top-level session_id only; safe filename charset or nothing.
+sid="$(printf '%s' "$input" | jq -r '.session_id // empty | strings' 2>/dev/null)"
+[[ "$sid" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || sid=""
+
+# Payload cwd first (worktree-aware); if it is not inside a git repo (e.g. the
+# session cd'd out), fall back to CLAUDE_PROJECT_DIR, then PWD.
+root=""
+for d in "$(printf '%s' "$input" | jq -r '.cwd // empty | strings')" "${CLAUDE_PROJECT_DIR:-}" "$PWD"; do
+  [[ -n "$d" ]] || continue
+  root="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && break
+  root=""
+done
+[[ -n "$root" ]] || exit 0
 g() { git -C "$root" -c core.quotePath=false "$@"; }
 
 head="$(g rev-parse --verify -q HEAD)" || fail_open "no HEAD commit"
