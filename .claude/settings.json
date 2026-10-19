@@ -25,6 +25,14 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/post-edit-scan.sh", "timeout": 30 }
+        ]
+      }
+    ],
     "SessionStart": [
       { "hooks": [
         { "type": "command", "command": "bash .claude/hooks/session-state-inject.sh" },

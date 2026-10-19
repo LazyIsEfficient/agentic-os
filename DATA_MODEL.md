@@ -2,7 +2,8 @@
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
 cross-session memory files, the Claude Code Stop-hook memory-extraction
-contracts, and the PreToolUse general-purpose-ban hook I/O.
+contracts, the PreToolUse general-purpose-ban hook I/O, and the PostToolUse
+post-edit scan hook I/O.
 
 **Last updated:** 2026-10-19
 
@@ -10,6 +11,7 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-postedit-hook (issue #259) | Added `PostEditScanHookIO`: PostToolUse (`Edit\|Write\|MultiEdit`) hook stdin field `tool_input.file_path`, `CLAUDE_PROJECT_DIR` containment root, consumed gitleaks report fields (`StartLine`, `RuleID`), and the fail-open `{"decision":"block","reason"}` findings payload emitted by `.claude/hooks/post-edit-scan.sh`. |
 | 2026-10-19 | fix/audit-scan-scripts (security fix round 2) | Updated `ReviewScanReport`: new `skipped` reason `"manifest resolves outside the repo root"` (both scripts); new check-imports rules `js-import-outside-root` / `py-import-outside-root`; new security-scan copy/containment `error` reasons (npm-audit, pip-audit, cargo-audit); noted text-output control-char escaping and per-line script prefix; every line citation re-verified and shifted to current files. |
 | 2026-10-19 | fix/audit-scan-scripts (gate fixes) | Updated `ReviewScanReport`: new top-level `skipped` array (`{path, reason}`) in both scripts; optional scanner `notes` array (security-scan only); removed stale `"no files in scope"` reason; exit 2 adds missing `--paths` entry, security-scan exit 3 adds no-file-in-scope, check-imports exit 4 adds helper failure / unparseable manifest; added env inputs table (`SECURITY_SCAN_NPM_REGISTRY`, `SECURITY_SCAN_GITLEAKS_CONFIG`, `PYTHONPATH`); `file` path normalization corrected; every line citation re-verified against current files. |
 | 2026-10-19 | fix/audit-scan-scripts | Added `ReviewScanReport`: shared `--json` stdout payload + exit-code contract for the new `scripts/security-scan.sh` and `scripts/check-imports.sh` (consumed by reviewers as Tier 0/1 evidence). |
@@ -185,6 +187,70 @@ Block / steer (`memory-extract.sh:72`):
 | link target | string (snake_case filename, incl. `.md`) | yes | e.g. `no_python_use_rust.md` — `SKILL.md:129`,`:133` |
 | separator ` — ` | literal | yes | Space, em-dash, space — `SKILL.md:130` |
 | hook | string (≤ ~150 chars) | yes | One-line hook — `SKILL.md:131` |
+
+---
+
+### PostEditScanHookIO
+
+| Field | Value |
+|---|---|
+| **Kind** | `message` |
+| **Ingestion route** | The Claude Code **PostToolUse** hook, registered with matcher `Edit\|Write\|MultiEdit` and `"timeout": 30` in `.claude/settings.json:28-32` (consumer copy: `assets/consumer/claude-settings.json:18-22`). INPUT is the PostToolUse event JSON read from **stdin** (`input=$(< /dev/stdin)`, `post-edit-scan.sh:41`); OUTPUT is printed to **stdout** for the hook runtime. Always exits 0. **Fails open** (`:29-32`): missing `jq`, an unparseable payload, a missing/non-string/empty `file_path`, or `mktemp` failure prints one `post-edit-scan: ...` line to stderr and exits 0 with no stdout (`note()`, `:39`, `:42`, `:44-47`, `:77`). |
+| **Source** | `.claude/hooks/post-edit-scan.sh` (lines 39–177) |
+
+**INPUT** (PostToolUse event, stdin) — only this field is consumed:
+
+```json
+{ "tool_input": { "file_path": "/abs/path/to/edited/file" } }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `tool_input.file_path` | string (non-empty) | yes | Not a string → jq `error("no file_path")` → fail-open note; `""` → fail-open note — `post-edit-scan.sh:44-47`. Symlinks resolved (`resolve()`, `:50-59`); silently skipped (exit 0, no stderr) if resolution fails, the path is outside the project root, not a regular file, or over `MAX_BYTES` = 1048576 — `:36`, `:70-74` |
+
+**Environment** consumed:
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `CLAUDE_PROJECT_DIR` | string (dir path) | no | Containment root. Falls back to `git rev-parse --show-toplevel`, then `pwd -P` — `post-edit-scan.sh:61-68`. Finding paths are relative to this root (`rel`, `:75`) |
+| `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML` | string | no | Deliberately **unset** for the gitleaks run (edited tree is untrusted) — `:129` |
+
+**Consumed external payload** — gitleaks JSON report (`--report-format json`, written to a temp file, `:129-132`). Read only when gitleaks exits 0 within `GITLEAKS_TIMEOUT` = 5 s and the report is a JSON array (`:37`, `:139`); otherwise a stderr line is printed and the regex findings still stand (`:142`).
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `[].StartLine` | number | yes | Line number in the finding line — `:140` |
+| `[].RuleID` | string | yes | Emitted as rule `gitleaks:<RuleID>` — `:140` |
+
+**OUTPUT** (stdout) — exactly one of:
+
+Clean or skipped: no output, exit 0 (`post-edit-scan.sh:168`, plus the skip/fail-open exits above).
+
+Findings (`post-edit-scan.sh:170-177`):
+
+```json
+{"decision":"block","reason":"<text>"}
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `decision` | string | yes | Literal `"block"`. For PostToolUse this attaches `reason` to the tool result; the edit is not undone — `:23-25`, `:176` |
+| `reason` | string | yes | Header `post-edit-scan found problems in the file you just edited (<relpath>). The edit was applied; fix these now:` then one `- <finding>` line per unique finding (`sort -u`) — `:170-171`. If any finding is a secret, a rotation/remediation sentence is appended — `:172-175` |
+
+Finding line formats inside `reason`:
+
+| Format | Rule / checker values | Source |
+|---|---|---|
+| `<relpath>:<line> secret <rule>` | `aws-access-key-id`, `private-key`, `github-token`, `slack-token`, `stripe-live-key`, `google-api-key`, `jwt` (case-sensitive regexes), `generic-secret-assignment` (case-insensitive; value must mix letters and digits), `gitleaks:<RuleID>` | `:84-93`, `:114`, `:117-123`, `:140` |
+| `<relpath> syntax bash -n: <msg>` | `*.sh` files, when `bash` is on PATH | `:150-153` |
+| `<relpath> syntax jq: <msg>` | `*.json` files | `:154-155` |
+| `<relpath> syntax python: line <N> <ErrorLine>` | `*.py` files, when `python3` is on PATH; only `line N` and the final `...Error`/`...Exception` line are kept (fallback `compile failed`) | `:156-165` |
+
+Notes:
+- Secret **values are never emitted** — only `file:line rule`; gitleaks runs with `--redact` (`:12-13`, `:129`). Python errors drop the echoed source line for the same reason (`:158-159`).
+- `<msg>` for bash/jq is the first error line, absolute path replaced by `<relpath>`, cut to 200 chars (`first_line()`, `:148`).
+- Matches judged placeholders (`example`, `xxxx`, `changeme`, `placeholder`, `your_`/`your-`, `redacted`, `dummy`, `<...>`, `${`, `{{`, `://`) are suppressed (`is_placeholder()`, `:95-103`). Lockfiles skip the built-in regex set but not gitleaks (`:105-110`).
+- `.gitleaksignore` and inline `gitleaks:allow` are ignored (`--gitleaks-ignore-path` to an empty temp dir, `--ignore-gitleaks-allow`, `:128-131`). A missing scanner is never reported (`:27`).
 
 ---
 
