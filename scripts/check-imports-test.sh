@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # check-imports-test.sh — deterministic, OFFLINE fixture tests for
-# scripts/check-imports.sh. Builds a throwaway git repo with JS/TS and Python
-# sources containing real and nonexistent imports, plus manifests that add a used
-# and an unused dependency, then asserts exact findings and every exit code
-# (0, 1, 2, 3, 4). Needs bash, git, jq, awk and python3 (stdlib only).
+# .claude/skills/code-review-and-quality/scripts/check-imports.sh (shipped with
+# the skills; scripts/check-imports.sh is a wrapper). Builds a throwaway git repo
+# with JS/TS and Python sources containing real and nonexistent imports, plus
+# manifests that add a used and an unused dependency, then asserts exact findings
+# and every exit code (0, 1, 2, 3, 4). Needs bash, git, jq, awk and python3
+# (stdlib only).
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHECK="$SCRIPT_DIR/check-imports.sh"
+CHECK="$SCRIPT_DIR/../.claude/skills/code-review-and-quality/scripts/check-imports.sh"
+WRAPPER="$SCRIPT_DIR/check-imports.sh"
 [ -f "$CHECK" ] || { echo "check-imports-test: $CHECK not found" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "check-imports-test: python3 required" >&2; exit 2; }
 
@@ -129,6 +132,31 @@ run --json --paths README.md
 OUT="$(cd "$G" && PYTHON=/nonexistent/python3 bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
 [ "$RC" -eq 4 ] && [ "$(jqo '.scanners[0].status')" = "error" ] \
   && ok "python missing → py-imports error, exit 4" || no "exit 4" "rc=$RC $OUT"
+mkdir -p "$T/home"
+OUT="$(cd "$G" && HOME="$T/home" PYTHON="$T/home/venv/bin/python3" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+[ "$(jqo '.scanners[0].reason == "~/venv/bin/python3 not found; cannot resolve Python imports"')" = true ] \
+  && ok "error reasons scrub \$HOME (→ ~)" || no "reason scrub" "$OUT"
+
+# ── interpreters inside the scanned tree never run ────────────────────────────
+CANARY="$T/py-canary"
+mkdir -p "$G/.venv/bin" "$G/bin"
+for planted in "$G/.venv/bin/python3" "$G/bin/python3"; do
+  printf '#!/bin/sh\ntouch "%s"\nexit 0\n' "$CANARY" > "$planted"; chmod +x "$planted"
+done
+for py in "$G/.venv/bin/python3" ".venv/bin/python3"; do
+  rm -f "$CANARY"
+  OUT="$(cd "$G" && PYTHON="$py" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+  { [ "$RC" -eq 4 ] && [ ! -e "$CANARY" ] \
+    && jqo '.scanners[0].reason' | grep -qF "is inside the scanned repo; not run"; } \
+    && ok "PYTHON=$py (inside the repo) never runs → error, exit 4" \
+    || no "PYTHON in tree ($py)" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) $OUT"
+done
+rm -f "$CANARY"
+OUT="$(cd "$G" && PATH="./bin:$G/.venv/bin:$PATH" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+{ [ ! -e "$CANARY" ] && [ "$(jqo '.scanners[0].status')" != "error" ]; } \
+  && ok "planted python3 on PATH (./bin, .venv/bin) skipped; system python3 used" \
+  || no "planted PATH python3" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) $OUT"
+rm -rf "${G:?}/.venv" "${G:?}/bin" "$CANARY"
 
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run --bogus
@@ -225,6 +253,15 @@ esc_byte="$(printf '\033')"
   && ok "text output escapes newline/ESC in repo paths and prefixes every line" \
   || no "text escaping" "rc=$RC out=$(printf '%s' "$OUT" | od -c | head -5)"
 rm -f "$G/$EVILNAME"
+
+# ── scripts/check-imports.sh wrapper execs the shipped check ──────────────────
+printf "require('./nope');\n" > "$G/wrapped.js"
+OUT="$(cd "$G" && bash "$WRAPPER" --json --paths wrapped.js 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 1 ] && has js-unresolved-relative wrapped.js 1 "'./nope'"; } \
+  && ok "scripts/check-imports.sh wrapper execs the shipped check" || no "wrapper" "rc=$RC $OUT $(cat "$T/stderr")"
+rm -f "$G/wrapped.js"
+RC=0; (cd "$SCRIPT_DIR/.." && CDPATH=".:/tmp" bash scripts/check-imports.sh --bogus >/dev/null 2>&1) || RC=$?
+[ "$RC" -eq 2 ] && ok "wrapper survives CDPATH (relative invocation)" || no "wrapper CDPATH" "rc=$RC"
 
 echo ""
 echo "check-imports-test: $P passed, $F failed."

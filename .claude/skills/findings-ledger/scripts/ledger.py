@@ -94,7 +94,9 @@ REQUIRED_KEYS = ("fingerprint", "file", "claim", "tier", "source", "run_id",
 FINGERPRINT_LEN = 16
 SCHEME_TEXT = 1
 SCHEME_STRUCTURED = 2
-CATEGORY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+# kebab-case slug with an optional single namespace: fail-open, slop/unused-dep.
+_SLUG = r"[a-z0-9]+(?:-[a-z0-9]+)*"
+CATEGORY_RE = re.compile(rf"^(?:{_SLUG}/)?{_SLUG}$")
 LOCK_TIMEOUT_S = 20  # writers hold the lock for milliseconds; 20s means wedged
 
 
@@ -142,7 +144,7 @@ def normalize_path(file):
 
 
 def normalize_category(category):
-    """Lowercased kebab-case slug, or None if it isn't one."""
+    """Lowercased kebab-case slug (optionally `namespace/slug`), or None."""
     t = category.strip().lower()
     return t if CATEGORY_RE.match(t) else None
 
@@ -344,7 +346,8 @@ def cmd_add(args):
     if args.category is not None:
         category = normalize_category(args.category)
         if category is None:
-            die(f"--category {args.category!r} is not a kebab-case slug (e.g. missing-ci-wiring)")
+            die(f"--category {args.category!r} is not a kebab-case slug, optionally namespaced "
+                "(e.g. missing-ci-wiring, slop/unused-dep)")
         fp = structured_fingerprint(args.file, category, args.symbol)
         scheme = SCHEME_STRUCTURED
     elif args.symbol is not None:
@@ -511,7 +514,8 @@ def main(argv=None):
     a.add_argument("--evidence", default=None, help="path to the evidence artifact (required for tier 1)")
     a.add_argument("--date", default=today, help="YYYY-MM-DD (default: today)")
     a.add_argument("--category", default=None,
-                   help="kebab-case defect class (e.g. fail-open); switches to the structured fingerprint")
+                   help="kebab-case defect class, optionally namespaced (e.g. fail-open, slop/unused-dep); "
+                        "switches to the structured fingerprint")
     a.add_argument("--symbol", default=None,
                    help="function, heading, or key the finding is about (requires --category)")
     a.set_defaults(fn=cmd_add)

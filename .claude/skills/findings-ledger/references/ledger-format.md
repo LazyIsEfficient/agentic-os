@@ -17,7 +17,7 @@ so identical events byte-compare equal and team-shared diffs stay stable.
 |---------------|---------------|---------|
 | `fingerprint` | string (16 hex) | Groups re-sightings of the same defect. Scheme 1: sha256 of `file + "\n" + normalize(claim)`. Scheme 2: sha256 of `"v2\n" + normalize_path(file) + "\n" + category + "\n" + normalize_symbol(symbol)`. Truncated to 16 chars. |
 | `fingerprint_scheme` | 1 or 2 | Which scheme produced `fingerprint`: 2 when `add --category` was given, else 1. Absent on entries written before #279 — read as 1. Transition events copy it from the fingerprint's first event. |
-| `category` | string or null | Kebab-case defect-class slug (`fail-open`, `stale-doc`, …), lowercased. Null for scheme 1. |
+| `category` | string or null | Kebab-case defect-class slug, optionally namespaced (`fail-open`, `slop/unused-dep`, …), lowercased. Null for scheme 1. |
 | `symbol` | string or null | Function, heading, or key the finding is about, as passed (normalized only inside the hash). Null when omitted. |
 | `file`        | string        | Repo-relative path the finding is about. |
 | `claim`       | string        | One-sentence claim summary, as the reviewer phrased it. |
@@ -69,7 +69,8 @@ identity is file + defect class + symbol. Normalization (scheme 2 only;
 scheme 1 hashes the trimmed raw path): the path has surrounding whitespace
 trimmed, backslashes turned into `/`, empty and `.` segments dropped (so
 `a//b`, `./a/b`, `a/./b` and `a/b/` all become `a/b`; `..` is kept as is);
-the category is lowercased and must be kebab-case; the symbol has
+the category is lowercased and must be kebab-case, optionally under one
+namespace (`slop/unused-dep`; the namespace is part of the identity); the symbol has
 backticks, a trailing `()` and surrounding whitespace peeled in any order
 (`` `f`() ``, `f ()`, `` `f()` `` all become `f`) and internal whitespace
 collapsed.
@@ -88,6 +89,24 @@ vocabulary in SKILL.md), and two distinct defects of the same class on the
 same symbol collide (a too-early promotion candidate, cheap to dismiss).
 The same defect recorded once per scheme gets two fingerprints. Renames
 still break grouping.
+
+## Reviewer category vocabulary
+
+`code-reviewer`'s slop checklist and `security-reviewer`'s scanner step use exactly
+these slugs, so their Tier 2 findings recur across runs. `--symbol` is the name in
+the right-hand column.
+
+| Slug | Use for | `--symbol` |
+|------|---------|------------|
+| `security/scanner-unavailable` | a `security-scan.sh` scanner was `unavailable`/`error`, the run exited 3/4, or there is no installed copy | scanner name (`gitleaks`, `semgrep`, `dependency-audit`, or `security-scan` for the whole run) |
+| `slop/scanner-unavailable` | `check-imports.sh` exited 4, or has no installed copy | `check-imports` |
+| `slop/nonexistent-api` | a call to a method/attribute that doesn't exist on a module that does — beyond what `check-imports.sh` resolves | the API name |
+| `slop/unused-dep` | new dependency nothing imports, when `check-imports.sh` did not flag it (e.g. a devDependency) | package name |
+| `slop/stdlib-dup-dep` | new dependency duplicating the stdlib or an existing dependency | package name |
+| `dead-code` | (SKILL.md seed slug, reused) unreachable or unused code | function or key |
+| `slop/duplicated-helper` | a new helper that re-implements one already in the codebase | the new helper |
+| `slop/speculative-generality` | abstraction, option or hook with fewer than three uses | the abstraction |
+| `slop/comment-noise` | comments restating the code, or change-log comments | function or heading |
 
 ## Text fingerprint normalization (scheme 1) — a heuristic, not identity
 

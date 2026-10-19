@@ -73,7 +73,7 @@ LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one sentence>" --tier 2 \
   --source <agent-name> --run-id <id> [--evidence <path>] \
-  [--category <kebab-slug> [--symbol <function|heading|key>]]
+  [--category <[ns/]kebab-slug> [--symbol <function|heading|key>]]
 
 python3 "$LEDGER" tally
 python3 "$LEDGER" triage [--threshold 2] [--age-days 14]
@@ -108,8 +108,9 @@ rarely recur. Pass `--category` and the fingerprint becomes
 `sha256("v2" + normalized file path + category + symbol)` — claim wording no
 longer matters, and paraphrases collide.
 
-- `--category` — a short kebab-case slug naming the **defect class**
-  (lowercased; anything that isn't `[a-z0-9]+(-[a-z0-9]+)*` is rejected).
+- `--category` — a short kebab-case slug naming the **defect class**,
+  optionally under one namespace (`slop/unused-dep`). Lowercased; anything
+  that isn't `[ns/]slug` with each part `[a-z0-9]+(-[a-z0-9]+)*` is rejected.
   Seed vocabulary — prefer these, coin a new slug when none fits:
 
   | Slug | Use for |
@@ -123,6 +124,9 @@ longer matters, and paraphrases collide.
   | `vague-routing` | skill/agent description too unspecific to route on |
   | `dead-code` | unreachable or unused code/config |
   | `secret-exposure` | credential or token logged, committed or leaked |
+
+  Reviewer vocabulary (`slop/*`, `security/*`, used by code-reviewer and
+  security-reviewer): [references/ledger-format.md](references/ledger-format.md#reviewer-category-vocabulary).
 
 - `--symbol` (optional, requires `--category`) — the function, heading, or
   config key the finding is about. Backticks and a trailing `()` are

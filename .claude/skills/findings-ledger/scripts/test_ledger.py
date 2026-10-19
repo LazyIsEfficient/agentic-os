@@ -253,6 +253,36 @@ def check_structured_fingerprints():
               f"{len(events_of(lp))} events")
 
 
+# 8b. Namespaced categories (reviewer vocabulary: slop/*, security/*): one
+#     namespace segment allowed, normalized like plain slugs, recurring across
+#     runs with different claim text.
+def check_namespaced_categories():
+    with tempfile.TemporaryDirectory() as td:
+        lp = Path(td) / "findings.jsonl"
+        r1 = add(lp, file="package.json", run_id="r1", claim="left-pad is added but never imported",
+                 extra=("--category", "slop/unused-dep", "--symbol", "left-pad"))
+        r2 = add(lp, file="package.json", run_id="r2", claim="new dependency left-pad has no importer",
+                 extra=("--category", "Slop/Unused-Dep", "--symbol", "`left-pad`"))
+        check("namespaced category adds exit 0", (r1.returncode, r2.returncode) == (0, 0),
+              r1.stderr + r2.stderr)
+        ev = events_of(lp)
+        check("namespaced category is normalized and recorded",
+              [e["category"] for e in ev] == ["slop/unused-dep", "slop/unused-dep"],
+              f"{[e['category'] for e in ev]}")
+        check("namespaced category: paraphrases collide and recur across runs",
+              ev[0]["fingerprint"] == ev[1]["fingerprint"] and ev[1]["status"] == "RECURRING",
+              f"{ev[0]['fingerprint']} vs {ev[1]['fingerprint']} {ev[1]['status']}")
+        check("namespace is part of the identity",
+              structured_fingerprint("package.json", "slop/unused-dep", "left-pad")
+              != structured_fingerprint("package.json", "unused-dep", "left-pad"))
+        for bad_cat in ("a/b/c", "/unused-dep", "slop/", "slop//x", "slop/Unused Dep"):
+            r = add(lp, file="f.md", claim="c", run_id="r9", extra=("--category", bad_cat))
+            check(f"malformed namespaced category {bad_cat!r} rejected (exit 2)",
+                  r.returncode == 2, f"rc={r.returncode}")
+        check("rejected namespaced adds append nothing", len(events_of(lp)) == 2,
+              f"{len(events_of(lp))} events")
+
+
 # 9. Same-run guard: repeats within one run-id are not recurrence (count,
 #    label, or triage); a second run-id is.
 def check_same_run_guard():
@@ -345,6 +375,7 @@ def check_export():
 check_worktree_convergence()
 check_concurrent_adds()
 check_structured_fingerprints()
+check_namespaced_categories()
 check_same_run_guard()
 check_legacy_entries()
 check_export()
