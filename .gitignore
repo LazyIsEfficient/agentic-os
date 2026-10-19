@@ -26,6 +26,10 @@ SESSION-STATE.md
 # .claude/ledger/findings.jsonl so recurrence is measured across the team.
 .claude/ledger/
 
+# Claude Code — captured reviewer verdicts (written by the SubagentStop hook
+# review-verdict-capture.sh, read by the Stop gate review-gate-stop.sh; #258).
+.claude/reviews/
+
 # Editor
 *.swp
 *.swo
