@@ -27,7 +27,7 @@ jobs:
       - run: bash scripts/parse-verdict-test.sh
       - run: bash scripts/security-scan-test.sh
       - run: bash scripts/check-imports-test.sh
-      - run: git ls-files -z '*.sh' .githooks/pre-commit | xargs -0 shellcheck -S warning
+      - run: git ls-files -z '*.sh' .githooks/pre-commit | xargs -0 shellcheck -S warning --
       - run: bash eval/metrics/session-metrics-test.sh
       - run: bash eval/metrics/compare-test.sh
   ship-gates:
