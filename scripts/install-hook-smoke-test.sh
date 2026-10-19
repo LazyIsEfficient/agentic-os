@@ -148,4 +148,21 @@ if CLAUDE_DIR='/tmp/evil;whoami' bash "$REPO/install.sh" 2>/dev/null; then
   exit 1
 fi
 
+# Full install into a throwaway HOME ships the reviewer scanners (#261/#262):
+# reviewers run in consumer projects, where repo scripts/ does not exist.
+fake_home="$tmpdir/home"
+mkdir -p "$fake_home"
+HOME="$fake_home" CLAUDE_DIR="$fake_home/.claude" bash "$REPO/install.sh" >/dev/null \
+  || { echo "FAIL install-hook-smoke: full install into temp HOME failed" >&2; exit 1; }
+for f in skills/security/scripts/security-scan.sh skills/security/scripts/security-scan-semgrep.yml \
+         skills/code-review-and-quality/scripts/check-imports.sh; do
+  [[ -f "$fake_home/.claude/$f" ]] || { echo "FAIL install-hook-smoke: $f not installed" >&2; exit 1; }
+done
+# The installed scanners run standalone: outside a git repo the default scope is
+# a usage error (exit 2) for both — proves they parse and execute, nothing more.
+for f in skills/security/scripts/security-scan.sh skills/code-review-and-quality/scripts/check-imports.sh; do
+  rc=0; (cd "$fake_home" && bash "$fake_home/.claude/$f" --json >/dev/null 2>&1) || rc=$?
+  [[ "$rc" == 2 ]] || { echo "FAIL install-hook-smoke: installed $f exit $rc, want 2" >&2; exit 1; }
+done
+
 echo "install-hook-smoke-test: OK"

@@ -17,7 +17,7 @@ so identical events byte-compare equal and team-shared diffs stay stable.
 |---------------|---------------|---------|
 | `fingerprint` | string (16 hex) | Groups re-sightings of the same defect. Scheme 1: sha256 of `file + "\n" + normalize(claim)`. Scheme 2: sha256 of `"v2\n" + normalize_path(file) + "\n" + category + "\n" + normalize_symbol(symbol)`. Truncated to 16 chars. |
 | `fingerprint_scheme` | 1 or 2 | Which scheme produced `fingerprint`: 2 when `add --category` was given, else 1. Absent on entries written before #279 — read as 1. Transition events copy it from the fingerprint's first event. |
-| `category` | string or null | Kebab-case defect-class slug (`fail-open`, `stale-doc`, …), lowercased. Null for scheme 1. |
+| `category` | string or null | Kebab-case defect-class slug, optionally namespaced (`fail-open`, `slop/unused-dep`, …), lowercased. Null for scheme 1. |
 | `symbol` | string or null | Function, heading, or key the finding is about, as passed (normalized only inside the hash). Null when omitted. |
 | `file`        | string        | Repo-relative path the finding is about. |
 | `claim`       | string        | One-sentence claim summary, as the reviewer phrased it. |
@@ -69,7 +69,8 @@ identity is file + defect class + symbol. Normalization (scheme 2 only;
 scheme 1 hashes the trimmed raw path): the path has surrounding whitespace
 trimmed, backslashes turned into `/`, empty and `.` segments dropped (so
 `a//b`, `./a/b`, `a/./b` and `a/b/` all become `a/b`; `..` is kept as is);
-the category is lowercased and must be kebab-case; the symbol has
+the category is lowercased and must be kebab-case, optionally under one
+namespace (`slop/unused-dep`; the namespace is part of the identity); the symbol has
 backticks, a trailing `()` and surrounding whitespace peeled in any order
 (`` `f`() ``, `f ()`, `` `f()` `` all become `f`) and internal whitespace
 collapsed.

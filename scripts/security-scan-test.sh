@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # security-scan-test.sh — deterministic, OFFLINE fixture tests for
-# scripts/security-scan.sh. No real scanner is needed: fake gitleaks / semgrep /
-# osv-scanner executables on a controlled PATH emit canned output, switched by
-# FAKE_GITLEAKS / FAKE_SEMGREP / FAKE_OSV (findings | clean | error). Covers every
-# exit code (0, 1, 2, 3, 4), a path with spaces and a leading dash, --base scope,
-# and SEMGREP_CONFIG pass-through.
+# .claude/skills/security/scripts/security-scan.sh (shipped with the skills;
+# scripts/security-scan.sh is a wrapper). No real scanner is needed: fake gitleaks /
+# semgrep / osv-scanner executables on a controlled PATH emit canned output,
+# switched by FAKE_GITLEAKS / FAKE_SEMGREP / FAKE_OSV (findings | clean | error).
+# Covers every exit code (0, 1, 2, 3, 4), a path with spaces and a leading dash,
+# --base scope, SEMGREP_CONFIG pass-through and SECURITY_SCAN_OFFLINE=1.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCAN="$SCRIPT_DIR/security-scan.sh"
+SCAN="$SCRIPT_DIR/../.claude/skills/security/scripts/security-scan.sh"
+WRAPPER="$SCRIPT_DIR/security-scan.sh"
 [ -f "$SCAN" ] || { echo "security-scan-test: $SCAN not found" >&2; exit 2; }
 
 T="$(mktemp -d)"
@@ -57,9 +59,13 @@ cat > "$FAKE/semgrep" <<'EOF'
 #!/usr/bin/env bash
 # fake semgrep: `semgrep scan --config C --json ... -- FILES...`
 printf 'semgrep' >> "$FAKE_LOG"; printf ' <%s>' "$@" >> "$FAKE_LOG"; echo >> "$FAKE_LOG"
-while [ $# -gt 0 ] && [ "$1" != "--" ]; do shift; done
+cfg=""
+while [ $# -gt 0 ] && [ "$1" != "--" ]; do [ "$1" = "--config" ] && cfg="$2"; shift; done
 shift
 case "${FAKE_SEMGREP:-clean}" in
+  prefixed) # real semgrep prefixes a local ruleset's rule ids with its dir path
+    pre="$(dirname "$cfg")"; pre="${pre#/}"; pre="$(printf '%s' "$pre" | tr / .)"
+    printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"%s.aos.js.eval-dynamic","extra":{"severity":"ERROR","message":"eval"}}],"errors":[]}\n' "$1" "$pre" ;;
   error) echo '{"results":[],"errors":[{"level":"error","message":"invalid configuration file found"}]}'; exit 7 ;;
   findings) printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"javascript.lang.security.eval","extra":{"severity":"ERROR","message":"eval detected"}}],"errors":[]}\n' "$1" ;;
   *) echo '{"results":[],"errors":[]}' ;;
@@ -175,6 +181,30 @@ FAKE_OSV=error run "$FULL_PATH" --json --paths app.js
   && ok "osv-scanner unexpected exit code → error / exit 4" || no "osv error" "rc=$RC out=$OUT"
 FAKE_GITLEAKS=findings FAKE_SEMGREP=error run "$FULL_PATH" --json --paths "dir with space/-leading.js"
 [ "$RC" -eq 1 ] && ok "findings outrank errors (exit 1, error still visible)" || no "findings+error" "rc=$RC"
+
+# ── SECURITY_SCAN_OFFLINE=1: no rule fetch, no online vulnerability DB ───────
+RULES="$(cd -P "$(dirname "$SCAN")" && pwd -P)/security-scan-semgrep.yml"
+[ -f "$RULES" ] && ok "shipped offline semgrep ruleset exists beside the scanner" || no "offline ruleset" "$RULES missing"
+: > "$LOG"
+SECURITY_SCAN_OFFLINE=1 FAKE_OSV=findings run "$FULL_PATH" --json --paths app.js
+{ [ "$RC" -eq 0 ] && grep -qF -- "<--config> <$RULES>" "$LOG" && ! grep -q '^osv-scanner' "$LOG" \
+  && [ "$(jqo '.scanners[] | select(.name=="dependency-audit") | "\(.status)|\(.reason)"')" = "unavailable|offline mode: dependency audits query online vulnerability databases" ]; } \
+  && ok "offline: semgrep uses the shipped ruleset; dependency audit unavailable, osv never run" \
+  || no "offline mode" "rc=$RC out=$OUT log=$(cat "$LOG")"
+: > "$LOG"
+SECURITY_SCAN_OFFLINE=1 SEMGREP_CONFIG=p/security-audit run "$FULL_PATH" --json --paths app.js
+{ ! grep -q '^semgrep' "$LOG" \
+  && [ "$(jqo '.scanners[] | select(.name=="semgrep") | .status')" = "unavailable" ] \
+  && jqo '.scanners[] | select(.name=="semgrep") | .reason' | grep -qF 'offline mode: SEMGREP_CONFIG is not a local file'; } \
+  && ok "offline: a registry SEMGREP_CONFIG is reported unavailable, never fetched" \
+  || no "offline registry config" "rc=$RC out=$OUT log=$(cat "$LOG")"
+SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=prefixed run "$FULL_PATH" --json --paths app.js
+[ "$(jqo '.scanners[] | select(.name=="semgrep") | .findings[0].rule')" = "aos.js.eval-dynamic" ] \
+  && ok "offline: ruleset-path prefix stripped from semgrep rule ids" || no "rule id prefix" "$OUT"
+: > "$LOG"
+OUT="$(cd "$PROJ" && SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=findings PATH="$FULL_PATH" bash "$WRAPPER" --json --paths app.js 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 1 ] && grep -qF -- "<--config> <$RULES>" "$LOG"; } \
+  && ok "scripts/security-scan.sh wrapper execs the shipped scanner" || no "wrapper" "rc=$RC out=$OUT $(cat "$T/stderr")"
 
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run "$FULL_PATH" --bogus

@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # check-imports-test.sh — deterministic, OFFLINE fixture tests for
-# scripts/check-imports.sh. Builds a throwaway git repo with JS/TS and Python
-# sources containing real and nonexistent imports, plus manifests that add a used
-# and an unused dependency, then asserts exact findings and every exit code
-# (0, 1, 2, 3, 4). Needs bash, git, jq, awk and python3 (stdlib only).
+# .claude/skills/code-review-and-quality/scripts/check-imports.sh (shipped with
+# the skills; scripts/check-imports.sh is a wrapper). Builds a throwaway git repo
+# with JS/TS and Python sources containing real and nonexistent imports, plus
+# manifests that add a used and an unused dependency, then asserts exact findings
+# and every exit code (0, 1, 2, 3, 4). Needs bash, git, jq, awk and python3
+# (stdlib only).
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHECK="$SCRIPT_DIR/check-imports.sh"
+CHECK="$SCRIPT_DIR/../.claude/skills/code-review-and-quality/scripts/check-imports.sh"
+WRAPPER="$SCRIPT_DIR/check-imports.sh"
 [ -f "$CHECK" ] || { echo "check-imports-test: $CHECK not found" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "check-imports-test: python3 required" >&2; exit 2; }
 
@@ -225,6 +228,13 @@ esc_byte="$(printf '\033')"
   && ok "text output escapes newline/ESC in repo paths and prefixes every line" \
   || no "text escaping" "rc=$RC out=$(printf '%s' "$OUT" | od -c | head -5)"
 rm -f "$G/$EVILNAME"
+
+# ── scripts/check-imports.sh wrapper execs the shipped check ──────────────────
+printf "require('./nope');\n" > "$G/wrapped.js"
+OUT="$(cd "$G" && bash "$WRAPPER" --json --paths wrapped.js 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 1 ] && has js-unresolved-relative wrapped.js 1 "'./nope'"; } \
+  && ok "scripts/check-imports.sh wrapper execs the shipped check" || no "wrapper" "rc=$RC $OUT $(cat "$T/stderr")"
+rm -f "$G/wrapped.js"
 
 echo ""
 echo "check-imports-test: $P passed, $F failed."

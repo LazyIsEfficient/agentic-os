@@ -65,6 +65,11 @@ Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — stochastic 
 - [references/review-process.md](references/review-process.md) — Step-by-step process, change sizing, descriptions, multi-model pattern, dead code hygiene, disagreements, honesty, dependency discipline, full review checklist
 - [references/security-checklist.md](references/security-checklist.md) — Detailed security review guidance
 - [references/performance-checklist.md](references/performance-checklist.md) — Performance review checks
+- [references/scanner-evidence.md](references/scanner-evidence.md) — Running `scripts/check-imports.sh` (here) and `security/scripts/security-scan.sh` as Tier 0/1 evidence: path resolution, exit codes, citing hits, the offline-network decision
+
+## Scripts
+
+- `scripts/check-imports.sh [--base <ref>] [--paths <file>...] [--json]` — a deterministic check for JS/TS and Python imports that don't resolve, and for new runtime dependencies that nothing imports. Exits 0 clean, 1 findings, 2 usage, 3 nothing to check, 4 error. Run it from the project root. It only reads.
 
 ## Related skills
 

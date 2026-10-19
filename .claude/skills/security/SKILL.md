@@ -12,8 +12,9 @@ when_to_use: |
 
   Use when auditing a repository for accidentally committed PII or secrets,
   sanitizing files before open-sourcing or publishing, or installing a pre-commit
-  hook to block future PII commits. Focused exclusively on data-at-rest scanning
-  and redaction using regex pattern matching.
+  hook to block future PII commits. Focused on data-at-rest scanning and
+  redaction using regex pattern matching. Also ships `security-scan.sh`, the
+  deterministic scanner runner that security-reviewer uses for evidence.
 
   Not when: hardening application code against OWASP vulnerabilities, implementing
   auth/sessions/input validation, or doing a cross-stack security review — use
@@ -41,6 +42,8 @@ SAN="$PROJ/.claude/skills/security/scripts/sanitizer.py"
 |--------|---------|-------------|
 | `scripts/sanitizer.py` | Scan or redact PII in files | `python3 "$SAN" --scan --dir . --recursive` |
 | `scripts/pre-commit-hook.sh` | Git hook to block commits with PII | Copy it from the resolved skill directory to `.git/hooks/pre-commit`, then `chmod +x` it |
+| `scripts/security-scan.sh` | Runs the installed deterministic scanners (gitleaks, semgrep, dependency audit) over changed files and reports reproducible evidence. Used by `security-reviewer`. | `bash "$(dirname "$SAN")/security-scan.sh" --base origin/main --json`, from the project root. Exits 0 clean, 1 findings, 2 usage, 3 nothing checked, 4 error. |
+| `scripts/security-scan-semgrep.yml` | Local offline semgrep ruleset, used when `SECURITY_SCAN_OFFLINE=1` | See [scanner-evidence.md](../code-review-and-quality/references/scanner-evidence.md) |
 
 ## Configuration
 

@@ -1,0 +1,134 @@
+# security-scan-semgrep.yml — local, offline semgrep ruleset for security-scan.sh.
+# Used when SECURITY_SCAN_OFFLINE=1 (the reviewer agents' mode), so a review never
+# fetches rules from the semgrep registry and the same input always meets the same
+# rules. Deliberately small and high-signal: each rule is an injection or
+# trust-boundary sink whose hit is worth a human look. Broader coverage: run
+# security-scan.sh online with the default SEMGREP_CONFIG=p/security-audit.
+rules:
+  # ── Python ──────────────────────────────────────────────────────────────────
+  - id: aos.python.eval-exec-dynamic
+    languages: [python]
+    severity: ERROR
+    message: eval/exec on a non-literal argument executes attacker-controllable code.
+    patterns:
+      - pattern-either:
+          - pattern: eval($X, ...)
+          - pattern: exec($X, ...)
+      - pattern-not: eval("...", ...)
+      - pattern-not: exec("...", ...)
+
+  - id: aos.python.subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: subprocess with shell=True and a non-literal command allows shell injection.
+    patterns:
+      - pattern: subprocess.$FN($CMD, ..., shell=True, ...)
+      - pattern-not: subprocess.$FN("...", ..., shell=True, ...)
+
+  - id: aos.python.os-system-dynamic
+    languages: [python]
+    severity: ERROR
+    message: os.system/os.popen with a non-literal command allows shell injection.
+    patterns:
+      - pattern-either:
+          - pattern: os.system($CMD)
+          - pattern: os.popen($CMD, ...)
+      - pattern-not: os.system("...")
+      - pattern-not: os.popen("...", ...)
+
+  - id: aos.python.pickle-load
+    languages: [python]
+    severity: WARNING
+    message: pickle deserialization of untrusted data executes arbitrary code.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+
+  - id: aos.python.yaml-unsafe-load
+    languages: [python]
+    severity: WARNING
+    message: yaml.load without SafeLoader can construct arbitrary Python objects.
+    patterns:
+      - pattern: yaml.load(...)
+      - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=yaml.CSafeLoader, ...)
+
+  - id: aos.python.tls-verify-disabled
+    languages: [python]
+    severity: WARNING
+    message: TLS certificate verification disabled (verify=False).
+    pattern: requests.$FN(..., verify=False, ...)
+
+  # ── JavaScript / TypeScript ─────────────────────────────────────────────────
+  - id: aos.js.eval-dynamic
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: eval / new Function on a non-literal argument executes attacker-controllable code.
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: new Function(..., $X)
+      - pattern-not: eval("...")
+      - pattern-not: new Function(..., "...")
+
+  - id: aos.js.child-process-exec-dynamic
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: child_process exec/execSync with a non-literal command allows shell injection.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              $CP = require('child_process')
+              ...
+          - pattern-inside: |
+              $CP = require('node:child_process')
+              ...
+      - pattern-either:
+          - pattern: $CP.exec($CMD, ...)
+          - pattern: $CP.execSync($CMD, ...)
+      - pattern-not: $CP.exec("...", ...)
+      - pattern-not: $CP.execSync("...", ...)
+      - focus-metavariable: $CMD
+
+  - id: aos.js.child-process-exec-dynamic-esm
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: child_process exec/execSync with a non-literal command allows shell injection.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              import { ..., exec, ... } from 'child_process';
+              ...
+          - pattern-inside: |
+              import { ..., execSync, ... } from 'child_process';
+              ...
+          - pattern-inside: |
+              import { ..., exec, ... } from 'node:child_process';
+              ...
+          - pattern-inside: |
+              import { ..., execSync, ... } from 'node:child_process';
+              ...
+      - pattern-either:
+          - pattern: exec($CMD, ...)
+          - pattern: execSync($CMD, ...)
+      - pattern-not: exec("...", ...)
+      - pattern-not: execSync("...", ...)
+      - focus-metavariable: $CMD
+
+  - id: aos.js.inner-html-dynamic
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: assigning non-literal HTML to innerHTML/outerHTML is an XSS sink.
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.outerHTML = "..."
+
+  - id: aos.js.tls-reject-unauthorized-false
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: TLS certificate verification disabled (rejectUnauthorized false).
+    pattern: "{..., rejectUnauthorized: false, ...}"

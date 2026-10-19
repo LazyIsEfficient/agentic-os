@@ -73,7 +73,7 @@ LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one sentence>" --tier 2 \
   --source <agent-name> --run-id <id> [--evidence <path>] \
-  [--category <kebab-slug> [--symbol <function|heading|key>]]
+  [--category <[ns/]kebab-slug> [--symbol <function|heading|key>]]
 
 python3 "$LEDGER" tally
 python3 "$LEDGER" triage [--threshold 2] [--age-days 14]
@@ -108,8 +108,9 @@ rarely recur. Pass `--category` and the fingerprint becomes
 `sha256("v2" + normalized file path + category + symbol)` — claim wording no
 longer matters, and paraphrases collide.
 
-- `--category` — a short kebab-case slug naming the **defect class**
-  (lowercased; anything that isn't `[a-z0-9]+(-[a-z0-9]+)*` is rejected).
+- `--category` — a short kebab-case slug naming the **defect class**,
+  optionally under one namespace (`slop/unused-dep`). Lowercased; anything
+  that isn't `[ns/]slug` with each part `[a-z0-9]+(-[a-z0-9]+)*` is rejected.
   Seed vocabulary — prefer these, coin a new slug when none fits:
 
   | Slug | Use for |
@@ -123,6 +124,22 @@ longer matters, and paraphrases collide.
   | `vague-routing` | skill/agent description too unspecific to route on |
   | `dead-code` | unreachable or unused code/config |
   | `secret-exposure` | credential or token logged, committed or leaked |
+
+  Reviewer vocabulary — `code-reviewer`'s slop checklist and
+  `security-reviewer`'s scanner step use exactly these, so their Tier 2
+  findings recur across runs. `--symbol` is the name in the right column.
+
+  | Slug | Use for | `--symbol` |
+  |------|---------|------------|
+  | `security/scanner-unavailable` | a `security-scan.sh` scanner was `unavailable`/`error`, or the run exited 3/4 | scanner name (`gitleaks`, `semgrep`, `dependency-audit`, or `security-scan` for the whole run) |
+  | `slop/scanner-unavailable` | `check-imports.sh` exited 3/4 or could not be found | `check-imports` |
+  | `slop/nonexistent-api` | a call to a method/attribute that doesn't exist on a module that does — beyond what `check-imports.sh` resolves | the API name |
+  | `slop/unused-dep` | new dependency nothing imports, when `check-imports.sh` did not flag it (e.g. a devDependency) | package name |
+  | `slop/stdlib-dup-dep` | new dependency duplicating the stdlib or an existing dependency | package name |
+  | `dead-code` | (seed slug above, reused) unreachable or unused code | function or key |
+  | `slop/duplicated-helper` | a new helper that re-implements one already in the codebase | the new helper |
+  | `slop/speculative-generality` | abstraction, option or hook with fewer than three uses | the abstraction |
+  | `slop/comment-noise` | comments restating the code, or change-log comments | function or heading |
 
 - `--symbol` (optional, requires `--category`) — the function, heading, or
   config key the finding is about. Backticks and a trailing `()` are
