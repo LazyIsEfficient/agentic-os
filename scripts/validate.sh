@@ -990,15 +990,17 @@ check_workflow_agent_type() {
 #     mechanism") is not flagged;
 #   - exempt: lines where a negation binds to the dispatch verb — "never|don't|
 #     do not|must not" + "use|dispatch|spawn", "is banned|is not allowed|is
-#     never", or "bans" (as in "installing it bans `general-purpose`"). A bare negation word is not enough: "do not hesitate to dispatch
-#     `general-purpose`" endorses it, and "research on main thread forbidden —
+#     never", or "bans" directly before the name ("installing it bans
+#     `general-purpose`"). A bare negation word is not enough: "do not
+#     hesitate to dispatch `general-purpose`" endorses it, "the hook bans Bash;
+#     dispatch `general-purpose`" bans something else, and "research on main thread forbidden —
 #     dispatch Agent(explore|generalPurpose)" forbids something else;
 #   - not scanned: .git, eval/, node_modules, gitignored local state
 #     (.claude/memory, .claude/ledger, .claude/worktrees), this validator + its
 #     self-test, and the ban's own enforcement (block-general-purpose.sh, its
 #     test, and scripts/fixtures/) — all of which must spell the pattern.
 GP_RE='generalPurpose|`general-purpose`|["'"'"']general-purpose["'"'"']|general-purpose[[:space:]]+(sub)?agents?\b|subagent_type[^[:alnum:]]*general-purpose'
-GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b|\bbans\b'
+GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b|\bbans[[:space:]]+(`general-purpose`|generalPurpose)'
 check_no_general_purpose() {
   local f ln text
   while IFS=: read -r f ln text; do

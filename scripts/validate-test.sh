@@ -546,7 +546,8 @@ printf '%s\n' \
   'Main-thread research forbidden — dispatch Agent(explore|generalPurpose).' \
   'Do not hesitate to dispatch `general-purpose` for research.' \
   '`general-purpose` is banned for engineering work.' \
-  'Installing it bans `general-purpose` subagent spawns.' > "$r52"
+  'Installing it bans `general-purpose` subagent spawns.' \
+  'The hook bans Bash; dispatch `general-purpose` for research.' > "$r52"
 printf 'agent: "general-purpose"\n' > "$c52/scripts/fixtures/gp-fixture.txt"
 printf 'Baseline arm: `general-purpose` agent.\n' > "$c52/eval/gp.md"
 assert_fails_on "case 52a no-general-purpose (endorsing line fails)" "$c52" no-general-purpose "gp-test.md — line 1 "
@@ -558,6 +559,8 @@ assert_not_flagged "case 52e no-general-purpose (eval/ out of scope)" no-general
 assert_fails_on "case 52f no-general-purpose (unbound negation not exempt)" "$c52" no-general-purpose "gp-test.md — line 5 "
 assert_not_flagged "case 52g no-general-purpose ('is banned' exempt)" no-general-purpose "gp-test.md — line 6 "
 assert_not_flagged "case 52h no-general-purpose ('bans' exempt)" no-general-purpose "gp-test.md — line 7 "
+# "bans" must bind to the name: banning something else on the same line is no exemption.
+assert_fails_on "case 52j no-general-purpose (unbound 'bans' not exempt)" "$c52" no-general-purpose "gp-test.md — line 8 "
 assert_not_flagged "case 52i no-general-purpose (scripts/fixtures/ out of scope)" no-general-purpose "gp-fixture.txt"
 
 # 53: symlinked SKILL.md passes [[ -f ]] but every `find -type f` content check
