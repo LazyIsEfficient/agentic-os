@@ -79,7 +79,7 @@ case "$cmd" in
       exit 0
     fi
     append_under "Constraints" "- Orchestrator-only: main thread must not Write/StrReplace/Delete/EditNotebook for implementation — dispatch Agent(engineer|domain specialist)"
-    append_under "Constraints" "- Research >2 file reads/greps on main thread forbidden — dispatch Agent(explore|generalPurpose)"
+    append_under "Constraints" "- Research >2 file reads/greps on main thread forbidden — dispatch Agent(Explore) for search, Agent(Plan) for read-only design; never untyped"
     append_under "Constraints" "- Skills: identify on main thread; run multi-step skill workflows only in dispatched subagents (brief with skill procedure)"
     append_under "Constraints" "- Complete = Agent(code-reviewer) + Agent(security-reviewer) parallel readonly on current diff before saying done; library-reviewer when skills/agents change"
     echo "initialized $LIVE with orchestrator constraints"
