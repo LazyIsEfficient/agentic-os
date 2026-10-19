@@ -217,7 +217,7 @@ check_frontmatter_and_names() {
       fi
       local k
       for k in name description phases; do
-        if ! printf '%s\n' "$meta" | grep -Eq "(^|[ \t,{])$k[ \t]*:"; then
+        if ! printf '%s\n' "$meta" | grep -Eq "(^|[ \t,{])${k}[ \t]*:"; then
           fail frontmatter "$f" "meta object missing key: $k"
         fi
       done

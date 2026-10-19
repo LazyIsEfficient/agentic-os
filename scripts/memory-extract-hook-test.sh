@@ -43,7 +43,7 @@ verdict(){ printf '%s' "$1" | jq -r 'if .decision == "block" then "NUDGE" else "
 # turns-nudged_at=1 < 3 so it cannot re-fire (loop-safe by construction).
 SID="epoch-fixed"
 v_seq=""; s_seq=""; rc_all=0
-for i in 1 2 3 4 5 6; do
+for _ in 1 2 3 4 5 6; do
   fire "$SID"
   [ "$RC" -eq 0 ] || rc_all=1
   v_seq="$v_seq $(verdict "$OUT")"
