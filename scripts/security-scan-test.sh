@@ -44,7 +44,7 @@ case "${FAKE_GITLEAKS:-clean}" in
   error) echo "fake gitleaks exploded" >&2; exit 1 ;;
   findings)
     if grep -q 'SECRET' "$file"; then
-      printf '[{"RuleID":"generic-api-key","Description":"Detected a Generic API Key","StartLine":2,"File":"%s","Secret":"REDACTED"}]\n' "$file" > "$report"
+      jq -cn --arg f "$file" '[{RuleID:"generic-api-key",Description:"Detected a Generic API Key",StartLine:2,File:$f,Secret:"REDACTED"}]' > "$report"
     else
       echo '[]' > "$report"
     fi ;;
@@ -160,7 +160,7 @@ run "$SYS" --json --paths app.js
 [ "$(jqo '[.scanners[] | "\(.name)=\(.status)"] | join(",")')" = "gitleaks=unavailable,semgrep=unavailable,dependency-audit=unavailable" ] \
   && ok "absent scanners each reported unavailable" || no "unavailable report" "$OUT"
 run "$SYS" --paths app.js
-printf '%s' "$OUT" | grep -q '^gitleaks: unavailable (gitleaks not installed)' \
+printf '%s' "$OUT" | grep -q '^security-scan: gitleaks: unavailable (gitleaks not installed)' \
   && ok "human output names unavailable scanners" || no "human output" "$OUT"
 echo '{"lockfileVersion":3,"packages":{}}' > "$PROJ/package-lock.json"
 
@@ -311,7 +311,43 @@ run "$NPM_PATH" --json --paths app.js
   && ok "pip-audit gets a sanitized copy (no --index-url / -r lines) and a note" \
   || no "pip sanitize" "rc=$RC $(cat "$LOG") $OUT"
 rm -f "$PROJ/requirements.txt"
+
+# ── copied manifests obey symlink containment; copy failures → exit 4 + JSON ──
+printf 'TOP-SECRET\n' > "$T/outside/secret.txt"
+ln -s ../outside/secret.txt "$PROJ/package.json"   # relative escape, as in the review repro
 echo '{"lockfileVersion":3,"packages":{}}' > "$PROJ/package-lock.json"
+: > "$LOG"
+run "$NPM_PATH" --json --paths app.js
+{ [ "$RC" -eq 4 ] && [ "$(jqo '.scanners[] | select(.name=="npm-audit") | .status')" = "error" ] \
+  && [ "$(jqo '.skipped[] | select(.path=="package.json") | .reason')" = "manifest resolves outside the repo root" ] \
+  && ! grep -q '^npm cwd=' "$LOG"; } \
+  && ok "symlinked package.json outside the repo: never copied, skipped + error, exit 4" \
+  || no "package.json symlink escape" "rc=$RC out=$OUT log=$(cat "$LOG")"
+rm -f "$PROJ/package.json"
+chmod 000 "$PROJ/package-lock.json"
+if [ -r "$PROJ/package-lock.json" ]; then
+  ok "lockfile copy failure (skipped: running as root, chmod 000 is still readable)"
+else
+  run "$NPM_PATH" --json --paths app.js
+  { [ "$RC" -eq 4 ] && jqo '.scanners[] | select(.name=="npm-audit") | .reason' | grep -q '^cannot copy'; } \
+    && ok "lockfile copy failure → error status with JSON output, exit 4 (not a bare set -e exit)" \
+    || no "copy failure" "rc=$RC out=$OUT"
+fi
+chmod 644 "$PROJ/package-lock.json"
+
+# ── text output: control characters escaped, no line can start with `::` ─────
+EVIL="$PROJ/$(printf 'evil\n::error::pwned\033[31m.js')"
+printf 'SECRET\n' > "$EVIL"
+FAKE_GITLEAKS=findings run "$FULL_PATH" --paths "$(printf 'evil\n::error::pwned\033[31m.js')"
+esc_byte="$(printf '\033')"
+{ [ "$RC" -eq 1 ] \
+  && ! printf '%s\n' "$OUT" | grep -q '^::' \
+  && [ "$(printf '%s\n' "$OUT" | grep -vc '^security-scan: ')" = "0" ] \
+  && ! printf '%s' "$OUT" | grep -qF "$esc_byte" \
+  && printf '%s' "$OUT" | grep -qF 'evil\x0a::error::pwned\x1b[31m.js:2'; } \
+  && ok "text output escapes newline/ESC in repo paths and prefixes every line" \
+  || no "text escaping" "rc=$RC out=$(printf '%s' "$OUT" | od -c | head -5)"
+rm -f "$EVIL"
 
 echo ""
 echo "security-scan-test: $P passed, $F failed."

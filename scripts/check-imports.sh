@@ -60,9 +60,11 @@
 #     any ancestor package.json; a package resolved only via a sibling workspace's
 #     manifest is reported.
 #   - Python: only the top-level module is resolved (submodule typos such as
-#     `os.pathx` are not caught); imports inside a `try:` block are treated as
-#     optional and skipped; extraction is line-based, so docstrings containing
-#     `import x` lines may be read as imports.
+#     `os.pathx` are not caught); extraction is line-based, so docstrings
+#     containing `import x` lines may be read as imports.
+#   - Python imports inside a `try:` body are skipped as optional imports. This
+#     is a false-positive limitation, NOT a security control: wrapping a
+#     hallucinated import in `try:` hides it from this check.
 #   - JS extraction is line-based: `from 'x'` inside a string literal can be read
 #     as an import; commented lines starting with // or * are skipped.
 #   - unused-deps excludes devDependencies (tools used only via CLI or config files
@@ -74,8 +76,16 @@
 # --json emits {"scanners":[{"name","status","reason"?,"findings":[{"file","line",
 #   "rule","severity","message"}]}],"skipped":[{"path","reason"}]} — the same
 #   shape as security-scan.sh. Status: ran | findings | error.
-#   Rules: js-unresolved-relative, js-undeclared-package, py-unresolved-relative,
-#   py-unresolved-module, unused-dependency.
+#   Rules: js-unresolved-relative, js-undeclared-package, js-import-outside-root,
+#   py-unresolved-relative, py-import-outside-root, py-unresolved-module,
+#   unused-dependency.
+#   Resolution never leaves the repo root: a relative or absolute import whose
+#   lexical target is outside it is a *-import-outside-root finding (nothing
+#   outside is stat'ed), and a candidate file, package dir or ancestor
+#   package.json whose real (symlink-resolved) location is outside the root is
+#   treated as absent; such a package.json is also listed in "skipped".
+#   Text output escapes control characters in repo-controlled text as \xNN and
+#   prefixes every line with "check-imports: " (no line can start with `::`).
 #
 # Exit codes:
 #   0  checked, clean
@@ -194,6 +204,47 @@ resolve() {
 skip() {
   jq -cn --arg path "${1#./}" --arg reason "$2" '{path:$path, reason:$reason}' >> "$TMP/skipped.jsonl"
 }
+skip_once() {
+  jq -e --arg path "${1#./}" 'select(.path == $path)' "$TMP/skipped.jsonl" >/dev/null 2>&1 || skip "$1" "$2"
+}
+
+# in_root <path>: true when <path> exists and its real location is inside ROOT.
+in_root() {
+  local r
+  r="$(resolve "$1")" || return 1
+  [[ -e "$r" ]] || return 1
+  case "$r" in "$ROOT"/*) return 0 ;; esac
+  return 1
+}
+root_file() { in_root "$1" && [[ -f "$1" ]]; }
+root_dir() { in_root "$1" && [[ -d "$1" ]]; }
+
+# abs_path <path>: absolute (physical-cwd based) form of a ./relative or /path.
+abs_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    .) printf '%s\n' "$PWDP" ;;
+    *) printf '%s/%s\n' "$PWDP" "${1#./}" ;;
+  esac
+}
+
+# lexnorm <absolute path>: purely lexical normalization of "." and ".." — never
+# touches the filesystem, so it is safe on attacker-chosen specifiers.
+lexnorm() {
+  local parts=() segs=() part
+  IFS=/ read -r -a parts <<< "$1"
+  for part in ${parts[@]+"${parts[@]}"}; do
+    case "$part" in
+      ""|.) ;;
+      ..) [[ ${#segs[@]} -gt 0 ]] && unset "segs[$(( ${#segs[@]} - 1 ))]" ;;
+      *) segs+=("$part") ;;
+    esac
+  done
+  local IFS=/
+  printf '/%s\n' "${segs[*]-}"
+}
+
+under_root() { case "$1/" in "$ROOT"/*) return 0 ;; esac; return 1; }
 
 # Resolve symlinks and keep regular files inside the repo root (never read files
 # outside it), as ./relative when under the current dir (leading-dash safety).
@@ -219,11 +270,25 @@ for f in ${FILES[@]+"${FILES[@]}"}; do
   esac
 done
 
+# Text output: repo-controlled text has C0/C1 control chars and DEL escaped as
+# \xNN (no newline/CR/ESC reaches the terminal) and every line is prefixed with
+# "check-imports: ", so none can begin with a `::` workflow command.
+text_out() {
+  jq -r 'def hex2: [(. / 16 | floor), (. % 16)] | map("0123456789abcdef"[.:(. + 1)]) | add;
+    def esc: tostring | [explode[] | if (. < 32) or (. >= 127 and . < 160)
+      then ("\\x" + hex2 | explode[]) else . end] | implode;
+    ((.scanners[] |
+      "\(.name | esc): \(.status)\(if .reason then " (\(.reason | esc))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
+      (.findings[] | "  \(.file | esc):\(.line // "-") [\(.rule | esc)] \(.severity | esc): \(.message | esc)")),
+     (.skipped[] | "skipped: \(.path | esc) (\(.reason | esc))"))
+    | "check-imports: " + .' <<<"$1"
+}
+
 if [[ ${#JS[@]} -eq 0 && ${#PY[@]} -eq 0 && ${#MANIFESTS[@]} -eq 0 ]]; then
   if [[ "$JSON" == true ]]; then
     jq -cn --slurpfile k "$TMP/skipped.jsonl" '{scanners: [], skipped: $k}'
   else
-    jq -r '"skipped: \(.path) (\(.reason))"' "$TMP/skipped.jsonl"
+    text_out "$(jq -cn --slurpfile k "$TMP/skipped.jsonl" '{scanners: [], skipped: $k}')"
     echo "check-imports: nothing to check"
   fi
   exit 3
@@ -301,13 +366,14 @@ types_name() {
 
 NODE_BUILTINS=" assert async_hooks buffer child_process cluster console constants crypto dgram diagnostics_channel dns domain events fs http http2 https inspector module net os path perf_hooks process punycode querystring readline repl stream string_decoder sys timers tls trace_events tty url util v8 vm wasi worker_threads zlib "
 
-# Directories from dirname($1) up to "." (or "/"), one per line.
+# Directories from dirname($1) up to "." or the repo root — never above ROOT.
 ancestors() {
   local d
   d="$(dirname -- "$1")"
   while :; do
+    case "$d" in /*) under_root "$d" || break ;; esac
     printf '%s\n' "$d"
-    [[ "$d" == "." || "$d" == "/" ]] && break
+    [[ "$d" == "." || "$d" == "/" || "$d" == "$ROOT" ]] && break
     d="$(dirname -- "$d")"
   done
 }
@@ -315,7 +381,10 @@ ancestors() {
 js_declared() {
   local pkg="$1" file="$2" d
   while IFS= read -r d; do
-    [[ -f "$d/package.json" ]] || continue
+    [[ -e "$d/package.json" || -L "$d/package.json" ]] || continue
+    if ! root_file "$d/package.json"; then
+      skip_once "$d/package.json" "manifest resolves outside the repo root"; continue
+    fi
     if jq -e --arg p "$pkg" '(.name == $p) or
         ([.dependencies, .devDependencies, .peerDependencies, .optionalDependencies]
          | map(select(type == "object") | has($p)) | any)' "$d/package.json" >/dev/null 2>&1; then
@@ -325,22 +394,24 @@ js_declared() {
   return 1
 }
 
+# js_relative_resolves <absolute, lexically-in-root path>: a candidate only counts
+# when its real (symlink-resolved) location is inside ROOT.
 js_relative_resolves() {
   local p="$1" ext
-  [[ -f "$p" ]] && return 0
+  root_file "$p" && return 0
   for ext in .ts .tsx .d.ts .js .jsx .mjs .cjs .mts .cts .json; do
-    [[ -f "$p$ext" ]] && return 0
+    root_file "$p$ext" && return 0
   done
   case "$p" in
-    *.js)  [[ -f "${p%.js}.ts" || -f "${p%.js}.tsx" ]] && return 0 ;;
-    *.jsx) [[ -f "${p%.jsx}.tsx" ]] && return 0 ;;
-    *.mjs) [[ -f "${p%.mjs}.mts" ]] && return 0 ;;
-    *.cjs) [[ -f "${p%.cjs}.cts" ]] && return 0 ;;
+    *.js)  { root_file "${p%.js}.ts" || root_file "${p%.js}.tsx"; } && return 0 ;;
+    *.jsx) root_file "${p%.jsx}.tsx" && return 0 ;;
+    *.mjs) root_file "${p%.mjs}.mts" && return 0 ;;
+    *.cjs) root_file "${p%.cjs}.cts" && return 0 ;;
   esac
-  if [[ -d "$p" ]]; then
-    [[ -f "$p/package.json" ]] && return 0
+  if root_dir "$p"; then
+    root_file "$p/package.json" && return 0
     for ext in .ts .tsx .js .jsx .mjs .cjs; do
-      [[ -f "$p/index$ext" ]] && return 0
+      root_file "$p/index$ext" && return 0
     done
   fi
   return 1
@@ -355,13 +426,15 @@ check_js() {
       spec="${spec%%\?*}"
       [[ -n "$spec" ]] || continue
       case "$spec" in
-        ./*|../*|.|..)
-          js_relative_resolves "$dir/$spec" ||
-            finding "$out" "$f" "$line" js-unresolved-relative ERROR "relative import '$spec' does not resolve to a file"
-          continue ;;
-        /*)
-          js_relative_resolves "$spec" ||
-            finding "$out" "$f" "$line" js-unresolved-relative ERROR "absolute import '$spec' does not resolve to a file"
+        ./*|../*|.|..|/*)
+          local target kindword=relative
+          if [[ "$spec" == /* ]]; then target="$(lexnorm "$spec")"; kindword=absolute
+          else target="$(lexnorm "$(abs_path "$dir")/$spec")"; fi
+          if ! under_root "$target"; then
+            finding "$out" "$f" "$line" js-import-outside-root ERROR "$kindword import '$spec' points outside the repo root"
+          elif ! js_relative_resolves "$target"; then
+            finding "$out" "$f" "$line" js-unresolved-relative ERROR "$kindword import '$spec' does not resolve to a file"
+          fi
           continue ;;
         node:*|@/*|~*|\#*|*:*) continue ;;
       esac
@@ -419,7 +492,7 @@ elif cmd == "pyproject":
 py_local_module() {
   local top="$1" file="$2" d
   while IFS= read -r d; do
-    [[ -f "$d/$top.py" || -d "$d/$top" || -f "$d/src/$top.py" || -d "$d/src/$top" ]] && return 0
+    { root_file "$d/$top.py" || root_dir "$d/$top" || root_file "$d/src/$top.py" || root_dir "$d/src/$top"; } && return 0
   done < <(ancestors "$file")
   return 1
 }
@@ -436,11 +509,16 @@ check_py() {
       if [[ "$spec" == .* ]]; then
         local rest="$spec" base dots=0
         while [[ "$rest" == .* ]]; do rest="${rest#.}"; dots=$((dots + 1)); done
-        base="$(dirname -- "$f")"
-        while [[ "$dots" -gt 1 ]]; do base="$(dirname -- "$base")"; dots=$((dots - 1)); done
+        base="$(abs_path "$(dirname -- "$f")")"
+        while [[ "$dots" -gt 1 ]]; do base="$base/.."; dots=$((dots - 1)); done
+        local p
+        p="$(lexnorm "$base/${rest//.//}")"
+        if ! under_root "$p"; then
+          finding "$out" "$f" "$line" py-import-outside-root ERROR "relative import '$spec' points outside the repo root"
+          continue
+        fi
         [[ -z "$rest" ]] && continue
-        local p="$base/${rest//.//}"
-        [[ -f "$p.py" || -f "$p.pyi" || -d "$p" ]] ||
+        { root_file "$p.py" || root_file "$p.pyi" || root_dir "$p"; } ||
           finding "$out" "$f" "$line" py-unresolved-relative ERROR "relative import '$spec' does not resolve to a module"
         continue
       fi
@@ -581,10 +659,7 @@ RESULT="$(jq -cn --slurpfile s "$TMP/results.jsonl" --slurpfile k "$TMP/skipped.
 if [[ "$JSON" == true ]]; then
   printf '%s\n' "$RESULT"
 else
-  jq -r '.scanners[] |
-    "\(.name): \(.status)\(if .reason then " (\(.reason))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
-    (.findings[] | "  \(.file):\(.line // "-") [\(.rule)] \(.severity): \(.message)")' <<<"$RESULT"
-  jq -r '.skipped[] | "skipped: \(.path) (\(.reason))"' <<<"$RESULT"
+  text_out "$RESULT"
 fi
 
 n_findings="$(jq '[.scanners[].findings | length] | add // 0' <<<"$RESULT")"

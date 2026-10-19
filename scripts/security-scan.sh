@@ -173,6 +173,15 @@ resolve() {
   printf '%s/%s\n' "$dir" "$(basename "$p")"
 }
 
+# in_root <path>: true when <path> exists and its real location is inside ROOT.
+in_root() {
+  local r
+  r="$(resolve "$1")" || return 1
+  [[ -e "$r" ]] || return 1
+  case "$r" in "$ROOT"/*) return 0 ;; esac
+  return 1
+}
+
 : > "$TMP/skipped.jsonl"
 skip() {
   jq -cn --arg path "${1#./}" --arg reason "$2" '{path:$path, reason:$reason}' >> "$TMP/skipped.jsonl"
@@ -223,6 +232,11 @@ jqr() { jq -c --arg pwd "$PWD" --arg pwdp "$PWDP" "$@"; }
 
 status_for() { if [[ "$1" -gt 0 ]]; then echo findings; else echo ran; fi; }
 
+# jq: escape control characters (C0, DEL, C1) as \xNN.
+TEXT_ESC='def hex2: [(. / 16 | floor), (. % 16)] | map("0123456789abcdef"[.:(. + 1)]) | add;
+  def esc: tostring | [explode[] | if (. < 32) or (. >= 127 and . < 160)
+    then ("\\x" + hex2 | explode[]) else . end] | implode;'
+
 finish() {
   local result
   result="$(jq -cn --slurpfile s "$TMP/results.jsonl" --slurpfile k "$TMP/skipped.jsonl" \
@@ -230,12 +244,17 @@ finish() {
   if [[ "$JSON" == true ]]; then
     printf '%s\n' "$result"
   else
-    jq -r '(.scanners[] |
-      "\(.name): \(.status)\(if .reason then " (\(.reason))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
-      (.notes[]? | "  note: \(.)"),
-      (.findings[] | "  \(.file):\(.line // "-") [\(.rule)] \(.severity): \(.message)")),
-      (.skipped[] | "skipped: \(.path) (\(.reason))"),
-      (if (.scanners | length) == 0 then "security-scan: nothing in scope — no files checked" else empty end)' <<<"$result"
+    # Repo-controlled text (paths, messages) is escaped: C0/C1 control chars and
+    # DEL become \xNN, so no newline/CR/ESC reaches the terminal, and every line
+    # starts with "security-scan: " so none can begin with a `::` workflow command.
+    jq -r "$TEXT_ESC"'
+      (.scanners[] |
+        "\(.name | esc): \(.status)\(if .reason then " (\(.reason | esc))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
+        (.notes[]? | "  note: \(esc)"),
+        (.findings[] | "  \(.file | esc):\(.line // "-") [\(.rule | esc)] \(.severity | esc): \(.message | esc)")),
+      (.skipped[] | "skipped: \(.path | esc) (\(.reason | esc))"),
+      (if (.scanners | length) == 0 then "nothing in scope — no files checked" else empty end)
+      | "security-scan: " + .' <<<"$result"
   fi
   local n_findings n_error n_ran
   n_findings="$(jq '[.scanners[].findings | length] | add // 0' <<<"$result")"
@@ -384,11 +403,22 @@ audit_npm() {
   # npm gets empty user/global configs and an explicit registry, so no repo or
   # user .npmrc (registry redirects, ${ENV} token interpolation) is ever read.
   iso="$(mktemp -d "$TMP/npm.XXXXXX")"
-  [[ -f "$dir/package.json" ]] && cp -- "$dir/package.json" "$iso/package.json"
-  cp -- "$lock" "$iso/$(basename -- "$lock")"
-  : > "$TMP/npm-userconfig"; : > "$TMP/npm-globalconfig"
   [[ -f "$dir/.npmrc" ]] && notes+=("ignored repo-local $(in_dir "$dir" .npmrc)")
   local nj; nj="$(notes_json ${notes[@]+"${notes[@]}"})"
+  # Every copied manifest passes the same symlink containment check as lockfiles.
+  if [[ -e "$dir/package.json" || -L "$dir/package.json" ]]; then
+    if ! in_root "$dir/package.json"; then
+      skip "$dir/package.json" "manifest resolves outside the repo root"
+      emit npm-audit error "$(in_dir "$dir" package.json) resolves outside the repo root; not copied" '[]' "$nj"; return
+    fi
+    if ! cp -- "$dir/package.json" "$iso/package.json" 2>"$TMP/cp.err"; then
+      emit npm-audit error "cannot copy $(in_dir "$dir" package.json): $(head -c 300 "$TMP/cp.err")" '[]' "$nj"; return
+    fi
+  fi
+  if ! cp -- "$lock" "$iso/$(basename -- "$lock")" 2>"$TMP/cp.err"; then
+    emit npm-audit error "cannot copy $lock: $(head -c 300 "$TMP/cp.err")" '[]' "$nj"; return
+  fi
+  : > "$TMP/npm-userconfig"; : > "$TMP/npm-globalconfig"
   # npm audit exits 1 when vulnerabilities exist; trust the JSON shape instead.
   (cd -- "$iso" && npm audit --json --package-lock-only \
      --userconfig "$TMP/npm-userconfig" --globalconfig "$TMP/npm-globalconfig" \
@@ -414,7 +444,9 @@ audit_pip() {
   # lines are stripped anyway (defense in depth, and so -r / -c includes cannot
   # pull in files from outside the repo).
   iso="$(mktemp -d "$TMP/pip.XXXXXX")"
-  awk '{ t = $0; sub(/^[ \t]+/, "", t) } t ~ /^-/ { next } { print }' "$lock" > "$iso/requirements.txt"
+  if ! awk '{ t = $0; sub(/^[ \t]+/, "", t) } t ~ /^-/ { next } { print }' "$lock" > "$iso/requirements.txt" 2>"$TMP/cp.err"; then
+    emit pip-audit error "cannot read $lock: $(head -c 300 "$TMP/cp.err")" '[]'; return
+  fi
   stripped="$(awk '{ t = $0; sub(/^[ \t]+/, "", t) } t ~ /^-/ { n++ } END { print n + 0 }' "$lock")"
   if [[ "$stripped" -gt 0 ]]; then
     nj="$(notes_json "stripped $stripped option line(s) (e.g. --index-url, -r) from ${lock#./}")"
@@ -443,7 +475,9 @@ audit_cargo() {
   # from a fresh temp dir so no repo .cargo/ config is in reach (UNVERIFIED
   # whether cargo-audit would read one).
   iso="$(mktemp -d "$TMP/cargo.XXXXXX")"
-  cp -- "$lock" "$iso/Cargo.lock"
+  if ! cp -- "$lock" "$iso/Cargo.lock" 2>"$TMP/cp.err"; then
+    emit cargo-audit error "cannot copy $lock: $(head -c 300 "$TMP/cp.err")" '[]'; return
+  fi
   (cd -- "$iso" && cargo audit --json --file ./Cargo.lock) >"$out" 2>"$TMP/cargo.err" || rc=$?
   if ! jq -e '.vulnerabilities.list | type == "array"' "$out" >/dev/null 2>&1; then
     emit cargo-audit error "cargo audit exited $rc on $lock: $(tail -c 300 "$TMP/cargo.err")" '[]'; return

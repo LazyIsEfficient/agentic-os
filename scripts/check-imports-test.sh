@@ -187,6 +187,45 @@ OUT="$(cd "$G" && PYTHON="$T/badpython" bash "$CHECK" --json --paths mypkg/a.py 
 { [ "$RC" -eq 4 ] && jqo '.scanners[0].reason' | grep -q 'helper exploded'; } \
   && ok "Python helper failure → error status with reason, exit 4" || no "helper failure" "rc=$RC out=$OUT"
 
+# ── ancestor package.json symlinked outside the repo is never trusted ─────────
+mkdir -p "$G/lnk"
+printf '{ "name": "outside", "dependencies": { "evil-dep": "1.0.0" } }\n' > "$T/outside/pkg.json"
+ln -s ../../outside/pkg.json "$G/lnk/package.json"
+printf "import e from 'evil-dep';\n" > "$G/lnk/a.ts"
+run --json --paths lnk/a.ts
+{ [ "$RC" -eq 1 ] && has js-undeclared-package lnk/a.ts 1 "'evil-dep'" \
+  && [ "$(jqo '.skipped[] | select(.path=="lnk/package.json") | .reason')" = "manifest resolves outside the repo root" ]; } \
+  && ok "symlinked ancestor package.json outside the repo is ignored and reported" || no "ancestor manifest" "rc=$RC $OUT"
+rm -rf "$G/lnk"
+
+# ── import specifiers pointing outside the root: findings, never stat'ed ──────
+mkdir -p "$G/esc"
+cat > "$G/esc/b.ts" <<'EOF'
+import h from '/etc/hosts';
+import p from '../../../../../../../../../../etc/passwd';
+EOF
+printf 'from ........................ import x\n' > "$G/esc/c.py"
+run --json --paths esc
+{ [ "$RC" -eq 1 ] && has js-import-outside-root esc/b.ts 1 "'/etc/hosts'" \
+  && has js-import-outside-root esc/b.ts 2 "etc/passwd" \
+  && has py-import-outside-root esc/c.py 1 "'........................'"; } \
+  && ok "absolute / climbing imports outside the root → *-import-outside-root findings" || no "outside-root imports" "rc=$RC $OUT"
+rm -rf "$G/esc"
+
+# ── text output: control characters escaped, no line can start with `::` ─────
+EVILNAME="$(printf 'evil\n::error::pwned\033[31m.js')"
+printf "require('./nope');\n" > "$G/$EVILNAME"
+run --paths "$EVILNAME"
+esc_byte="$(printf '\033')"
+{ [ "$RC" -eq 1 ] \
+  && ! printf '%s\n' "$OUT" | grep -q '^::' \
+  && [ "$(printf '%s\n' "$OUT" | grep -vc '^check-imports: ')" = "0" ] \
+  && ! printf '%s' "$OUT" | grep -qF "$esc_byte" \
+  && printf '%s' "$OUT" | grep -qF 'evil\x0a::error::pwned\x1b[31m.js:1'; } \
+  && ok "text output escapes newline/ESC in repo paths and prefixes every line" \
+  || no "text escaping" "rc=$RC out=$(printf '%s' "$OUT" | od -c | head -5)"
+rm -f "$G/$EVILNAME"
+
 echo ""
 echo "check-imports-test: $P passed, $F failed."
 [ "$F" -eq 0 ]
