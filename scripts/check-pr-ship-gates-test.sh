@@ -93,6 +93,12 @@ else
   pass "commands md missing library-reviewer trips"
 fi
 
+if SHIP_GATES_CHANGED_FILES="CLAUDE.md" PR_BODY="$BODY_OK" bash "$GATE" 2>/dev/null; then
+  fail "CLAUDE.md missing library-reviewer should trip"
+else
+  pass "CLAUDE.md missing library-reviewer trips"
+fi
+
 if SHIP_GATES_CHANGED_FILES="docs/guide.md" PR_BODY="" bash "$GATE"; then
   pass "docs/*.md still docs-only"
 else
