@@ -4,59 +4,104 @@
 # Contract: .claude/references/review-verdict.md
 #
 # Usage:
-#   bash scripts/parse-verdict.sh review.txt
-#   reviewer-output | bash scripts/parse-verdict.sh
+#   bash scripts/parse-verdict.sh [--expect-head <sha>] [FILE]
+#   reviewer-output | bash scripts/parse-verdict.sh [--expect-head <sha>]
 #
-# Extracts the LAST complete ```json fenced block from reviewer output,
-# validates schema / enums / required fields with jq, demotes tier 0/1
-# findings lacking evidence to tier 2, downgrades an unevidenced `hold` to
-# `fix-before-merge`, and prints the normalized verdict as compact JSON.
+# Requires exactly one ```json fenced block, at the very end of the output
+# (only whitespace may follow its closing fence). Validates schema / enums /
+# required fields / agent name with jq, rejects duplicate JSON keys (python3),
+# demotes tier 0/1 findings lacking evidence to tier 2, downgrades an
+# unevidenced `hold` to `fix-before-merge`, and prints the normalized verdict
+# as compact JSON on stdout.
 #
 # Exit codes:
-#   0  valid; verdict is pass | fix-before-merge
-#   1  invalid: no complete json block, bad JSON, or contract violation (stderr)
+#   0  valid; verdict is pass
+#   1  invalid: block count/position, bad JSON, duplicate keys, contract
+#      violation, or --expect-head mismatch (reasons on stderr)
 #   2  valid; verdict is hold (backed by at least one tier 0/1 finding)
+#   3  valid; verdict is fix-before-merge
 
 set -euo pipefail
 
 die() { echo "parse-verdict: $*" >&2; exit 1; }
+usage() { die "usage: parse-verdict.sh [--expect-head <sha>] [FILE]  (reads stdin when FILE is omitted)"; }
 
 command -v jq >/dev/null 2>&1 || die "jq is required"
 
-if [[ $# -gt 1 ]]; then
-  die "usage: parse-verdict.sh [FILE]  (reads stdin when FILE is omitted)"
-elif [[ $# -eq 1 ]]; then
-  [[ -f "$1" && -r "$1" ]] || die "cannot read file: $1"
-  input="$(cat -- "$1")"
+expect_head=""
+file=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --expect-head)
+      [[ $# -ge 2 && -n "$2" ]] || usage
+      expect_head="$2"; shift 2 ;;
+    -*) usage ;;
+    *)
+      [[ -z "$file" ]] || usage
+      file="$1"; shift ;;
+  esac
+done
+
+if [[ -n "$file" ]]; then
+  [[ -f "$file" && -r "$file" ]] || die "cannot read file: $file"
+  input="$(cat -- "$file")"
 else
   input="$(cat)"
 fi
 
-# awk exit 3 = no complete block; 4 = trailing unterminated ```json block.
+# awk exits: 3 no block; 4 unterminated block; 5 more than one block;
+# 6 non-whitespace after the closing fence.
 set +e
 block="$(printf '%s\n' "$input" | awk '
-  /^[[:space:]]*```json[[:space:]]*$/ { inb = 1; buf = ""; next }
-  inb && /^[[:space:]]*```[[:space:]]*$/ { inb = 0; last = buf; found = 1; next }
-  inb { buf = buf $0 "\n" }
+  /^[[:space:]]*```json[[:space:]]*$/ { n++; inb = 1; buf = ""; trail = 0; next }
+  inb && /^[[:space:]]*```[[:space:]]*$/ { inb = 0; last = buf; next }
+  inb { buf = buf $0 "\n"; next }
+  n > 0 && /[^[:space:]]/ { trail = 1 }
   END {
+    if (n == 0) exit 3
     if (inb) exit 4
-    if (!found) exit 3
+    if (n > 1) exit 5
+    if (trail) exit 6
     printf "%s", last
   }')"
 rc=$?
 set -e
 case "$rc" in
   0) ;;
-  3) die "no complete \`\`\`json block found" ;;
-  4) die "unterminated \`\`\`json block at end of output" ;;
+  3) die "no \`\`\`json block found" ;;
+  4) die "unterminated \`\`\`json block" ;;
+  5) die "more than one \`\`\`json block — the verdict block must be the only one" ;;
+  6) die "content after the verdict block's closing fence — it must end the output" ;;
   *) die "block extraction failed (awk exit $rc)" ;;
 esac
 
+if command -v python3 >/dev/null 2>&1; then
+  dup_check='
+import json, sys
+def hook(pairs):
+    seen = set()
+    for k, _ in pairs:
+        if k in seen:
+            sys.stderr.write("parse-verdict: duplicate JSON key: %s\n" % k)
+            sys.exit(1)
+        seen.add(k)
+    return dict(pairs)
+try:
+    json.loads(sys.stdin.read(), object_pairs_hook=hook)
+except ValueError:
+    pass  # syntax errors are reported by jq below
+'
+  printf '%s' "$block" | python3 -I -c "$dup_check" || exit 1
+else
+  echo "parse-verdict: warning: python3 not found — duplicate JSON keys not checked" >&2
+fi
+
 slurped="$(printf '%s' "$block" | jq -s '.' 2>/dev/null)" || die "json block is not valid JSON"
 
-result="$(printf '%s' "$slurped" | jq -c '
+result="$(printf '%s' "$slurped" | jq -c --arg expect_head "$expect_head" '
   def nonempty: type == "string" and (test("^\\s*$") | not);
   def is_int: type == "number" and . == floor;
+  def agents: ["code-reviewer", "security-reviewer", "library-reviewer", "data-model-verifier"];
 
   def finding_errors($i):
     if type != "object" then ["findings[\($i)] is not an object"]
@@ -82,12 +127,17 @@ result="$(printf '%s' "$slurped" | jq -c '
       else [
         (if .schema == "agentic-os/review-verdict@1" then empty
          else "schema must be \"agentic-os/review-verdict@1\"" end),
-        (if (.agent | nonempty) then empty else "agent must be a non-empty string" end),
+        (if (.agent | IN(agents[])) then empty
+         else "agent must be one of: \(agents | join(", "))" end),
         (if (.base | nonempty) then empty else "base must be a non-empty string" end),
         (if (.head | type) == "string" and (.head | test("^([0-9a-f]{40}|[0-9a-f]{64})$")) then empty
          else "head must be a full commit SHA (40 or 64 lowercase hex)" end),
+        (if $expect_head == "" or .head == $expect_head then empty
+         else "head \(.head | tostring) does not match --expect-head \($expect_head)" end),
         (if (.verdict | IN("pass", "fix-before-merge", "hold")) then empty
          else "verdict must be pass|fix-before-merge|hold" end),
+        (if .agent == "data-model-verifier" and .verdict == "fix-before-merge"
+         then "data-model-verifier may only emit pass|hold" else empty end),
         (if (.findings | type) == "array" then
            (.findings | to_entries[] | .key as $i | .value | finding_errors($i)[])
          else "findings must be an array" end)
@@ -100,14 +150,28 @@ result="$(printf '%s' "$slurped" | jq -c '
       then {demoted_from: .tier} + . | .tier = 2
       else . end;
 
+  # Checks that need demotion applied first.
+  def post_errors:
+    ([.findings[] | select(.tier <= 1)] | length) as $evidenced
+    | [
+        (if .verdict == "pass" and $evidenced > 0
+         then "verdict pass contradicts \($evidenced) evidenced tier 0/1 finding(s)" else empty end),
+        (if .agent == "data-model-verifier" and .verdict == "hold" and $evidenced == 0
+         then "data-model-verifier hold needs an evidenced tier 0/1 finding" else empty end)
+      ];
+
   errors as $e
   | if ($e | length) > 0 then {ok: false, errors: $e}
     else .[0]
       | {schema, agent, base, head, verdict, findings: (.findings | map(normalize_finding))}
-      | if .verdict == "hold" and ([.findings[] | select(.tier <= 1)] | length) == 0
-        then .verdict = "fix-before-merge" | .verdict_demoted_from = "hold"
-        else . end
-      | {ok: true, verdict: .}
+      | post_errors as $pe
+      | if ($pe | length) > 0 then {ok: false, errors: $pe}
+        else
+          (if .verdict == "hold" and ([.findings[] | select(.tier <= 1)] | length) == 0
+           then .verdict = "fix-before-merge" | .verdict_demoted_from = "hold"
+           else . end)
+          | {ok: true, verdict: .}
+        end
     end
 ')" || die "jq validation failed"
 
@@ -119,7 +183,9 @@ fi
 normalized="$(printf '%s' "$result" | jq -c '.verdict')"
 printf '%s\n' "$normalized"
 
-if [[ "$(printf '%s' "$normalized" | jq -r '.verdict')" == "hold" ]]; then
-  exit 2
-fi
-exit 0
+case "$(printf '%s' "$normalized" | jq -r '.verdict')" in
+  pass) exit 0 ;;
+  hold) exit 2 ;;
+  fix-before-merge) exit 3 ;;
+esac
+die "unreachable: unknown normalized verdict"

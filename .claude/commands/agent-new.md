@@ -20,9 +20,9 @@ Before writing anything, use `Glob` to check whether `.claude/agents/$1.md` alre
 
 Before writing `tools:`, pick the allowlist from the role implied by the name, using `.claude/skills/skill-library-review/references/tool-allowlists.md` as the rule:
 
-- **Read-only reviewer / auditor** → `Read, Grep, Glob, Bash, WebFetch, WebSearch` (no `Edit`/`Write`/`NotebookEdit`, no `Agent`).
+- **Read-only reviewer / auditor** → `Read, Grep, Glob, Bash` (no `Edit`/`Write`/`NotebookEdit`, no `Agent`; add `WebFetch, WebSearch` only when the role needs external citations — never for reviewers of untrusted diffs).
 - **Intake / shaper** → `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` (no `Agent`, no `Edit`/`Write`).
-- **Authoring** → reviewer set + `Edit, Write, AskUserQuestion` (still no `Agent`).
+- **Authoring** → `Read, Grep, Glob, Bash, WebFetch, WebSearch, Edit, Write, AskUserQuestion` (still no `Agent`).
 - **Orchestrator** → omit `tools:` to inherit (the only role that gets `Agent`).
 - **Build / implement** → omit `tools:` to inherit.
 

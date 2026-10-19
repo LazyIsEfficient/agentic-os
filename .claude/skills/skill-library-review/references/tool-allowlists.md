@@ -8,8 +8,8 @@ The `tools:` field is an allowlist. Omit to inherit. List explicitly to restrict
 |---|---|---|
 | **Build / implement** | (omit — inherit) | Needs full toolset for the diversity of tasks |
 | **Read-only reviewer** | `Read, Grep, Glob, Bash` | No `Edit` / `Write` / `NotebookEdit`. No `WebFetch` / `WebSearch` for reviewers that read untrusted diffs — network access is a prompt-injection exfil path. Add them only when the role needs external citations (e.g. `adversarial-claims-reviewer` checking published results) |
-| **Intake / shaper** | `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` | Adds `AskUserQuestion`; excludes `Agent` (no nested spawn), `Edit` / `Write` (intake-only) |
-| **Authoring (e.g., course-author)** | reviewer set + `Edit, Write, AskUserQuestion` | Genuine writing role; still no nested `Agent` |
+| **Intake / shaper** | `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` | Web access for research plus `AskUserQuestion`; excludes `Agent` (no nested spawn), `Edit` / `Write` (intake-only) |
+| **Authoring (e.g., course-author)** | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Edit, Write, AskUserQuestion` | Genuine writing role that researches sources, so web access is explicit (not inherited from the reviewer row); still no nested `Agent` |
 | **Orchestrator** | inherit, including `Agent` | Coordinates sub-agents — needs spawn permission |
 
 ## `Bash` is a soft-write vector

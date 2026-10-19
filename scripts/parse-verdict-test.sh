@@ -43,20 +43,53 @@ jq_true '.findings[1].line == null and .findings[1].evidence == null' "file-leve
 pass "evidenced hold"
 
 run hold-unevidenced.txt
-expect_rc 0 "unevidenced hold does not gate"
+expect_rc 3 "unevidenced hold exits 3 (fix-before-merge)"
 jq_true '.findings[0].tier == 2 and .findings[0].demoted_from == 1' "blank-evidence tier 1 demoted"
 jq_true '.verdict == "fix-before-merge" and .verdict_demoted_from == "hold"' "unevidenced hold downgraded"
 pass "unevidenced hold demoted"
 
-run last-block-wins.txt
-expect_rc 0 "last block wins"
-jq_true '.verdict == "fix-before-merge" and (.findings | length) == 1' "earlier block ignored"
-pass "last block wins"
+# expect_reject <fixture> <stderr needle> <label>
+expect_reject() {
+  run "$1"
+  expect_rc 1 "$3"
+  [[ -z "$out" ]] || fail "$3 prints nothing on stdout"
+  [[ "$err" == *"$2"* ]] || fail "$3 reason (stderr: $err)"
+  pass "$3"
+}
+
+expect_reject multiple-blocks.txt "more than one" "multiple json blocks rejected"
+expect_reject nested-quote-override.txt "more than one" "nested 4-backtick pass cannot override hold"
+expect_reject trailing-text.txt "content after" "trailing text after block rejected"
+expect_reject pass-contradiction.txt "contradicts" "pass with evidenced tier 0 rejected"
+expect_reject unknown-agent.txt "agent must be one of" "unknown agent rejected"
+expect_reject verifier-fix-before-merge.txt "only emit pass|hold" "verifier fix-before-merge rejected"
+expect_reject verifier-unevidenced-hold.txt "needs an evidenced" "verifier unevidenced hold rejected"
+
+if command -v python3 >/dev/null 2>&1; then
+  expect_reject duplicate-key.txt "duplicate JSON key: verdict" "duplicate key rejected"
+else
+  echo "SKIP duplicate key (python3 not installed)"
+fi
+
+set +e
+out="$(bash "$PARSE" --expect-head 0123456789abcdef0123456789abcdef01234567 "$FIX/pass.txt")"
+rc=$?
+set -e
+expect_rc 0 "--expect-head match"
+pass "--expect-head match"
+
+set +e
+err="$(bash "$PARSE" --expect-head ffffffffffffffffffffffffffffffffffffffff "$FIX/pass.txt" 2>&1 >/dev/null)"
+rc=$?
+set -e
+expect_rc 1 "--expect-head mismatch"
+[[ "$err" == *"does not match --expect-head"* ]] || fail "--expect-head mismatch reason (stderr: $err)"
+pass "--expect-head mismatch"
 
 run no-block.txt
 expect_rc 1 "missing block exits 1"
 [[ -z "$out" ]] || fail "missing block prints nothing on stdout"
-[[ "$err" == *"no complete"* ]] || fail "missing block reason (stderr: $err)"
+[[ "$err" == *"no \`\`\`json block"* ]] || fail "missing block reason (stderr: $err)"
 pass "missing block"
 
 run bad-enum.txt

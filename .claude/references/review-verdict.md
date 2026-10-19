@@ -4,6 +4,10 @@ One machine-parseable verdict for every gate reviewer. Tier doctrine:
 [review-tiers](../rules/review-tiers.md). Parser (Tier 0):
 `scripts/parse-verdict.sh`.
 
+This reference and the parser are **repo-side tooling** — `install.sh` ships
+`.claude/agents/` but not `.claude/references/` or `scripts/`, so each
+reviewer agent restates the enum, required fields, and demotion rule inline.
+
 ## Who emits it
 
 | Agent | Verdicts it may emit |
@@ -25,9 +29,11 @@ uncommitted work) itself.
 
 ## Shape
 
-The reviewer's final output MUST end with exactly one fenced `json` block. The
-parser reads the **last** complete ```` ```json ```` block; anything after it is
-ignored, an unterminated block is invalid.
+The reviewer's output MUST contain exactly one fenced ```` ```json ```` block,
+and it MUST be the last thing in the output — only whitespace may follow its
+closing fence. Zero blocks, two or more blocks (including one quoted inside a
+longer fence), an unterminated block, or trailing text are all invalid: a
+quoted `pass` block must never be able to override a real `hold`.
 
 ```json
 {
@@ -52,10 +58,10 @@ ignored, an unterminated block is invalid.
 | Field | Rule |
 |---|---|
 | `schema` | Exactly `agentic-os/review-verdict@1` |
-| `agent` | Non-empty string — the reviewer's `name:` |
+| `agent` | One of `code-reviewer`, `security-reviewer`, `library-reviewer`, `data-model-verifier` |
 | `base` | Non-empty string — the base ref the reviewer diffed against |
 | `head` | Full commit SHA (40 or 64 lowercase hex) from `git rev-parse HEAD` |
-| `verdict` | `pass` \| `fix-before-merge` \| `hold` |
+| `verdict` | `pass` \| `fix-before-merge` \| `hold`; `data-model-verifier` only `pass` \| `hold` |
 | `findings` | Array (may be empty) |
 | `findings[].tier` | `0` \| `1` \| `2` (number) |
 | `findings[].severity` | `critical` \| `high` \| `medium` \| `low` |
@@ -78,20 +84,33 @@ them to `high`-or-`critical` / `medium` / `low` in the JSON.
 3. Output keeps only the fields above (plus the two `*demoted_from` markers),
    printed as compact JSON on stdout.
 
+Rejected after normalization (exit 1):
+
+- `verdict: pass` alongside any evidenced tier 0/1 finding — a contradiction.
+- `data-model-verifier` with `fix-before-merge`, or a `hold` with no evidenced
+  tier 0/1 finding (REFUTED always carries evidence, so it is never downgraded).
+- Duplicate JSON keys, checked with `python3 -I` (an `object_pairs_hook` that
+  rejects repeats). Without python3 the parser warns on stderr and skips this
+  check — jq alone keeps the last duplicate silently.
+
 ## `scripts/parse-verdict.sh`
 
 ```sh
-bash scripts/parse-verdict.sh review.txt          # file
-reviewer-output | bash scripts/parse-verdict.sh   # stdin
+bash scripts/parse-verdict.sh review.txt                        # file
+reviewer-output | bash scripts/parse-verdict.sh                 # stdin
+bash scripts/parse-verdict.sh --expect-head "$(git rev-parse HEAD)" review.txt
 ```
+
+`--expect-head <sha>` rejects (exit 1) a block whose `head` differs.
 
 | Exit | Meaning |
 |---|---|
-| `0` | Valid; normalized verdict is `pass` or `fix-before-merge` |
-| `1` | Invalid: no complete `json` block, unparseable JSON, or a schema/enum/required-field violation (reasons on stderr) |
+| `0` | Valid; normalized verdict is `pass` |
+| `1` | Invalid: block count or position, unparseable JSON, duplicate keys, a schema/enum/required-field/agent violation, a rejected combination above, or `--expect-head` mismatch (reasons on stderr) |
 | `2` | Valid; normalized verdict is `hold` (evidenced by tier 0/1) |
+| `3` | Valid; normalized verdict is `fix-before-merge` (including a downgraded unevidenced `hold`) |
 
-Normalized JSON is printed on stdout for exit 0 and 2 only.
+Normalized JSON is printed on stdout for exits 0, 2 and 3; nothing on exit 1.
 
 ## Scope of `head`
 

@@ -10,7 +10,7 @@ contracts.
 
 | Date | Run | Summary |
 |---|---|---|
-| 2026-10-19 | fix/audit-reviewer-contract | Added `ReviewVerdict` (reviewer-emitted `agentic-os/review-verdict@1` fenced JSON block) and `ReviewVerdictNormalized` (`scripts/parse-verdict.sh` stdout + exit codes, incl. `demoted_from` / `verdict_demoted_from`). |
+| 2026-10-19 | fix/audit-reviewer-contract | Added `ReviewVerdict` (reviewer-emitted `agentic-os/review-verdict@1` fenced JSON block) and `ReviewVerdictNormalized` (`scripts/parse-verdict.sh` stdout + exit codes, incl. `demoted_from` / `verdict_demoted_from`). Second pass: exactly-one-block framing (no trailing text), `agent` enum, parser-enforced `data-model-verifier` pass\|hold, pass-contradiction and duplicate-key rejection, `--expect-head`, exit `3` = `fix-before-merge`; all citations re-cut. |
 | 2026-07-13 | remove-dispatch-gate | Removed the dispatch-gate contracts (`DispatchGateAuditRecord`, `DispatchGateHookDecision`, `DispatchGateHookEventPayload`, `DispatchGateLedger`, `DispatchGatePolicyConfig`); that gate was retired and its scripts and config deleted. |
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
@@ -151,12 +151,15 @@ Block / steer (`memory-extract.sh:72`):
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | Emitted by gate reviewer agents as the **last** fenced `json` block of their final output (`review-verdict.md:28-30`); consumed by `scripts/parse-verdict.sh` from a file argument or stdin (`parse-verdict.sh:26-33`). Emitters: `code-reviewer`, `security-reviewer`, `library-reviewer` (verdict `pass`\|`fix-before-merge`\|`hold`) and `data-model-verifier` (`pass`\|`hold` subset only) — `review-verdict.md:9-12`; each agent's `## Verdict block` section. `library-investigator` and `adversarial-claims-reviewer` are exempt (`review-verdict.md:14-16`). |
-| **Source** | `.claude/references/review-verdict.md` (Shape, lines 26–68); `scripts/parse-verdict.sh` (extraction lines 35–55, validation lines 58–95); emitters `.claude/agents/code-reviewer.md:62-68`, `.claude/agents/security-reviewer.md:67-73`, `.claude/agents/library-reviewer.md:67-73`, `.claude/agents/data-model-verifier.md:72-78`; fixtures `scripts/fixtures/review-verdict/*.txt`, tests `scripts/parse-verdict-test.sh` |
+| **Ingestion route** | Emitted by gate reviewer agents as the **only** fenced `json` block of their final output, placed at the very end (`review-verdict.md:32-36`); consumed by `scripts/parse-verdict.sh [--expect-head <sha>] [FILE]` from the file argument or stdin (`parse-verdict.sh:7-8`,`:31-50`). Emitters: `code-reviewer`, `security-reviewer`, `library-reviewer` (verdict `pass`\|`fix-before-merge`\|`hold`) and `data-model-verifier` (`pass`\|`hold` only, parser-enforced) — `review-verdict.md:11-16`; each agent's `## Verdict block` section. `library-investigator` and `adversarial-claims-reviewer` are exempt (`review-verdict.md:18-20`). |
+| **Source** | `.claude/references/review-verdict.md` (Shape lines 30–74, rejections 87–94); `scripts/parse-verdict.sh` (framing lines 52–76, duplicate-key check 78–97, validation 99–145, post-demotion checks 153–161); emitters `.claude/agents/code-reviewer.md:62-68`, `.claude/agents/security-reviewer.md:67-73`, `.claude/agents/library-reviewer.md:67-73`, `.claude/agents/data-model-verifier.md:72-78`; fixtures `scripts/fixtures/review-verdict/*.txt`, tests `scripts/parse-verdict-test.sh` |
+| **Notes** | `.claude/references/review-verdict.md` and `scripts/parse-verdict.sh` are repo-side tooling and do NOT ship via `install.sh` (only `.claude/agents/` ships); each emitting agent restates the enum, required fields, and demotion rule inline in its `## Verdict block` (`review-verdict.md:7-9`; e.g. `code-reviewer.md:64`). |
 
-**Framing** (`parse-verdict.sh:37-45`): an opening fence line matching `^[[:space:]]*```json[[:space:]]*$` and a closing line matching `^[[:space:]]*```[[:space:]]*$`. The last complete block wins; text after it is ignored; a trailing unterminated `json` block is invalid. The block body must contain exactly one JSON value, which must be an object (`parse-verdict.sh:55`,`:79-81`).
+**Framing** (`parse-verdict.sh:52-76`; `review-verdict.md:32-36`): an opening fence line matching `^[[:space:]]*```json[[:space:]]*$` and a closing line matching `^[[:space:]]*```[[:space:]]*$` (`parse-verdict.sh:56-57`). The output must contain **exactly one** such block and only whitespace may follow its closing fence. Rejected with exit `1`: zero blocks (`:61`,`:71`), an unterminated block (`:62`,`:72`), more than one block — including a `json` block quoted inside a longer fence (`:63`,`:73`; fixtures `multiple-blocks.txt`, `nested-quote-override.txt`), or any non-whitespace after the closing fence (`:59`,`:64`,`:74`; fixture `trailing-text.txt`). Text *before* the block is allowed. The block body must parse as JSON (`:99`) and contain exactly one value (`:124`) that is an object (`:126`).
 
-**Shape** (`review-verdict.md:32-50`):
+**Duplicate keys** (`parse-verdict.sh:78-97`): when `python3` is on PATH, the block is parsed with `python3 -I` using an `object_pairs_hook` that rejects any repeated key at any object level (stderr `parse-verdict: duplicate JSON key: <k>`, exit `1`; fixture `duplicate-key.txt`). Python syntax errors are ignored there and left to jq (`:91-92`). If `python3` is missing, a stderr warning is printed and the check is skipped (`:96`).
+
+**Shape** (`review-verdict.md:38-56`):
 
 ```json
 {
@@ -180,25 +183,30 @@ Block / steer (`memory-extract.sh:72`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `schema` | string literal | yes | Exactly `agentic-os/review-verdict@1` — `parse-verdict.sh:83-84` |
-| `agent` | string (non-blank) | yes | Reviewer's `name:`; rejected if not a string or whitespace-only — `parse-verdict.sh:58`,`:85` |
-| `base` | string (non-blank) | yes | Base ref diffed against, e.g. `origin/main` — `parse-verdict.sh:86` |
-| `head` | string | yes | Full commit SHA, regex `^([0-9a-f]{40}\|[0-9a-f]{64})$` (lowercase hex) — `parse-verdict.sh:87-88` |
-| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold` — `parse-verdict.sh:89-90`. `data-model-verifier` emits only `pass` \| `hold` (prompt-level rule, not parser-enforced) — `review-verdict.md:12` |
-| `findings` | array of Finding | yes | May be empty; non-array rejected — `parse-verdict.sh:91-93` |
+| `schema` | string literal | yes | Exactly `agentic-os/review-verdict@1` — `parse-verdict.sh:128-129` |
+| `agent` | enum string | yes | One of `code-reviewer` \| `security-reviewer` \| `library-reviewer` \| `data-model-verifier`; anything else rejected (fixture `unknown-agent.txt`) — `parse-verdict.sh:104`,`:130-131`; `review-verdict.md:61` |
+| `base` | string (non-blank) | yes | Base ref diffed against, e.g. `origin/main` — `parse-verdict.sh:132` |
+| `head` | string | yes | Full commit SHA, regex `^([0-9a-f]{40}\|[0-9a-f]{64})$` (lowercase hex) — `parse-verdict.sh:133-134`. With `--expect-head <sha>`, must equal `<sha>` exactly or exit `1` — `parse-verdict.sh:35-37`,`:135-136`; `review-verdict.md:104` |
+| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold` — `parse-verdict.sh:137-138`. `data-model-verifier` may emit only `pass` \| `hold`; `fix-before-merge` from it is rejected (fixture `verifier-fix-before-merge.txt`) — `parse-verdict.sh:139-140`; `review-verdict.md:64` |
+| `findings` | array of Finding | yes | May be empty; non-array rejected — `parse-verdict.sh:141-143` |
 
-Finding (each element must be an object — `parse-verdict.sh:62`):
+Finding (each element must be an object — `parse-verdict.sh:107`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `tier` | number | yes | `0` \| `1` \| `2` — `parse-verdict.sh:64-65` |
-| `severity` | enum string | yes | `critical` \| `high` \| `medium` \| `low` — `parse-verdict.sh:66-67`. Prose blocking / should-fix / nit map to `high`-or-`critical` / `medium` / `low` — `review-verdict.md:67-68` |
-| `file` | string (non-blank) | yes | Contract says repo-relative path (`review-verdict.md:62`); parser checks only non-blank string — `parse-verdict.sh:68-69` |
-| `line` | integer ≥ 1 \| null | no | Omitted or `null` = file-level finding — `parse-verdict.sh:70-71` |
-| `summary` | string (non-blank) | yes | One sentence — `parse-verdict.sh:72-73` |
-| `evidence` | string \| null | no (schema) | Must be a string when present — `parse-verdict.sh:74-75`. Contract-required for tier 0/1 (`review-verdict.md:65`); absence is not a validation error but triggers demotion (see `ReviewVerdictNormalized`) |
+| `tier` | number | yes | `0` \| `1` \| `2` — `parse-verdict.sh:109-110` |
+| `severity` | enum string | yes | `critical` \| `high` \| `medium` \| `low` — `parse-verdict.sh:111-112`. Prose blocking / should-fix / nit map to `high`-or-`critical` / `medium` / `low` — `review-verdict.md:73-74` |
+| `file` | string (non-blank) | yes | Repo-relative path by convention (`review-verdict.md:68`); parser checks only non-blank string — `parse-verdict.sh:113-114` |
+| `line` | integer ≥ 1 \| null | no | Omitted or `null` = file-level finding — `parse-verdict.sh:115-116` |
+| `summary` | string (non-blank) | yes | One sentence — `parse-verdict.sh:117-118` |
+| `evidence` | string \| null | no (schema) | Must be a string when present — `parse-verdict.sh:119-120`. Contract-required for tier 0/1 (`review-verdict.md:71`); absence is not a validation error but triggers demotion (see `ReviewVerdictNormalized`) |
 
-Unknown extra keys at either level are not rejected; they are dropped from the normalized output (`parse-verdict.sh:98`,`:106`).
+**Cross-field rejections** (evaluated after demotion, only when the schema checks above pass — `parse-verdict.sh:153-168`; `review-verdict.md:87-91`), each exit `1`:
+
+- `verdict: pass` with one or more tier 0/1 findings that still carry evidence after demotion (fixture `pass-contradiction.txt`) — `parse-verdict.sh:157-158`.
+- `agent: data-model-verifier` with `verdict: hold` and zero evidenced tier 0/1 findings — rejected, NOT downgraded (fixture `verifier-unevidenced-hold.txt`) — `parse-verdict.sh:159-160`.
+
+Unknown extra keys at either level are not rejected; they are dropped from the normalized output (`parse-verdict.sh:148`,`:166`).
 
 ---
 
@@ -207,18 +215,20 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | Output of `bash scripts/parse-verdict.sh [FILE]` (stdin when FILE omitted). On exit `0` or `2` a single line of compact JSON is printed to **stdout** (`parse-verdict.sh:119-125`); on exit `1` nothing is printed to stdout and one `parse-verdict: <reason>` line per error goes to **stderr** (`parse-verdict.sh:22`,`:114-117`). Consumers: gate orchestration / Stop hook / CI. |
-| **Source** | `scripts/parse-verdict.sh` (normalization lines 97–125); `.claude/references/review-verdict.md` (Normalization + exit codes, lines 70–94) |
+| **Ingestion route** | Output of `bash scripts/parse-verdict.sh [--expect-head <sha>] [FILE]` (stdin when FILE omitted; `parse-verdict.sh:7-8`,`:31-50`). On exit `0`, `2` or `3` a single line of compact JSON is printed to **stdout** (`parse-verdict.sh:183-190`); on exit `1` nothing is printed to stdout and one `parse-verdict: <reason>` line per error goes to **stderr** (`parse-verdict.sh:26`,`:178-180`). Consumers: gate orchestration / Stop hook / CI. |
+| **Source** | `scripts/parse-verdict.sh` (exit codes lines 17–22, normalization 147–175, emit 183–190); `.claude/references/review-verdict.md` (Normalization + rejections lines 76–94, exit codes 96–113) |
+| **Notes** | Parser and reference doc are repo-side tooling, not shipped by `install.sh` (`review-verdict.md:7-9`). |
 
-**Exit codes** (`parse-verdict.sh:15-18`,`:122-125`):
+**Exit codes** (`parse-verdict.sh:17-22`,`:186-190`; `review-verdict.md:106-113`):
 
 | Exit | Meaning |
 |---|---|
-| `0` | Valid; normalized `verdict` is `pass` or `fix-before-merge` |
-| `1` | Invalid: no complete `json` block, unterminated trailing block, invalid JSON, not exactly one value, schema/enum/required-field violation; also usage error, unreadable file, or missing `jq` (`parse-verdict.sh:24-29`,`:50-55`) |
+| `0` | Valid; normalized `verdict` is `pass` |
+| `1` | Invalid: block count/position (zero, >1, unterminated, trailing text), invalid JSON, not exactly one value, duplicate keys, schema/enum/required-field/agent violation, a cross-field rejection (pass contradiction, `data-model-verifier` `fix-before-merge` or unevidenced `hold`), or `--expect-head` mismatch; also usage error, unreadable file, or missing `jq` (`parse-verdict.sh:26-29`,`:36-46`,`:69-76`,`:94`,`:99`,`:178-180`) |
 | `2` | Valid; normalized `verdict` is `hold` (at least one tier 0/1 finding survived demotion) |
+| `3` | Valid; normalized `verdict` is `fix-before-merge`, including a downgraded unevidenced `hold` |
 
-**Shape** (stdout, compact JSON; example per `scripts/fixtures/review-verdict/hold-unevidenced.txt` input):
+**Shape** (stdout, compact JSON; example per `scripts/fixtures/review-verdict/hold-unevidenced.txt` input, which exits `3`):
 
 ```json
 {"schema":"agentic-os/review-verdict@1","agent":"code-reviewer","base":"origin/main","head":"0123456789abcdef0123456789abcdef01234567","verdict":"fix-before-merge","findings":[{"demoted_from":1,"tier":2,"severity":"high","file":"src/a.ts","line":3,"summary":"Looks racy","evidence":"  "}],"verdict_demoted_from":"hold"}
@@ -226,24 +236,24 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `schema` | string literal | yes | Passed through — `parse-verdict.sh:106` |
-| `agent` | string | yes | Passed through — `parse-verdict.sh:106` |
-| `base` | string | yes | Passed through — `parse-verdict.sh:106` |
-| `head` | string | yes | Passed through — `parse-verdict.sh:106` |
-| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold`. A `hold` with zero findings at tier ≤ 1 after demotion is rewritten to `fix-before-merge` — `parse-verdict.sh:107-108` |
-| `findings` | array of NormalizedFinding | yes | Each input finding mapped through `normalize_finding` — `parse-verdict.sh:106` |
-| `verdict_demoted_from` | string literal `"hold"` | no | Present only when the `hold` → `fix-before-merge` downgrade fired — `parse-verdict.sh:108` |
+| `schema` | string literal | yes | Passed through — `parse-verdict.sh:166` |
+| `agent` | enum string | yes | Passed through (already validated against the four-agent enum) — `parse-verdict.sh:166` |
+| `base` | string | yes | Passed through — `parse-verdict.sh:166` |
+| `head` | string | yes | Passed through; equals `--expect-head` when that flag was given — `parse-verdict.sh:166` |
+| `verdict` | enum string | yes | `pass` \| `fix-before-merge` \| `hold`. A `hold` with zero findings at tier ≤ 1 after demotion is rewritten to `fix-before-merge` — `parse-verdict.sh:170-172`. Never fires for `data-model-verifier` (that case is rejected first — `:159-160`) |
+| `findings` | array of NormalizedFinding | yes | Each input finding mapped through `normalize_finding` — `parse-verdict.sh:166` |
+| `verdict_demoted_from` | string literal `"hold"` | no | Present only when the `hold` → `fix-before-merge` downgrade fired — `parse-verdict.sh:171` |
 
-NormalizedFinding (`parse-verdict.sh:97-101`):
+NormalizedFinding (`parse-verdict.sh:147-151`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `demoted_from` | number (`0` \| `1`) | no | Present only when the input tier was 0/1 and `evidence` was missing, `null`, or whitespace-only; holds the original tier — `parse-verdict.sh:99-100` |
-| `tier` | number | yes | `0` \| `1` \| `2`; set to `2` on demotion — `parse-verdict.sh:100` |
-| `severity` | enum string | yes | Passed through |
-| `file` | string | yes | Passed through |
-| `line` | integer ≥ 1 \| null | yes | Always present; omitted input → `null` — `parse-verdict.sh:98` |
-| `summary` | string | yes | Passed through |
-| `evidence` | string \| null | yes | Always present; omitted input → `null`; a blank string is kept as-is (even when demoted) — `parse-verdict.sh:98` |
+| `demoted_from` | number (`0` \| `1`) | no | Present only when the input tier was 0/1 and `evidence` was missing, `null`, or whitespace-only; holds the original tier — `parse-verdict.sh:149-150` |
+| `tier` | number | yes | `0` \| `1` \| `2`; set to `2` on demotion — `parse-verdict.sh:150` |
+| `severity` | enum string | yes | Passed through — `parse-verdict.sh:148` |
+| `file` | string | yes | Passed through — `parse-verdict.sh:148` |
+| `line` | integer ≥ 1 \| null | yes | Always present; omitted input → `null` — `parse-verdict.sh:148` |
+| `summary` | string | yes | Passed through — `parse-verdict.sh:148` |
+| `evidence` | string \| null | yes | Always present; omitted input → `null`; a blank string is kept as-is (even when demoted) — `parse-verdict.sh:148` |
 
-Key order: `demoted_from` is emitted first in a demoted finding; `verdict_demoted_from` last at top level (`parse-verdict.sh:100`,`:108`). Consumers should not rely on key order.
+Key order: `demoted_from` is emitted first in a demoted finding; `verdict_demoted_from` last at top level (`parse-verdict.sh:150`,`:171`). Consumers should not rely on key order.

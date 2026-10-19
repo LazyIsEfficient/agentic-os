@@ -48,7 +48,7 @@ After Wave 1 completes:
 
 ## Step 4 — `checkpoint:ship-ready`
 
-1. Summarize every gate agent verdict; `bash scripts/parse-verdict.sh` on each report (exit 1 = malformed — re-dispatch that reviewer; exit 2 = evidenced `hold`).
+1. Summarize every gate agent verdict; `bash scripts/parse-verdict.sh --expect-head "$(git rev-parse HEAD)"` on each report (exit 0 = `pass`; 1 = malformed — re-dispatch that reviewer; 2 = evidenced `hold`; 3 = `fix-before-merge`).
 2. Fix Tier 0/1 findings; log Tier 2 to findings ledger ([findings-ledger](../skills/findings-ledger/SKILL.md)).
 3. Do **not** mark work complete until all required nodes ran and findings are addressed.
 

@@ -71,7 +71,7 @@ Blocking: <list P-ids with file:line counterexamples, or "none">
 
 ## Verdict block
 
-End every report with one `agentic-os/review-verdict@1` block — field rules: `.claude/references/review-verdict.md`, parsed by `scripts/parse-verdict.sh`. This agent emits the `pass | hold` subset only, never `fix-before-merge`. One finding per REFUTED row; the Tier 0 script command or quoted counterexample is its `evidence`.
+End the report with exactly one fenced `json` block and nothing after it. Required fields: `schema` (`agentic-os/review-verdict@1`), `agent` (`data-model-verifier`), `base` (the base ref you diffed), `head` (full `git rev-parse HEAD`), `verdict` (`pass` | `hold` only — never `fix-before-merge`), `findings` (array; each with `tier` `0`|`1`|`2`, `severity` `critical`|`high`|`medium`|`low`, `file`, `line` (integer or `null`), `summary`, and `evidence` — the reproducing command or artifact, required for tier 0/1). A tier 0/1 finding without `evidence` is demoted to tier 2. Only tier 0/1 findings can carry `hold`, and `pass` alongside an evidenced tier 0/1 finding is a contradiction. One finding per REFUTED row; the Tier 0 script command or quoted counterexample is its `evidence`. Where available, `.claude/references/review-verdict.md` and `scripts/parse-verdict.sh` are the repo-side contract and parser; they do not ship with this agent.
 
 ```json
 {"schema":"agentic-os/review-verdict@1","agent":"data-model-verifier","base":"<base ref>","head":"<git rev-parse HEAD>","verdict":"pass|hold","findings":[{"tier":1,"severity":"high","file":"DATA_MODEL.md","line":1,"summary":"<P-id: property as named vs Source>","evidence":"<script command or file:line counterexample>"}]}
