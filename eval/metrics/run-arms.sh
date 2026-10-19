@@ -58,21 +58,30 @@ cleanup() {
   local r
   [ "${#ROOTS[@]}" -gt 0 ] || return 0
   if [ "$KEEP" = 1 ]; then
-    for r in "${ROOTS[@]}"; do echo "kept arm root: $r"; done
+    for r in "${ROOTS[@]}"; do [ -e "$r" ] && echo "kept arm root: $r"; done
   else
     for r in "${ROOTS[@]}"; do rm -rf "$r"; done
   fi
 }
 trap cleanup EXIT
 
-# setup_arm <on|off> -> prints the arm root; aborts the whole run on failure.
+# Both arms are built from a HEAD export, never the working tree, so
+# REPO_SHA is exactly what ran.
+if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
+  echo "note: working tree is dirty; arms use committed HEAD ($REPO_SHA) only, uncommitted changes are NOT tested." >&2
+fi
+SRC="$(mktemp -d "${TMPDIR:-/tmp}/run-arms-src.XXXXXX")" || { echo "mktemp failed" >&2; exit 1; }
+ROOTS+=("$SRC")
+iso_export_src "$REPO" "$SRC" || { echo "export of HEAD failed" >&2; exit 1; }
+
+# setup_arm <on|off>: appends the arm root to ROOTS; aborts the run on failure.
 setup_arm() {
   local arm="$1" root
   root="$(iso_make_root)" || { echo "mktemp failed" >&2; exit 1; }
   ROOTS+=("$root")
-  iso_export_task "$REPO" "$root/task" || { echo "task export failed ($arm)" >&2; exit 1; }
+  iso_export_task "$SRC" "$root/task" || { echo "task export failed ($arm)" >&2; exit 1; }
   if [ "$arm" = on ]; then
-    iso_install_library "$REPO" "$root" "$OUT/install-on.log" \
+    iso_install_library "$SRC" "$root" "$OUT/install-on.log" \
       || { echo "install.sh into the ON temp config failed; see $OUT/install-on.log" >&2; exit 1; }
   fi
 }
@@ -80,7 +89,7 @@ setup_arm() {
 # preflight_arm <on|off> <root> <session_id>: Tier 0, blocking.
 preflight_arm() {
   local arm="$1" root="$2" sid="$3" ok=0 f
-  iso_preflight "$arm" "$root" "$REPO" || ok=1
+  iso_preflight "$arm" "$root" "$SRC" || ok=1
   iso_record "$LEDGER" "$arm" "$sid" "$RUN_ID" "$REPO_SHA" "$AUTH_VAR"
   [ "$ok" = 0 ] && return 0
   echo "PREFLIGHT FAILED ($arm arm) — aborting; nothing was sent to claude:" >&2
@@ -97,11 +106,13 @@ run_arm() {
 }
 
 ON_ID="$(gen_id)"; OFF_ID="$(gen_id)"
-setup_arm on;  ON_ROOT="${ROOTS[0]}"
-setup_arm off; OFF_ROOT="${ROOTS[1]}"
+setup_arm on;  ON_ROOT="${ROOTS[1]}"
+setup_arm off; OFF_ROOT="${ROOTS[2]}"
 # Both arms pass preflight before either one sends a prompt.
 preflight_arm on "$ON_ROOT" "$ON_ID"
 preflight_arm off "$OFF_ROOT" "$OFF_ID"
+# The pristine export holds the full library; drop it before any arm runs.
+rm -rf "$SRC"
 
 echo "ON arm  (agentic-os installed into a temp CLAUDE_CONFIG_DIR) …"
 run_arm on "$ON_ROOT" "$ON_ID"

@@ -34,6 +34,7 @@ d="\$LOGDIR/call-\$(find "\$LOGDIR" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
 mkdir -p "\$d"
 printf '%s\n' "\$@" > "\$d/argv"
 env | cut -d= -f1 | LC_ALL=C sort > "\$d/env-names"
+echo "\$PATH" > "\$d/path"
 echo "\$HOME" > "\$d/home"
 echo "\$CLAUDE_CONFIG_DIR" > "\$d/config"
 pwd -P > "\$d/cwd"
@@ -79,6 +80,14 @@ check "ON config has library skills, agents, hooks, settings" \
 check "auth value reached both arms" '[ "$(cat "$ON/auth-match")" = yes ] && [ "$(cat "$OFF/auth-match")" = yes ]'
 check "operator CLAUDECODE / CLAUDE_* / other ANTHROPIC_* dropped" \
   '! grep -E "^(CLAUDECODE|CLAUDE_CODE_ENTRYPOINT|ANTHROPIC_BASE_URL)$" "$ON/env-names" "$OFF/env-names"'
+ALLOWED_ENV="$(printf '%s\n' PATH LANG LC_ALL TERM USER LOGNAME SHELL ANTHROPIC_API_KEY HOME \
+  CLAUDE_CONFIG_DIR TMPDIR XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME PWD OLDPWD SHLVL _ \
+  | LC_ALL=C sort)"
+check "child env NAMES are a subset of the allowlist (ON)" '[ -z "$(LC_ALL=C comm -13 <(echo "$ALLOWED_ENV") "$ON/env-names")" ]'
+check "child env NAMES are a subset of the allowlist (OFF)" '[ -z "$(LC_ALL=C comm -13 <(echo "$ALLOWED_ENV") "$OFF/env-names")" ]'
+EXPECTED_PATH="$(PATH="$T/bin:$PATH" iso_child_path)"
+check "child PATH = system default + dirs of claude/node/jq" \
+  '[ "$(cat "$ON/path")" = "$EXPECTED_PATH" ] && [ "$(cat "$OFF/path")" = "$EXPECTED_PATH" ] && case "$EXPECTED_PATH" in "$ISO_SYSTEM_PATH:$T/bin"*) true ;; *) false ;; esac'
 check "no general-purpose / agent flags in argv" '! grep -qi "general-purpose" "$ON/argv" "$OFF/argv"'
 check "isolation.jsonl has a pass record per arm" \
   '[ "$(node -e '"'"'const l=require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse);console.log(l.map(r=>r.arm+":"+r.preflight+":"+(r.config_dir_listing_sha256.length===64)).join(","))'"'"' "$T/out-keep/isolation.jsonl")" = "on:pass:true,off:pass:true" ]'
@@ -118,20 +127,88 @@ check "ancestor CLAUDE.md -> fail record written" 'grep -q "\"preflight\":\"fail
 check "aborted run still cleans up" '[ -z "$(ls -A "$T/contam/base")" ]'
 
 # ---- 5. planted library skill in OFF config (preflight unit) -----------------
+SRC="$T/src"; mkdir -p "$SRC"
+iso_export_src "$REPO" "$SRC"
 ROOT="$(TMPDIR="$T/arms-tmp" iso_make_root)"
-iso_export_task "$REPO" "$ROOT/task"
-check "clean OFF root passes preflight" 'iso_preflight off "$ROOT" "$REPO"'
-SKILL_DIR="$(find "$REPO/.claude/skills" -mindepth 1 -maxdepth 1 -type d | head -1)"
+iso_export_task "$SRC" "$ROOT/task"
+check "clean OFF root passes preflight" 'iso_preflight off "$ROOT" "$SRC"'
+SKILL_DIR="$(find "$SRC/.claude/skills" -mindepth 1 -maxdepth 1 -type d | head -1)"
 mkdir -p "$ROOT/home/.claude/skills"
 cp -R "$SKILL_DIR" "$ROOT/home/.claude/skills/"
-check "planted skill in OFF config fails preflight" '! iso_preflight off "$ROOT" "$REPO"'
+check "planted skill in OFF config fails preflight" '! iso_preflight off "$ROOT" "$SRC"'
 check "failure names the OFF config dir" 'printf "%s\n" "${ISO_FAILS[@]}" | grep -q "OFF config dir is not empty"'
 rm -rf "$ROOT/home/.claude/skills"
 mkdir -p "$ROOT/task/sub/.claude"
-check "nested .claude in task tree fails preflight" '! iso_preflight off "$ROOT" "$REPO"'
+check "nested .claude in task tree fails preflight" '! iso_preflight off "$ROOT" "$SRC"'
+rm -rf "$ROOT/task/sub"
+ln -s "$T/nowhere" "$ROOT/task/Claude.MD"
+check "case-variant symlinked CLAUDE.md in task tree fails preflight" '! iso_preflight off "$ROOT" "$SRC"'
 rm -rf "$ROOT"
 
-# ---- 6. operator HOME untouched across every case ----------------------------
+# ---- 6. ON preflight is exact: plants and gaps fail --------------------------
+ROOT="$(TMPDIR="$T/arms-tmp" iso_make_root)"
+iso_export_task "$SRC" "$ROOT/task"
+iso_install_library "$SRC" "$ROOT" "$T/install-unit.log"
+CFG="$ROOT/home/.claude"
+check "clean ON root passes preflight" 'iso_preflight on "$ROOT" "$SRC"'
+# on_plant <name> <path relative to CFG> <content>: plant, expect fail, remove, expect pass.
+on_plant() {
+  PLANT_REL="$2"
+  mkdir -p "$(dirname "$CFG/$PLANT_REL")"
+  printf '%s\n' "$3" > "$CFG/$PLANT_REL"
+  check "ON plant $1 fails preflight" '! iso_preflight on "$ROOT" "$SRC"'
+  check "ON plant $1 is named in the failure" 'printf "%s\n" "${ISO_FAILS[@]}" | grep -qF "outside the install manifest: $PLANT_REL"'
+  rm -f "$CFG/$PLANT_REL"
+  check "ON root passes again after removing $1" 'iso_preflight on "$ROOT" "$SRC"'
+}
+on_plant "plugin manifest" "plugins/x/plugin.json" '{"name":"x"}'
+on_plant ".claude.json with mcpServers" ".claude.json" '{"mcpServers":{"evil":{"command":"x"}}}'
+on_plant "rogue skill" "skills/rogue/SKILL.md" '---
+name: rogue
+---'
+on_plant "CLAUDE.md" "CLAUDE.md" "# planted"
+HOOK_REL="hooks/block-general-purpose.sh"
+mv "$CFG/$HOOK_REL" "$T/hook.bak"
+check "ON missing manifest file fails preflight" '! iso_preflight on "$ROOT" "$SRC"'
+check "ON missing manifest file is named" 'printf "%s\n" "${ISO_FAILS[@]}" | grep -q "missing manifest files: .*$HOOK_REL"'
+mv "$T/hook.bak" "$CFG/$HOOK_REL"
+echo "# edited" >> "$CFG/agents/$(ls "$CFG/agents" | head -1)"
+check "ON manifest file differing from HEAD fails preflight" '! iso_preflight on "$ROOT" "$SRC"'
+cp "$SRC/.claude/agents/$(ls "$CFG/agents" | head -1)" "$CFG/agents/"
+cp "$CFG/settings.json" "$T/settings.bak"
+echo '{"hooks":{}}' > "$CFG/settings.json"
+check "ON settings.json without library hooks fails preflight" '! iso_preflight on "$ROOT" "$SRC"'
+cp "$T/settings.bak" "$CFG/settings.json"
+check "ON root passes after all restores" 'iso_preflight on "$ROOT" "$SRC"'
+rm -rf "$ROOT"
+
+# ---- 7. arms come from committed HEAD, scrub handles symlinks + case ---------
+G="$T/gitrepo"; mkdir -p "$G/sub"
+echo committed > "$G/a.txt"
+echo "# x" > "$G/sub/claude.md"; echo "# x" > "$G/sub/Agents.MD"
+ln -s a.txt "$G/CLAUDE.md"; ln -s sub "$G/.claude"
+git -C "$G" init -q
+git -C "$G" add -A
+git -C "$G" -c user.name=t -c user.email=t@t.invalid commit -qm init
+echo uncommitted > "$G/a.txt"; echo new > "$G/untracked.txt"
+mkdir -p "$T/gsrc" "$T/gtask"
+iso_export_src "$G" "$T/gsrc"
+iso_export_task "$T/gsrc" "$T/gtask"
+check "export has committed content, not the dirty working tree" \
+  '[ "$(cat "$T/gsrc/a.txt")" = committed ] && [ ! -e "$T/gsrc/untracked.txt" ]'
+check "scrub removes symlinked and case-variant config files" \
+  '[ -z "$(find "$T/gtask" -mindepth 1 \( -iname .claude -o -iname claude.md -o -iname agents.md \) -print)" ] && [ -f "$T/gtask/a.txt" ]'
+
+# ---- 8. bash -x never prints the credential ---------------------------------
+rm -rf "$T/stub-log"
+HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" \
+  bash -x "$RUN_ARMS" --out "$T/out-xtrace" "test prompt" > "$T/xtrace.stdout" 2> "$T/xtrace.stderr"
+rc=$?
+check "bash -x run exits 0" '[ "$rc" -eq 0 ]'
+check "bash -x trace is real (non-trivial stderr)" '[ "$(wc -l < "$T/xtrace.stderr")" -gt 50 ]'
+check "canary absent from bash -x stdout and stderr" '! grep -qF "$CANARY" "$T/xtrace.stdout" "$T/xtrace.stderr"'
+
+# ---- 9. operator HOME untouched across every case ----------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'
 
 [ "$FAIL" = 0 ] && echo "run-arms-isolation-test: OK" || { echo "run-arms-isolation-test: FAILED"; exit 1; }

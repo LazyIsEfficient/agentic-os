@@ -53,16 +53,24 @@ a temp dir, or one that only swaps `--settings`, still loads the library.
   - `CLAUDE_CONFIG_DIR=<root>/home/.claude`, the same directory `HOME/.claude` resolves
     to, so a code path that ignores the variable still lands in the temp dir;
   - `TMPDIR` and the `XDG_*` dirs also point under the root.
-- **Working directory.** The working directory is `<root>/task`, a `git archive HEAD`
-  export of the repo with every `.claude/`, `CLAUDE.md`, `CLAUDE.local.md`,
-  `AGENTS.md` and `.mcp.json` removed.
+- **Committed HEAD only.** Everything comes from one export of committed `HEAD`, never
+  the working tree, so the recorded `repo_sha` is exactly what ran. A dirty tree prints
+  a note: uncommitted changes are not tested.
+- **Working directory.** The working directory is `<root>/task`, a copy of that export
+  with every `.claude`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` and `.mcp.json`
+  removed. Matching is case-insensitive and covers files, dirs and symlinks.
 - **What each arm gets.**
   - OFF gets nothing installed.
-  - ON gets the library via `HOME=<root>/home CLAUDE_DIR=<root>/home/.claude install.sh --force`.
+  - ON gets the library from the export's own `install.sh`, run as
+    `HOME=<root>/home CLAUDE_DIR=<root>/home/.claude install.sh --force`.
+  - The export is deleted after preflight, before either arm runs.
   - The real `~/.claude` is never read or written.
 - **Allowlisted environment.** The child keeps only `PATH LANG LC_ALL TERM USER LOGNAME
   SHELL` plus one auth variable. `CLAUDECODE`, `CLAUDE_*`, other `ANTHROPIC_*` and
-  `XDG_*` are dropped. Values are set by `export` in a subshell, never in argv.
+  `XDG_*` are dropped. `PATH` is replaced by the system default
+  (`/usr/bin:/bin:/usr/sbin:/sbin`) plus the dirs holding `claude`, `node` and `jq`.
+  Values are set by `export` in a subshell, never in argv. Checking which auth variable
+  is set suspends `xtrace`, so `bash -x run-arms.sh` does not print the credential.
 - **Auth.** A fresh config dir has no login, and nothing is copied from `~/.claude` or
   the keychain. Export `ANTHROPIC_API_KEY` (the docs say `-p` always uses it when
   present) or `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`). The run fails with
@@ -77,9 +85,12 @@ a temp dir, or one that only swaps `--settings`, still loads the library.
   - the managed policy dirs (`/Library/Application Support/ClaudeCode`,
     `/etc/claude-code`) carry no agentic-os marker;
   - **OFF only:** the config dir is empty;
-  - **ON only:** every file under `.claude/{skills,agents,hooks}`, plus the three
-    shipped commands, is byte-identical in the config dir, and `settings.json`
-    registers the hooks from that dir.
+  - **ON only:** the config dir's file set is *exactly* the install manifest plus
+    `settings.json`. The manifest is every file under `.claude/{skills,agents,hooks}`
+    plus the three shipped commands. Any extra file aborts the run: a plugin, a
+    `.claude.json`, a rogue skill or a `CLAUDE.md`. So does any missing file. Every
+    manifest file must be byte-identical to `HEAD`, and `settings.json` must register
+    the hooks from that dir.
 - **Record.** Each preflight appends one line to `<out>/isolation.jsonl`: `run_id`,
   `repo_sha`, `arm`, `session_id`, `recorded_utc`, `config_dir_listing_sha256` (a hash
   of every path plus file contents), `preflight` (`pass`/`fail`), `failures[]`,
@@ -90,6 +101,21 @@ a temp dir, or one that only swaps `--settings`, still loads the library.
 
 Tested by `metrics/run-arms-isolation-test.sh`. It uses a stub `claude` and makes no
 API calls.
+
+**This is config isolation, NOT a sandbox.** The arms run with
+`--dangerously-skip-permissions`. Redirecting `HOME`/`CLAUDE_CONFIG_DIR` only changes
+what Claude Code *loads*; it does not limit what the arm can *do*:
+
+- The arm can still read, and write, any of the operator's files by absolute path,
+  including the real `~/.claude`, SSH keys and other repos.
+- The arm holds its own credential in its environment, so it could echo it into a
+  transcript or log. Kept roots (`--keep`) and `<out>/claude-*.log` may then contain it.
+
+For anything beyond trusted prompts:
+
+- run the arms inside a container or under `sandbox-exec` (macOS), with only the arm
+  root writable and the network limited to the API;
+- use a short-lived, spend-capped API key scoped to the eval, and revoke it afterwards.
 
 Not covered: `eval-harness.js` and `reliability/reliability-harness.js` dispatch through
 Workflow `agent()` inside the current session, so they inherit that session's config

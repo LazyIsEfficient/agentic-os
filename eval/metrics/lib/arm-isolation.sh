@@ -7,7 +7,7 @@
 #   <root>/home          HOME
 #   <root>/home/.claude  CLAUDE_CONFIG_DIR (same dir HOME/.claude would resolve to)
 #   <root>/tmp           TMPDIR
-#   <root>/task          working directory: a scrubbed export of the repo
+#   <root>/task          working directory: a scrubbed export of HEAD
 #
 # Docs this relies on (verified 2026-10-19):
 #   - CLAUDE_CONFIG_DIR relocates every ~/.claude path, including transcripts:
@@ -22,18 +22,30 @@
 # recorded; the value is passed to the child through its environment only.
 ISO_AUTH_VARS="ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN"
 # Everything else in the operator's environment (CLAUDECODE, CLAUDE_*, other
-# ANTHROPIC_*, XDG_*) is dropped before the child starts.
+# ANTHROPIC_*, XDG_*) is dropped before the child starts. PATH is kept by name
+# but its value is replaced by iso_child_path.
 ISO_ENV_PASSTHROUGH="PATH LANG LC_ALL TERM USER LOGNAME SHELL"
+ISO_SYSTEM_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 ISO_MANAGED_DIRS="/Library/Application Support/ClaudeCode:/etc/claude-code"
-# Files Claude Code loads as instructions/config from a project tree.
-ISO_PROJECT_CONFIG_NAMES="CLAUDE.md CLAUDE.local.md AGENTS.md .mcp.json"
+# Before the arm runs, the ON config dir holds exactly the install manifest
+# plus these paths (relative to the config dir). install.sh writes
+# settings.json; Claude Code has not run yet, so it has created nothing.
+ISO_ON_ALLOWLIST="settings.json"
+ISO_SHIPPED_COMMANDS="commands/skill-new.md commands/agent-new.md commands/state.md"
+# Case-insensitive match for anything Claude Code loads as project config:
+# files, dirs and symlinks alike.
+ISO_CONFIG_FIND=( \( -iname .claude -o -iname CLAUDE.md -o -iname CLAUDE.local.md -o -iname AGENTS.md -o -iname .mcp.json \) )
 
+# Prints the name of the first auth variable that is set and non-empty.
+# xtrace is suspended so `bash -x` never prints the credential.
 iso_auth_var() {
-  local v
+  local v found="" xt=0
+  case "$-" in *x*) xt=1; { set +x; } 2>/dev/null ;; esac
   for v in $ISO_AUTH_VARS; do
-    if [ -n "${!v:-}" ]; then echo "$v"; return 0; fi
+    if [ -n "${!v:-}" ]; then found="$v"; break; fi
   done
-  return 1
+  [ "$xt" = 1 ] && set -x
+  [ -n "$found" ] && echo "$found"
 }
 
 iso_auth_help() {
@@ -66,6 +78,18 @@ iso_listing_sha256() {
   ) | iso_sha256
 }
 
+# System default PATH plus the dirs holding claude, node and jq, resolved from
+# the operator PATH. The ON hooks need jq; an npm-installed claude needs node.
+iso_child_path() {
+  local p="$ISO_SYSTEM_PATH" b d
+  for b in claude node jq; do
+    d="$(command -v "$b" 2>/dev/null)" || continue
+    d="$(dirname "$d")"
+    case ":$p:" in *":$d:"*) ;; *) p="$p:$d" ;; esac
+  done
+  echo "$p"
+}
+
 # iso_make_root -> prints the canonical path of a fresh arm root.
 iso_make_root() {
   local raw root
@@ -75,68 +99,78 @@ iso_make_root() {
   echo "$root"
 }
 
-# iso_export_task <repo> <task_dir>: committed HEAD of the repo, with every
-# file Claude Code would load as project config removed, so the library can
-# only reach an arm through its CLAUDE_CONFIG_DIR.
-iso_export_task() {
-  local repo="$1" task="$2" n
-  git -C "$repo" archive --format=tar HEAD | tar -xf - -C "$task" || return 1
-  find "$task" -type d -name .claude -prune -exec rm -rf {} +
-  for n in $ISO_PROJECT_CONFIG_NAMES; do
-    find "$task" -type f -name "$n" -exec rm -f {} +
-  done
+# iso_export_src <repo> <dir>: committed HEAD only. The ON install, the ON
+# manifest and every task dir come from this export, so uncommitted changes
+# never reach an arm and the recorded repo_sha is exactly what ran.
+iso_export_src() {
+  git -C "$1" archive --format=tar HEAD | tar -xf - -C "$2"
 }
 
-# iso_install_library <repo> <root> <log>: the ON arm's library, installed by
-# the real installer into the arm's temp config dir only.
+# iso_export_task <src> <task_dir>: copy of the export with every
+# project-config file, dir or symlink removed, so the library can only reach
+# an arm through its CLAUDE_CONFIG_DIR.
+iso_export_task() {
+  local src="$1" task="$2"
+  cp -R "$src/." "$task/" || return 1
+  find "$task" -mindepth 1 "${ISO_CONFIG_FIND[@]}" -prune -exec rm -rf {} +
+}
+
+# iso_install_library <src> <root> <log>: the ON arm's library, installed by
+# the real installer from the HEAD export into the arm's temp config dir only.
 iso_install_library() {
-  local repo="$1" root="$2" log="$3"
+  local src="$1" root="$2" log="$3"
   HOME="$root/home" CLAUDE_DIR="$root/home/.claude" \
-    bash "$repo/install.sh" --force >"$log" 2>&1
+    bash "$src/install.sh" --force >"$log" 2>&1
+}
+
+# iso_on_manifest <src>: relative paths install.sh copies into the config dir.
+iso_on_manifest() {
+  local src="$1" rel
+  ( cd "$src/.claude" && find skills agents hooks ! -type d -print )
+  for rel in $ISO_SHIPPED_COMMANDS; do echo "$rel"; done
 }
 
 # Library fingerprint for scanning dirs we do not own (managed policy dirs).
 iso_library_markers() {
-  local repo="$1" f
+  local src="$1" f
   echo "agentic-os"
-  for f in "$repo"/.claude/hooks/*.sh; do basename "$f"; done
+  for f in "$src"/.claude/hooks/*.sh; do basename "$f"; done
 }
 
 ISO_FAILS=()
 iso_fail() { ISO_FAILS+=("$1"); }
+iso_join() { head -5 | tr '\n' ' '; }
 
-# iso_preflight <arm on|off> <root> <repo>
+# iso_preflight <arm on|off> <root> <src>   (src = an iso_export_src dir)
 # Fills ISO_FAILS (empty = pass) and ISO_LISTING_SHA. Never runs claude.
 iso_preflight() {
-  local arm="$1" root="$2" repo="$3"
+  local arm="$1" root="$2" src="$3"
   local home="$root/home" cfg="$root/home/.claude" task="$root/task"
-  local d n f rel extra hits
+  local d rel extra hits
   ISO_FAILS=()
 
   [ -d "$cfg" ] || iso_fail "config dir missing: $cfg"
 
   # HOME holds nothing but the config dir before the arm runs.
-  extra="$(find "$home" -mindepth 1 -maxdepth 1 ! -name .claude -print | head -5)"
-  [ -z "$extra" ] || iso_fail "unexpected entries in temp HOME: $(echo "$extra" | tr '\n' ' ')"
+  extra="$(find "$home" -mindepth 1 -maxdepth 1 ! -name .claude -print | iso_join)"
+  [ -z "$extra" ] || iso_fail "unexpected entries in temp HOME: $extra"
 
   # Project tree: nothing Claude Code would load as project config, anywhere.
-  hits="$(find "$task" \( -name .claude -o -name CLAUDE.md -o -name CLAUDE.local.md \
-            -o -name AGENTS.md -o -name .mcp.json \) -print | head -5)"
-  [ -z "$hits" ] || iso_fail "project config in task dir: $(echo "$hits" | tr '\n' ' ')"
+  hits="$(find "$task" -mindepth 1 "${ISO_CONFIG_FIND[@]}" -print | iso_join)"
+  [ -z "$hits" ] || iso_fail "project config in task dir: $hits"
 
   # Every ancestor of the task dir, up to and including /.
   d="$(dirname "$task")"
   while :; do
-    for n in .claude $ISO_PROJECT_CONFIG_NAMES; do
-      [ -e "$d/$n" ] && iso_fail "project config in ancestor: $d/$n"
-    done
+    hits="$(find "$d" -mindepth 1 -maxdepth 1 "${ISO_CONFIG_FIND[@]}" -print 2>/dev/null | iso_join)"
+    [ -z "$hits" ] || iso_fail "project config in ancestor: $hits"
     [ "$d" = "/" ] && break
     d="$(dirname "$d")"
   done
 
   # Managed policy dirs: we cannot remove them, but they must not carry the library.
   local IFS_SAVE="$IFS" mdir markers
-  markers="$(iso_library_markers "$repo")"
+  markers="$(iso_library_markers "$src")"
   IFS=':'
   for mdir in $ISO_MANAGED_DIRS; do
     IFS="$IFS_SAVE"
@@ -148,20 +182,25 @@ iso_preflight() {
 
   case "$arm" in
     off)
-      extra="$(find "$cfg" -mindepth 1 -print 2>/dev/null | head -5)"
-      [ -z "$extra" ] || iso_fail "OFF config dir is not empty: $(echo "$extra" | tr '\n' ' ')"
+      extra="$(find "$cfg" -mindepth 1 -print 2>/dev/null | iso_join)"
+      [ -z "$extra" ] || iso_fail "OFF config dir is not empty: $extra"
       ;;
     on)
-      # Manifest = every file install.sh ships for Claude, byte-identical.
-      local missing=0
-      while IFS= read -r f; do
-        rel="${f#"$repo/.claude/"}"
-        cmp -s "$f" "$cfg/$rel" || missing=$((missing + 1))
-      done < <(find "$repo/.claude/skills" "$repo/.claude/agents" "$repo/.claude/hooks" -type f)
-      for rel in commands/skill-new.md commands/agent-new.md commands/state.md; do
-        cmp -s "$repo/.claude/$rel" "$cfg/$rel" || missing=$((missing + 1))
-      done
-      [ "$missing" -eq 0 ] || iso_fail "ON manifest: $missing library file(s) missing or different in $cfg"
+      # Exact: the config dir's file set == manifest + allowlist, and every
+      # manifest file is byte-identical to HEAD.
+      local expected actual changed=0
+      # shellcheck disable=SC2086  # allowlist is a space-separated literal
+      expected="$( { iso_on_manifest "$src"; printf '%s\n' $ISO_ON_ALLOWLIST; } | LC_ALL=C sort -u)"
+      actual="$( (cd "$cfg" && find . ! -type d -print) | sed 's|^\./||' | LC_ALL=C sort)"
+      extra="$(LC_ALL=C comm -13 <(echo "$expected") <(echo "$actual") | iso_join)"
+      [ -z "$extra" ] || iso_fail "ON config has files outside the install manifest: $extra"
+      extra="$(LC_ALL=C comm -23 <(echo "$expected") <(echo "$actual") | iso_join)"
+      [ -z "$extra" ] || iso_fail "ON config is missing manifest files: $extra"
+      while IFS= read -r rel; do
+        [ -e "$cfg/$rel" ] || continue
+        cmp -s "$src/.claude/$rel" "$cfg/$rel" || changed=$((changed + 1))
+      done < <(iso_on_manifest "$src")
+      [ "$changed" -eq 0 ] || iso_fail "ON manifest: $changed library file(s) differ from HEAD in $cfg"
       grep -qF "$cfg/hooks/block-general-purpose.sh" "$cfg/settings.json" 2>/dev/null \
         || iso_fail "ON settings.json does not register the library hooks from $cfg/hooks"
       ;;
@@ -201,10 +240,12 @@ iso_record() {
 iso_exec() {
   local root="$1" auth_var="$2"; shift 3
   (
-    local keep=" $ISO_ENV_PASSTHROUGH $auth_var " v
+    local keep=" $ISO_ENV_PASSTHROUGH $auth_var " v child_path
+    child_path="$(iso_child_path)"
     while IFS= read -r v; do
       case "$keep" in *" $v "*) ;; *) unset "$v" 2>/dev/null ;; esac
     done < <(compgen -e)
+    export PATH="$child_path"
     export HOME="$root/home" CLAUDE_CONFIG_DIR="$root/home/.claude" TMPDIR="$root/tmp"
     export XDG_CONFIG_HOME="$root/home/.config" XDG_DATA_HOME="$root/home/.local/share"
     export XDG_CACHE_HOME="$root/home/.cache" XDG_STATE_HOME="$root/home/.local/state"
