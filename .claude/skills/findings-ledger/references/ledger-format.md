@@ -15,7 +15,10 @@ so identical events byte-compare equal and team-shared diffs stay stable.
 
 | Field         | Type          | Meaning |
 |---------------|---------------|---------|
-| `fingerprint` | string (16 hex) | sha256 of `file + "\n" + normalize(claim)`, truncated to 16 chars. Groups re-sightings of the same defect. |
+| `fingerprint` | string (16 hex) | Groups re-sightings of the same defect. Scheme 1: sha256 of `file + "\n" + normalize(claim)`. Scheme 2: sha256 of `"v2\n" + normalize_path(file) + "\n" + category + "\n" + normalize_symbol(symbol)`. Truncated to 16 chars. |
+| `fingerprint_scheme` | 1 or 2 | Which scheme produced `fingerprint`: 2 when `add --category` was given, else 1. Absent on entries written before #279 — read as 1. Transition events copy it from the fingerprint's first event. |
+| `category` | string or null | Kebab-case defect-class slug (`fail-open`, `stale-doc`, …), lowercased. Null for scheme 1. |
+| `symbol` | string or null | Function, heading, or key the finding is about, as passed (normalized only inside the hash). Null when omitted. |
 | `file`        | string        | Repo-relative path the finding is about. |
 | `claim`       | string        | One-sentence claim summary, as the reviewer phrased it. |
 | `tier`        | 1 or 2        | Per review-tiers (`.claude/rules/review-tiers.md`). Tier 0 checks live in validators and never enter the ledger. |
@@ -34,8 +37,9 @@ happens through the evidence artifact, never through the ledger entry.
 ## Status lifecycle
 
 ```
-add (first sighting)          → NEW
-add (fingerprint seen before) → RECURRING
+add (first sighting)                       → NEW
+add (seen before, only in this same run)   → NEW        (not a recurrence)
+add (seen before in a different run)       → RECURRING
 promote --status INVESTIGATING → INVESTIGATING   (a human is looking)
 promote --evidence <check>     → PROMOTED        (encoded as a Tier 0/1 check; leaves the stochastic layer)
 retire                         → RETIRED-NOISE   (aged-out single sighting)
@@ -58,7 +62,34 @@ stops proposing them — but nothing prevents a later `add` from sighting the
 same fingerprint again; that is a signal the promotion's encoded check did not
 actually cover the defect.
 
-## Fingerprint normalization — a heuristic, not identity
+## Structured fingerprints (scheme 2)
+
+When `add` gets `--category`, the claim text is excluded from the hash: the
+identity is file + defect class + symbol. Normalization (scheme 2 only;
+scheme 1 hashes the trimmed raw path): the path has surrounding whitespace
+trimmed, backslashes turned into `/`, empty and `.` segments dropped (so
+`a//b`, `./a/b`, `a/./b` and `a/b/` all become `a/b`; `..` is kept as is);
+the category is lowercased and must be kebab-case; the symbol has
+backticks, a trailing `()` and surrounding whitespace peeled in any order
+(`` `f`() ``, `f ()`, `` `f()` `` all become `f`) and internal whitespace
+collapsed.
+
+`add` rejects control characters (Unicode category Cc: newline, tab, ESC, …)
+in `--file`, `--category` and `--symbol` with exit 2. Both schemes hash
+newline-joined payloads, so without this guard a crafted
+`--file $'v2\nx\ncat' --claim sym` (scheme 1) would produce the same
+fingerprint as `--file x --category cat --symbol sym` (scheme 2) and fake a
+recurrence. Code that calls `structured_fingerprint()` directly must apply
+the same check.
+
+Limits: identity is now only as good as the category choice. Two reviewers
+who pick different slugs for one defect still diverge (keep to the seed
+vocabulary in SKILL.md), and two distinct defects of the same class on the
+same symbol collide (a too-early promotion candidate, cheap to dismiss).
+The same defect recorded once per scheme gets two fingerprints. Renames
+still break grouping.
+
+## Text fingerprint normalization (scheme 1) — a heuristic, not identity
 
 Goal: the SAME defect phrased two ways across runs should usually collide to
 one fingerprint. `normalize()` in `scripts/ledger.py`:
@@ -83,7 +114,7 @@ different file is a different finding.
 
 ### Known limits
 
-- **Different vocabulary, same defect, no collision.** "description is vague"
+- **Different vocabulary, same defect, no collision** (scheme 2 fixes this — pass `--category`). "description is vague"
   vs "routing triggers are unspecific" fingerprint differently. Tally sorts by
   recurrence count then fingerprint (hash order — no file locality), so
   finding such near-duplicates is a manual scan of the file/claim columns at
@@ -120,8 +151,39 @@ layer.
 ## Team-shared mode
 
 Default is machine-local: `.claude/ledger/` is gitignored, each clone
-accumulates its own noise. To share across a team, delete the
-`.claude/ledger/` line from `.gitignore` and commit `findings.jsonl`:
+accumulates its own noise. Two ways to share across a team:
+
+### Export (no `.gitignore` change)
+
+`ledger.py export --out <path>` writes one JSON line per fingerprint, sorted
+by fingerprint, with sorted keys and no claim text:
+
+| Field | Meaning |
+|-------|---------|
+| `fingerprint`, `fingerprint_scheme`, `category`, `symbol`, `file` | From the fingerprint's first event. |
+| `count` | Recurrence count (distinct run ids among sightings). |
+| `status` | Current status (most recent event). |
+| `first_seen`, `last_seen` | Earliest and latest sighting dates. |
+
+Commit the output to any tracked path outside `.claude/ledger/` (e.g.
+`.claude/ledger-shared/<name>.jsonl`). The file is rewritten in full on each
+run (atomic replace) and is byte-identical for an unchanged ledger, so diffs
+show only real changes. The temp file is created with `mkstemp` in the
+output directory (no writing through a planted symlink, no clash between
+concurrent exports) and given the usual umask-derived mode. `export` reads
+the ledger under the same lock as writers, and refuses any `--out` inside
+the ledger's directory (the ledger, its `.lock` sidecar, or a sibling).
+
+**What gets committed:** no claim text, but `file` and `symbol` are
+reviewer-supplied free text copied verbatim from the first event. In
+team-shared mode they land in git history, so review the export like any
+other committed artifact. It is a read-only summary: `ledger.py` does not read exports back, and
+counts in exports from different clones are per-clone (summing them assumes
+the clones never reused a run id).
+
+### Commit the raw ledger
+
+Delete the `.claude/ledger/` line from `.gitignore` and commit `findings.jsonl`:
 
 - recurrence then counts across *everyone's* review runs, so the threshold is
   crossed sooner and ratchet candidates surface faster;

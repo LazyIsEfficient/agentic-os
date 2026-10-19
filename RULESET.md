@@ -8,6 +8,11 @@ Where this repo's gates are **stricter** than the guide, the local rule wins —
 see [Local divergences](#local-divergences-this-repo) at the end. When in doubt,
 the deterministic gate (`scripts/validate.sh`) is the final authority.
 
+`validate.sh` hard-fails on R4 (exactly-one-SKILL.md part), R6, R7, R8, R9, R10, R12, R13, R31 and R37's
+body links; it **warns** (never blocks) on the "~" guidance caps in R32. Rules
+marked **Not validator-enforced** need judgment or a live model and are covered
+by review (`library-reviewer`, `library-investigator`), not by the gate.
+
 ---
 
 ## 1. Core principles
@@ -92,6 +97,8 @@ the deterministic gate (`scripts/validate.sh`) is the final authority.
   In-context learning on a single case gives faster signal than broad testing.
 - **R25 — Test triggering**: fires on obvious tasks AND paraphrases; does NOT
   fire on unrelated topics. Maintain a should-trigger / should-NOT-trigger list.
+  **Not validator-enforced:** whether a skill fires is model behavior, so only a
+  live routing run can test it; a static script cannot.
 - **R26 — Test function**: valid outputs, tool calls succeed, error handling
   works, edge cases covered.
 - **R27 — Prove value vs. baseline**: compare the same task with and without the
@@ -127,7 +134,8 @@ these here; `scripts/validate.sh` is the deterministic gate.
   key (enforced by `validate.sh`). Keep triggers explicit in both.
 - **R32 — Tighter size caps.** Local review rubric caps `SKILL.md` at **~100
   lines** and descriptions at **~800 chars** (vs. the guide's 5,000 words /
-  1024 chars). Follow the stricter local cap.
+  1024 chars). Follow the stricter local cap. `validate.sh` **warns** above 100
+  lines / 800 chars; it hard-fails only at R12's 1024-char limit.
 - **R33 — In-skill `README.md` is an accepted convention here.** The guide
   discourages a `README.md` inside a skill folder (docs go in
   `SKILL.md`/`references/`), but this library deliberately ships a human-facing
@@ -137,7 +145,10 @@ these here; `scripts/validate.sh` is the deterministic gate.
 - **R34 — Reciprocal routing.** Beyond the guide's negative-trigger advice, this
   repo requires cross-references between contending skills to be **reciprocal**:
   if A deflects to B on a shared trigger, B must deflect back. (See the
-  `skill-library-review` rubric and `.claude/rules/`.)
+  `skill-library-review` rubric and `.claude/rules/`.) **Not
+  validator-enforced:** deflections live in plain-text descriptions and
+  `when_to_use` (R37), so "A deflects to B on a shared trigger" cannot be parsed
+  reliably. Checked in review.
 - **R35 — Tiered review.** Skill-quality findings follow `.claude/rules/review-tiers.md`:
   only deterministic (`validate.sh`) checks gate; LLM-judgment findings are
   advisory and go to the findings ledger. A "should-fix" without deterministic

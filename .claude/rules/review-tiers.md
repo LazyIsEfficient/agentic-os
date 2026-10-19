@@ -57,5 +57,9 @@ The ratchet only turns one way: checks migrate *down* the variance ladder
   tier into its definition.
 - Reviewing? Label each finding's tier. Attach the evidence artifact for Tier 1
   or it is Tier 2. Emit Tier 2 findings as ledger entries, not blocking language.
+  End with the machine verdict block — `pass | fix-before-merge | hold`, where
+  only Tier 0/1 findings may justify `hold`
+  ([review-verdict.md](../references/review-verdict.md), parsed by
+  `scripts/parse-verdict.sh`).
 - Triaging? Run `/triage-findings` — it proposes promotions and retirements;
   the human disposes.

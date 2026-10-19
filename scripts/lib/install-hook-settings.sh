@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # install-hook-settings.sh — merge consumer hook registration into global config.
 # Sourced by install.sh (not executed directly).
 
@@ -88,11 +89,18 @@ merge_claude_hook_settings() {
   local repo_root="$1" dest="$2"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
-  local dest_file="$dest/settings.json"
   [[ -f "$src" ]] || return 0
 
+  # Canonicalise DEST (trailing slashes, `..`, symlinks) so `CLAUDE_DIR=~/.claude/`
+  # and `~/.claude` produce identical commands and never double-register.
+  # `pwd -P`, not realpath: stock macOS lacks a portable realpath.
+  local given="$dest"
+  mkdir -p "$dest"
+  dest="$(cd "$dest" && pwd -P)"
+  local dest_file="$dest/settings.json"
+
   if ! command -v jq &>/dev/null; then
-    if [[ ! -f "$dest_file" && "$dest" == "${HOME}/.claude" ]]; then
+    if [[ ! -f "$dest_file" && "$dest" == "$(cd "$HOME" && pwd -P)/.claude" ]]; then
       cp "$src" "$dest_file"
       echo "  ✓ hooks active → $dest_file"
     else
@@ -105,13 +113,46 @@ merge_claude_hook_settings() {
   hooks_json="$(_claude_hooks_json_for_dest "$src" "$dest/hooks")"
 
   if [[ -f "$dest_file" ]]; then
-    # Replace the ENTIRE hooks key (own it outright), preserving every other
-    # top-level key. `.hooks = $h` — NOT `. * {hooks:$h}`: the recursive-merge
-    # form would deep-merge, leaving stale consumer hook events behind and
-    # diverging from install.ps1 (Add-Member -Force) and SECURITY.md, which
-    # promise re-install replaces the whole hooks object.
-    jq --argjson h "$hooks_json" '.hooks = $h' "$dest_file" > "$dest_file.tmp" \
-      && mv "$dest_file.tmp" "$dest_file"
+    # Merge per event; never take ownership of the consumer's hooks object.
+    # A handler is AgenticOS-owned only when its whole command (trimmed, runs of
+    # `/` collapsed) EQUALS a template command: in the literal
+    # `$HOME/.claude/hooks/...` form older no-jq installs copied verbatim, or
+    # with the hooks dir substituted (canonical DEST, or DEST as given, which
+    # older installs wrote). Compound/piped commands that merely contain our
+    # path are the consumer's and are kept. In each event we ship, owned
+    # handlers are stripped, groups left empty by that are dropped, then our
+    # groups are appended. Events we don't ship and other top-level keys are
+    # untouched; re-running is byte-identical.
+    # A non-object `hooks`, or a non-array value for an event we ship, fails
+    # closed. `cp -p` first so the rewrite keeps the file's mode (settings.json
+    # may hold `env` secrets at 0600).
+    cp -p "$dest_file" "$dest_file.tmp"
+    if ! jq --argjson incoming "$hooks_json" --slurpfile tpl "$src" \
+        --arg canon "$dest/hooks" --arg given "${given%/}/hooks" '
+      def norm: sub("^\\s+"; "") | sub("\\s+$"; "") | gsub("/+"; "/");
+      ([$tpl[0] | .. | objects | select(has("command")) | .command | strings]
+        | map(., gsub("\\$HOME/\\.claude/hooks"; $canon),
+                 gsub("\\$HOME/\\.claude/hooks"; $given))
+        | map(norm) | unique) as $owned
+      | def owned_cmd: (type == "string") and (norm as $c | $owned | index([$c]) != null);
+      def strip_owned:
+        map(if (.hooks | type) == "array"
+            then .hooks |= map(select((.command? | owned_cmd) | not))
+            else . end)
+        | map(select((.hooks | type) != "array" or (.hooks | length) > 0));
+      if (.hooks != null and (.hooks | type) != "object")
+      then error("hooks is not an object") else . end
+      | (.hooks // {}) as $existing
+      | .hooks = reduce ($incoming | keys_unsorted[]) as $event ($existing;
+          if ((.[$event] // []) | type) != "array"
+          then error("hooks.\($event) is not an array") else . end
+          | .[$event] = (((.[$event] // []) | strip_owned) + $incoming[$event]))
+    ' "$dest_file" > "$dest_file.tmp"; then
+      rm -f "$dest_file.tmp"
+      echo "Error: failed to merge AgenticOS hooks into $dest_file (needs valid JSON with an object \"hooks\")." >&2
+      return 1
+    fi
+    mv "$dest_file.tmp" "$dest_file"
   else
     jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"
   fi

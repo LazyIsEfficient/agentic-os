@@ -24,5 +24,5 @@ eq("Δ turns", r.delta.turns.abs, 1);
 eq("Δ repeat-read files (OFF re-read config)", r.delta.repeat_read_files.abs, 1);
 eq("Δ repeated tool calls", r.delta.repeated_tool_calls.abs, 1);
 process.exit(fail);
-'
+' || exit 1
 echo "compare-test: OK"
