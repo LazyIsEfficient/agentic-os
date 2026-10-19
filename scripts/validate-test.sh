@@ -430,6 +430,17 @@ assert_warns() {
   fi
 }
 
+# Assert: run exits nonzero AND output has `FAIL [tag]: ...<needle>`.
+assert_fails_on() {
+  local label="$1" root="$2" tag="$3" needle="$4"
+  run_validate "$root"
+  if [[ "$VRC" -ne 0 ]] && grep -F "FAIL [$tag]" <<<"$VOUT" | grep -qF -- "$needle"; then
+    report "$label" pass
+  else
+    report "$label" fail "exit=$VRC, want nonzero + FAIL [$tag] mentioning '$needle'; output:\n$VOUT"
+  fi
+}
+
 # Assert: no FAIL/WARN line for this tag mentions needle (no-false-positive guard).
 assert_not_flagged() {
   local label="$1" tag="$2" needle="$3"
@@ -519,7 +530,7 @@ const b = await agent("ok (nested)", {
   label: "y", agentType: "Explore" });
 // agent("in a comment") is ignored
 JS
-assert_warns "case 51a workflow-agent-type (missing agentType flagged)" "$c51" workflow-agent-type "agent-type-probe.js — agent( call at line 6 "
+assert_fails_on "case 51a workflow-agent-type (missing agentType fails)" "$c51" workflow-agent-type "agent-type-probe.js — agent( call at line 6 "
 assert_not_flagged "case 51b workflow-agent-type (agentType passed stays clean)" workflow-agent-type "agent-type-probe.js — agent( call at line 7 "
 assert_not_flagged "case 51c workflow-agent-type (comment ignored)" workflow-agent-type "agent-type-probe.js — agent( call at line 9 "
 
@@ -534,16 +545,20 @@ printf '%s\n' \
   'A general-purpose shared-state mechanism.' \
   'Main-thread research forbidden — dispatch Agent(explore|generalPurpose).' \
   'Do not hesitate to dispatch `general-purpose` for research.' \
-  '`general-purpose` is banned for engineering work.' > "$r52"
+  '`general-purpose` is banned for engineering work.' \
+  'Installing it bans `general-purpose` subagent spawns.' > "$r52"
+printf 'agent: "general-purpose"\n' > "$c52/scripts/fixtures/gp-fixture.txt"
 printf 'Baseline arm: `general-purpose` agent.\n' > "$c52/eval/gp.md"
-assert_warns "case 52a no-general-purpose (endorsing line flagged)" "$c52" no-general-purpose "gp-test.md — line 1 "
-assert_warns "case 52b no-general-purpose ('forbidden' is not an exemption)" "$c52" no-general-purpose "gp-test.md — line 4 "
+assert_fails_on "case 52a no-general-purpose (endorsing line fails)" "$c52" no-general-purpose "gp-test.md — line 1 "
+assert_fails_on "case 52b no-general-purpose ('forbidden' is not an exemption)" "$c52" no-general-purpose "gp-test.md — line 4 "
 assert_not_flagged "case 52c no-general-purpose (forbidding line exempt)" no-general-purpose "gp-test.md — line 2 "
 assert_not_flagged "case 52d no-general-purpose (English adjective not flagged)" no-general-purpose "gp-test.md — line 3 "
 assert_not_flagged "case 52e no-general-purpose (eval/ out of scope)" no-general-purpose "eval/gp.md"
 # Negation must bind to the dispatch verb: "do not hesitate to dispatch" endorses.
-assert_warns "case 52f no-general-purpose (unbound negation not exempt)" "$c52" no-general-purpose "gp-test.md — line 5 "
+assert_fails_on "case 52f no-general-purpose (unbound negation not exempt)" "$c52" no-general-purpose "gp-test.md — line 5 "
 assert_not_flagged "case 52g no-general-purpose ('is banned' exempt)" no-general-purpose "gp-test.md — line 6 "
+assert_not_flagged "case 52h no-general-purpose ('bans' exempt)" no-general-purpose "gp-test.md — line 7 "
+assert_not_flagged "case 52i no-general-purpose (scripts/fixtures/ out of scope)" no-general-purpose "gp-fixture.txt"
 
 # 53: symlinked SKILL.md passes [[ -f ]] but every `find -type f` content check
 # skips it, so an out-of-tree payload would go unscanned (also trips R9 name).

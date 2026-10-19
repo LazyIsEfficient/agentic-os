@@ -928,15 +928,13 @@ check_frontmatter_brackets() {
 # awk lexer tracks paren depth from each `agent(` while skipping string, template
 # and comment contents, so prose inside prompts can neither close the call early
 # nor satisfy the check. Regex literals are not lexed (none in the library today).
-# WARN, not FAIL, until PR #282 adds agentType to audit-skill-library.js — then
-# switch warn → fail here.
 check_workflow_agent_type() {
   [[ -d "$CLAUDE/workflows" ]] || return 0
   local f ln
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
     while IFS= read -r ln; do
-      [[ -n "$ln" ]] && warn workflow-agent-type "$f" "agent( call at line $ln does not pass agentType"
+      [[ -n "$ln" ]] && fail workflow-agent-type "$f" "agent( call at line $ln does not pass agentType"
     done < <(awk '
       BEGIN { st = "code"; depth = 0; incall = 0 }
       {
@@ -991,27 +989,28 @@ check_workflow_agent_type() {
 #     after subagent_type — so the English adjective ("a general-purpose
 #     mechanism") is not flagged;
 #   - exempt: lines where a negation binds to the dispatch verb — "never|don't|
-#     do not|must not" + "use|dispatch|spawn", or "is banned|is not allowed|is
-#     never". A bare negation word is not enough: "do not hesitate to dispatch
+#     do not|must not" + "use|dispatch|spawn", "is banned|is not allowed|is
+#     never", or "bans" (as in "installing it bans `general-purpose`"). A bare negation word is not enough: "do not hesitate to dispatch
 #     `general-purpose`" endorses it, and "research on main thread forbidden —
 #     dispatch Agent(explore|generalPurpose)" forbids something else;
 #   - not scanned: .git, eval/, node_modules, gitignored local state
-#     (.claude/memory, .claude/ledger, .claude/worktrees), and this validator +
-#     its self-test, which must spell the pattern.
-# WARN, not FAIL, until PR #282 (which rewords the four endorsing lines still on
-# main) merges — then switch warn → fail here.
+#     (.claude/memory, .claude/ledger, .claude/worktrees), this validator + its
+#     self-test, and the ban's own enforcement (block-general-purpose.sh, its
+#     test, and scripts/fixtures/) — all of which must spell the pattern.
 GP_RE='generalPurpose|`general-purpose`|["'"'"']general-purpose["'"'"']|general-purpose[[:space:]]+(sub)?agents?\b|subagent_type[^[:alnum:]]*general-purpose'
-GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b'
+GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b|\bbans\b'
 check_no_general_purpose() {
   local f ln text
   while IFS=: read -r f ln text; do
     [[ -n "$f" && -n "$ln" ]] || continue
     grep -Eiq "$GP_FORBID_RE" <<<"$text" && continue
-    warn no-general-purpose "${f#./}" "line $ln references the general-purpose agent as a dispatch target — name a specialist"
+    fail no-general-purpose "${f#./}" "line $ln references the general-purpose agent as a dispatch target — name a specialist"
   done < <(cd "$ROOT" && find . \
       \( -path ./.git -o -path ./eval -o -name node_modules \
          -o -path ./.claude/memory -o -path ./.claude/ledger -o -path ./.claude/worktrees \) -prune \
-      -o -type f ! -path ./scripts/validate.sh ! -path ./scripts/validate-test.sh -print0 \
+      -o -type f ! -path ./scripts/validate.sh ! -path ./scripts/validate-test.sh \
+         ! -path ./.claude/hooks/block-general-purpose.sh ! -path ./scripts/block-general-purpose-test.sh \
+         ! -path './scripts/fixtures/*' -print0 \
     | xargs -0 grep -nIE "$GP_RE" 2>/dev/null | sort)
   return 0
 }
