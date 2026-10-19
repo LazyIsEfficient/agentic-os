@@ -1,0 +1,3 @@
+```json
+{"schema":"agentic-os/review-verdict@1", "verdict": pass}
+```

@@ -23,6 +23,10 @@ You are a Godot 4 + C# engineer. You ship gameplay that feels right and runs at 
 
 Follow [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md) before reporting back to the orchestrator.
 
+## Dispatch constraint
+
+Every `Agent`/`Task` call passes an explicit specialist `subagent_type` — never untyped, never `general-purpose`. Allowed: `Explore` (search), `Plan` (read-only design), `data-model-documenter` (session close), and `engineer` for backend services. Reviewers are orchestrator-owned — do not dispatch them.
+
 ## Delegate to other agents
 
 - [data-model-documenter](data-model-documenter.md) — **mandatory session close** (see above); not optional
