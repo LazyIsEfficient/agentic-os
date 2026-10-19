@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# check-imports-test.sh — deterministic, OFFLINE fixture tests for
+# scripts/check-imports.sh. Builds a throwaway git repo with JS/TS and Python
+# sources containing real and nonexistent imports, plus manifests that add a used
+# and an unused dependency, then asserts exact findings and every exit code
+# (0, 1, 2, 3, 4). Needs bash, git, jq, awk and python3 (stdlib only).
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CHECK="$SCRIPT_DIR/check-imports.sh"
+[ -f "$CHECK" ] || { echo "check-imports-test: $CHECK not found" >&2; exit 2; }
+command -v python3 >/dev/null 2>&1 || { echo "check-imports-test: python3 required" >&2; exit 2; }
+
+T="$(mktemp -d)"
+trap 'rm -rf "$T"' EXIT
+export PYTHON=python3
+
+P=0; F=0
+ok(){ printf 'PASS  %s\n' "$1"; P=$((P+1)); }
+no(){ printf 'FAIL  %s — %s\n' "$1" "$2"; F=$((F+1)); }
+
+G="$T/repo"; mkdir -p "$G"
+gitc(){ git -C "$G" -c user.name=t -c user.email=t@t "$@"; }
+
+# ── Base commit: declared deps and an existing module. ────────────────────────
+mkdir -p "$G/src" "$G/mypkg"
+cat > "$G/package.json" <<'EOF'
+{ "name": "fixture", "dependencies": { "left-pad": "1.3.0" } }
+EOF
+printf 'export const u = 1;\n' > "$G/src/util.ts"
+printf '' > "$G/mypkg/__init__.py"
+printf 'c = 1\n' > "$G/mypkg/b.py"
+printf 'requests==2.31.0\n' > "$G/requirements.txt"
+printf 'import requests\n' > "$G/client.py"
+git -C "$G" init -q
+gitc add . >/dev/null
+gitc commit -qm base
+BASE_SHA="$(git -C "$G" rev-parse HEAD)"
+
+# ── The change under review. ──────────────────────────────────────────────────
+cat > "$G/package.json" <<'EOF'
+{ "name": "fixture",
+  "dependencies": { "left-pad": "1.3.0", "chalk": "5.3.0", "is-odd": "3.0.1" } }
+EOF
+cat > "$G/src/app.ts" <<'EOF'
+import { u } from './util';
+import { gone } from './missing';
+import chalk from 'chalk';
+import fs from 'fs';
+import path from 'node:path';
+import pad from 'left-pad';
+import { thing } from 'not-a-real-pkg';
+// import fake from 'commented-out-pkg';
+import { x } from '@/aliased';
+export * from './util.js';
+const lazy = await import('./util');
+EOF
+mkdir -p "$G/dir with space"
+cat > "$G/dir with space/-dash.js" <<'EOF'
+const util = require('../src/util.js');
+const nope = require('./nope');
+EOF
+cat > "$G/mypkg/a.py" <<'EOF'
+import os, json as j
+from . import b
+from .b import c
+from .zzz import q
+import mypkg.b
+import totally_fake_module_xyz
+try:
+    import ujson_fake_optional as fast
+except ImportError:
+    fast = None
+EOF
+printf 'requests==2.31.0\nnot-imported-dist==1.0\n' > "$G/requirements.txt"
+
+run(){ OUT="$(cd "$G" && bash "$CHECK" "$@" 2>"$T/stderr")"; RC=$?; }
+jqo(){ printf '%s' "$OUT" | jq -r "$1" 2>/dev/null; }
+has(){ # has <rule> <file> <line> <message-substring>
+  printf '%s' "$OUT" | jq -e --arg r "$1" --arg f "$2" --arg l "$3" --arg m "$4" \
+    '[.scanners[].findings[] | select(.rule==$r and .file==$f and ((.line|tostring)==$l) and (.message|contains($m)))] | length == 1' >/dev/null
+}
+flagged(){ printf '%s' "$OUT" | jq -e --arg m "$1" '[.scanners[].findings[] | select(.message|contains($m))] | length > 0' >/dev/null; }
+
+# ── exit 1: --base finds hallucinated imports and the unused new dependency ───
+run --json --base "$BASE_SHA"
+[ "$RC" -eq 1 ] && ok "--base with bad imports → exit 1" || no "--base rc" "rc=$RC $(cat "$T/stderr") $OUT"
+has js-unresolved-relative src/app.ts 2 "'./missing'" \
+  && ok "nonexistent relative TS import flagged at its line" || no "./missing" "$OUT"
+has js-undeclared-package src/app.ts 7 "'not-a-real-pkg'" \
+  && ok "undeclared bare package flagged" || no "not-a-real-pkg" "$OUT"
+has js-unresolved-relative "dir with space/-dash.js" 2 "'./nope'" \
+  && ok "path with spaces + leading dash: finding keeps exact path" || no "spaced path" "$OUT"
+has py-unresolved-relative mypkg/a.py 4 "'.zzz'" \
+  && ok "nonexistent relative Python import flagged" || no ".zzz" "$OUT"
+has py-unresolved-module mypkg/a.py 6 "'totally_fake_module_xyz'" \
+  && ok "nonexistent Python module flagged via find_spec" || no "fake module" "$OUT"
+has unused-dependency package.json 2 "'is-odd'" \
+  && ok "newly added, unused npm dependency flagged" || no "is-odd" "$OUT"
+has unused-dependency requirements.txt 2 "'not-imported-dist'" \
+  && ok "newly added, unused Python requirement flagged" || no "not-imported-dist" "$OUT"
+fp=""
+for m in "'./util'" "'chalk'" "'fs'" "node:path" "'left-pad'" "commented-out-pkg" "@/aliased" \
+         "'../src/util.js'" "'os'" "'json'" "'mypkg'" "ujson_fake_optional" "'requests'" "'.b'"; do
+  flagged "$m" && fp="$fp $m"
+done
+[ -z "$fp" ] && ok "no false positives (declared, builtin, node:, alias, .js→.ts, local pkg, try-optional, pre-existing dep)" \
+  || no "false positives" "$fp — $OUT"
+[ "$(jqo '[.scanners[].name] | join(",")')" = "js-imports,py-imports,unused-deps" ] \
+  && ok "JSON reports each check by name" || no "check names" "$OUT"
+
+# ── exit 0: clean files ───────────────────────────────────────────────────────
+run --json --paths src/util.ts mypkg/b.py
+[ "$RC" -eq 0 ] && [ "$(jqo '[.scanners[].status] | join(",")')" = "ran,ran" ] \
+  && ok "clean files → exit 0, status ran" || no "clean" "rc=$RC $OUT"
+
+# ── --paths with `--`, leading-dash file, human output ────────────────────────
+run --paths -- "dir with space/-dash.js"
+{ [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -qF "dir with space/-dash.js:2 [js-unresolved-relative]"; } \
+  && ok "--paths -- <dash-led spaced file>: human output line" || no "--paths --" "rc=$RC $OUT"
+
+# ── exit 3: nothing to check ──────────────────────────────────────────────────
+printf '# readme\n' > "$G/README.md"
+run --json --paths README.md
+[ "$RC" -eq 3 ] && ok "no JS/TS/Python or manifests in scope → exit 3" || no "exit 3" "rc=$RC $OUT"
+
+# ── exit 4: Python files in scope but no interpreter ──────────────────────────
+OUT="$(cd "$G" && PYTHON=/nonexistent/python3 bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+[ "$RC" -eq 4 ] && [ "$(jqo '.scanners[0].status')" = "error" ] \
+  && ok "python missing → py-imports error, exit 4" || no "exit 4" "rc=$RC $OUT"
+
+# ── exit 2: usage errors ──────────────────────────────────────────────────────
+run --bogus
+[ "$RC" -eq 2 ] && ok "unknown flag → exit 2" || no "unknown flag" "rc=$RC"
+run --base no-such-ref
+[ "$RC" -eq 2 ] && ok "unresolvable --base → exit 2" || no "bad base" "rc=$RC"
+run --base --output=/tmp/x
+[ "$RC" -eq 2 ] && ok "dash-led --base ref rejected → exit 2" || no "dash base" "rc=$RC"
+
+echo ""
+echo "check-imports-test: $P passed, $F failed."
+[ "$F" -eq 0 ]
