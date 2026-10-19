@@ -417,6 +417,184 @@ sed 's/session-state-inject\.sh/session-state-checkpoint.sh/' \
 mv "$c40/assets/consumer/codex-hooks.json.tmp" "$c40/assets/consumer/codex-hooks.json"
 assert_trips "case 40 codex-hook-registration (event mismatch)" "$c40" codex-hook-registration
 
+# ── Cases 41-52: RULESET rules validate.sh claimed but did not check (#276) ─────
+
+# Assert: run exits 0 (warnings never gate) AND output has `WARN [tag]: ...<needle>`.
+assert_warns() {
+  local label="$1" root="$2" tag="$3" needle="$4"
+  run_validate "$root"
+  if [[ "$VRC" -eq 0 ]] && grep -F "WARN [$tag]" <<<"$VOUT" | grep -qF -- "$needle"; then
+    report "$label" pass
+  else
+    report "$label" fail "exit=$VRC, want exit 0 + WARN [$tag] mentioning '$needle'; output:\n$VOUT"
+  fi
+}
+
+# Assert: run exits nonzero AND output has `FAIL [tag]: ...<needle>`.
+assert_fails_on() {
+  local label="$1" root="$2" tag="$3" needle="$4"
+  run_validate "$root"
+  if [[ "$VRC" -ne 0 ]] && grep -F "FAIL [$tag]" <<<"$VOUT" | grep -qF -- "$needle"; then
+    report "$label" pass
+  else
+    report "$label" fail "exit=$VRC, want nonzero + FAIL [$tag] mentioning '$needle'; output:\n$VOUT"
+  fi
+}
+
+# Assert: no FAIL/WARN line for this tag mentions needle (no-false-positive guard).
+assert_not_flagged() {
+  local label="$1" tag="$2" needle="$3"
+  if grep -E "^(FAIL|WARN) \[$tag\]" <<<"$VOUT" | grep -qF -- "$needle"; then
+    report "$label" fail "unexpected [$tag] hit for '$needle'; output:\n$VOUT"
+  else
+    report "$label" pass
+  fi
+}
+
+# Shortest skill — room to grow it without hitting other caps.
+shortest_skill() { wc -l "$1"/.claude/skills/*/SKILL.md | grep -v ' total$' | sort -n | head -1 | awk '{print $2}'; }
+
+# Replace a skill's description (inline or block) with $2, verbatim — may span
+# lines. Passed via ENVIRON: `awk -v` would mangle backslashes and newlines.
+set_description() {
+  DESC="$2" awk '!done2 && /^description:/ { print "description: " ENVIRON["DESC"]; done2=1; skip=1; next }
+    skip && /^[ \t]/ { next } { skip=0; print }' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+}
+
+# 41: R4 — a skill folder with no SKILL.md was silently skipped by every check.
+c41="$(make_copy)"; mkdir -p "$c41/.claude/skills/orphan-skill"
+printf '# not a skill\n' > "$c41/.claude/skills/orphan-skill/README.md"
+assert_trips "case 41 skill-structure (folder without SKILL.md)" "$c41" skill-structure
+
+# 42: R6 — lowercase skill.md (case-sensitive find missed it).
+c42="$(make_copy)"; mkdir -p "$c42/.claude/skills/lower-skill"
+printf -- '---\nname: lower-skill\ndescription: x\nwhen_to_use: x\n---\n' > "$c42/.claude/skills/lower-skill/skill.md"
+assert_trips "case 42 skill-structure (lowercase skill.md)" "$c42" skill-structure
+
+# 43: R4 — a second SKILL.md nested inside a skill.
+c43="$(make_copy)"; s43="$(shortest_skill "$c43")"; mkdir -p "$(dirname "$s43")/references/inner"
+cp "$s43" "$(dirname "$s43")/references/inner/SKILL.md"
+assert_trips "case 43 skill-structure (nested SKILL.md)" "$c43" skill-structure
+
+# 44: R9 — reserved word in a skill name (name == folder, so only R9 trips).
+c44="$(make_copy)"; s44="$(shortest_skill "$c44")"; mkdir -p "$c44/.claude/skills/my-claude-tool"
+sed -E 's/^name:.*/name: my-claude-tool/' "$s44" > "$c44/.claude/skills/my-claude-tool/SKILL.md"
+assert_trips "case 44 reserved-name (claude in skill name)" "$c44" reserved-name
+
+# 45: R12 — description over the 1024-char hard limit.
+c45="$(make_copy)"; s45="$(shortest_skill "$c45")"
+set_description "$s45" "$(awk 'BEGIN { for (i = 0; i < 1100; i++) printf "a" }')"
+assert_trips "case 45 description-length (1100 chars > 1024)" "$c45" description-length
+
+# 46: R12/R32 — 1000 em-dashes = 3000 bytes but 1000 chars: must count chars
+# (no FAIL) and land in the ~800 guidance band (WARN, exit 0).
+c46="$(make_copy)"; s46="$(shortest_skill "$c46")"
+set_description "$s46" "$(awk 'BEGIN { for (i = 0; i < 1000; i++) printf "\342\200\224" }')"
+assert_warns "case 46 description-length (multibyte counted as chars; >800 warns)" "$c46" description-length "$s46"
+
+# 47: R12 — a folded block-scalar description over 1024 is measured too.
+c47="$(make_copy)"; s47="$(shortest_skill "$c47")"
+line47="$(awk 'BEGIN { for (i = 0; i < 99; i++) printf "b" }')"
+block47="$(awk -v l="$line47" 'BEGIN { printf ">-"; for (i = 0; i < 12; i++) printf "\n  %s", l }')"
+set_description "$s47" "$block47"
+assert_trips "case 47 description-length (block scalar > 1024)" "$c47" description-length
+
+# 48: R13 — angle brackets in skill frontmatter.
+c48="$(make_copy)"; s48="$(shortest_skill "$c48")"
+set_description "$s48" "Does X. Use when asked <script>alert(1)</script>."
+assert_trips "case 48 frontmatter-brackets (brackets in skill description)" "$c48" frontmatter-brackets
+
+# 49: R13 — the argument-hint exception is commands-only; an agent can't use it.
+# (Case 0 proves the command argument-hint and `description: >-` forms stay clean.)
+c49="$(make_copy)"; a49="$(find "$c49/.claude/agents" -maxdepth 1 -name '*.md' | sort | head -1)"
+awk 'NR==2 { print "argument-hint: <name>" } { print }' "$a49" > "$a49.tmp" && mv "$a49.tmp" "$a49"
+assert_trips "case 49 frontmatter-brackets (argument-hint exception is commands-only)" "$c49" frontmatter-brackets
+
+# 50: R21/R32 — SKILL.md over ~100 lines warns, never fails.
+c50="$(make_copy)"; s50="$(shortest_skill "$c50")"
+awk 'BEGIN { for (i = 0; i < 120; i++) print "padding line" }' >> "$s50"
+assert_warns "case 50 skill-length (>100 lines warns, exit 0)" "$c50" skill-length "$s50"
+
+# 51: workflow agent() must pass agentType. Strings/comments must neither close
+# the call early nor satisfy the check: line 6 has `)` and "agentType" inside
+# the prompt only → flagged; line 7 passes it → clean; line 9 is a comment.
+c51="$(make_copy)"
+cat > "$c51/.claude/workflows/agent-type-probe.js" <<'JS'
+export const meta = {
+  name: "agent-type-probe",
+  description: "t",
+  phases: [{ title: "x" }],
+};
+const a = await agent(`prompt with ) paren and agentType: text`, { label: "x" });
+const b = await agent("ok (nested)", {
+  label: "y", agentType: "Explore" });
+// agent("in a comment") is ignored
+JS
+assert_fails_on "case 51a workflow-agent-type (missing agentType fails)" "$c51" workflow-agent-type "agent-type-probe.js — agent( call at line 6 "
+assert_not_flagged "case 51b workflow-agent-type (agentType passed stays clean)" workflow-agent-type "agent-type-probe.js — agent( call at line 7 "
+assert_not_flagged "case 51c workflow-agent-type (comment ignored)" workflow-agent-type "agent-type-probe.js — agent( call at line 9 "
+
+# 52: general-purpose as a dispatch target. Line 1 endorses it (flagged); line 2
+# forbids it; line 3 is the English adjective; "forbidden" alone is no exemption
+# (line 4); eval/ is out of scope.
+c52="$(make_copy)"; s52="$(shortest_skill "$c52")"; r52="$(dirname "$s52")/references/gp-test.md"
+mkdir -p "$(dirname "$r52")" "$c52/eval"
+printf '%s\n' \
+  'For research, spawn a `general-purpose` agent.' \
+  'Never dispatch `general-purpose` for engineering work.' \
+  'A general-purpose shared-state mechanism.' \
+  'Main-thread research forbidden — dispatch Agent(explore|generalPurpose).' \
+  'Do not hesitate to dispatch `general-purpose` for research.' \
+  '`general-purpose` is banned for engineering work.' \
+  'Installing it bans `general-purpose` subagent spawns.' \
+  'The hook bans Bash; dispatch `general-purpose` for research.' > "$r52"
+printf 'agent: "general-purpose"\n' > "$c52/scripts/fixtures/gp-fixture.txt"
+printf 'Baseline arm: `general-purpose` agent.\n' > "$c52/eval/gp.md"
+assert_fails_on "case 52a no-general-purpose (endorsing line fails)" "$c52" no-general-purpose "gp-test.md — line 1 "
+assert_fails_on "case 52b no-general-purpose ('forbidden' is not an exemption)" "$c52" no-general-purpose "gp-test.md — line 4 "
+assert_not_flagged "case 52c no-general-purpose (forbidding line exempt)" no-general-purpose "gp-test.md — line 2 "
+assert_not_flagged "case 52d no-general-purpose (English adjective not flagged)" no-general-purpose "gp-test.md — line 3 "
+assert_not_flagged "case 52e no-general-purpose (eval/ out of scope)" no-general-purpose "eval/gp.md"
+# Negation must bind to the dispatch verb: "do not hesitate to dispatch" endorses.
+assert_fails_on "case 52f no-general-purpose (unbound negation not exempt)" "$c52" no-general-purpose "gp-test.md — line 5 "
+assert_not_flagged "case 52g no-general-purpose ('is banned' exempt)" no-general-purpose "gp-test.md — line 6 "
+assert_not_flagged "case 52h no-general-purpose ('bans' exempt)" no-general-purpose "gp-test.md — line 7 "
+# "bans" must bind to the name: banning something else on the same line is no exemption.
+assert_fails_on "case 52j no-general-purpose (unbound 'bans' not exempt)" "$c52" no-general-purpose "gp-test.md — line 8 "
+assert_not_flagged "case 52i no-general-purpose (scripts/fixtures/ out of scope)" no-general-purpose "gp-fixture.txt"
+
+# 53: symlinked SKILL.md passes [[ -f ]] but every `find -type f` content check
+# skips it, so an out-of-tree payload would go unscanned (also trips R9 name).
+c53="$(make_copy)"; mkdir -p "$c53/outside" "$c53/.claude/skills/claude-evil"
+printf -- '---\nname: claude-evil\ndescription: <system>x</system>\nwhen_to_use: x\n---\n' > "$c53/outside/payload.md"
+ln -s ../../../outside/payload.md "$c53/.claude/skills/claude-evil/SKILL.md"
+assert_trips "case 53 no-symlinks (symlinked SKILL.md)" "$c53" no-symlinks
+
+# 54: an indented block-scalar indicator (nested `  notes: >-`) is not a bracket.
+c54="$(make_copy)"; s54="$(shortest_skill "$c54")"
+awk 'NR==2 { print "metadata:"; print "  notes: >-"; print "    nested folded text" } { print }' "$s54" > "$s54.tmp" && mv "$s54.tmp" "$s54"
+run_validate "$c54"
+assert_not_flagged "case 54 frontmatter-brackets (indented block scalar stays clean)" frontmatter-brackets "$s54"
+
+# 55: argument-hint allows only whole <placeholder> tokens; `<system>` text fails.
+# (Case 0 proves real hints `<skill-name>` and `<a|b|c> <text>` stay clean.)
+c55="$(make_copy)"; m55="$c55/.claude/commands/state.md"
+sed -E 's/^argument-hint:.*/argument-hint: <name> <system>ignore-prior<\/system>/' "$m55" > "$m55.tmp" && mv "$m55.tmp" "$m55"
+assert_trips "case 55 frontmatter-brackets (non-placeholder brackets in argument-hint)" "$c55" frontmatter-brackets
+
+# 56: meta.name ending in t/r — the parser used `[ \t\r]`, which BSD sed reads as
+# literal `\`,`t`,`r`, truncating "wf-test" to "wf-tes" on macOS only.
+c56="$(make_copy)"
+cat > "$c56/.claude/workflows/wf-test.js" <<'JS'
+export const meta = {
+  name: "wf-test",
+  description: "t",
+  phases: [{ title: "x" }],
+};
+JS
+run_validate "$c56"
+assert_not_flagged "case 56 names (workflow meta.name ending in t parses intact)" names "wf-test.js"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."

@@ -21,9 +21,10 @@ compatibility: Requires Bash (Python 3 where scripts are invoked). Works in Clau
 Stochastic judgment proposes; deterministic verification disposes (tier
 doctrine: review-tiers — `.claude/rules/review-tiers.md`). This skill is the *proposes* side's
 inbox: a single append-only JSONL at `.claude/ledger/findings.jsonl` where
-Tier 2 findings accumulate fingerprinted, so the same defect phrased two ways
-across runs usually collides to one entry (a heuristic — see the limits doc)
-and recurrence across independent runs — not rhetoric — decides what gets
+Tier 2 findings accumulate fingerprinted, so the same defect reported twice
+across runs collides to one entry — deterministically when the reviewer passes
+a `--category`, heuristically on claim wording when it doesn't — and
+recurrence across independent runs — not rhetoric — decides what gets
 investigated.
 
 ## The ledger file
@@ -32,19 +33,24 @@ investigated.
 - **Append-only.** Status transitions are new events for the same fingerprint;
   prior lines are never mutated. Current status = the fingerprint's most recent
   event.
-- **Gitignored by default** (machine-local noise). **Team-shared mode:** in
-  `.gitignore`, replace the `.claude/ledger/` line with `.claude/ledger/*.lock`
-  (the lock sidecar stays local) and commit the findings file so recurrence is
-  measured across the whole team's runs. Append-only + stable ordering keeps
-  the diffs reviewable.
+- **Gitignored by default** (machine-local noise). **Team-shared mode**, two
+  options: (a) commit `ledger.py export --out <path>` output — one line per
+  fingerprint with category, file, count and first/last seen, **no claim
+  text** — to any tracked path outside `.claude/ledger/`; no `.gitignore`
+  change needed. `file` and `symbol` are still reviewer-supplied free text
+  and get committed, so review the export before pushing. (b) Commit the
+  raw ledger: in `.gitignore`, replace the `.claude/ledger/` line with
+  `.claude/ledger/*.lock` (the lock sidecar stays local). Append-only + stable
+  ordering keeps either diff reviewable.
 - **CI runners don't persist it.** Appends made during a CI job vanish with
   the runner — and CI must never push the ledger back to the repo. Upload the
   run's findings as a build artifact and harvest locally instead; patterns in
   [references/ledger-format.md](references/ledger-format.md).
 
-Entry fields: `fingerprint`, `file`, `claim`, `tier`, `source`, `run_id`,
-`date`, `evidence` (path or null), `status`
-(`NEW | RECURRING | INVESTIGATING | PROMOTED | RETIRED-NOISE`).
+Entry fields: `fingerprint`, `fingerprint_scheme` (1 = text, 2 = structured;
+absent on pre-#279 entries, read as 1), `category` and `symbol` (or null),
+`file`, `claim`, `tier`, `source`, `run_id`, `date`, `evidence` (path or
+null), `status` (`NEW | RECURRING | INVESTIGATING | PROMOTED | RETIRED-NOISE`).
 Full schema, lifecycle, and fingerprint-normalization limits:
 [references/ledger-format.md](references/ledger-format.md).
 
@@ -66,17 +72,22 @@ LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
 
 python3 "$LEDGER" add \
   --file <path> --claim "<one sentence>" --tier 2 \
-  --source <agent-name> --run-id <id> [--evidence <path>]
+  --source <agent-name> --run-id <id> [--evidence <path>] \
+  [--category <kebab-slug> [--symbol <function|heading|key>]]
 
 python3 "$LEDGER" tally
 python3 "$LEDGER" triage [--threshold 2] [--age-days 14]
 python3 "$LEDGER" promote <fingerprint> [--status INVESTIGATING] [--evidence <path>]
 python3 "$LEDGER" retire <fingerprint>
+python3 "$LEDGER" export --out <path>
 ```
 
-- `add` computes the fingerprint (sha256 of file path + normalized claim text)
-  and marks a repeat sighting `RECURRING`. A `--tier 1` finding without
-  `--evidence` is demoted to tier 2 automatically — the tier rule, enforced.
+- `add` computes the fingerprint (see Categories below) and labels a
+  sighting `RECURRING` only when an earlier sighting came from a different
+  `--run-id`; a repeat within the same run stays `NEW`. A `--tier 1` finding
+  without `--evidence` is demoted to tier 2 automatically — the tier rule,
+  enforced. Control characters (newline, tab, …) in `--file`, `--category`
+  or `--symbol` are rejected.
 - Recurrence counts **distinct run ids**, not raw sightings — an agent
   repeating itself within one run cannot cross the threshold alone.
 - `triage` lists fingerprints at/over the recurrence threshold as promotion
@@ -86,6 +97,50 @@ python3 "$LEDGER" retire <fingerprint>
   ratchet target per candidate; the human disposes.
 - `promote` refuses to record `PROMOTED` without `--evidence` — a promotion
   *is* its encoded check.
+- `export` writes the deduplicated per-fingerprint summary (sorted,
+  byte-deterministic JSONL) to `--out`, and refuses any `--out` inside the
+  ledger's directory.
+
+## Categories (structured fingerprints)
+
+Two reviewers rarely phrase one defect the same way, so text fingerprints
+rarely recur. Pass `--category` and the fingerprint becomes
+`sha256("v2" + normalized file path + category + symbol)` — claim wording no
+longer matters, and paraphrases collide.
+
+- `--category` — a short kebab-case slug naming the **defect class**
+  (lowercased; anything that isn't `[a-z0-9]+(-[a-z0-9]+)*` is rejected).
+  Seed vocabulary — prefer these, coin a new slug when none fits:
+
+  | Slug | Use for |
+  |------|---------|
+  | `fail-open` | error/missing input path that grants or proceeds instead of denying |
+  | `missing-validation` | user input reaches a sink unchecked |
+  | `missing-ci-wiring` | a test/check exists but CI never runs it |
+  | `missing-test` | behavior change with no test exercising it |
+  | `stale-doc` | docs contradict the current code |
+  | `broken-reference` | link, path or cross-reference that does not resolve |
+  | `vague-routing` | skill/agent description too unspecific to route on |
+  | `dead-code` | unreachable or unused code/config |
+  | `secret-exposure` | credential or token logged, committed or leaked |
+
+- `--symbol` (optional, requires `--category`) — the function, heading, or
+  config key the finding is about. Backticks and a trailing `()` are
+  stripped, so `` `check_token()` ``, `` `check_token`() ``, `check_token ()`
+  and `check_token` match. Omit it for file-level findings.
+- Without `--category`, `add` uses the legacy text fingerprint (scheme 1),
+  unchanged — existing entries keep their identity. A scheme 1 and a
+  scheme 2 sighting of the same defect get different fingerprints, so stick
+  to one scheme per defect.
+
+Reviewers should pass both whenever the finding names a defect class and a
+location, reusing the same slug for the same class across runs:
+
+```sh
+python3 "$LEDGER" add --file src/auth.py --tier 2 --source code-reviewer \
+  --run-id pr-281 --category fail-open --symbol check_token \
+  --claim "check_token returns True when the verifier raises"
+```
 
 ## The ratchet
 
