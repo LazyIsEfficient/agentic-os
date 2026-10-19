@@ -83,7 +83,7 @@ Only after this checkpoint: mark work **complete**, open/ready PR, merge, tag, r
 | `G-code-review` | `code-reviewer` | yes | 1 | **?** `is_code_change \|\| is_library` |
 | `G-security-review` | `security-reviewer` | yes | 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
 | `G-data-document` | `data-model-documenter` | **no** (writes `DATA_MODEL.md` only) | impl close / 1 | `is_code_change \|\| is_library \|\| is_sensitive` |
-| `G-library-review` | `library-reviewer` | yes | 1 | **?** `is_library` (paths under `.claude/skills/` or `.claude/agents/`) |
+| `G-library-review` | `library-reviewer` | yes | 1 | **?** `is_library` (paths under `.claude/skills/`, `.claude/agents/`, `.claude/commands/`, `.claude/rules/`, `.claude/references/`, or `.claude/workflows/`) |
 | `G-data-verify` | `data-model-verifier` | yes | 2 | **?** `DATA_MODEL.md` changed this run (Wave 2 — after `G-data-document`) |
 
 **Always require `G-security-review` on any non-docs-only PR** ([#566530c](https://github.com/LazyIsEfficient/agentic-os/commit/566530c)). **`G-data-document`** runs at **implementation close** when an implementation agent implemented; otherwise include it in orchestrator Wave 1.
@@ -122,12 +122,14 @@ SHIP_GATES_CHANGED_FILES="path/to/changed" bash scripts/gate-plan.sh --json
 | Condition | Gates required |
 |---|---|
 | Docs-only (`*.md` allowlist, no `is_library` / `is_sensitive`) | **None** — skip entire DAG |
-| `is_sensitive` only (e.g. `SECURITY.md`, `install.sh`, hooks) | `G-security-review`, `G-data-document` |
+| `is_sensitive` only (e.g. `SECURITY.md`, `install.sh`, hooks, gate scripts `scripts/gate-plan.sh` / `scripts/lib/gate-plan-lib.sh` / `scripts/check-pr-ship-gates.sh` / `scripts/parse-verdict.sh`) | `G-security-review`, `G-data-document` |
 | `is_code_change` and/or `is_library` | `G-code-review`, `G-security-review`, `G-data-document` |
 | `is_library` | + `G-library-review` |
 | `DATA_MODEL.md` in diff after Wave 1 | + `G-data-verify` (`data-model-verifier`) |
 
 `DATA_MODEL.md` is **not** docs-only — agent-maintained catalog changes require full gates.
+
+Markdown under `.claude/commands/`, `.claude/rules/`, and `.claude/references/` is **not** docs-only either — those files define the gates and are prompt-injection surfaces, so they classify as `is_library`. `review-tiers.md`, `gate-dag.md`, `review-gate.md`, and `review-verdict.md` are additionally `is_sensitive`.
 
 ---
 

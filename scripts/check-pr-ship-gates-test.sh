@@ -81,4 +81,22 @@ else
   pass "skill SKILL.md missing security-reviewer trips"
 fi
 
+if SHIP_GATES_CHANGED_FILES=".claude/rules/review-tiers.md" PR_BODY="$BODY_LIB_OK" bash "$GATE"; then
+  pass "rules md + all reviewers"
+else
+  fail "rules md + all reviewers"
+fi
+
+if SHIP_GATES_CHANGED_FILES=".claude/commands/review-gate.md" PR_BODY="$BODY_OK" bash "$GATE" 2>/dev/null; then
+  fail "commands md missing library-reviewer should trip"
+else
+  pass "commands md missing library-reviewer trips"
+fi
+
+if SHIP_GATES_CHANGED_FILES="docs/guide.md" PR_BODY="" bash "$GATE"; then
+  pass "docs/*.md still docs-only"
+else
+  fail "docs/*.md still docs-only"
+fi
+
 echo "check-pr-ship-gates-test: OK"

@@ -31,10 +31,18 @@ gate_plan_classify_paths() {
 
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
+    # Must run before the docs-only `*.md` skip below: commands/rules/references
+    # are markdown but define the gates themselves.
     case "$f" in
       .claude/skills/*|.claude/agents/*) GATE_IS_LIBRARY=true ;;
+      .claude/commands/*|.claude/rules/*|.claude/references/*|.claude/workflows/*) GATE_IS_LIBRARY=true ;;
     esac
     case "$f" in
+      .claude/rules/review-tiers.md) GATE_IS_SENSITIVE=true ;;
+      .claude/references/gate-dag.md|.claude/references/review-verdict.md) GATE_IS_SENSITIVE=true ;;
+      .claude/commands/review-gate.md) GATE_IS_SENSITIVE=true ;;
+      scripts/lib/gate-plan-lib.sh|scripts/gate-plan.sh) GATE_IS_SENSITIVE=true ;;
+      scripts/check-pr-ship-gates.sh|scripts/parse-verdict.sh) GATE_IS_SENSITIVE=true ;;
       install.sh|install.ps1) GATE_IS_SENSITIVE=true ;;
       assets/consumer/*) GATE_IS_SENSITIVE=true ;;
       .claude/hooks/*) GATE_IS_SENSITIVE=true ;;
