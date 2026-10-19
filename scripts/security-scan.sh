@@ -3,56 +3,82 @@
 # and report their results as reproducible (Tier 0/1) evidence.
 #
 # Run from the project root (the directory whose files you want scanned):
-#   security-scan.sh [--base <ref>] [--paths <file>...] [--json]
+#   security-scan.sh [--base <ref>] [--paths <path>...] [--json]
 #
 # Scope (which files are scanned):
 #   --base <ref>      files changed between merge-base(<ref>, HEAD) and the working
 #                     tree, plus untracked non-ignored files. Deleted files skipped.
-#   --paths <f>...    exactly these files. --paths consumes every following argument
-#                     until --json, --base or `--`; everything after `--` is a path.
+#   --paths <p>...    these files; a directory expands to every file under it
+#                     (.git pruned). A path that does not exist is a usage error
+#                     (exit 2). --paths consumes every following argument until
+#                     --json, --base or `--`; everything after `--` is a path.
 #                     Prefix a file literally named "--json" as "./--json".
 #   (neither)         uncommitted changes vs HEAD plus untracked files.
 #   Paths are git-relative to the current directory (`git diff --relative`).
+#   Symlinks are resolved; a path whose real location is outside the repo root
+#   (git toplevel, else the current directory) is skipped and listed in
+#   "skipped", as is a broken symlink.
 #
-# Scanners (each runs only if installed; absence is reported, never skipped):
-#   gitleaks          `gitleaks dir` on each in-scope file, --redact (secrets never
-#                     reach output). Honors ./.gitleaks.toml and ./.gitleaksignore.
-#   semgrep           `semgrep scan` on the in-scope files with --metrics=off.
+# The scanned tree is UNTRUSTED. Repo-local scanner configuration that could
+# suppress findings or redirect network traffic is never honored:
+#   gitleaks          `gitleaks dir` per file with --redact (secrets never reach
+#                     output), --ignore-gitleaks-allow (inline `gitleaks:allow`
+#                     ignored) and an empty --gitleaks-ignore-path (repo
+#                     .gitleaksignore ignored). Rules: gitleaks defaults, or
+#                     --config "$SECURITY_SCAN_GITLEAKS_CONFIG" when set. A
+#                     repo-local .gitleaks.toml / .gitleaksignore is reported in
+#                     "notes".
+#   semgrep           `semgrep scan` on the in-scope files with --metrics=off and
+#                     --disable-nosem (inline `nosemgrep` ignored). Explicit file
+#                     targets bypass .semgrepignore (verified semgrep 1.181.0).
 #                     Rules come from env SEMGREP_CONFIG (default p/security-audit).
 #                     A registry name (p/...) FETCHES RULES FROM THE SEMGREP REGISTRY
-#                     over the network. For offline use point it at a local ruleset:
-#                     SEMGREP_CONFIG=./semgrep-rules.yml (file or directory).
+#                     over the network. For offline use point it at a local ruleset
+#                     you trust: SEMGREP_CONFIG=/path/to/rules.yml (file or dir).
 #   dependency audit  over lockfiles in the current directory plus any in-scope
-#                     lockfile: osv-scanner if installed (all lockfiles at once),
-#                     otherwise npm audit (package-lock.json / npm-shrinkwrap.json),
-#                     pip-audit (requirements*.txt, run with --disable-pip --no-deps
-#                     so no package code is installed or built — unpinned
-#                     requirements therefore report `error`), cargo audit
-#                     (Cargo.lock). osv-scanner and npm audit query online
-#                     vulnerability databases.
+#                     lockfile:
+#     osv-scanner     if installed, all lockfiles at once, with --config pointed
+#                     at an empty file (repo osv-scanner.toml IgnoredVulns ignored).
+#     otherwise:
+#     npm audit       package-lock.json / npm-shrinkwrap.json copied with
+#                     package.json into a fresh temp dir; run there with empty
+#                     --userconfig / --globalconfig and an explicit --registry
+#                     (default https://registry.npmjs.org/, override with env
+#                     SECURITY_SCAN_NPM_REGISTRY). A repo .npmrc is never read.
+#     pip-audit       requirements*.txt, sanitized (option lines such as
+#                     --index-url / -r / -c stripped) into a temp copy, run with
+#                     --disable-pip --no-deps so no package code is installed or
+#                     built — unpinned requirements therefore report `error`.
+#     cargo audit     Cargo.lock copied into a fresh temp dir and audited there.
+#   osv-scanner and npm audit query online vulnerability databases.
 #
 # Per-scanner status: ran (no findings) | findings | unavailable | error.
 #
 # --json emits:
-#   {"scanners":[{"name","status","reason"?,"findings":[{"file","line","rule",
-#                 "severity","message"}]}]}
-#   `line` is null for dependency findings; `reason` explains unavailable/error
-#   (and a `ran` with nothing to scan, e.g. "no files in scope").
+#   {"scanners":[{"name","status","reason"?,"notes"?,"findings":[{"file","line",
+#                 "rule","severity","message"}]}],
+#    "skipped":[{"path","reason"}]}
+#   `line` is null for dependency findings; `reason` explains unavailable/error;
+#   `notes` lists repo-local config that was deliberately ignored.
 #
 # Exit codes:
 #   0  no findings, and at least one scanner ran
 #   1  at least one finding (from any scanner)
-#   2  usage error (bad flag, --base ref does not resolve, not a git repo)
-#   3  no scanner was available (nothing ran)
+#   2  usage error (bad flag, missing --paths entry, --base ref does not resolve,
+#      not a git repo, jq missing)
+#   3  nothing checked: no file in scope, or no scanner available
 #   4  a scanner errored and no scanner produced findings
 #
 # Requires bash (3.2+ compatible), jq and git (git only for --base / default scope).
+# shellcheck disable=SC2016  # single-quoted jq programs use jq variables ($pwd, $file…)
 set -euo pipefail
 
 SEMGREP_CONFIG="${SEMGREP_CONFIG:-p/security-audit}"
+NPM_REGISTRY="${SECURITY_SCAN_NPM_REGISTRY:-https://registry.npmjs.org/}"
+GITLEAKS_CONFIG_OVERRIDE="${SECURITY_SCAN_GITLEAKS_CONFIG:-}"
 
 usage() {
-  echo "usage: security-scan.sh [--base <ref>] [--paths <file>...] [--json]" >&2
+  echo "usage: security-scan.sh [--base <ref>] [--paths <path>...] [--json]" >&2
   exit 2
 }
 
@@ -90,11 +116,19 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# Collect in-scope files NUL-safely (git paths are untrusted: spaces, newlines,
-# leading dashes). Only existing regular files are kept.
+IN_GIT=false
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 && IN_GIT=true
+PWDP="$(pwd -P)"
+if [[ "$IN_GIT" == true ]]; then
+  ROOT="$(cd -P -- "$(git rev-parse --show-toplevel)" && pwd -P)"
+else
+  ROOT="$PWDP"
+fi
+
+# Collect candidate paths NUL-safely (git paths are untrusted: spaces, newlines,
+# leading dashes).
 if [[ "$PATHS_GIVEN" == false ]]; then
-  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
-    echo "security-scan: not a git work tree (use --paths)" >&2; exit 2; }
+  [[ "$IN_GIT" == true ]] || { echo "security-scan: not a git work tree (use --paths)" >&2; exit 2; }
   if [[ -n "$BASE" ]]; then
     [[ "$BASE" != -* ]] || { echo "security-scan: invalid --base ref: $BASE" >&2; exit 2; }
     git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null || {
@@ -108,44 +142,129 @@ if [[ "$PATHS_GIVEN" == false ]]; then
     git ls-files -z --others --exclude-standard --
   } > "$TMP/files.z"
   while IFS= read -r -d '' f; do FILES+=("$f"); done < "$TMP/files.z"
+else
+  # Missing paths are a usage error; directories expand to the files under them.
+  EXPANDED=()
+  for f in ${FILES[@]+"${FILES[@]}"}; do
+    case "$f" in /*|./*) ;; *) f="./$f" ;; esac
+    if [[ ! -e "$f" && ! -L "$f" ]]; then
+      echo "security-scan: --paths entry does not exist: ${f#./}" >&2; exit 2
+    fi
+    if [[ -d "$f" && ! -L "$f" ]]; then
+      while IFS= read -r -d '' g; do EXPANDED+=("$g"); done < <(
+        find "$f" -name .git -prune -o \( -type f -o -type l \) -print0)
+    else
+      EXPANDED+=("$f")
+    fi
+  done
+  FILES=(${EXPANDED[@]+"${EXPANDED[@]}"})
 fi
 
-# Normalize: keep regular files, prefix relative paths with ./ so a leading dash
-# can never be parsed as a flag, and de-duplicate.
+# Physical absolute path of $1 with every symlink followed; fails on loops or
+# a missing parent directory. $1 always starts with "./" or "/".
+resolve() {
+  local p="$1" n=0 link dir
+  while [[ -L "$p" ]]; do
+    n=$((n + 1)); [[ "$n" -le 40 ]] || return 1
+    link="$(readlink "$p")" || return 1
+    case "$link" in /*) p="$link" ;; *) p="$(dirname "$p")/$link" ;; esac
+  done
+  dir="$(cd -P -- "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
+  printf '%s/%s\n' "$dir" "$(basename "$p")"
+}
+
+: > "$TMP/skipped.jsonl"
+skip() {
+  jq -cn --arg path "${1#./}" --arg reason "$2" '{path:$path, reason:$reason}' >> "$TMP/skipped.jsonl"
+}
+
+# Normalize: resolve symlinks, keep regular files inside the repo root, express
+# them as ./relative (leading-dash safe) when under the current dir, de-duplicate.
 SCAN=()
 for f in ${FILES[@]+"${FILES[@]}"}; do
-  [[ -f "$f" ]] || continue
   case "$f" in /*|./*) ;; *) f="./$f" ;; esac
+  if ! real="$(resolve "$f")" || [[ ! -e "$real" ]]; then
+    skip "$f" "broken symlink or unresolvable path"; continue
+  fi
+  case "$real" in
+    "$ROOT"/*) ;;
+    *) skip "$f" "resolves outside the repo root"; continue ;;
+  esac
+  [[ -f "$real" ]] || continue
+  case "$real" in "$PWDP"/*) real="./${real#"$PWDP"/}" ;; esac
   dup=false
-  for s in ${SCAN[@]+"${SCAN[@]}"}; do [[ "$s" == "$f" ]] && { dup=true; break; }; done
-  [[ "$dup" == true ]] || SCAN+=("$f")
+  for s in ${SCAN[@]+"${SCAN[@]}"}; do [[ "$s" == "$real" ]] && { dup=true; break; }; done
+  [[ "$dup" == true ]] || SCAN+=("$real")
 done
 
 : > "$TMP/results.jsonl"
 
-# emit <name> <status> <reason> <findings-json-array>
+# emit <name> <status> <reason> <findings-json-array> [notes-json-array]
 emit() {
   jq -cn --arg name "$1" --arg status "$2" --arg reason "$3" --argjson findings "$4" \
-    '{name:$name, status:$status, findings:$findings} + (if $reason == "" then {} else {reason:$reason} end)' \
+    --argjson notes "${5:-[]}" \
+    '{name:$name, status:$status, findings:$findings}
+     + (if $reason == "" then {} else {reason:$reason} end)
+     + (if ($notes | length) == 0 then {} else {notes:$notes} end)' \
     >> "$TMP/results.jsonl"
 }
 
-# Strip a leading "./" or "$PWD/" so findings report project-relative paths.
-# shellcheck disable=SC2016  # $pwd is a jq variable, bound via --arg
-REL_FILTER='def rel: if type == "string" then (ltrimstr($pwd + "/") | ltrimstr("./")) else . end;'
+notes_json() { # notes_json <note>... → JSON array (de-duplicated)
+  if [[ $# -eq 0 ]]; then echo '[]'; else printf '%s\n' "$@" | jq -R . | jq -cs 'unique'; fi
+}
+
+# in_dir <dir> <name> → "name" for ".", else "dir/name" (no leading ./)
+in_dir() { case "$1" in .|"") printf '%s' "$2" ;; *) printf '%s/%s' "${1#./}" "$2" ;; esac; }
+
+# Strip the current dir (logical or physical) or "./" so findings report
+# project-relative paths.
+REL_FILTER='def rel: if type == "string" then (ltrimstr($pwd + "/") | ltrimstr($pwdp + "/") | ltrimstr("./")) else . end;'
+jqr() { jq -c --arg pwd "$PWD" --arg pwdp "$PWDP" "$@"; }
 
 status_for() { if [[ "$1" -gt 0 ]]; then echo findings; else echo ran; fi; }
+
+finish() {
+  local result
+  result="$(jq -cn --slurpfile s "$TMP/results.jsonl" --slurpfile k "$TMP/skipped.jsonl" \
+    '{scanners: $s, skipped: $k}')"
+  if [[ "$JSON" == true ]]; then
+    printf '%s\n' "$result"
+  else
+    jq -r '(.scanners[] |
+      "\(.name): \(.status)\(if .reason then " (\(.reason))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
+      (.notes[]? | "  note: \(.)"),
+      (.findings[] | "  \(.file):\(.line // "-") [\(.rule)] \(.severity): \(.message)")),
+      (.skipped[] | "skipped: \(.path) (\(.reason))"),
+      (if (.scanners | length) == 0 then "security-scan: nothing in scope — no files checked" else empty end)' <<<"$result"
+  fi
+  local n_findings n_error n_ran
+  n_findings="$(jq '[.scanners[].findings | length] | add // 0' <<<"$result")"
+  n_error="$(jq '[.scanners[] | select(.status == "error")] | length' <<<"$result")"
+  n_ran="$(jq '[.scanners[] | select(.status == "ran" or .status == "findings")] | length' <<<"$result")"
+  if [[ "$n_findings" -gt 0 ]]; then exit 1; fi
+  if [[ "$n_error" -gt 0 ]]; then exit 4; fi
+  if [[ "$n_ran" -eq 0 ]]; then exit 3; fi
+  exit 0
+}
+
+# Nothing in scope → nothing checked (exit 3), distinct from "clean" (exit 0).
+[[ ${#SCAN[@]} -gt 0 ]] || finish
 
 # ── gitleaks ──────────────────────────────────────────────────────────────────
 scan_gitleaks() {
   if ! command -v gitleaks >/dev/null 2>&1; then
     emit gitleaks unavailable "gitleaks not installed" '[]'; return
   fi
-  if [[ ${#SCAN[@]} -eq 0 ]]; then
-    emit gitleaks ran "no files in scope" '[]'; return
-  fi
-  local cfg=()
-  [[ -f ./.gitleaks.toml ]] && cfg=(--config ./.gitleaks.toml)
+  local cfg=() notes=() d rel n
+  [[ -n "$GITLEAKS_CONFIG_OVERRIDE" ]] && cfg=(--config "$GITLEAKS_CONFIG_OVERRIDE")
+  for d in "$ROOT" "$PWDP"; do
+    rel="${d#"$ROOT"}"; rel="${rel#/}"
+    for n in .gitleaks.toml .gitleaksignore; do
+      [[ -f "$d/$n" ]] && notes+=("ignored repo-local $(in_dir "$rel" "$n")")
+    done
+  done
+  local nj; nj="$(notes_json ${notes[@]+"${notes[@]}"})"
+  mkdir -p "$TMP/gitleaks-ignore"
   local f i=0 all="$TMP/gitleaks-all.json"
   echo '[]' > "$all"
   for f in "${SCAN[@]}"; do
@@ -153,20 +272,21 @@ scan_gitleaks() {
     local report="$TMP/gitleaks-$i.json"
     # --exit-code 0: leaks exit 0, so any nonzero exit is a genuine error.
     if ! gitleaks dir --no-banner --redact --exit-code 0 --log-level error \
+        --ignore-gitleaks-allow --gitleaks-ignore-path "$TMP/gitleaks-ignore" \
         ${cfg[@]+"${cfg[@]}"} --report-format json --report-path "$report" -- "$f" \
         >/dev/null 2>"$TMP/gitleaks.err"; then
-      emit gitleaks error "gitleaks failed on $f: $(head -c 300 "$TMP/gitleaks.err")" '[]'; return
+      emit gitleaks error "gitleaks failed on $f: $(head -c 300 "$TMP/gitleaks.err")" '[]' "$nj"; return
     fi
     if ! jq -e 'type == "array"' "$report" >/dev/null 2>&1; then
-      emit gitleaks error "gitleaks produced unparseable report for $f" '[]'; return
+      emit gitleaks error "gitleaks produced unparseable report for $f" '[]' "$nj"; return
     fi
     jq -s '.[0] + .[1]' "$all" "$report" > "$all.new" && mv "$all.new" "$all"
   done
   local findings
-  findings="$(jq -c --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr "$REL_FILTER"'
     [.[] | {file: (.File | rel), line: .StartLine, rule: .RuleID,
             severity: "HIGH", message: .Description}]' "$all")"
-  emit gitleaks "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
+  emit gitleaks "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings" "$nj"
 }
 
 # ── semgrep ───────────────────────────────────────────────────────────────────
@@ -174,13 +294,10 @@ scan_semgrep() {
   if ! command -v semgrep >/dev/null 2>&1; then
     emit semgrep unavailable "semgrep not installed" '[]'; return
   fi
-  if [[ ${#SCAN[@]} -eq 0 ]]; then
-    emit semgrep ran "no files in scope" '[]'; return
-  fi
   local out="$TMP/semgrep.json" rc=0
   # Without --error, semgrep exits 0 even with findings; nonzero means failure.
   semgrep scan --config "$SEMGREP_CONFIG" --json --quiet --metrics=off \
-    --disable-version-check -- "${SCAN[@]}" >"$out" 2>"$TMP/semgrep.err" || rc=$?
+    --disable-version-check --disable-nosem -- "${SCAN[@]}" >"$out" 2>"$TMP/semgrep.err" || rc=$?
   if [[ "$rc" -ne 0 ]] || ! jq -e '.results | type == "array"' "$out" >/dev/null 2>&1; then
     local msg
     msg="$(jq -r '[.errors[]?.message] | join("; ")' "$out" 2>/dev/null || true)"
@@ -188,7 +305,7 @@ scan_semgrep() {
     emit semgrep error "semgrep exited $rc: $msg" '[]'; return
   fi
   local findings
-  findings="$(jq -c --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr "$REL_FILTER"'
     [.results[] | {file: (.path | rel), line: .start.line, rule: .check_id,
                    severity: (.extra.severity // "UNKNOWN"), message: .extra.message}]' "$out")"
   emit semgrep "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
@@ -211,82 +328,128 @@ add_lock() {
 }
 
 collect_lockfiles() {
-  local f
+  local f real
   for f in ./* ./.[!.]*; do
-    [[ -f "$f" ]] && is_lockfile "$f" && add_lock "$f"
+    { [[ -f "$f" ]] && is_lockfile "$f"; } || continue
+    # Same symlink rule as in-scope files: never read outside the repo root.
+    real="$(resolve "$f")" || continue
+    case "$real" in "$ROOT"/*) add_lock "$f" ;; *) skip "$f" "lockfile resolves outside the repo root" ;; esac
   done
-  for f in ${SCAN[@]+"${SCAN[@]}"}; do
+  for f in "${SCAN[@]}"; do
     is_lockfile "$f" && add_lock "$f"
   done
   return 0
 }
 
+# Last non-empty error text: npm JSON .error.summary/.message, else stderr tail.
+npm_reason() {
+  local r
+  r="$(jq -r '[.error.summary?, .error.detail?, .message?] | map(select(type == "string" and . != "")) | first // empty' "$1" 2>/dev/null || true)"
+  [[ -n "$r" ]] || r="$(tail -c 300 "$2")"
+  printf '%s' "$r"
+}
+
 audit_osv() {
-  local args=() l out="$TMP/osv.json" rc=0
-  for l in "${LOCKS[@]}"; do args+=(-L "$l"); done
-  # `scan` defaults to the `source` subcommand (osv-scanner v2).
+  local args=() l out="$TMP/osv.json" rc=0 notes=()
+  : > "$TMP/osv-empty.toml"
+  for l in "${LOCKS[@]}"; do
+    args+=(-L "$l")
+    [[ -f "$(dirname -- "$l")/osv-scanner.toml" ]] &&
+      notes+=("ignored repo-local $(in_dir "$(dirname -- "$l")" osv-scanner.toml)")
+  done
+  local nj; nj="$(notes_json ${notes[@]+"${notes[@]}"})"
+  # `scan` defaults to the `source` subcommand (osv-scanner v2). --config forces
+  # an empty config so a repo osv-scanner.toml cannot ignore vulnerabilities.
   # Exit: 0 clean, 1 vulns, 128 no packages found, anything else is an error.
-  osv-scanner scan --format json --verbosity error "${args[@]}" >"$out" 2>"$TMP/osv.err" || rc=$?
-  if [[ "$rc" -eq 128 ]]; then emit osv-scanner ran "no packages found in lockfiles" '[]'; return; fi
+  osv-scanner scan --format json --verbosity error --config "$TMP/osv-empty.toml" "${args[@]}" \
+    >"$out" 2>"$TMP/osv.err" || rc=$?
+  if [[ "$rc" -eq 128 ]]; then emit osv-scanner ran "no packages found in lockfiles" '[]' "$nj"; return; fi
   if [[ "$rc" -ne 0 && "$rc" -ne 1 ]] || ! jq -e '.results | type == "array"' "$out" >/dev/null 2>&1; then
-    emit osv-scanner error "osv-scanner exited $rc: $(head -c 300 "$TMP/osv.err")" '[]'; return
+    emit osv-scanner error "osv-scanner exited $rc: $(head -c 300 "$TMP/osv.err")" '[]' "$nj"; return
   fi
   local findings
-  findings="$(jq -c --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr "$REL_FILTER"'
     [.results[] | (.source.path | rel) as $file | .packages[]? |
       .package as $p | .vulnerabilities[]? |
       {file: $file, line: null, rule: .id,
        severity: (.database_specific.severity // "UNKNOWN"),
        message: ("\($p.name)@\($p.version): \(.summary // .details // "vulnerability")")}]' "$out")"
-  emit osv-scanner "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
+  emit osv-scanner "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings" "$nj"
 }
 
 audit_npm() {
-  local lock="$1" dir out rc=0
+  local lock="$1" dir out rc=0 iso notes=()
   dir="$(dirname -- "$lock")"; out="$TMP/npm-audit.json"
+  # Isolate from the untrusted tree: only package.json + lockfile are copied, and
+  # npm gets empty user/global configs and an explicit registry, so no repo or
+  # user .npmrc (registry redirects, ${ENV} token interpolation) is ever read.
+  iso="$(mktemp -d "$TMP/npm.XXXXXX")"
+  [[ -f "$dir/package.json" ]] && cp -- "$dir/package.json" "$iso/package.json"
+  cp -- "$lock" "$iso/$(basename -- "$lock")"
+  : > "$TMP/npm-userconfig"; : > "$TMP/npm-globalconfig"
+  [[ -f "$dir/.npmrc" ]] && notes+=("ignored repo-local $(in_dir "$dir" .npmrc)")
+  local nj; nj="$(notes_json ${notes[@]+"${notes[@]}"})"
   # npm audit exits 1 when vulnerabilities exist; trust the JSON shape instead.
-  (cd -- "$dir" && npm audit --json --package-lock-only) >"$out" 2>"$TMP/npm.err" || rc=$?
+  (cd -- "$iso" && npm audit --json --package-lock-only \
+     --userconfig "$TMP/npm-userconfig" --globalconfig "$TMP/npm-globalconfig" \
+     --registry "$NPM_REGISTRY") >"$out" 2>"$TMP/npm.err" || rc=$?
   if ! jq -e '.vulnerabilities | type == "object"' "$out" >/dev/null 2>&1; then
-    emit npm-audit error "npm audit exited $rc on $lock: $(jq -r '.error.summary? // empty' "$out" 2>/dev/null || head -c 300 "$TMP/npm.err")" '[]'; return
+    emit npm-audit error "npm audit exited $rc on $lock: $(npm_reason "$out" "$TMP/npm.err")" '[]' "$nj"; return
   fi
   local findings
-  findings="$(jq -c --arg file "$lock" --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr --arg file "$lock" "$REL_FILTER"'
     [.vulnerabilities[] | . as $v |
       ([.via[] | objects] | first) as $adv |
       {file: ($file | rel), line: null,
        rule: (if $adv then ($adv.url // ($adv.source | tostring)) else "npm-audit" end),
        severity: ($v.severity // "UNKNOWN" | ascii_upcase),
        message: ("\($v.name): \(if $adv then $adv.title else "vulnerable via \($v.via | join(", "))" end)")}]' "$out")"
-  emit npm-audit "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
+  emit npm-audit "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings" "$nj"
 }
 
 audit_pip() {
-  local lock="$1" out="$TMP/pip-audit.json" rc=0
+  local lock="$1" out="$TMP/pip-audit.json" rc=0 iso stripped nj
+  # pip-audit 2.10.1 in --disable-pip --no-deps mode was observed NOT to contact
+  # an --index-url / --extra-index-url given inside the requirements file; option
+  # lines are stripped anyway (defense in depth, and so -r / -c includes cannot
+  # pull in files from outside the repo).
+  iso="$(mktemp -d "$TMP/pip.XXXXXX")"
+  awk '{ t = $0; sub(/^[ \t]+/, "", t) } t ~ /^-/ { next } { print }' "$lock" > "$iso/requirements.txt"
+  stripped="$(awk '{ t = $0; sub(/^[ \t]+/, "", t) } t ~ /^-/ { n++ } END { print n + 0 }' "$lock")"
+  if [[ "$stripped" -gt 0 ]]; then
+    nj="$(notes_json "stripped $stripped option line(s) (e.g. --index-url, -r) from ${lock#./}")"
+  else
+    nj='[]'
+  fi
   # --disable-pip --no-deps: never install/build packages from an untrusted file.
-  pip-audit -r "$lock" -f json --progress-spinner off --disable-pip --no-deps \
+  (cd -- "$iso" && pip-audit -r ./requirements.txt -f json --progress-spinner off --disable-pip --no-deps) \
     >"$out" 2>"$TMP/pip.err" || rc=$?
   if ! jq -e '.dependencies | type == "array"' "$out" >/dev/null 2>&1; then
-    emit pip-audit error "pip-audit exited $rc on $lock: $(tail -c 300 "$TMP/pip.err")" '[]'; return
+    emit pip-audit error "pip-audit exited $rc on $lock: $(tail -c 300 "$TMP/pip.err")" '[]' "$nj"; return
   fi
   local findings
-  findings="$(jq -c --arg file "$lock" --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr --arg file "$lock" "$REL_FILTER"'
     [.dependencies[] | . as $d | .vulns[]? |
       {file: ($file | rel), line: null, rule: .id, severity: "UNKNOWN",
        message: ("\($d.name)@\($d.version): \(.description // .id)")}]' "$out")"
-  emit pip-audit "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
+  emit pip-audit "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings" "$nj"
 }
 
 audit_cargo() {
-  local lock="$1" out="$TMP/cargo-audit.json" rc=0
+  local lock="$1" out="$TMP/cargo-audit.json" rc=0 iso
   # UNVERIFIED: `cargo audit --json` output shape (.vulnerabilities.list[] with
   # .advisory and .package) is taken from rustsec conventions, not run locally.
-  # A shape mismatch reports `error`, never a silent pass.
-  cargo audit --json --file "$lock" >"$out" 2>"$TMP/cargo.err" || rc=$?
+  # A shape mismatch reports `error`, never a silent pass. The lockfile is audited
+  # from a fresh temp dir so no repo .cargo/ config is in reach (UNVERIFIED
+  # whether cargo-audit would read one).
+  iso="$(mktemp -d "$TMP/cargo.XXXXXX")"
+  cp -- "$lock" "$iso/Cargo.lock"
+  (cd -- "$iso" && cargo audit --json --file ./Cargo.lock) >"$out" 2>"$TMP/cargo.err" || rc=$?
   if ! jq -e '.vulnerabilities.list | type == "array"' "$out" >/dev/null 2>&1; then
     emit cargo-audit error "cargo audit exited $rc on $lock: $(tail -c 300 "$TMP/cargo.err")" '[]'; return
   fi
   local findings
-  findings="$(jq -c --arg file "$lock" --arg pwd "$PWD" "$REL_FILTER"'
+  findings="$(jqr --arg file "$lock" "$REL_FILTER"'
     [.vulnerabilities.list[] |
       {file: ($file | rel), line: null, rule: (.advisory.id // "cargo-audit"),
        severity: "UNKNOWN",
@@ -320,22 +483,4 @@ scan_dependencies() {
 scan_gitleaks
 scan_semgrep
 scan_dependencies
-
-RESULT="$(jq -cs '{scanners: .}' "$TMP/results.jsonl")"
-
-if [[ "$JSON" == true ]]; then
-  printf '%s\n' "$RESULT"
-else
-  jq -r '.scanners[] |
-    "\(.name): \(.status)\(if .reason then " (\(.reason))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
-    (.findings[] | "  \(.file):\(.line // "-") [\(.rule)] \(.severity): \(.message)")' <<<"$RESULT"
-fi
-
-n_findings="$(jq '[.scanners[].findings | length] | add // 0' <<<"$RESULT")"
-n_error="$(jq '[.scanners[] | select(.status == "error")] | length' <<<"$RESULT")"
-n_ran="$(jq '[.scanners[] | select(.status == "ran" or .status == "findings")] | length' <<<"$RESULT")"
-
-if [[ "$n_findings" -gt 0 ]]; then exit 1; fi
-if [[ "$n_error" -gt 0 ]]; then exit 4; fi
-if [[ "$n_ran" -eq 0 ]]; then exit 3; fi
-exit 0
+finish

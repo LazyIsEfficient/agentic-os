@@ -10,6 +10,7 @@ contracts, and the deterministic review-script JSON reports.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-scan-scripts (gate fixes) | Updated `ReviewScanReport`: new top-level `skipped` array (`{path, reason}`) in both scripts; optional scanner `notes` array (security-scan only); removed stale `"no files in scope"` reason; exit 2 adds missing `--paths` entry, security-scan exit 3 adds no-file-in-scope, check-imports exit 4 adds helper failure / unparseable manifest; added env inputs table (`SECURITY_SCAN_NPM_REGISTRY`, `SECURITY_SCAN_GITLEAKS_CONFIG`, `PYTHONPATH`); `file` path normalization corrected; every line citation re-verified against current files. |
 | 2026-10-19 | fix/audit-scan-scripts | Added `ReviewScanReport`: shared `--json` stdout payload + exit-code contract for the new `scripts/security-scan.sh` and `scripts/check-imports.sh` (consumed by reviewers as Tier 0/1 evidence). |
 | 2026-07-13 | remove-dispatch-gate | Removed the dispatch-gate contracts (`DispatchGateAuditRecord`, `DispatchGateHookDecision`, `DispatchGateHookEventPayload`, `DispatchGateLedger`, `DispatchGatePolicyConfig`); that gate was retired and its scripts and config deleted. |
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
@@ -151,56 +152,79 @@ Block / steer (`memory-extract.sh:72`):
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | CLI stdout + process exit code. `scripts/security-scan.sh [--base <ref>] [--paths <file>...] [--json]` and `scripts/check-imports.sh` (same flags), run from the project root. With `--json`, exactly one JSON object is printed to **stdout** (`security-scan.sh:325-326`, `check-imports.sh:481-482`); without it, a human-readable text rendering of the same data (not part of this contract). Consumed by reviewer agents as Tier 0/1 evidence. Usage errors go to stderr only, with no JSON. |
-| **Source** | `scripts/security-scan.sh` (header lines 34–46; `emit` lines 125–130; result/exit lines 323–340), `scripts/check-imports.sh` (header lines 60–70; `emit`/`finding` lines 160–171; result/exit lines 479–493) |
+| **Ingestion route** | CLI stdout + process exit code. `scripts/security-scan.sh [--base <ref>] [--paths <path>...] [--json]` (`security-scan.sh:6`,`:81`) and `scripts/check-imports.sh` (same flags, `check-imports.sh:6`,`:96`), run from the project root. With `--json`, exactly one JSON object is printed to **stdout** (`security-scan.sh:230-231`, `check-imports.sh:581-582`; check-imports' nothing-in-scope early exit prints at `:223-224`); without it, a human-readable text rendering of the same data (not part of this contract). Consumed by reviewer agents as Tier 0/1 evidence. Usage errors go to stderr only, with no JSON. |
+| **Source** | `scripts/security-scan.sh` (header lines 1–72; env lines 76–78; `skip` lines 176–179; `emit`/`notes_json` lines 202–214; `finish` result/exit lines 226–248), `scripts/check-imports.sh` (header lines 1–90; `skip` lines 193–196; nothing-in-scope lines 222–230; `emit`/`finding` lines 234–243; result/exit lines 579–594) |
 
-**Shape** (both scripts — `security-scan.sh:36-39`, `check-imports.sh:60-61`):
+**Inputs** (environment; affect which findings appear, not the payload shape):
+
+| Variable | Script | Default | Notes |
+|---|---|---|---|
+| `SEMGREP_CONFIG` | security-scan | `p/security-audit` | Registry name fetches rules over the network; may be a local file/dir — `security-scan.sh:34-37`,`:76` |
+| `SECURITY_SCAN_NPM_REGISTRY` | security-scan | `https://registry.npmjs.org/` | Passed as explicit `--registry` to `npm audit`; a repo `.npmrc` is never read — `security-scan.sh:45-47`,`:77`,`:395` |
+| `SECURITY_SCAN_GITLEAKS_CONFIG` | security-scan | unset (gitleaks default rules) | When set, passed as `--config` to `gitleaks dir` — `security-scan.sh:27-28`,`:78`,`:259` |
+| `PYTHON` | check-imports | `python3` | Interpreter for Python import resolution / `pyproject.toml` parsing — `check-imports.sh:38`,`:93` |
+| `PYTHONPATH` | check-imports | unset | Helper runs under `python -I` (which ignores it), then re-appends each non-empty entry to `sys.path`; empty entries (= cwd) dropped — `check-imports.sh:39-42`,`:388-390` |
+
+**Shape** (both scripts — `security-scan.sh:57-62`, `check-imports.sh:74-76`; built at `security-scan.sh:228-229`, `check-imports.sh:579`):
 
 ```json
 {
   "scanners": [
     {
-      "name": "gitleaks",
+      "name": "npm-audit",
       "status": "findings",
       "reason": "optional string",
+      "notes": ["ignored repo-local .npmrc"],
       "findings": [
-        { "file": "src/x.ts", "line": 12, "rule": "aws-access-token",
+        { "file": "package-lock.json", "line": null, "rule": "https://github.com/advisories/GHSA-...",
           "severity": "HIGH", "message": "..." }
       ]
     }
+  ],
+  "skipped": [
+    { "path": "link-to-etc-passwd", "reason": "resolves outside the repo root" }
   ]
 }
 ```
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `scanners` | array of Scanner | yes | One element per `emit` call, in run order (`security-scan.sh:323`, `check-imports.sh:479`). A name may repeat (e.g. `npm-audit` / `dependency-audit` emitted once per lockfile, `security-scan.sh:303-316`). `check-imports.sh` prints `{"scanners":[]}` and exits 3 when nothing is in scope (`:155-157`) |
+| `scanners` | array of Scanner | yes | One element per `emit` call, in run order (slurped from `results.jsonl`, `security-scan.sh:228`, `check-imports.sh:579`). A name may repeat (e.g. `npm-audit` / `dependency-audit` emitted once per lockfile, `security-scan.sh:467-479`). `[]` when nothing is in scope: security-scan calls `finish` before any scanner (`:251`); check-imports prints `{scanners: [], skipped: $k}` and exits 3 (`:222-229`) |
+| `skipped` | array of Skipped | yes | Always present (may be `[]`); in-scope paths dropped without being read (`security-scan.sh:176-179`, `check-imports.sh:193-196`) |
 
-Scanner object (`emit`, `security-scan.sh:126-130`, `check-imports.sh:161-165`):
+Scanner object (`emit`, `security-scan.sh:203-210`, `check-imports.sh:234-238`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | security-scan: `gitleaks`, `semgrep`, `osv-scanner`, `npm-audit`, `pip-audit`, `cargo-audit`, `dependency-audit` (`:141-314`). check-imports: `js-imports`, `py-imports`, `unused-deps`, each emitted only when files of that kind are in scope (`:475-477`) |
-| `status` | enum string | yes | `ran` (no findings) \| `findings` \| `unavailable` \| `error` (`security-scan.sh:34`). check-imports never emits `unavailable` — only `ran`, `findings`, `error` (`:171`,`:341`,`:415`,`:419`) |
-| `reason` | string | no | Key omitted when empty (`... + (if $reason == "" then {} else {reason:$reason} end)`). Set for `unavailable`/`error`, and also on some `ran` entries: `"no files in scope"` (`security-scan.sh:144`,`:177`), `"no packages found in lockfiles"` (`:229`) |
+| `name` | string | yes | security-scan: `gitleaks`, `semgrep`, `osv-scanner`, `npm-audit`, `pip-audit`, `cargo-audit`, `dependency-audit` (`:256-478`). check-imports: `js-imports`, `py-imports`, `unused-deps`, each emitted only when files of that kind are in scope (`:575-577`) |
+| `status` | enum string | yes | `ran` (no findings) \| `findings` \| `unavailable` \| `error` (`security-scan.sh:55`). check-imports never emits `unavailable` — only `ran`/`findings` (`status_of`, `:244`) and `error` (`:431`,`:456`,`:507`,`:510`,`:553`); header `:76` |
+| `reason` | string | no | Key omitted when empty (`security-scan.sh:207`, `check-imports.sh:236`). Set for `unavailable`/`error`; also on one `ran` entry: `"no packages found in lockfiles"` (osv-scanner exit 128, `security-scan.sh:366`) |
+| `notes` | array of string | no | **security-scan only.** Key omitted when empty (`security-scan.sh:208`); de-duplicated and sorted via `jq 'unique'` (`notes_json`, `:212-214`). Lists repo-local config deliberately ignored (`:62`): `"ignored repo-local <path>"` for `.gitleaks.toml` / `.gitleaksignore` at repo root or cwd (gitleaks, `:260-266`), `osv-scanner.toml` beside a lockfile (`:357-358`), `.npmrc` beside a lockfile (`:390`); `"stripped <N> option line(s) (e.g. --index-url, -r) from <lockfile>"` (pip-audit, `:419-420`). Carried on gitleaks `error`/result (`:278`,`:281`,`:289`), osv-scanner all outcomes (`:366`,`:368`,`:377`), npm-audit (`:397`,`:407`), pip-audit (`:428`,`:435`); never on `unavailable`, semgrep, or cargo-audit. check-imports' `emit` has no `notes` (`check-imports.sh:234-238`) |
 | `findings` | array of Finding | yes | Always present; `[]` for `ran`/`unavailable`/`error` |
 
-Finding object:
+Finding object (security-scan per-scanner `jqr` mappings `:286-456`; check-imports `finding`, `:240-243`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `file` | string | yes | Project-relative path. security-scan strips a leading `$PWD/` or `./` (`REL_FILTER`, `:134`); check-imports strips only a leading `./` (`${2#./}`, `:168`), so absolute `--paths` stay absolute |
-| `line` | integer \| null | yes | `null` for all dependency-audit findings (`security-scan.sh:39`). check-imports: `($line \| tonumber? // null)` (`:169`) — `null` for an `unused-dependency` whose name was not found by grep in the manifest (`:468`) |
-| `rule` | string | yes | security-scan: gitleaks `.RuleID`, semgrep `.check_id`, osv/pip `.id`, npm advisory `url` (or `source`, or literal `npm-audit`), cargo `.advisory.id` (or `cargo-audit`) (`:166-291`). check-imports: `js-unresolved-relative`, `js-undeclared-package`, `py-unresolved-relative`, `py-unresolved-module`, `unused-dependency` (`:62-63`) |
-| `severity` | string | yes | Not a closed enum. security-scan: gitleaks always `HIGH`; semgrep `.extra.severity` else `UNKNOWN`; osv `.database_specific.severity` else `UNKNOWN`; npm upper-cased severity; pip/cargo `UNKNOWN`. check-imports: `ERROR` for import rules, `WARNING` for `unused-dependency` |
-| `message` | string | yes | Human-readable description. gitleaks runs with `--redact`, so secrets are not included (`security-scan.sh:18-19`,`:154`) |
+| `file` | string | yes | In-scope paths are symlink-resolved and rewritten `./<relative>` when under the physical cwd (`security-scan.sh:194`, `check-imports.sh:211`); a file inside the repo root but outside cwd keeps its physical absolute path (check-imports `:211`). security-scan `REL_FILTER` then strips a leading `$PWD/`, physical-cwd `/`, or `./` (`:221`); check-imports strips a leading `./` (`${2#./}`, `:241`) |
+| `line` | integer \| null | yes | `null` for all dependency-audit findings (`security-scan.sh:61`, `:374`,`:403`,`:433`,`:454`). check-imports: `($line \| tonumber? // null)` (`:242`) — `null` for an `unused-dependency` whose name was not found by grep in the manifest (`:568`) |
+| `rule` | string | yes | security-scan: gitleaks `.RuleID` (`:287`), semgrep `.check_id` (`:309`), osv/pip `.id` (`:374`,`:433`), npm advisory `url` (or `source`, or literal `npm-audit`) (`:404`), cargo `.advisory.id` (or `cargo-audit`) (`:454`). check-imports: `js-unresolved-relative` (`:360`,`:364`), `js-undeclared-package` (`:373`), `py-unresolved-relative` (`:444`), `py-unresolved-module` (`:461`), `unused-dependency` (`:569`); header `:77-78` |
+| `severity` | string | yes | Not a closed enum. security-scan: gitleaks always `HIGH` (`:288`); semgrep `.extra.severity` else `UNKNOWN` (`:310`); osv `.database_specific.severity` else `UNKNOWN` (`:375`); npm upper-cased severity else `UNKNOWN` (`:405`); pip/cargo `UNKNOWN` (`:433`,`:455`). check-imports: `ERROR` for import rules, `WARNING` for `unused-dependency` (`:569`) |
+| `message` | string | yes | Human-readable description. gitleaks runs with `--redact`, so secrets are not included (`security-scan.sh:24`,`:274`) |
 
-**Exit codes** (precedence in code: findings, then error, then nothing-ran — `security-scan.sh:337-340`, `check-imports.sh:491-493`):
+Skipped object (`skip`, `security-scan.sh:177-179`, `check-imports.sh:194-196`):
 
-| Code | security-scan.sh (`:41-46`) | check-imports.sh (`:65-70`) |
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `path` | string | yes | The path as collected, leading `./` stripped (`${1#./}`) |
+| `reason` | string | yes | Free text, currently one of: `"broken symlink or unresolvable path"` (`security-scan.sh:187`, `check-imports.sh:204`), `"resolves outside the repo root"` (`security-scan.sh:191`, `check-imports.sh:208`), `"lockfile resolves outside the repo root"` (security-scan cwd lockfile sweep, `:336`). Repo root = git toplevel, else cwd (`security-scan.sh:122-126`, `check-imports.sh:174-178`) |
+
+**Exit codes** (precedence in code: findings, then error, then nothing-ran — `security-scan.sh:244-246`, `check-imports.sh:592-593`; check-imports' exit 3 is only the early exit at `:229`):
+
+| Code | security-scan.sh (`:64-70`) | check-imports.sh (`:80-87`) |
 |---|---|---|
-| 0 | no findings, at least one scanner `ran`/`findings` | checked, clean |
+| 0 | no findings, at least one scanner `ran`/`findings` (`:247`) | checked, clean (`:594`) |
 | 1 | at least one finding | findings |
-| 2 | usage error (bad flag, unresolvable `--base`, not a git repo, `--base` with `--paths`, no `jq` — `:58`,`:85-87`) | usage error (same, plus no `jq`) |
-| 3 | no scanner ran (all `unavailable`) | nothing to check (no JS/TS/Python sources or manifests in scope) |
-| 4 | a scanner errored and none produced findings | a check could not run (e.g. Python in scope but no `$PYTHON`) |
+| 2 | usage error: bad flag (`:108`), no `jq` (`:85`), `--base` with `--paths` (`:112-113`), not a git work tree without `--paths` (`:131`), invalid / unresolvable `--base` (`:133-135`), missing `--paths` entry (`:150-151`) | usage error: bad flag (`:123`), no `jq` (`:100`), `--base` with `--paths` (`:127-128`), `--base` outside git (`:139`), invalid / unresolvable `--base` (`:140-142`), not a git work tree without `--paths` (`:149`), missing `--paths` entry (`:160-161`) |
+| 3 | nothing checked: no file in scope (`:251`), or no scanner ran (all `unavailable`) (`:246`) | nothing to check — no JS/TS/Python sources or manifests in scope (`:222-229`) |
+| 4 | a scanner errored and none produced findings (`:245`) | a check could not run and nothing was found: `$PYTHON` missing (`:431`,`:507`), Python helper failed (`:456`,`:553`), manifest unparseable (`:510`) (`:593`) |

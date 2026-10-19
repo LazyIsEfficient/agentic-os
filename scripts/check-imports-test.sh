@@ -14,6 +14,7 @@ command -v python3 >/dev/null 2>&1 || { echo "check-imports-test: python3 requir
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 export PYTHON=python3
+unset PYTHONPATH
 
 P=0; F=0
 ok(){ printf 'PASS  %s\n' "$1"; P=$((P+1)); }
@@ -136,6 +137,55 @@ run --base no-such-ref
 [ "$RC" -eq 2 ] && ok "unresolvable --base → exit 2" || no "bad base" "rc=$RC"
 run --base --output=/tmp/x
 [ "$RC" -eq 2 ] && ok "dash-led --base ref rejected → exit 2" || no "dash base" "rc=$RC"
+
+# ── --paths: missing entry → exit 2; directory expands ────────────────────────
+run --json --paths src/app.ts src/typo.ts
+{ [ "$RC" -eq 2 ] && grep -q 'does not exist: src/typo.ts' "$T/stderr"; } \
+  && ok "--paths typo → exit 2 (never a silent clean)" || no "--paths missing" "rc=$RC $(cat "$T/stderr")"
+
+# ── @types satisfies a type-only import (and only a type-only one) ────────────
+mkdir -p "$G/typed"
+cat > "$G/typed/package.json" <<'EOF'
+{ "name": "typed", "devDependencies": { "@types/only-types": "1.0.0", "@types/scope__pkg": "1.0.0" } }
+EOF
+cat > "$G/typed/x.ts" <<'EOF'
+import type { T } from 'only-types';
+import type { S } from '@scope/pkg';
+import { v } from 'only-types';
+export type { U } from 'only-types';
+EOF
+run --json --paths typed
+{ [ "$RC" -eq 1 ] && has js-undeclared-package typed/x.ts 3 "'only-types'" \
+  && [ "$(jqo '[.scanners[].findings[]] | length')" = "1" ]; } \
+  && ok "--paths <dir>: @types/x satisfies type-only imports; value import still flagged" \
+  || no "@types" "rc=$RC $OUT"
+
+# ── symlinks: never followed out of the repo ──────────────────────────────────
+mkdir -p "$T/outside"; printf "import x from './nope';\n" > "$T/outside/evil.ts"
+ln -s "$T/outside/evil.ts" "$G/escape.ts"
+run --json --paths escape.ts
+{ [ "$RC" -eq 3 ] && [ "$(jqo '.skipped[0] | "\(.path)|\(.reason)"')" = "escape.ts|resolves outside the repo root" ]; } \
+  && ok "symlink outside the repo is skipped and reported, never read" || no "symlink escape" "rc=$RC $OUT"
+rm -f "$G/escape.ts"
+
+# ── PYTHONPATH honored explicitly; -I still blocks repo sitecustomize ─────────
+mkdir -p "$T/pp"; printf 'X = 1\n' > "$T/pp/extmod_on_pythonpath.py"
+printf 'import extmod_on_pythonpath\n' > "$G/uses_pp.py"
+printf 'import pathlib\npathlib.Path(%s).write_text("ran")\n' "'$T/sitecustomize-ran'" > "$G/sitecustomize.py"
+run --json --paths uses_pp.py
+{ [ "$RC" -eq 1 ] && has py-unresolved-module uses_pp.py 1 "'extmod_on_pythonpath'"; } \
+  && ok "module only on PYTHONPATH is flagged when PYTHONPATH is unset" || no "pp unset" "rc=$RC $OUT"
+OUT="$(cd "$G" && PYTHONPATH="$T/pp" bash "$CHECK" --json --paths uses_pp.py 2>"$T/stderr")"; RC=$?
+[ "$RC" -eq 0 ] && ok "PYTHONPATH entries are added to sys.path by the helper" || no "pp set" "rc=$RC $OUT"
+[ ! -e "$T/sitecustomize-ran" ] && ok "python -I kept: repo sitecustomize.py never executed" \
+  || no "sitecustomize" "repo sitecustomize.py ran"
+rm -f "$G/uses_pp.py" "$G/sitecustomize.py"
+
+# ── Python helper failure → exit 4 with a JSON reason (not a bare exit 1) ─────
+printf '#!/bin/sh\necho "helper exploded" >&2\nexit 3\n' > "$T/badpython"; chmod +x "$T/badpython"
+OUT="$(cd "$G" && PYTHON="$T/badpython" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 4 ] && jqo '.scanners[0].reason' | grep -q 'helper exploded'; } \
+  && ok "Python helper failure → error status with reason, exit 4" || no "helper failure" "rc=$RC out=$OUT"
 
 echo ""
 echo "check-imports-test: $P passed, $F failed."

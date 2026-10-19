@@ -8,9 +8,14 @@
 # Scope (same semantics as security-scan.sh):
 #   --base <ref>      files changed between merge-base(<ref>, HEAD) and the working
 #                     tree, plus untracked non-ignored files. Deleted files skipped.
-#   --paths <f>...    exactly these files (consumes arguments until --json, --base
-#                     or `--`; everything after `--` is a path).
+#   --paths <p>...    these files; a directory expands to every file under it
+#                     (.git and node_modules pruned); a missing path is a usage
+#                     error (exit 2). Consumes arguments until --json, --base or
+#                     `--`; everything after `--` is a path.
 #   (neither)         uncommitted changes vs HEAD plus untracked files.
+#   Symlinks are resolved; a path whose real location is outside the repo root
+#   (git toplevel, else the current directory) is skipped and listed in
+#   "skipped", as is a broken symlink. Files are never read outside the root.
 #
 # Checks:
 #   js-imports   in changed .js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts files:
@@ -21,6 +26,8 @@
 #                  in dependencies/devDependencies/peerDependencies/
 #                  optionalDependencies (or be the `name`) of the nearest
 #                  package.json or any ancestor package.json up to the current dir.
+#                  A type-only import (`import type … from 'x'` / `export type …`)
+#                  is also satisfied by a declared @types/x (@a/b → @types/a__b).
 #   py-imports   in changed .py files:
 #                - relative imports (from .x import y) must resolve to a module file
 #                  or package directory;
@@ -29,7 +36,10 @@
 #                  ancestor's src/) or be found by
 #                  `$PYTHON -I -c '...importlib.util.find_spec(name)...'`.
 #                  PYTHON defaults to python3 — point it at the project venv's
-#                  interpreter so installed packages resolve.
+#                  interpreter so installed packages resolve. `-I` is kept on
+#                  purpose (it stops a repo sitecustomize.py or cwd module from
+#                  executing); PYTHONPATH entries are re-added to sys.path
+#                  explicitly by the helper, minus empty entries (= the cwd).
 #   unused-deps  runtime dependencies ADDED in the diff (package.json
 #                `dependencies`, requirements*.txt, pyproject.toml
 #                [project].dependencies and [tool.poetry.dependencies]) that no
@@ -39,9 +49,13 @@
 # Known limitations (v1):
 #   - Dynamic imports with non-literal specifiers, require(variable), template
 #     literals and __import__/importlib.import_module calls are not checked.
-#   - Path aliases (tsconfig `paths`, webpack/vite aliases such as '@/x', '~/x',
-#     package.json '#imports') and URL/protocol specifiers ('virtual:', 'https:',
-#     'bun:') are skipped, not verified.
+#   - Aliases are NOT resolved: tsconfig `paths` and bundler aliases are not read.
+#     Only specifiers starting with '@/', '~' or '#' (package.json imports) and
+#     protocol specifiers containing ':' ('virtual:', 'https:', 'bun:') are
+#     skipped unverified; any other alias (e.g. '@app/x', 'components/x') is
+#     reported as js-undeclared-package.
+#   - Type-only detection is per line: a multi-line `import type {…}` whose
+#     `from` sits on a later line is treated as a value import.
 #   - Monorepos: workspace hoisting is approximated by accepting a declaration in
 #     any ancestor package.json; a package resolved only via a sibling workspace's
 #     manifest is reported.
@@ -58,16 +72,19 @@
 #     name differs from its distribution name (Pillow → PIL) can be misreported.
 #
 # --json emits {"scanners":[{"name","status","reason"?,"findings":[{"file","line",
-#   "rule","severity","message"}]}]} — the same shape as security-scan.sh.
+#   "rule","severity","message"}]}],"skipped":[{"path","reason"}]} — the same
+#   shape as security-scan.sh. Status: ran | findings | error.
 #   Rules: js-unresolved-relative, js-undeclared-package, py-unresolved-relative,
 #   py-unresolved-module, unused-dependency.
 #
 # Exit codes:
 #   0  checked, clean
 #   1  findings
-#   2  usage error (bad flag, --base ref does not resolve, not a git repo, no jq)
+#   2  usage error (bad flag, missing --paths entry, --base ref does not resolve,
+#      not a git repo, no jq)
 #   3  nothing to check (no JS/TS/Python sources or dependency manifests in scope)
-#   4  a check could not run (e.g. Python files in scope but no python3)
+#   4  a check could not run and nothing was found (python3 missing, the Python
+#      helper failed, a manifest could not be parsed)
 #
 # Requires bash (3.2+ compatible), jq, awk, git (for --base / default scope / the
 # unused-deps baseline) and python3 (for Python files and pyproject.toml).
@@ -135,13 +152,63 @@ if [[ "$PATHS_GIVEN" == false ]]; then
     git ls-files -z --others --exclude-standard --
   } > "$TMP/files.z"
   while IFS= read -r -d '' f; do FILES+=("$f"); done < "$TMP/files.z"
+else
+  # Missing paths are a usage error; directories expand to the files under them.
+  EXPANDED=()
+  for f in ${FILES[@]+"${FILES[@]}"}; do
+    case "$f" in /*|./*) ;; *) f="./$f" ;; esac
+    if [[ ! -e "$f" && ! -L "$f" ]]; then
+      echo "check-imports: --paths entry does not exist: ${f#./}" >&2; exit 2
+    fi
+    if [[ -d "$f" && ! -L "$f" ]]; then
+      while IFS= read -r -d '' g; do EXPANDED+=("$g"); done < <(
+        find "$f" \( -name .git -o -name node_modules \) -prune -o \( -type f -o -type l \) -print0)
+    else
+      EXPANDED+=("$f")
+    fi
+  done
+  FILES=(${EXPANDED[@]+"${EXPANDED[@]}"})
 fi
 
-# Keep existing regular files; prefix relative paths with ./ (leading-dash safety).
+PWDP="$(pwd -P)"
+if [[ "$IN_GIT" == true ]]; then
+  ROOT="$(cd -P -- "$(git rev-parse --show-toplevel)" && pwd -P)"
+else
+  ROOT="$PWDP"
+fi
+
+# Physical absolute path of $1 with every symlink followed; fails on loops or
+# a missing parent directory. $1 always starts with "./" or "/".
+resolve() {
+  local p="$1" n=0 link dir
+  while [[ -L "$p" ]]; do
+    n=$((n + 1)); [[ "$n" -le 40 ]] || return 1
+    link="$(readlink "$p")" || return 1
+    case "$link" in /*) p="$link" ;; *) p="$(dirname "$p")/$link" ;; esac
+  done
+  dir="$(cd -P -- "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
+  printf '%s/%s\n' "$dir" "$(basename "$p")"
+}
+
+: > "$TMP/skipped.jsonl"
+skip() {
+  jq -cn --arg path "${1#./}" --arg reason "$2" '{path:$path, reason:$reason}' >> "$TMP/skipped.jsonl"
+}
+
+# Resolve symlinks and keep regular files inside the repo root (never read files
+# outside it), as ./relative when under the current dir (leading-dash safety).
 JS=(); PY=(); MANIFESTS=()
 for f in ${FILES[@]+"${FILES[@]}"}; do
-  [[ -f "$f" ]] || continue
   case "$f" in /*|./*) ;; *) f="./$f" ;; esac
+  if ! real="$(resolve "$f")" || [[ ! -e "$real" ]]; then
+    skip "$f" "broken symlink or unresolvable path"; continue
+  fi
+  case "$real" in
+    "$ROOT"/*) ;;
+    *) skip "$f" "resolves outside the repo root"; continue ;;
+  esac
+  [[ -f "$real" ]] || continue
+  case "$real" in "$PWDP"/*) f="./${real#"$PWDP"/}" ;; *) f="$real" ;; esac
   case "$f" in
     */node_modules/*) continue ;;
     *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts) JS+=("$f") ;;
@@ -153,11 +220,17 @@ for f in ${FILES[@]+"${FILES[@]}"}; do
 done
 
 if [[ ${#JS[@]} -eq 0 && ${#PY[@]} -eq 0 && ${#MANIFESTS[@]} -eq 0 ]]; then
-  if [[ "$JSON" == true ]]; then echo '{"scanners":[]}'; else echo "check-imports: nothing to check"; fi
+  if [[ "$JSON" == true ]]; then
+    jq -cn --slurpfile k "$TMP/skipped.jsonl" '{scanners: [], skipped: $k}'
+  else
+    jq -r '"skipped: \(.path) (\(.reason))"' "$TMP/skipped.jsonl"
+    echo "check-imports: nothing to check"
+  fi
   exit 3
 fi
 
 : > "$TMP/results.jsonl"
+: > "$TMP/empty.jsonl"
 emit() {
   jq -cn --arg name "$1" --arg status "$2" --arg reason "$3" --slurpfile f "$4" \
     '{name:$name, status:$status, findings:$f} + (if $reason == "" then {} else {reason:$reason} end)' \
@@ -170,15 +243,16 @@ finding() {
 }
 status_of() { if [[ -s "$1" ]]; then echo findings; else echo ran; fi; }
 
-# ── extractors (awk, line-based; print "<line>\t<specifier>") ──────────────────
+# ── extractors (awk, line-based; print "<line>\t<specifier>[\t<type|->]") ─────
 js_specs() {
   awk '{
     s = $0; t = s; sub(/^[ \t]+/, "", t)
     if (t ~ /^(\/\/|\*|\/\*)/) next
+    ty = (t ~ /^(import|export)[ \t]+type[ \t{]/) ? "type" : "-"
     while (match(s, /(^|[^A-Za-z0-9_$.])(from|import|require)[ \t]*\(?[ \t]*["\047][^"\047]+["\047]/)) {
       m = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
       sub(/^[^"\047]*["\047]/, "", m); sub(/["\047]$/, "", m)
-      print NR "\t" m
+      print NR "\t" m "\t" ty
     }
   }' "$1"
 }
@@ -217,6 +291,12 @@ js_pkg_name() {
   else
     echo "${s%%/*}"
   fi
+}
+
+# @types package that carries the typings for <pkg> (@a/b → @types/a__b).
+types_name() {
+  local p="$1"
+  if [[ "$p" == @*/* ]]; then p="${p#@}"; echo "@types/${p/\//__}"; else echo "@types/$p"; fi
 }
 
 NODE_BUILTINS=" assert async_hooks buffer child_process cluster console constants crypto dgram diagnostics_channel dns domain events fs http http2 https inspector module net os path perf_hooks process punycode querystring readline repl stream string_decoder sys timers tls trace_events tty url util v8 vm wasi worker_threads zlib "
@@ -267,11 +347,11 @@ js_relative_resolves() {
 }
 
 check_js() {
-  local out="$TMP/js.jsonl" f line spec pkg dir
+  local out="$TMP/js.jsonl" f line spec kind pkg dir
   : > "$out"
   for f in "${JS[@]}"; do
     dir="$(dirname -- "$f")"
-    while IFS=$'\t' read -r line spec; do
+    while IFS=$'\t' read -r line spec kind; do
       spec="${spec%%\?*}"
       [[ -n "$spec" ]] || continue
       case "$spec" in
@@ -287,16 +367,27 @@ check_js() {
       esac
       pkg="$(js_pkg_name "$spec")"
       [[ "$NODE_BUILTINS" == *" $pkg "* ]] && continue
-      js_declared "$pkg" "$f" ||
-        finding "$out" "$f" "$line" js-undeclared-package ERROR "package '$pkg' is not a node builtin and is not declared in any package.json up to the project root"
+      js_declared "$pkg" "$f" && continue
+      # A type-only import is satisfied by the package's @types typings.
+      [[ "$kind" == type ]] && js_declared "$(types_name "$pkg")" "$f" && continue
+      finding "$out" "$f" "$line" js-undeclared-package ERROR "package '$pkg' is not a node builtin and is not declared in any package.json up to the project root"
     done < <(js_specs "$f")
   done
   emit js-imports "$(status_of "$out")" "" "$out"
 }
 
 # ── Python helper (static code; data only via argv) ───────────────────────────
+# Runs under `python -I` (isolated: no cwd on sys.path, PYTHON* env ignored, no
+# user site), so nothing from the untrusted repo (sitecustomize.py, a cwd module
+# shadowing a stdlib name) can execute. PYTHONPATH is then re-applied explicitly:
+# each non-empty entry is appended to sys.path (empty entries, which would mean
+# the cwd, are dropped). find_spec on a top-level name only locates a module; it
+# never executes it.
 PY_HELPER='
-import sys
+import os, sys
+for _p in os.environ.get("PYTHONPATH", "").split(os.pathsep):
+    if _p:
+        sys.path.append(os.path.abspath(_p))
 cmd, args = sys.argv[1], sys.argv[2:]
 if cmd == "missing":
     import importlib.util
@@ -337,7 +428,6 @@ check_py() {
   local out="$TMP/py.jsonl" pending="$TMP/py-pending.tsv" f line spec top
   : > "$out"; : > "$pending"
   if ! command -v "$PYTHON" >/dev/null 2>&1; then
-    : > "$TMP/empty.jsonl"
     emit py-imports error "$PYTHON not found; cannot resolve Python imports" "$TMP/empty.jsonl"
     return
   fi
@@ -362,7 +452,10 @@ check_py() {
   if [[ -s "$pending" ]]; then
     local names=() n missing="$TMP/py-missing.txt"
     while IFS= read -r n; do names+=("$n"); done < <(cut -f3 "$pending" | sort -u)
-    "$PYTHON" -I -c "$PY_HELPER" missing "${names[@]}" > "$missing"
+    if ! "$PYTHON" -I -c "$PY_HELPER" missing "${names[@]}" > "$missing" 2>"$TMP/py.err"; then
+      emit py-imports error "$PYTHON helper failed: $(tail -c 300 "$TMP/py.err")" "$TMP/empty.jsonl"
+      return
+    fi
     while IFS=$'\t' read -r f line top; do
       if grep -qxF -- "$top" "$missing"; then
         finding "$out" "$f" "$line" py-unresolved-module ERROR "module '$top' is not installed for $PYTHON and is not a local module"
@@ -411,16 +504,16 @@ check_unused() {
       *) kind=requirements ;;
     esac
     if [[ "$kind" == pyproject ]] && ! command -v "$PYTHON" >/dev/null 2>&1; then
-      : > "$TMP/empty.jsonl"
       emit unused-deps error "$PYTHON not found; cannot parse $m" "$TMP/empty.jsonl"; return
     fi
-    if ! manifest_deps "$kind" "$m" 2>/dev/null | LC_ALL=C sort -u > "$TMP/now.txt"; then
-      : > "$TMP/empty.jsonl"
-      emit unused-deps error "cannot parse $m" "$TMP/empty.jsonl"; return
+    if ! manifest_deps "$kind" "$m" 2>"$TMP/manifest.err" | LC_ALL=C sort -u > "$TMP/now.txt"; then
+      emit unused-deps error "cannot parse $m: $(tail -c 300 "$TMP/manifest.err")" "$TMP/empty.jsonl"; return
     fi
     : > "$TMP/before.txt"
-    if [[ -n "$DIFF_FROM" ]] && git cat-file -e "$DIFF_FROM:$m" 2>/dev/null; then
-      git show "$DIFF_FROM:$m" > "$TMP/base-manifest" 2>/dev/null
+    local mrel
+    mrel="$(resolve "$m")"; mrel="${mrel#"$ROOT"/}"
+    if [[ -n "$DIFF_FROM" ]] && git cat-file -e "$DIFF_FROM:$mrel" 2>/dev/null; then
+      git show "$DIFF_FROM:$mrel" > "$TMP/base-manifest" 2>/dev/null
       manifest_deps "$kind" "$TMP/base-manifest" 2>/dev/null | LC_ALL=C sort -u > "$TMP/before.txt" || : > "$TMP/before.txt"
     fi
     LC_ALL=C comm -23 "$TMP/now.txt" "$TMP/before.txt" > "$TMP/added.txt"
@@ -432,11 +525,17 @@ check_unused() {
     local s spec
     while IFS= read -r -d '' s; do
       case "$s" in /*|./*) ;; *) s="./$s" ;; esac
+      if [[ -L "$s" ]]; then
+        local sr
+        sr="$(resolve "$s")" || continue
+        case "$sr" in "$ROOT"/*) ;; *) continue ;; esac
+      fi
+      [[ -f "$s" ]] || continue
       case "$s" in
         */node_modules/*) ;;
         *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts)
           [[ "$kind" == package.json ]] || continue
-          while IFS=$'\t' read -r _ spec; do js_pkg_name "$spec" >> "$TMP/used.txt"; done < <(js_specs "$s") ;;
+          while IFS=$'\t' read -r _ spec _; do js_pkg_name "$spec" >> "$TMP/used.txt"; done < <(js_specs "$s") ;;
         *.py)
           [[ "$kind" != package.json ]] || continue
           while IFS=$'\t' read -r _ spec; do
@@ -448,12 +547,13 @@ check_unused() {
     if [[ "$kind" != package.json ]]; then
       local tops=()
       while IFS= read -r spec; do tops+=("$spec"); done < <(sort -u "$TMP/used.txt")
-      {
-        py_norm < "$TMP/used.txt"
-        if [[ ${#tops[@]} -gt 0 ]] && command -v "$PYTHON" >/dev/null 2>&1; then
-          "$PYTHON" -I -c "$PY_HELPER" dists "${tops[@]}" | cut -f2 | py_norm
+      : > "$TMP/dists.tsv"
+      if [[ ${#tops[@]} -gt 0 ]] && command -v "$PYTHON" >/dev/null 2>&1; then
+        if ! "$PYTHON" -I -c "$PY_HELPER" dists "${tops[@]}" > "$TMP/dists.tsv" 2>"$TMP/py.err"; then
+          emit unused-deps error "$PYTHON helper failed: $(tail -c 300 "$TMP/py.err")" "$TMP/empty.jsonl"; return
         fi
-      } | sort -u > "$TMP/used-norm.txt"
+      fi
+      { py_norm < "$TMP/used.txt"; cut -f2 "$TMP/dists.tsv" | py_norm; } | sort -u > "$TMP/used-norm.txt"
     fi
 
     local dep ln
@@ -476,7 +576,7 @@ check_unused() {
 [[ ${#PY[@]} -gt 0 ]] && check_py
 [[ ${#MANIFESTS[@]} -gt 0 ]] && check_unused
 
-RESULT="$(jq -cs '{scanners: .}' "$TMP/results.jsonl")"
+RESULT="$(jq -cn --slurpfile s "$TMP/results.jsonl" --slurpfile k "$TMP/skipped.jsonl" '{scanners: $s, skipped: $k}')"
 
 if [[ "$JSON" == true ]]; then
   printf '%s\n' "$RESULT"
@@ -484,6 +584,7 @@ else
   jq -r '.scanners[] |
     "\(.name): \(.status)\(if .reason then " (\(.reason))" else "" end)\(if (.findings|length) > 0 then " — \(.findings|length) finding(s)" else "" end)",
     (.findings[] | "  \(.file):\(.line // "-") [\(.rule)] \(.severity): \(.message)")' <<<"$RESULT"
+  jq -r '.skipped[] | "skipped: \(.path) (\(.reason))"' <<<"$RESULT"
 fi
 
 n_findings="$(jq '[.scanners[].findings | length] | add // 0' <<<"$RESULT")"
