@@ -23,6 +23,7 @@ jobs:
       - run: bash scripts/session-state-test.sh
       - run: bash scripts/survey-guard-test.sh
       - run: bash scripts/block-bad-bash-test.sh
+      - run: python3 -I .claude/skills/findings-ledger/scripts/test_ledger.py
   ship-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
