@@ -251,7 +251,7 @@ Each install writes `.agentic-os-manifest.json` in its destination. The manifest
 | `~/.claude/skills/` | Skill playbooks — invoked with the `Skill` tool or `/skill-name` |
 | `~/.claude/agents/` | Subagent definitions — spawned with the `Agent` tool |
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
-| `~/.claude/hooks/` | Hook scripts — registered globally in `~/.claude/settings.json` on install (awareness harness + `block-bad-bash`) — see [Awareness harness](#awareness-harness-experimental) |
+| `~/.claude/hooks/` | Hook scripts — registered globally in `~/.claude/settings.json` on install (awareness harness, `block-bad-bash`, `block-general-purpose`, `post-edit-scan`) — see [Awareness harness](#awareness-harness-experimental) |
 
 > **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
@@ -303,6 +303,8 @@ An in-development capability ([NORTH_STAR.md](NORTH_STAR.md)) that fights the do
 - **survey-before-act** — on a service-provisioning command, reminds you to check whether it already exists first (warn-first; logs for measurement, does not block).
 - **block-bad-bash** — nudges away from `cd && git` and long `&&` shell chains (ergonomics, not security; can block routine agent shell — remove the hook entry if annoying).
 - **block-general-purpose** — **policy, not ergonomics.** Installing it bans `general-purpose` and untyped (`subagent_type` omitted) subagent spawns in **every** consumer project. Such spawns are denied with a pointer to Explore, Plan, the engineers, and the reviewers. The library's dispatch doctrine relies on named specialists, and an omitted type silently falls back to the catch-all agent. Errors inside the script fail closed (see SECURITY.md). To opt out, remove its `Agent|Task` entry from `~/.claude/settings.json`. The entry sets `"onFailure": "block"` (Claude Code v2.1.295+), so the spawn is also denied if the hook itself cannot run (missing script, timeout). How older Claude Code versions treat the key is untested.
+- **post-edit-scan** — a PostToolUse hook on `Edit|Write|MultiEdit`. It scans the file just edited for committed-looking secrets, using a built-in regex set plus `gitleaks` when installed, and runs fast syntax checks (`bash -n`, `jq empty`, `python3` py_compile). Findings go straight back to the model as `file:line rule`; secret values are never printed. A clean edit is silent. There is no network access, and the hook fails open, so it never blocks editing (see SECURITY.md).
+- **review-gate-stop + review-verdict-capture** — **policy, Tier 0, fails open.** When `code-reviewer`, `security-reviewer`, `library-reviewer` or `data-model-verifier` finishes, the SubagentStop hook parses its `agentic-os/review-verdict@1` block and saves it to `.claude/reviews/<HEAD>-<agent>.json`. The Stop hook then blocks the turn once per stop attempt while a non-docs diff vs `origin/HEAD` / `origin/main` / `origin/master` / `main` / `master` has uncommitted or untracked (not ignored) changes, or lacks a `pass`/`fix-before-merge` verdict for the current HEAD from each required reviewer (consumer rule: `code-reviewer` + `security-reviewer`). It applies in **every** project on a branch with non-docs changes. Add `.claude/reviews/` and `.claude/worktrees/` to your project's `.gitignore`; the installer does not edit project ignore files. Any other untracked, non-ignored file (e.g. `build.log`) forces one continuation per turn until you ignore it. It is a process gate against forgotten reviews, not a security control (see SECURITY.md). Opt out by launching Claude Code with `AGENTIC_OS_REVIEW_GATE=off`, or remove its `Stop` entry. See [gate-dag.md](.claude/references/gate-dag.md#stop-gate-tier-0).
 - **`eval/metrics/`** — deterministic instruments (`session-metrics.mjs`, `compare.mjs`) that measure tokens-per-outcome and awareness signals, ON (hooks) vs OFF (baseline).
 
 **Ship posture:** Claude hooks are on by default and replace the `hooks` block in `~/.claude/settings.json`. Codex installs only the documented portable subset, preserves unrelated hook groups, and requires hook review/trust. Disable Codex hooks through `/hooks` or `[features].hooks = false`.
@@ -425,7 +427,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 │   └── scripts/          # runnable helpers
 ├── agents/<agent-name>.md
 ├── commands/<command>.md # slash commands (author-facing + maintainer-only)
-├── hooks/                # PreToolUse hooks (e.g. block-bad-bash.sh)
+├── hooks/                # Event hooks (e.g. block-bad-bash.sh, review-gate-stop.sh); lib/ = shipped helpers
 ├── rules/                # operating doctrine, flattened into CLAUDE.md (build-claude-md.sh)
 └── workflows/            # multi-agent orchestration scripts
 ```

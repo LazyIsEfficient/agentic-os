@@ -15,6 +15,14 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "bash $HOME/.claude/hooks/post-edit-scan.sh", "timeout": 30 }
+        ]
+      }
+    ],
     "SessionStart": [
       { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-inject.sh" } ] }
     ],
@@ -24,6 +32,13 @@
     "PreCompact": [
       { "matcher": "auto",   "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] },
       { "matcher": "manual", "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/session-state-checkpoint.sh" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/review-gate-stop.sh" } ] }
+    ],
+    "SubagentStop": [
+      { "matcher": "code-reviewer|security-reviewer|library-reviewer|data-model-verifier",
+        "hooks": [ { "type": "command", "command": "bash $HOME/.claude/hooks/review-verdict-capture.sh" } ] }
     ]
   }
 }

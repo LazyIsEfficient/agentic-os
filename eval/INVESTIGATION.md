@@ -1,5 +1,18 @@
 # Does this skills/agents library add measurable value? — an investigation
 
+> **2026-10-19: OFF-arm results below may be contaminated (#273).** Every baseline arm
+> here ran with the library still loadable, for three reasons:
+>
+> - The `eval-harness` baseline was a `general-purpose` agent dispatched inside the
+>   operator's own session, and was only *told* not to use the library.
+> - That session loaded this repo's `.claude/` and the operator's globally installed
+>   `~/.claude`: skills, agents, hooks, rules and `CLAUDE.md`.
+> - `metrics/run-arms.sh` built its OFF arm by swapping `--settings` from the repo root,
+>   which leaves both of those in place.
+>
+> So "no measured uplift" may compare ON against ON. Treat the findings below as
+> unconfirmed until they are re-run with isolated arms (see [README.md](README.md#arm-isolation)).
+
 **Question:** does using this library (its specialist agents + the multi-agent review
 "pod") produce *measurably better outcomes* than not using it — i.e. than a single
 capable model in one pass?

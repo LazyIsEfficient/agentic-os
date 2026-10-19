@@ -628,7 +628,7 @@ HOOK_DENY=(
   '\beval["'"'"']@@@no-space eval of a quoted string in a shipped hook (dynamic code execution)'
   '\bsource[[:space:]]+<\(@@@process-substitution source in a shipped hook'
   '\b(python[0-9.]*|node[0-9.]*|perl[0-9.]*|ruby[0-9.]*)[[:space:]]+-(e|c)\b@@@inline interpreter one-liner in a shipped hook'
-  '\bpython[0-9.]*[[:space:]]+-m@@@python -m module execution in a shipped hook (e.g. http.server; matches -m with or without a space)'
+  '\bpython[0-9.]*([[:space:]]+[^[:space:];&|]+)*[[:space:]]+-[A-Za-z]*m@@@python -m module execution in a shipped hook (e.g. http.server; matches -m after any leading flags, combined like -Im, with or without a space; only `-m py_compile` is allowlisted)'
   '\b(ba|da|z)?sh[[:space:]]+-c\b@@@dynamic shell exec (sh -c) in a shipped hook'
   '\bphp[[:space:]]+-r\b@@@inline php one-liner in a shipped hook'
   '\b(g?awk)\b[^#]*system[[:space:]]*\(@@@awk system() shell-out in a shipped hook'
@@ -659,8 +659,12 @@ scan_hook_scripts_dir() {
     esac
     for entry in "${HOOK_DENY[@]}"; do
       re="${entry%%@@@*}"; reason="${entry##*@@@}"
-      if grep -qE "$re" "$f"; then
-        ln=$(grep -nE "$re" "$f" | head -1 | cut -d: -f1)
+      # Every match is re-tested with exactly ` -m py_compile` removed, so that
+      # one benign module is allowed and anything else on the line still trips.
+      ln=$(grep -nE "$re" "$f" \
+        | sed -E 's/[[:space:]]-m[[:space:]]+py_compile([[:space:]]|$)/ \1/g' \
+        | grep -E "$re" | head -1 | cut -d: -f1 || true)
+      if [[ -n "$ln" ]]; then
         fail hook-safety "$f" "$reason (line $ln)"
       fi
     done

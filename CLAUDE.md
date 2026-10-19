@@ -85,9 +85,10 @@ After any implementation that touches more than a trivial diff, run the **gate D
 
 1. `checkpoint:impl-verified` — verification passes
 2. **Implementation close:** when dispatch used an implementation agent (`engineer`, stack specialists — see [implementation-close.md](.claude/skills/data-model-documentation/references/implementation-close.md)), that agent runs `G-data-document` before returning
-3. **Wave 1 (parallel):** triggered reviewer nodes — always `G-security-review` on non-docs-only diffs; `G-code-review` when code/library; `G-library-review` when `is_library`; **`G-data-document` only if** the implementation agent did not already run it
-4. **Wave 2 (conditional):** `data-model-verifier` when `DATA_MODEL.md` changed after Wave 1
-5. `checkpoint:ship-ready` — Tier 0/1 addressed
+3. **Wave 0:** `G-data-document` (**only if** the implementation agent did not already run it), then **commit** — the documenter runs and is committed before Wave 1, because verdicts bind to HEAD
+4. **Wave 1 (parallel):** triggered reviewer nodes on the committed HEAD — always `G-security-review` on non-docs-only diffs; `G-code-review` when code/library; `G-library-review` when `is_library`
+5. **Wave 2 (conditional):** `data-model-verifier` on the committed diff when it contains `DATA_MODEL.md`
+6. `checkpoint:ship-ready` — Tier 0/1 addressed
 
 Do not run verifier in parallel with documenter. Do not re-dispatch documenter if an implementation agent already reported `G-data-document`. Full node table and triggers: [gate-dag.md](.claude/references/gate-dag.md).
 

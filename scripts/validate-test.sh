@@ -597,7 +597,25 @@ JS
 run_validate "$c56"
 assert_not_flagged "case 56 names (workflow meta.name ending in t parses intact)" names "wf-test.js"
 
-# 57: install-pins — install.sh VERSION/EXPECTED_SHA256 is canonical; every
+# 57: `python -m` after leading flags — `python3 -I -m http.server` evaded the
+# `python[[:space:]]+-m` rule (PR #292 review). Combined `-Im` too.
+c57="$(make_copy)"; mkdir -p "$c57/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -I -m http.server 8080\n' > "$c57/.claude/hooks/fm.sh"
+assert_trips "case 57 hook-safety (python flags before -m)" "$c57" hook-safety
+c57b="$(make_copy)"; mkdir -p "$c57b/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -Im http.server 8080\n' > "$c57b/.claude/hooks/fm.sh"
+assert_trips "case 57b hook-safety (python combined -Im)" "$c57b" hook-safety
+c57c="$(make_copy)"; mkdir -p "$c57c/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -m py_compile x.py; python3 -I -m http.server\n' > "$c57c/.claude/hooks/fm.sh"
+assert_trips "case 57c hook-safety (py_compile allowlist does not mask a second -m)" "$c57c" hook-safety
+
+# 58: the allowlisted `-m py_compile` (post-edit-scan.sh's own call) passes.
+c58="$(make_copy)"; mkdir -p "$c58/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -I -X pycache_prefix="$tmp/pyc" -m py_compile "$real"\n' > "$c58/.claude/hooks/pc.sh"
+run_validate "$c58"
+assert_not_flagged "case 58 hook-safety (python -m py_compile allowlisted)" hook-safety "pc.sh"
+
+# 59: install-pins — install.sh VERSION/EXPECTED_SHA256 is canonical; every
 # other pin (ps1, both header URLs, README block/URLs/digests, retired hooks)
 # must agree with it.
 pin_case() {
@@ -606,21 +624,21 @@ pin_case() {
   sed -E "$sed_expr" "$c/$file" > "$c/$file.tmp" && mv "$c/$file.tmp" "$c/$file"
   assert_fails_on "$label" "$c" install-pins "$needle"
 }
-pin_case "case 57a install-pins (install.ps1 \$Version drift)" install.ps1 \
+pin_case "case 59a install-pins (install.ps1 \$Version drift)" install.ps1 \
   's/^\$Version([[:space:]]*)= "v[0-9.]+"/$Version\1= "v0.0.1"/' 'install.ps1 — $Version "v0.0.1"'
-pin_case "case 57b install-pins (stale install.ps1 header URL)" install.ps1 \
+pin_case "case 59b install-pins (stale install.ps1 header URL)" install.ps1 \
   's#agentic-os/v[0-9.]+/install.ps1#agentic-os/v2.6.0/install.ps1#' 'references release v2.6.0'
-pin_case "case 57c install-pins (install.sh header URL drift)" install.sh \
+pin_case "case 59c install-pins (install.sh header URL drift)" install.sh \
   's#agentic-os/v[0-9.]+/install.sh \| bash$#agentic-os/v9.9.9/install.sh | bash#' 'install.sh — references release v9.9.9'
-pin_case "case 57d install-pins (install.ps1 digest drift)" install.ps1 \
+pin_case "case 59d install-pins (install.ps1 digest drift)" install.ps1 \
   's/^\$ExpectedSha256([[:space:]]*)= "[0-9a-f]+"/$ExpectedSha256\1= "0000000000000000000000000000000000000000000000000000000000000000"/' 'ExpectedSha256 differs'
-pin_case "case 57e install-pins (README current release drift)" README.md \
+pin_case "case 59e install-pins (README current release drift)" README.md \
   's/^- \*\*Current release:\*\* `v[0-9.]+`/- **Current release:** `v0.0.2`/' 'Current release'
-pin_case "case 57f install-pins (README verify digest drift)" README.md \
+pin_case "case 59f install-pins (README verify digest drift)" README.md \
   's/^echo "[0-9a-f]{64}  agentic-os-/echo "1111111111111111111111111111111111111111111111111111111111111111  agentic-os-/' 'in a verify command'
-pin_case "case 57g install-pins (retired-hook lists disagree)" install.sh \
+pin_case "case 59g install-pins (retired-hook lists disagree)" install.sh \
   's/^RETIRED_HOOKS=""/RETIRED_HOOKS="old-hook.sh"/' 'RetiredHooks'
-pin_case "case 57h install-pins (non-tag VERSION)" install.sh \
+pin_case "case 59h install-pins (non-tag VERSION)" install.sh \
   's/^VERSION="v[0-9.]+"/VERSION="main"/' 'not a vX.Y.Z release tag'
 
 # ── Summary ────────────────────────────────────────────────────────────────────

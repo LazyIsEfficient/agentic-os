@@ -207,7 +207,7 @@ jq -e '[.. | .command? | strings | select(endswith("zz-retired.sh"))] | length =
 jq -e '[.. | .command? | strings | select(endswith("zz-retired2.sh"))] | length == 0' "$s" >/dev/null \
   || fail "hook dropped without a RETIRED_HOOKS entry still registered"
 [[ ! -e "$dest/hooks/zz-retired2.sh" ]] || fail "unlisted retired hook file not pruned"
-jq -e '[.hooks.Stop[]?.hooks[].command] == ["bash /opt/consumer-stop.sh"]' "$s" >/dev/null || fail "consumer Stop hook not preserved: $(jq -c .hooks.Stop "$s")"
+jq -e '[.hooks.Stop[]?.hooks[].command] | index(["bash /opt/consumer-stop.sh"]) != null' "$s" >/dev/null || fail "consumer Stop hook not preserved: $(jq -c .hooks.Stop "$s")"
 jq -e '[.hooks.PreToolUse[].hooks[].command] | index(["bash /opt/consumer-guard.sh"]) != null' "$s" >/dev/null || fail "consumer PreToolUse hook lost"
 jq -e '.permissions.allow == ["Edit(foo)"]' "$s" >/dev/null || fail "non-hook settings key lost"
 ok "a retired hook is unregistered and pruned; consumer hooks are preserved"

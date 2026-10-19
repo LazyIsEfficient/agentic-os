@@ -2,11 +2,12 @@
 
 One machine-parseable verdict for every gate reviewer. Tier doctrine:
 [review-tiers](../rules/review-tiers.md). Parser (Tier 0):
-`scripts/parse-verdict.sh`.
+`.claude/hooks/lib/parse-verdict.sh` (wrapper: `scripts/parse-verdict.sh`).
 
-This reference and the parser are **repo-side tooling** — `install.sh` ships
-`.claude/agents/` but not `.claude/references/` or `scripts/`, so each
-reviewer agent restates the enum, required fields, and demotion rule inline.
+This reference is **repo-side** — `install.sh` ships `.claude/agents/` and
+`.claude/hooks/` (so the parser ships, for the capture hook) but not
+`.claude/references/`. Each reviewer agent therefore restates the enum,
+required fields, and demotion rule inline.
 
 ## Who emits it
 
@@ -89,15 +90,18 @@ Rejected after normalization (exit 1):
 - `verdict: pass` alongside any evidenced tier 0/1 finding — a contradiction.
 - `data-model-verifier` with `fix-before-merge`, or a `hold` with no evidenced
   tier 0/1 finding (REFUTED always carries evidence, so it is never downgraded).
-- Duplicate JSON keys, checked with `python3 -I` (an `object_pairs_hook` that
-  rejects repeats). Without python3 the parser warns on stderr and skips this
-  check — jq alone keeps the last duplicate silently.
+- Duplicate JSON keys at any depth, checked with `jq --stream` (raw tokens,
+  before jq's last-key-wins collapse). No python3 dependency: the parser ships
+  under `.claude/hooks/lib/`, where Invariant 8 bans inline interpreters.
 
 ## `scripts/parse-verdict.sh`
 
+The parser lives at `.claude/hooks/lib/parse-verdict.sh` so it ships to
+consumers with the hooks; `scripts/parse-verdict.sh` is a wrapper that execs it.
+
 ```sh
 bash scripts/parse-verdict.sh review.txt                        # file
-reviewer-output | bash scripts/parse-verdict.sh                 # stdin
+bash scripts/parse-verdict.sh < review.txt                      # stdin
 bash scripts/parse-verdict.sh --expect-head "$(git rev-parse HEAD)" review.txt
 ```
 
@@ -112,9 +116,22 @@ bash scripts/parse-verdict.sh --expect-head "$(git rev-parse HEAD)" review.txt
 
 Normalized JSON is printed on stdout for exits 0, 2 and 3; nothing on exit 1.
 
+## Captured verdict artifacts (`.claude/reviews/`)
+
+Nobody hand-records verdicts. The `SubagentStop` hook
+`.claude/hooks/review-verdict-capture.sh` runs the parser with
+`--expect-head "$(git rev-parse HEAD)"` on each gate reviewer's final message
+and, for exits 0/2/3 whose `agent` equals the subagent's `agent_type`, writes
+the normalized JSON atomically to
+`.claude/reviews/<HEAD-sha>-<agent>.json` (gitignored; the directory also gets
+a `*` `.gitignore`). Invalid or stale-head blocks write nothing. The `Stop`
+hook `.claude/hooks/review-gate-stop.sh` reads only these files — see
+[gate-dag.md](gate-dag.md) § Stop gate.
+
 ## Scope of `head`
 
-`head` names the commit the reviewer read. If the brief covered uncommitted
-work, the reviewer also read `git diff HEAD`, so the verdict covers `head` plus
-that working-tree delta — consumers that bind a verdict to a SHA should require
-a clean tree at review time.
+`head` names the commit the reviewer read. Gate reviews are **commit-first**:
+the orchestrator commits the changes (including `DATA_MODEL.md`) before
+dispatching reviewers, and the Stop gate blocks while qualifying changes are
+uncommitted ([gate-dag.md](gate-dag.md) § Stop gate). A verdict therefore
+covers exactly `head`; any later commit needs a fresh review.
