@@ -265,6 +265,8 @@ run "$TMP/dm"; expect_allow "un-ignored .claude/reviews/ artifacts are not chang
 mkdir -p "$TMP/dm/.claude/worktrees/agent-1"
 echo "x" > "$TMP/dm/.claude/worktrees/agent-1/app.ts"
 run "$TMP/dm"; expect_allow "untracked .claude/worktrees/ is not a change"
+git -C "$TMP/dm" worktree add -q -b nested "$TMP/dm/nested-wt"
+run "$TMP/dm"; expect_allow "an untracked nested worktree/repo dir is not a change"
 echo "log" > "$TMP/dm/build.log"
 run "$TMP/dm"
 expect_block "untracked noise blocks without telling the model to commit it" \

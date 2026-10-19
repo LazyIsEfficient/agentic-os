@@ -2,11 +2,12 @@
 
 One machine-parseable verdict for every gate reviewer. Tier doctrine:
 [review-tiers](../rules/review-tiers.md). Parser (Tier 0):
-`scripts/parse-verdict.sh`.
+`.claude/hooks/lib/parse-verdict.sh` (wrapper: `scripts/parse-verdict.sh`).
 
-This reference and the parser are **repo-side tooling** — `install.sh` ships
-`.claude/agents/` but not `.claude/references/` or `scripts/`, so each
-reviewer agent restates the enum, required fields, and demotion rule inline.
+This reference is **repo-side** — `install.sh` ships `.claude/agents/` and
+`.claude/hooks/` (so the parser ships, for the capture hook) but not
+`.claude/references/`. Each reviewer agent therefore restates the enum,
+required fields, and demotion rule inline.
 
 ## Who emits it
 
@@ -129,7 +130,8 @@ hook `.claude/hooks/review-gate-stop.sh` reads only these files — see
 
 ## Scope of `head`
 
-`head` names the commit the reviewer read. If the brief covered uncommitted
-work, the reviewer also read `git diff HEAD`, so the verdict covers `head` plus
-that working-tree delta — consumers that bind a verdict to a SHA should require
-a clean tree at review time.
+`head` names the commit the reviewer read. Gate reviews are **commit-first**:
+the orchestrator commits the changes (including `DATA_MODEL.md`) before
+dispatching reviewers, and the Stop gate blocks while qualifying changes are
+uncommitted ([gate-dag.md](gate-dag.md) § Stop gate). A verdict therefore
+covers exactly `head`; any later commit needs a fresh review.

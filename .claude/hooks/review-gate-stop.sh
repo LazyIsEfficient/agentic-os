@@ -15,7 +15,8 @@
 #   - Git root from the payload's `cwd` (worktree-aware), else
 #     CLAUDE_PROJECT_DIR. Not a git repo → allow silently.
 #   - Changed paths = merge-base(default branch, HEAD)..HEAD + uncommitted +
-#     untracked-not-ignored, excluding .claude/reviews/ and .claude/worktrees/.
+#     untracked-not-ignored, excluding .claude/reviews/, .claude/worktrees/ and
+#     untracked nested repos/worktrees.
 #     Default branch: first of origin/HEAD, origin/main, origin/master, main,
 #     master. If HEAD has no commits beyond it but does beyond another
 #     candidate, warn the user (systemMessage) — the ref may have been moved.
@@ -58,9 +59,10 @@ sid="$(printf '%s' "$input" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"
 # they are JSON-safe without jq.
 fail_open() {
   local msg="review-gate-stop: $* — gate skipped (fail-open)"
-  local mdir="${TMPDIR:-/tmp}/agentic-os-review-gate-$(id -u)"
+  local mdir
+  mdir="${TMPDIR:-/tmp}/agentic-os-review-gate-$(id -u)"
   if [[ -n "$sid" ]]; then
-    mkdir -m 700 -p "$mdir" 2>/dev/null
+    [[ -e "$mdir" ]] || mkdir -m 700 "$mdir" 2>/dev/null
     if [[ -d "$mdir" && ! -L "$mdir" && -O "$mdir" ]]; then
       [[ -e "$mdir/$sid" ]] && exit 0
       : > "$mdir/$sid" 2>/dev/null
@@ -106,6 +108,11 @@ strip_noise() { grep -v -e '^\.claude/reviews/' -e '^\.claude/worktrees/' || tru
 committed="$(g diff --name-only "$base" HEAD)" || fail_open "git diff failed"
 tracked_dirty="$(g diff --name-only HEAD)" || fail_open "git diff failed"
 untracked="$(g ls-files --others --exclude-standard)" || fail_open "git ls-files failed"
+# Nested repos / worktrees show up as "dir/" entries; they are not content
+# this repo would commit, so they never count as changes.
+untracked="$(while IFS= read -r u; do
+  [[ "$u" == */ && -e "$root/$u.git" ]] || printf '%s\n' "$u"
+done <<< "$untracked")"
 dirty="$(printf '%s\n%s\n' "$tracked_dirty" "$untracked" | strip_noise | sed '/^$/d' | sort -u)"
 changed="$(printf '%s\n%s\n' "$committed" "$dirty" | strip_noise | sed '/^$/d' | sort -u)"
 
