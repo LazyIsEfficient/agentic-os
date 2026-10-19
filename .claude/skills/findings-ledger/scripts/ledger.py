@@ -10,7 +10,8 @@ Stdlib only — no third-party dependencies.
 
 Subcommands:
   add      append a finding (computes the fingerprint; first sighting = NEW,
-           repeat sighting = RECURRING; tier 1 without --evidence demotes to 2)
+           sighting from a DIFFERENT run = RECURRING, a repeat within the same
+           run stays NEW; tier 1 without --evidence demotes to 2)
   tally    group events by fingerprint; report recurrence counts. Recurrence =
            number of DISTINCT run ids among sightings (review-tiers.md counts
            independent runs; an agent repeating itself within one run is one)
@@ -20,17 +21,22 @@ Subcommands:
   promote  append a status-transition event (INVESTIGATING or PROMOTED;
            PROMOTED requires --evidence: the encoded check)
   retire   append a RETIRED-NOISE status-transition event
+  export   write a deduplicated per-fingerprint summary (no claim text) to a
+           path — the committable artifact for team-shared recurrence
 
 The ledger is append-only: status transitions are NEW EVENTS for the same
 fingerprint, never mutations of prior lines. A fingerprint's current status is
 the status of its most recent event.
 
-Fingerprinting: sha256(file path + "\\n" + normalized claim text), truncated to
-16 hex chars. Normalization lowercases, strips quoted/backticked snippets,
-strips line/column references, and collapses whitespace — so the SAME defect
-phrased two ways across runs usually collides to one fingerprint. This is a
-heuristic, not identity: see the skill's references/ledger-format.md for its
-known limits.
+Fingerprinting has two schemes, recorded per event as `fingerprint_scheme`:
+  2 (structured) — when `add --category` is given: sha256 over the normalized
+    file path + category slug + symbol (or empty). Claim wording is ignored,
+    so paraphrases of the same defect collide.
+  1 (text, legacy) — otherwise: sha256(file path + "\\n" + normalized claim
+    text). Normalization lowercases, strips quoted/backticked snippets,
+    strips line/column references, and collapses whitespace. A heuristic,
+    not identity. Events without the field are scheme 1.
+Both truncate to 16 hex chars. See the skill's references/ledger-format.md.
 
 Exit codes: 0 = ok, 2 = setup/usage error (matches argparse's own usage exit).
 Output ordering is deterministic so run-over-run diffs are stable.
@@ -84,6 +90,9 @@ OCCURRENCE_STATUSES = ("NEW", "RECURRING")  # events that count as a sighting
 REQUIRED_KEYS = ("fingerprint", "file", "claim", "tier", "source", "run_id",
                  "date", "evidence", "status")
 FINGERPRINT_LEN = 16
+SCHEME_TEXT = 1
+SCHEME_STRUCTURED = 2
+CATEGORY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LOCK_TIMEOUT_S = 20  # writers hold the lock for milliseconds; 20s means wedged
 
 
@@ -116,7 +125,42 @@ def normalize(claim):
 
 
 def fingerprint(file, claim):
+    """Scheme 1 (text). Must stay byte-for-byte stable: legacy entries keep
+    their identity only as long as this function does not change."""
     payload = file.strip() + "\n" + normalize(claim)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:FINGERPRINT_LEN]
+
+
+def normalize_path(file):
+    """`./a\\b.md`, `a//b.md` and `a/b.md` are the same file."""
+    t = file.strip().replace("\\", "/")
+    t = re.sub(r"/+", "/", t)
+    while t.startswith("./"):
+        t = t[2:]
+    return t
+
+
+def normalize_category(category):
+    """Lowercased kebab-case slug, or None if it isn't one."""
+    t = category.strip().lower()
+    return t if CATEGORY_RE.match(t) else None
+
+
+def normalize_symbol(symbol):
+    """Reviewers write `foo`, foo() and foo for the same function."""
+    if symbol is None:
+        return ""
+    t = symbol.strip().strip("`").strip()
+    if t.endswith("()"):
+        t = t[:-2]
+    return re.sub(r"\s+", " ", t)
+
+
+def structured_fingerprint(file, category, symbol=None):
+    """Scheme 2. The "v2" tag and newline count keep its payloads distinct
+    from scheme 1's (normalize() collapses newlines out of the claim)."""
+    payload = "\n".join(
+        ("v2", normalize_path(file), category, normalize_symbol(symbol)))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:FINGERPRINT_LEN]
 
 
@@ -251,6 +295,9 @@ def summarize(fp, evs):
     dates = sorted(e["date"] for e in sightings)
     return {
         "fingerprint": fp,
+        "fingerprint_scheme": first.get("fingerprint_scheme", SCHEME_TEXT),
+        "category": first.get("category"),
+        "symbol": first.get("symbol"),
         "count": count,
         "status": status,
         "tier": tier,
@@ -276,12 +323,30 @@ def cmd_add(args):
         # automatically Tier 2.
         print("note: tier 1 without --evidence demotes to tier 2", file=sys.stderr)
         tier = 2
-    fp = fingerprint(args.file, args.claim)
+    category = None
+    if args.category is not None:
+        category = normalize_category(args.category)
+        if category is None:
+            die(f"--category {args.category!r} is not a kebab-case slug (e.g. missing-ci-wiring)")
+        fp = structured_fingerprint(args.file, category, args.symbol)
+        scheme = SCHEME_STRUCTURED
+    elif args.symbol is not None:
+        die("--symbol requires --category (the text fingerprint ignores it)")
+    else:
+        fp = fingerprint(args.file, args.claim)
+        scheme = SCHEME_TEXT
     with locked(path):
         prior = group(read_events(path)) if path.is_file() else {}
-        status = "RECURRING" if fp in prior else "NEW"
+        # Same-run guard: a repeat within one run is not a recurrence, so it
+        # must not be labelled one (the count in summarize() already ignores it).
+        prior_runs = {e["run_id"] for e in prior.get(fp, ())
+                      if e["status"] in OCCURRENCE_STATUSES}
+        status = "RECURRING" if prior_runs - {args.run_id} else "NEW"
         event = {
             "fingerprint": fp,
+            "fingerprint_scheme": scheme,
+            "category": category,
+            "symbol": args.symbol,
             "file": args.file,
             "claim": args.claim,
             "tier": tier,
@@ -347,6 +412,9 @@ def _transition(args, status, evidence=None):
         first = by_fp[args.fingerprint][0]
         event = {
             "fingerprint": args.fingerprint,
+            "fingerprint_scheme": first.get("fingerprint_scheme", SCHEME_TEXT),
+            "category": first.get("category"),
+            "symbol": first.get("symbol"),
             "file": first["file"],
             "claim": first["claim"],
             "tier": first["tier"],
@@ -372,6 +440,29 @@ def cmd_retire(args):
     _transition(args, "RETIRED-NOISE")
 
 
+EXPORT_KEYS = ("fingerprint", "fingerprint_scheme", "category", "symbol", "file",
+               "count", "status", "first_seen", "last_seen")
+
+
+def cmd_export(args):
+    path = resolve_ledger(args, must_exist=True)
+    out = Path(args.out)
+    if out.resolve() == path.resolve():
+        die(f"--out {out} is the ledger itself; export would overwrite it")
+    rows = [summarize(fp, evs) for fp, evs in group(read_events(path)).items()]
+    rows.sort(key=lambda r: r["fingerprint"])
+    lines = []
+    for r in rows:
+        r["first_seen"], r["last_seen"] = r["first_date"], r["last_date"]
+        lines.append(json.dumps({k: r[k] for k in EXPORT_KEYS},
+                                sort_keys=True, ensure_ascii=False))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text("".join(l + "\n" for l in lines), encoding="utf-8")
+    os.replace(tmp, out)
+    print(f"exported {len(rows)} fingerprint(s) to {out}")
+
+
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def main(argv=None):
@@ -389,6 +480,10 @@ def main(argv=None):
     a.add_argument("--run-id", required=True, help="review run identifier")
     a.add_argument("--evidence", default=None, help="path to the evidence artifact (required for tier 1)")
     a.add_argument("--date", default=today, help="YYYY-MM-DD (default: today)")
+    a.add_argument("--category", default=None,
+                   help="kebab-case defect class (e.g. fail-open); switches to the structured fingerprint")
+    a.add_argument("--symbol", default=None,
+                   help="function, heading, or key the finding is about (requires --category)")
     a.set_defaults(fn=cmd_add)
 
     t = sub.add_parser("tally", help="group by fingerprint; report recurrence counts")
@@ -415,6 +510,10 @@ def main(argv=None):
     r.add_argument("--run-id", default=None)
     r.add_argument("--date", default=today)
     r.set_defaults(fn=cmd_retire)
+
+    x = sub.add_parser("export", help="write a per-fingerprint summary (no claim text) for committing")
+    x.add_argument("--out", required=True, help="output path (JSONL, one fingerprint per line)")
+    x.set_defaults(fn=cmd_export)
 
     args = p.parse_args(argv)
     if hasattr(args, "date"):

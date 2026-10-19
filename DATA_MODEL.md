@@ -1,19 +1,71 @@
 # Data Model
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
-cross-session memory files and the Claude Code Stop-hook memory-extraction
-contracts.
+cross-session memory files, the Claude Code Stop-hook memory-extraction
+contracts, and the findings-ledger event log and export.
 
-**Last updated:** 2026-07-13
+**Last updated:** 2026-10-19
 
 ## Change log
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-ledger-fp | Added findings-ledger contracts (issue #279): `FindingsLedgerEvent` (append-only JSONL event log; new optional `fingerprint_scheme` / `category` / `symbol` keys, structured scheme-2 fingerprint, RECURRING only on a sighting from a different `run_id`) and `FindingsLedgerExportRow` (new `export` per-fingerprint summary, no claim text). |
 | 2026-07-13 | remove-dispatch-gate | Removed the dispatch-gate contracts (`DispatchGateAuditRecord`, `DispatchGateHookDecision`, `DispatchGateHookEventPayload`, `DispatchGateLedger`, `DispatchGatePolicyConfig`); that gate was retired and its scripts and config deleted. |
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
 | 2026-07-06 | fix/macos-bash-issue-with-validate-script | No-op: `scripts/validate.sh` changes (ulimit fd bump, check_tombstones grep refactor) are internal control flow only — no data contracts affected. |
+
+---
+
+### FindingsLedgerEvent
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Append-only JSONL at `<main repo>/.claude/ledger/findings.jsonl`, resolved via `git rev-parse --git-common-dir` so linked worktrees converge on the main checkout's ledger; falls back to the nearest CWD ancestor containing `.claude/`; `--ledger PATH` overrides (`ledger.py:167-201`,`:230-236`). Written by `cmd_add` (`ledger.py:317-360`) and `_transition` for `promote` / `retire` (`:406-440`) through `append_event`, one `json.dumps(event, sort_keys=True, ensure_ascii=False)` line per event (`:257-268`), under an exclusive sidecar `<ledger>.lock` (`:204-227`). Read back and validated by `read_events` (`:239-254`): every line must carry all `REQUIRED_KEYS` and a `status` in `STATUSES`, else exit 2. Events are never edited or deleted (`ledger-format.md:9-11`). |
+| **Source** | `.claude/skills/findings-ledger/scripts/ledger.py` (lines 88-95, 239-268, 317-360, 406-428); prose schema `.claude/skills/findings-ledger/references/ledger-format.md` (lines 14-29) |
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `fingerprint` | string (16 hex) | yes | sha256 hex truncated to `FINGERPRINT_LEN = 16` (`ledger.py:92`). Scheme 1: `file.strip() + "\n" + normalize(claim)` (`:127-131`, must stay byte-stable). Scheme 2: `"\n".join(("v2", normalize_path(file), category, normalize_symbol(symbol)))` (`:159-164`) |
+| `fingerprint_scheme` | integer `1` \| `2` | no | `2` (`SCHEME_STRUCTURED`) when `add --category` given, else `1` (`SCHEME_TEXT`) — `ledger.py:93-94`,`:326-337`. Absent on pre-#279 events, read as `1` (`:298`,`:415`). Transition events copy it from the fingerprint's first event (`:415`) |
+| `category` | string (kebab-case slug) \| null | no | Lowercased and must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`, else exit 2 (`ledger.py:95`,`:143-146`,`:328-330`). Null for scheme 1; absent on legacy events (read via `.get`, `:299`,`:416`) |
+| `symbol` | string \| null | no | Stored as passed (`args.symbol`, `ledger.py:349`); normalized (backticks, trailing `()`, whitespace) only inside the hash (`:149-156`). `--symbol` without `--category` exits 2 (`:333-334`). Null when omitted; absent on legacy events |
+| `file` | string | yes | Repo-relative path the finding is about (`ledger.py:475`); stored raw — normalized only in the scheme-2 hash (`:134-140`) |
+| `claim` | string | yes | One-sentence claim summary (`ledger.py:476`). Transition events copy the first event's claim (`:419`) |
+| `tier` | integer `1` \| `2` | yes | `--tier` choices `(1, 2)` (`ledger.py:477`); tier 1 without non-blank `--evidence` is demoted to 2 (`:321-325`). Transitions copy the first event's tier (`:420`) |
+| `source` | string | yes | Emitting agent on `add` (`ledger.py:479`); default `"triage"` on `promote` / `retire` (`:502`,`:509`) |
+| `run_id` | string \| null | yes (key) | Required on `add` (`ledger.py:480`); defaults to null on transitions (`:503`,`:510`). Recurrence counts distinct `run_id`s among `NEW`/`RECURRING` sightings (`:288-292`) |
+| `date` | string `YYYY-MM-DD` | yes | Defaults to today; validated with `date.fromisoformat` (`ledger.py:271-275`,`:482`,`:519-520`) |
+| `evidence` | string \| null | yes (key) | Evidence artifact path; required non-blank for `PROMOTED` (`ledger.py:434-435`); always null on `RETIRED-NOISE` (`:440`) |
+| `status` | enum string | yes | `NEW` \| `RECURRING` \| `INVESTIGATING` \| `PROMOTED` \| `RETIRED-NOISE` (`ledger.py:88`). On `add`: `RECURRING` only if a prior sighting of the fingerprint came from a **different** `run_id`, else `NEW` (`:342-344`) |
+
+`REQUIRED_KEYS` = `fingerprint, file, claim, tier, source, run_id, date, evidence, status` (`ledger.py:90-91`); `fingerprint_scheme`, `category`, `symbol` are written on every new event but not required on read.
+
+---
+
+### FindingsLedgerExportRow
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Written by `ledger.py export --out <path>` (`cmd_export`, `ledger.py:447-463`) to a user-supplied path, intended as a committable team-shared artifact outside `.claude/ledger/` (e.g. `.claude/ledger-shared/<name>.jsonl`, `ledger-format.md:157-158`). JSONL, one row per fingerprint, sorted by fingerprint, `sort_keys=True` (`:453`,`:457-458`); rewritten in full via `.tmp` + `os.replace` (`:460-462`). Refuses an `--out` equal to the ledger path (`:450-451`). No claim text. Not read back by `ledger.py` (`ledger-format.md:160-161`). |
+| **Source** | `.claude/skills/findings-ledger/scripts/ledger.py` (lines 286-308, 443-463); prose `.claude/skills/findings-ledger/references/ledger-format.md` (lines 145-163) |
+
+Keys are exactly `EXPORT_KEYS` (`ledger.py:443-444`), derived from `summarize` (`:286-308`):
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `fingerprint` | string (16 hex) | yes | Group key — `ledger.py:297` |
+| `fingerprint_scheme` | integer `1` \| `2` | yes | From first event; `1` when absent (`ledger.py:298`) |
+| `category` | string \| null | yes (key) | From first event (`ledger.py:299`) |
+| `symbol` | string \| null | yes (key) | From first event (`ledger.py:300`) |
+| `file` | string | yes | From first event (`ledger.py:304`) |
+| `count` | integer ≥ 0 | yes | Distinct `run_id`s among `NEW`/`RECURRING` events (`ledger.py:288`,`:292`) |
+| `status` | enum string | yes | Status of the most recent event (`ledger.py:293`) |
+| `first_seen` | string `YYYY-MM-DD` | yes | Earliest sighting date; first event's `date` if no sightings (`ledger.py:295`,`:306`,`:456`) |
+| `last_seen` | string `YYYY-MM-DD` | yes | Latest sighting date; first event's `date` if no sightings (`ledger.py:295`,`:307`,`:456`) |
 
 ---
 
