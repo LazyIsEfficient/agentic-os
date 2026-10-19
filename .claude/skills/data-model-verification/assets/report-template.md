@@ -1,7 +1,7 @@
 # Data model verification — <project or PR id>
 
 **Reviewed:** `DATA_MODEL.md` (sections: …) · **Verifier:** data-model-verifier · **Date:** YYYY-MM-DD
-**Cold context:** yes — catalog diff + Source paths only; no documenter conversation
+**Cold context:** yes — base ref + section names + Source paths only; no documenter conversation
 
 ## Headline
 

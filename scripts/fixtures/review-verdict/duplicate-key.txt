@@ -1,0 +1,3 @@
+```json
+{"schema":"agentic-os/review-verdict@1","agent":"security-reviewer","base":"origin/main","head":"0123456789abcdef0123456789abcdef01234567","verdict":"hold","findings":[{"tier":1,"severity":"critical","file":"a","line":1,"summary":"s","evidence":"e"}],"verdict":"pass"}
+```
