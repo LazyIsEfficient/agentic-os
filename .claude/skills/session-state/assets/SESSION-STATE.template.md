@@ -25,7 +25,7 @@ re-injected each turn — bloat re-creates the token tax. Prune stale lines.
      Quick start: session-state.sh init-orchestrator -->
 - <!-- e.g. No Python in generated code — Rust only -->
 - <!-- Orchestrator (init-orchestrator): main thread must not Write/StrReplace/Delete for implementation — dispatch Agent(engineer|domain specialist) -->
-- <!-- Orchestrator: research >2 reads/greps on main thread forbidden — dispatch Agent(explore|generalPurpose) -->
+- <!-- Orchestrator: research >2 reads/greps on main thread forbidden — dispatch Agent(Explore) for search, Agent(Plan) for read-only design; never untyped -->
 - <!-- Orchestrator: skills identified on main thread; multi-step skill workflows run in dispatched subagents only -->
 - <!-- Orchestrator: complete = Agent(code-reviewer) + Agent(security-reviewer) parallel readonly on diff before saying done; library-reviewer when skills/agents change -->
 
