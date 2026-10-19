@@ -39,6 +39,62 @@ your user settings don't also register the hook. A global `install.sh` adds it t
 `~/.claude/settings.json`; if you installed globally, run with a settings source that
 omits it.
 
+## Arm isolation
+
+A library-OFF arm only means something if Claude Code cannot load the library. The
+library is usually installed globally in `~/.claude`, and Claude Code also loads
+`CLAUDE.md` files from every directory above the working directory. So an "OFF" run in
+a temp dir, or one that only swaps `--settings`, still loads the library.
+
+`metrics/run-arms.sh` isolates each arm (implementation in `metrics/lib/arm-isolation.sh`):
+
+- **Own root per arm.** Each arm gets its own `mktemp -d` root:
+  - `HOME=<root>/home`;
+  - `CLAUDE_CONFIG_DIR=<root>/home/.claude`, the same directory `HOME/.claude` resolves
+    to, so a code path that ignores the variable still lands in the temp dir;
+  - `TMPDIR` and the `XDG_*` dirs also point under the root.
+- **Working directory.** The working directory is `<root>/task`, a `git archive HEAD`
+  export of the repo with every `.claude/`, `CLAUDE.md`, `CLAUDE.local.md`,
+  `AGENTS.md` and `.mcp.json` removed.
+- **What each arm gets.**
+  - OFF gets nothing installed.
+  - ON gets the library via `HOME=<root>/home CLAUDE_DIR=<root>/home/.claude install.sh --force`.
+  - The real `~/.claude` is never read or written.
+- **Allowlisted environment.** The child keeps only `PATH LANG LC_ALL TERM USER LOGNAME
+  SHELL` plus one auth variable. `CLAUDECODE`, `CLAUDE_*`, other `ANTHROPIC_*` and
+  `XDG_*` are dropped. Values are set by `export` in a subshell, never in argv.
+- **Auth.** A fresh config dir has no login, and nothing is copied from `~/.claude` or
+  the keychain. Export `ANTHROPIC_API_KEY` (the docs say `-p` always uses it when
+  present) or `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`). The run fails with
+  instructions if neither is set. Only the variable's *name* is recorded. See
+  <https://code.claude.com/docs/en/authentication#authentication-precedence>.
+- **Preflight (Tier 0, blocking).** Before either arm sends a prompt, both are checked.
+  Any mismatch aborts the run before `claude` is called. The checks:
+  - temp `HOME` holds only `.claude`;
+  - the task tree holds no `.claude/`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` or
+    `.mcp.json`;
+  - no ancestor of the task dir, up to `/`, holds any of those;
+  - the managed policy dirs (`/Library/Application Support/ClaudeCode`,
+    `/etc/claude-code`) carry no agentic-os marker;
+  - **OFF only:** the config dir is empty;
+  - **ON only:** every file under `.claude/{skills,agents,hooks}`, plus the three
+    shipped commands, is byte-identical in the config dir, and `settings.json`
+    registers the hooks from that dir.
+- **Record.** Each preflight appends one line to `<out>/isolation.jsonl`: `run_id`,
+  `repo_sha`, `arm`, `session_id`, `recorded_utc`, `config_dir_listing_sha256` (a hash
+  of every path plus file contents), `preflight` (`pass`/`fail`), `failures[]`,
+  `auth_var` (name only) and `env_passthrough`. A report cites these lines to prove
+  isolation.
+- **Cleanup.** Arm roots are removed on exit, including on abort. `--keep` retains
+  them. Kept roots hold transcripts, which contain anything the model printed.
+
+Tested by `metrics/run-arms-isolation-test.sh`. It uses a stub `claude` and makes no
+API calls.
+
+Not covered: `eval-harness.js` and `reliability/reliability-harness.js` dispatch through
+Workflow `agent()` inside the current session, so they inherit that session's config
+and cannot be isolated this way (#273).
+
 ## How it fits together
 
 | Piece | File | Role |

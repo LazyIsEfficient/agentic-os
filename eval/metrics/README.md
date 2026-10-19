@@ -18,20 +18,29 @@ axis, per the effectiveness investigation) to **tokens-per-outcome + awareness d
 node session-metrics.mjs <transcript.jsonl> [--json]
 node session-metrics-cursor.mjs <transcript.jsonl> [--json]
 node compare.mjs <on.jsonl> <off.jsonl> [--json]   # auto-detects Claude vs Cursor per file
-bash run-arms.sh "<scenario prompt>"
+export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN; arms have no login of their own
+bash run-arms.sh [--keep] [--out DIR] "<scenario prompt>"
 bash session-metrics-test.sh && bash compare-test.sh   # Claude + Cursor self-tests
+bash run-arms-isolation-test.sh                        # arm isolation (stub claude, no API)
 ```
 
-## The two arms
+## The two arms (`run-arms.sh`)
 
-- **ON** — `claude --settings .claude/settings.json`: the awareness hooks are
-  active (SESSION-STATE injected at SessionStart + digested each turn; survey-guard).
-- **OFF** — `claude --settings '{"hooks":{}}'`: no awareness hooks, everything else
-  equal — the clean baseline. (`--bare` also strips LSP/plugins, so it confounds the
-  comparison; empty-hooks settings isolates the harness itself.)
+Each arm runs in its own `mktemp -d` root with its own `HOME` and
+`CLAUDE_CONFIG_DIR`, in a scrubbed export of the repo. See
+[../README.md#arm-isolation](../README.md#arm-isolation) for the full model.
 
-Both run the **same** scenario; the only difference is the harness. `compare.mjs`
-reports how much *more* the OFF arm spent (positive Δ / `saved%` = the harness helped).
+- **ON** — the library installed by `install.sh` into the arm's temp config dir:
+  skills, agents, shipped commands, and every consumer hook (awareness hooks plus
+  `block-bad-bash`, `survey-before-act`, `block-general-purpose`).
+- **OFF** — a fresh, empty config dir. Nothing installed.
+
+Both run the **same** scenario; the only difference is the library. `compare.mjs`
+reports how much *more* the OFF arm spent (positive Δ / `saved%` = the library helped).
+
+The interactive protocol in [AB-PROTOCOL.md](AB-PROTOCOL.md) still defines its arms
+with `--settings`. That compares hook sets only and is **not** isolated from a
+globally installed library.
 
 ## Cursor transcripts
 

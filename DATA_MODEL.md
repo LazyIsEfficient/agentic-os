@@ -10,6 +10,7 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-eval-isolation | Added `ArmIsolationRecord`: one JSONL line per eval arm appended to `<out>/isolation.jsonl` by `iso_record` (`eval/metrics/lib/arm-isolation.sh`) during the Tier 0 preflight in `eval/metrics/run-arms.sh`; records the auth variable NAME only, never its value. |
 | 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
 | 2026-10-19 | fix/audit-validate-rules | No-op: new `scripts/validate.sh` static checks (R4/R6/R9/R12/R13, skill-length, workflow-agent-type, no-general-purpose), a `warn()` helper emitting `WARN [tag]: path — reason`, and a warning count in the summary line are human-readable CLI output with no machine consumer in the repo (no file outside `scripts/validate*.sh` references the `WARN [` line). Warnings never change the exit code. No API/persistence/message changes. |
 | 2026-10-19 | fix/audit-ledger-fp | Added findings-ledger contracts (issue #279): `FindingsLedgerEvent` (append-only JSONL event log; new optional `fingerprint_scheme` / `category` / `symbol` keys, structured scheme-2 fingerprint, RECURRING only on a sighting from a different `run_id`; `add` rejects control characters in `--file`/`--category`/`--symbol`; scheme-2 path/symbol normalization) and `FindingsLedgerExportRow` (new `export` per-fingerprint summary, no claim text but raw `file`/`symbol` free text; refuses `--out` inside the ledger directory, reads under the lock, atomic `mkstemp` + `os.replace` write). Line citations refreshed after PR #288 review fixes. |
@@ -22,6 +23,35 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
 | 2026-07-06 | fix/macos-bash-issue-with-validate-script | No-op: `scripts/validate.sh` changes (ulimit fd bump, check_tombstones grep refactor) are internal control flow only — no data contracts affected. |
+
+---
+
+### ArmIsolationRecord
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Append-only JSONL at `<out>/isolation.jsonl` (`run-arms.sh:54`), where `<out>` is `--out DIR` or the default `eval/metrics/runs/<YYYYMMDDTHHMMSSZ UTC>-arms` (`run-arms.sh:23`,`:35`,`:52`; `eval/metrics/runs/` is gitignored, `.gitignore:49`). Written by `iso_record` (`arm-isolation.sh:176-197`): values are passed to `node -e` through environment variables, never a shell-built JSON string, and one `JSON.stringify(...) + "\n"` line is appended with `>>` (`:185-196`). Called by `preflight_arm` (`run-arms.sh:80-89`) after `iso_preflight`, for `on` then `off`, before either arm sends a prompt (`run-arms.sh:102-104`). The record is written whether preflight passes or fails; on failure the run exits 1 straight after, so a failing `on` arm means no `off` line is written (`run-arms.sh:83-88`). Read back by `eval/metrics/run-arms-isolation-test.sh` (`:83-84` expects `on:pass`,`off:pass` with a 64-char listing hash; `:117` expects a `"preflight":"fail"` line after planted contamination). Cited by reports as proof of isolation (`eval/README.md:83-87`). |
+| **Source** | `eval/metrics/lib/arm-isolation.sh` (lines 21-26, 56-67, 108-197); `eval/metrics/run-arms.sh` (lines 46-54, 80-104); prose `eval/README.md` ("Arm isolation", lines 42-92) |
+
+**Shape** (one line per arm; field order as written by `arm-isolation.sh:188-195`):
+
+```json
+{"run_id":"<uuid>","repo_sha":"a330c7b","arm":"on","session_id":"<uuid>","recorded_utc":"2026-10-19T12:00:00.000Z","config_dir_listing_sha256":"<64 hex>","preflight":"pass","failures":[],"auth_var":"ANTHROPIC_API_KEY","env_passthrough":["PATH","LANG","LC_ALL","TERM","USER","LOGNAME","SHELL","ANTHROPIC_API_KEY"]}
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `run_id` | string (UUID) | yes | One per `run-arms.sh` run, shared by both arm lines; `crypto.randomUUID()` (`run-arms.sh:49-50`) |
+| `repo_sha` | string | yes | `git rev-parse --short HEAD` of the repo (abbreviated, not full SHA), or literal `"unknown"` when git fails (`run-arms.sh:51`) |
+| `arm` | enum string | yes | `on` \| `off` (`run-arms.sh:103-104`). `iso_preflight` adds the failure `unknown arm: <arm>` for anything else (`arm-isolation.sh:168`) |
+| `session_id` | string (UUID) | yes | Per-arm `crypto.randomUUID()` (`run-arms.sh:99`), the same value later passed as `claude -p --session-id` (`run-arms.sh:94`) and used to locate the arm's transcript (`run-arms.sh:112-113`) |
+| `recorded_utc` | string (ISO 8601 UTC) | yes | `new Date().toISOString()` at write time (`arm-isolation.sh:190`) |
+| `config_dir_listing_sha256` | string | yes | `ISO_LISTING_SHA` (`arm-isolation.sh:171`,`:184`): sha256 over the sorted path listing of the arm's `CLAUDE_CONFIG_DIR` plus a `<sha256>  <path>` line per regular file (`iso_listing_sha256`, `:56-67`). Normally 64 lowercase hex; the literal `"unavailable"` only when the config dir does not exist (`:171-172`) |
+| `preflight` | enum string | yes | `"pass"` when `failures` is empty, else `"fail"` (`arm-isolation.sh:192`) |
+| `failures` | array of string | yes | `ISO_FAILS` from `iso_preflight`, one human-readable message per failed check, split on newlines with empty entries dropped (`arm-isolation.sh:182`,`:187`). `[]` on pass. Messages may contain absolute temp paths and up to 5 offending entry paths (`:116-168`) |
+| `auth_var` | string | yes | The NAME of the auth variable in use, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`, first non-empty in that order (`arm-isolation.sh:23`,`:31-37`). The credential value is never an input to `iso_record` and is never written (`:21-22`,`:176-178`); `run-arms.sh` exits 1 before any record if neither is set (`run-arms.sh:46`) |
+| `env_passthrough` | array of string | yes | `ISO_ENV_PASSTHROUGH` split on spaces (`PATH LANG LC_ALL TERM USER LOGNAME SHELL`, `arm-isolation.sh:26`) with `auth_var` appended (`:194`). Variable names only, no values. Matches the allowlist `iso_exec` keeps for the child (`:204`) |
 
 ---
 
