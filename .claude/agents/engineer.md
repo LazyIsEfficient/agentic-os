@@ -35,6 +35,10 @@ The skills below carry discipline-specific rules; load the ones the task touches
 
 Follow [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md) before reporting back to the orchestrator.
 
+## Dispatch constraint
+
+Every `Agent`/`Task` call passes an explicit specialist `subagent_type` — never untyped, never `general-purpose`. Allowed: `Explore` (search), `Plan` (read-only design), `data-model-documenter` (session close), and the stack specialists under Delegate below. Reviewers (`code-reviewer`, `security-reviewer`, `data-model-verifier`) are orchestrator-owned — do not dispatch them.
+
 ## Delegate to other agents
 
 - [data-model-documenter](data-model-documenter.md) — **mandatory session close** (see above); not optional

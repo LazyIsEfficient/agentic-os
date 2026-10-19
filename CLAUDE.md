@@ -92,7 +92,7 @@ After any implementation that touches more than a trivial diff, run the **gate D
 Do not run verifier in parallel with documenter. Do not re-dispatch documenter if an implementation agent already reported `G-data-document`. Full node table and triggers: [gate-dag.md](.claude/references/gate-dag.md).
 
 ### Pattern 4 — Research via Explore, never the main thread
-For any question that needs more than 2–3 file reads or greps, spawn `Explore` (or `general-purpose`) agents instead of polluting the main context.
+For any question that needs more than 2–3 file reads or greps, spawn `Explore` agents instead of polluting the main context. Read-only design questions go to `Plan`. Every dispatch names a specialist `subagent_type`; untyped or catch-all agents are never the target.
 
 - One `Explore` per discrete question. Brief tightly: `"quick"` / `"medium"` / `"very thorough"` per the agent's contract.
 - Fan out 3–5 in parallel for "where is X / how does Y / what depends on Z" surveys.
@@ -186,6 +186,10 @@ The ratchet only turns one way: checks migrate *down* the variance ladder
   tier into its definition.
 - Reviewing? Label each finding's tier. Attach the evidence artifact for Tier 1
   or it is Tier 2. Emit Tier 2 findings as ledger entries, not blocking language.
+  End with the machine verdict block — `pass | fix-before-merge | hold`, where
+  only Tier 0/1 findings may justify `hold`
+  ([review-verdict.md](.claude/references/review-verdict.md), parsed by
+  `scripts/parse-verdict.sh`).
 - Triaging? Run `/triage-findings` — it proposes promotions and retirements;
   the human disposes.
 <!-- END RULE -->
