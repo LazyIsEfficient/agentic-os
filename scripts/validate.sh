@@ -284,13 +284,14 @@ check_frontmatter_and_names() {
       fi
       local k
       for k in name description phases; do
-        if ! printf '%s\n' "$meta" | grep -Eq "(^|[ \t,{])$k[ \t]*:"; then
+        # POSIX classes, not `\t`: BSD grep/sed read `\t` in a bracket literally.
+        if ! printf '%s\n' "$meta" | grep -Eq "(^|[[:space:],{])$k[[:space:]]*:"; then
           fail frontmatter "$f" "meta object missing key: $k"
         fi
       done
       # meta.name value: first `name:` line, strip to the quoted/unquoted token.
-      local mname; mname="$(printf '%s\n' "$meta" | grep -E '(^|[ \t,{])name[ \t]*:' | head -1 \
-        | sed -E 's/.*name[ \t]*:[ \t]*//; s/[",]+//g; s/[ \t\r]+$//')"
+      local mname; mname="$(printf '%s\n' "$meta" | grep -E '(^|[[:space:],{])name[[:space:]]*:' | head -1 \
+        | sed -E 's/.*name[[:space:]]*:[[:space:]]*//; s/[",]+//g; s/[[:space:]]+$//')"
       local base; base="$(basename "$f" .js)"
       if [[ -n "$mname" ]]; then
         if ! [[ "$mname" =~ $KEBAB_RE ]]; then
@@ -869,10 +870,28 @@ check_skill_structure() {
   return 0
 }
 
+# ── Invariant 10b: no-symlinks ─────────────────────────────────────────────────
+# `[[ -f ]]` follows symlinks but every content check uses `find -type f`, which
+# does not — so a symlinked SKILL.md (or agent/command/workflow) passes structure
+# checks while its target, possibly outside the repo, is never scanned. Library
+# surfaces hold no symlinks today; any symlink there is a hard fail.
+check_no_symlinks() {
+  local dir f
+  for dir in skills agents commands workflows; do
+    [[ -d "$CLAUDE/$dir" ]] || continue
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && fail no-symlinks "$f" "symlink in .claude/$dir/ — content checks skip symlinks, so its target is never validated"
+    done < <(find "$CLAUDE/$dir" -type l | sort)
+  done
+  return 0
+}
+
 # ── Invariant 11: frontmatter-brackets (R13) ───────────────────────────────────
 # No `<` or `>` anywhere in skill/agent/command frontmatter — it is injected into
-# the system prompt. Allowed: a YAML block-scalar indicator (`key: >-`), and a
-# command's `argument-hint:` line (documented <placeholder> syntax, R13 exception).
+# the system prompt. Allowed: a YAML block-scalar indicator (`key: >-`, at any
+# indent), and in a command's `argument-hint:` value only whole `<placeholder>`
+# tokens (`<name>`, `<a|b|c>` alternation) — any other bracket use, e.g.
+# `<system>text`, still fails (R13 exception is the documented syntax only).
 check_frontmatter_brackets() {
   local f is_cmd hit
   local files=()
@@ -885,8 +904,17 @@ check_frontmatter_brackets() {
     [[ "$f" == "$CLAUDE/commands/"* ]] && is_cmd=1
     # Line numbers are file-relative: +1 for the opening `---`.
     hit="$(fm_block "$f" | awk -v is_cmd="$is_cmd" '
-      is_cmd && /^argument-hint:/ { next }
-      /^[A-Za-z0-9_-]+:[ \t]*[|>][-+0-9]*[ \t\r]*$/ { next }
+      is_cmd && /^argument-hint:/ {
+        v = $0
+        sub(/^argument-hint:[ \t]*/, "", v)
+        gsub(/[ \t\r]+$/, "", v)
+        if (v ~ /^".*"$/ || v ~ /^\047.*\047$/) v = substr(v, 2, length(v) - 2)
+        n = split(v, toks, /[ \t]+/)
+        for (j = 1; j <= n; j++)
+          if (toks[j] ~ /[<>]/ && toks[j] !~ /^<[a-z0-9_-]+(\|[a-z0-9_-]+)*>$/) { print NR + 1; exit }
+        next
+      }
+      /^[ \t]*[A-Za-z0-9_-]+:[ \t]*[|>][-+0-9]*[ \t\r]*$/ { next }
       /[<>]/ { print NR + 1; exit }
     ')"
     [[ -n "$hit" ]] && fail frontmatter-brackets "$f" "'<' or '>' in frontmatter (line $hit) — prompt-injection vector (R13)"
@@ -962,17 +990,18 @@ check_workflow_agent_type() {
 #     general-purpose when backticked, quoted, followed by agent/subagent, or
 #     after subagent_type — so the English adjective ("a general-purpose
 #     mechanism") is not flagged;
-#   - exempt: lines that forbid it (never / not allowed / ban / must not /
-#     do not / don't / prohibit). "forbidden" is deliberately NOT an exemption
-#     word: lines like "research on main thread forbidden — dispatch
-#     Agent(explore|generalPurpose)" forbid something else and endorse it;
+#   - exempt: lines where a negation binds to the dispatch verb — "never|don't|
+#     do not|must not" + "use|dispatch|spawn", or "is banned|is not allowed|is
+#     never". A bare negation word is not enough: "do not hesitate to dispatch
+#     `general-purpose`" endorses it, and "research on main thread forbidden —
+#     dispatch Agent(explore|generalPurpose)" forbids something else;
 #   - not scanned: .git, eval/, node_modules, gitignored local state
 #     (.claude/memory, .claude/ledger, .claude/worktrees), and this validator +
 #     its self-test, which must spell the pattern.
 # WARN, not FAIL, until PR #282 (which rewords the four endorsing lines still on
 # main) merges — then switch warn → fail here.
 GP_RE='generalPurpose|`general-purpose`|["'"'"']general-purpose["'"'"']|general-purpose[[:space:]]+(sub)?agents?\b|subagent_type[^[:alnum:]]*general-purpose'
-GP_FORBID_RE='never|not allowed|\bban(s|ned)?\b|must not|do not|don'"'"'t|prohibit'
+GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b'
 check_no_general_purpose() {
   local f ln text
   while IFS=: read -r f ln text; do
@@ -999,6 +1028,7 @@ check_claude_hook_registration
 check_codex_hook_registration
 check_tombstones
 check_skill_structure
+check_no_symlinks
 check_frontmatter_brackets
 check_workflow_agent_type
 check_no_general_purpose

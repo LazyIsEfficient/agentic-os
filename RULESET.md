@@ -8,7 +8,7 @@ Where this repo's gates are **stricter** than the guide, the local rule wins —
 see [Local divergences](#local-divergences-this-repo) at the end. When in doubt,
 the deterministic gate (`scripts/validate.sh`) is the final authority.
 
-`validate.sh` hard-fails on R4, R6, R7, R8, R9, R10, R12, R13, R31 and R37's
+`validate.sh` hard-fails on R4 (exactly-one-SKILL.md part), R6, R7, R8, R9, R10, R12, R13, R31 and R37's
 body links; it **warns** (never blocks) on the "~" guidance caps in R32. Rules
 marked **Not validator-enforced** need judgment or a live model and are covered
 by review (`library-reviewer`, `library-investigator`), not by the gate.
