@@ -26,15 +26,22 @@ P=0
 fail() { echo "FAIL install-lifecycle: $*" >&2; exit 1; }
 ok() { printf 'PASS  %s\n' "$1"; P=$((P + 1)); }
 
-if command -v shasum &>/dev/null; then sha() { shasum -a 256 "$1" | awk '{print $1}'; }
-else sha() { sha256sum "$1" | awk '{print $1}'; }; fi
+if command -v shasum &>/dev/null; then SHA=(shasum -a 256); else SHA=(sha256sum); fi
+sha() { "${SHA[@]}" "$1" | awk '{print $1}'; }
 
-# Content snapshot of a tree (paths + hashes + dirs) for no-change assertions.
+# Content snapshot of a tree (dirs, symlinks, file hashes) for no-change
+# assertions. NUL-safe: the tree holds a file whose name contains a newline.
 snap() {
-  local f
-  (cd "$1" && find . -type d | LC_ALL=C sort)
-  while IFS= read -r f; do printf '%s %s\n' "$(sha "$1/$f")" "$f"; done \
-    < <(cd "$1" && find . -type f | LC_ALL=C sort)
+  (cd "$1" && find . -type d -print0 | LC_ALL=C sort -z | tr '\0' '\n'
+   find . -type l -print0 | LC_ALL=C sort -z | tr '\0' '\n'
+   find . -type f -print0 | LC_ALL=C sort -z | xargs -0 "${SHA[@]}")
+}
+
+# Add a raw entry to a manifest's files array (simulates a hostile or older manifest).
+inject_manifest_entry() {
+  local m="$1" path="$2" h="$3"
+  awk -v p="$path" -v h="$h" '{ print } /"files": \[/ { printf "    {\"path\": \"%s\", \"sha256\": \"%s\"},\n", p, h }' \
+    "$m" > "$m.tmp" && mv "$m.tmp" "$m"
 }
 
 # ── Build release A ───────────────────────────────────────────────────────────
@@ -49,16 +56,27 @@ cp -R "$REPO/docs" "$rel/docs"
 cp -R "$REPO/assets/consumer" "$rel/assets/consumer"
 
 printf 'dropped in release B\n' > "$rel/.claude/skills/autoresearch/zz-dropped.txt"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$rel/.claude/hooks/zz-retired.sh"
-add_retired_reg() {
-  jq '.hooks.Stop = ((.hooks.Stop // []) + [{"hooks":[{"type":"command","command":"bash $HOME/.claude/hooks/zz-retired.sh"}]}])' \
+printf 'dropped in release B, edited locally\n' > "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt"
+# A skill release B retires (and tombstones), so --prune-legacy meets a tracked dir.
+mkdir -p "$rel/.claude/skills/zz-tomb"
+printf '%s\n' '---' 'name: zz-tomb' \
+  'description: Lifecycle-test fixture skill that release B retires. Use only in the installer test.' \
+  'when_to_use: |' '  Never; it exists only so the installer test can retire it.' '---' '' '# zz-tomb' '' 'Fixture.' \
+  > "$rel/.claude/skills/zz-tomb/SKILL.md"
+# zz-retired.sh is retired via RETIRED_HOOKS; zz-retired2.sh is dropped WITHOUT
+# being listed (the installer must derive it from the manifest).
+add_hook_reg() {
+  jq --arg c "$2" '.hooks.Stop = ((.hooks.Stop // []) + [{"hooks":[{"type":"command","command":$c}]}])' \
     "$1" > "$1.tmp" && mv "$1.tmp" "$1"
 }
-add_retired_reg "$rel/assets/consumer/claude-settings.json"
-jq '.hooks.Stop = ((.hooks.Stop // []) + [{"hooks":[{"type":"command","command":"bash .claude/hooks/zz-retired.sh"}]}])' \
-  "$rel/.claude/settings.json" > "$rel/.claude/settings.json.tmp" && mv "$rel/.claude/settings.json.tmp" "$rel/.claude/settings.json"
+for h in zz-retired.sh zz-retired2.sh; do
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$rel/.claude/hooks/$h"
+  add_hook_reg "$rel/assets/consumer/claude-settings.json" "bash \$HOME/.claude/hooks/$h"
+  add_hook_reg "$rel/.claude/settings.json" "bash .claude/hooks/$h"
+done
 
 run() { HOME="$home" CLAUDE_DIR="$dest" bash "$rel/install.sh" "$@" 2>&1; }
+runat() { local d="$1"; shift; HOME="$home" CLAUDE_DIR="$d" bash "$rel/install.sh" "$@" 2>&1; }
 
 # Pre-manifest leftovers: a retired (tombstoned) skill from an old install.
 mkdir -p "$dest/skills/security-and-hardening/references"
@@ -98,14 +116,35 @@ jq '.hooks.Stop += [{"hooks":[{"type":"command","command":"bash /opt/consumer-st
     | .permissions = {"allow":["Edit(foo)"]}' "$dest/settings.json" > "$dest/settings.json.tmp"
 mv "$dest/settings.json.tmp" "$dest/settings.json"
 user_sums="$(sha "$dest/skills/my-own-skill/SKILL.md") $(sha "$dest/agents/my-agent.md") $(sha "$dest/hooks/my-hook.sh")"
+printf '\nedited\n' >> "$dest/skills/autoresearch/zz-dropped-edited.txt"
+printf '\nedited\n' >> "$dest/skills/zz-tomb/SKILL.md"
+printf 'mine\n' > "$dest/skills/zz-tomb/extra.md"
+
+# Hostile manifest entries (path-traversal + root files), each with the
+# file's current hash, so only the path checks stand between them and rm.
+printf 'canary\n' > "$dest/CANARY.md"
+inject_manifest_entry "$mf" "settings.json" "$(sha "$dest/settings.json")"
+inject_manifest_entry "$mf" "skills/../CANARY.md" "$(sha "$dest/CANARY.md")"
+inject_manifest_entry "$mf" "CLAUDE.md" "$(sha "$dest/CANARY.md")"
+mkdir -p "$dest/memory"
+printf 'canary\n' > "$dest/memory/MEMORY.md"
+inject_manifest_entry "$mf" "memory/MEMORY.md" "$(sha "$dest/memory/MEMORY.md")"
+printf 'canary\n' > "$dest/CLAUDE.md"
+# Reviewer PoC: a newline in a legacy file name must not aim rm at $dest/CANARY2.md.
+printf 'canary\n' > "$dest/CANARY2.md"
+touch "$dest/skills/security-and-hardening/x"$'\n'"CANARY2.md"
 
 # ── Release B ─────────────────────────────────────────────────────────────────
 printf '\n<!-- lifecycle-test: release B -->\n' >> "$rel/.claude/agents/engineer.md"
-rm "$rel/.claude/skills/autoresearch/zz-dropped.txt" "$rel/.claude/hooks/zz-retired.sh"
+rm "$rel/.claude/skills/autoresearch/zz-dropped.txt" "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt" \
+  "$rel/.claude/hooks/zz-retired.sh" "$rel/.claude/hooks/zz-retired2.sh"
+rm -r "$rel/.claude/skills/zz-tomb"
 for f in "$rel/assets/consumer/claude-settings.json" "$rel/.claude/settings.json"; do
-  jq '.hooks.Stop |= map(select(any(.hooks[]; .command | endswith("zz-retired.sh")) | not))
+  jq '.hooks.Stop |= map(select(any(.hooks[]; .command | test("zz-retired2?\\.sh$")) | not))
       | if .hooks.Stop == [] then del(.hooks.Stop) else . end' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
+sed -e 's/^TOMBSTONES="/TOMBSTONES="zz-tomb /' "$rel/scripts/validate.sh" > "$rel/scripts/validate.sh.tmp"
+mv "$rel/scripts/validate.sh.tmp" "$rel/scripts/validate.sh"
 sed -e 's/^RETIRED_HOOKS=""/RETIRED_HOOKS="zz-retired.sh"/' "$rel/install.sh" > "$rel/install.sh.tmp" && mv "$rel/install.sh.tmp" "$rel/install.sh"
 sed -e 's/^\$RetiredHooks = @()/$RetiredHooks = @("zz-retired.sh")/' "$rel/install.ps1" > "$rel/install.ps1.tmp" && mv "$rel/install.ps1.tmp" "$rel/install.ps1"
 grep -q '^RETIRED_HOOKS="zz-retired.sh"' "$rel/install.sh" || fail "test setup: RETIRED_HOOKS not set"
@@ -137,6 +176,20 @@ ok "update always refreshes a hook and backs up the user-modified copy"
 
 [[ ! -e "$dest/skills/autoresearch/zz-dropped.txt" ]] || fail "file dropped from release not pruned"
 grep -q 'remove skills/autoresearch/zz-dropped.txt (no longer shipped)' "$tmp/out2" || fail "prune not reported"
+grep -q 'edited' "$dest/skills/autoresearch/zz-dropped-edited.txt" || fail "user-edited file dropped by the release was deleted"
+grep -q 'keep skills/autoresearch/zz-dropped-edited.txt — no longer shipped, but modified locally' "$tmp/out2" \
+  || fail "kept dropped file not named"
+jq -e '[.files[].path] | index(["skills/autoresearch/zz-dropped-edited.txt"]) != null' "$mf" >/dev/null \
+  || fail "kept dropped file no longer tracked"
+ok "a dropped file the user edited is kept, named, and stays tracked"
+
+for c in CANARY.md CLAUDE.md settings.json memory/MEMORY.md; do [[ -f "$dest/$c" ]] || fail "hostile manifest entry deleted $c"; done
+grep -q "skip settings.json — unsafe path" "$tmp/out2" || fail "hostile root entry not reported"
+grep -q "skip skills/../CANARY.md — unsafe path" "$tmp/out2" || fail "hostile .. entry not reported"
+grep -q "skip memory/MEMORY.md — unsafe path" "$tmp/out2" || fail "entry outside the shipped dirs not reported"
+jq -e '[.files[].path] | (index(["settings.json"]) == null) and (index(["CLAUDE.md"]) == null)' "$mf" >/dev/null \
+  || fail "hostile entries re-recorded in the manifest"
+ok "manifest entries outside the shipped dirs (root files, ..) are never removed"
 jq -e '[.files[].path] | (index(["skills/autoresearch/zz-dropped.txt"]) == null) and (index(["hooks/zz-retired.sh"]) == null)' "$mf" >/dev/null \
   || fail "pruned files still in manifest"
 ok "a file removed from the release is pruned"
@@ -151,6 +204,9 @@ ok "user-created files are untouched and untracked"
 s="$dest/settings.json"
 jq -e . "$s" >/dev/null || fail "settings.json invalid after update"
 jq -e '[.. | .command? | strings | select(endswith("zz-retired.sh"))] | length == 0' "$s" >/dev/null || fail "retired hook still registered"
+jq -e '[.. | .command? | strings | select(endswith("zz-retired2.sh"))] | length == 0' "$s" >/dev/null \
+  || fail "hook dropped without a RETIRED_HOOKS entry still registered"
+[[ ! -e "$dest/hooks/zz-retired2.sh" ]] || fail "unlisted retired hook file not pruned"
 jq -e '[.hooks.Stop[]?.hooks[].command] == ["bash /opt/consumer-stop.sh"]' "$s" >/dev/null || fail "consumer Stop hook not preserved: $(jq -c .hooks.Stop "$s")"
 jq -e '[.hooks.PreToolUse[].hooks[].command] | index(["bash /opt/consumer-guard.sh"]) != null' "$s" >/dev/null || fail "consumer PreToolUse hook lost"
 jq -e '.permissions.allow == ["Edit(foo)"]' "$s" >/dev/null || fail "non-hook settings key lost"
@@ -158,11 +214,22 @@ ok "a retired hook is unregistered and pruned; consumer hooks are preserved"
 
 # ── 4. --prune-legacy removes tombstoned pre-manifest skill dirs ─────────────
 run --prune-legacy > "$tmp/out3" || { cat "$tmp/out3"; fail "--prune-legacy failed"; }
-[[ ! -e "$dest/skills/security-and-hardening" ]] || fail "--prune-legacy left the tombstoned dir (or an empty parent)"
+[[ ! -e "$dest/skills/security-and-hardening/SKILL.md" && ! -e "$dest/skills/security-and-hardening/references" ]] \
+  || fail "--prune-legacy left tombstoned files (or an empty references/ dir)"
 grep -q 'remove skills/security-and-hardening/references/x.md (retired skill security-and-hardening (--prune-legacy))' "$tmp/out3" \
   || fail "--prune-legacy did not list each file"
 [[ -f "$dest/skills/my-own-skill/SKILL.md" ]] || fail "--prune-legacy touched a non-tombstoned user skill"
 ok "--prune-legacy lists and removes retired skill dirs, then empty dirs"
+
+[[ -f "$dest/CANARY2.md" ]] || fail "newline file name in a tombstoned dir deleted \$DEST/CANARY2.md"
+[[ -e "$dest/skills/security-and-hardening/x"$'\n'"CANARY2.md" ]] || fail "odd-named legacy file was removed instead of skipped"
+grep -qF "skip $(printf '%q' "skills/security-and-hardening/x"$'\n'"CANARY2.md") — unsafe path" "$tmp/out3" \
+  || fail "odd-named legacy file not reported"
+ok "--prune-legacy never acts on a newline-bearing file name (reviewer PoC 1)"
+
+grep -q 'edited' "$dest/skills/zz-tomb/SKILL.md" || fail "--prune-legacy deleted a tracked, user-edited file"
+[[ ! -e "$dest/skills/zz-tomb/extra.md" ]] || fail "--prune-legacy left an untracked file in a retired skill"
+ok "--prune-legacy removes only untracked files; tracked edits survive"
 
 # ── 5. --force overwrites a user-modified file ───────────────────────────────
 run --force > "$tmp/out4" || { cat "$tmp/out4"; fail "--force failed"; }
@@ -241,7 +308,71 @@ jq -e '.hooks == {"Stop":[{"hooks":[{"type":"command","command":"bash /opt/user-
   || fail "codex uninstall: wrong hooks.json $(jq -c . "$cx/hooks.json")"
 ok "codex install writes per-root manifests; uninstall removes owned files and AgenticOS hook groups only"
 
-# ── 9. Argument guards ───────────────────────────────────────────────────────
+# ── 9. Symlinks never lead writes or removals outside the root (PoC 3) ─────
+d5="$tmp/symlinked/.claude"
+runat "$d5" > "$tmp/out9" || { cat "$tmp/out9"; fail "install for symlink case failed"; }
+outside="$tmp/outside"
+mkdir -p "$outside"
+mv "$d5/skills/autoresearch" "$outside/autoresearch"
+ln -s "$outside/autoresearch" "$d5/skills/autoresearch"
+printf '\nedited outside\n' >> "$outside/autoresearch/SKILL.md"
+printf 'my own hook\n' > "$outside/hook.sh"
+rm "$d5/hooks/block-bad-bash.sh"
+ln -s "$outside/hook.sh" "$d5/hooks/block-bad-bash.sh"
+before="$(snap "$outside")"
+runat "$d5" --force > "$tmp/out9b" || { cat "$tmp/out9b"; fail "--force with symlinks failed"; }
+[[ "$(snap "$outside")" == "$before" ]] || fail "update/--force wrote through a symlink outside the root"
+grep -q 'skip skills/autoresearch/SKILL.md — unsafe path' "$tmp/out9b" || fail "symlinked skill dir not reported"
+grep -q 'skip hooks/block-bad-bash.sh — unsafe path' "$tmp/out9b" || fail "symlinked hook file not reported"
+runat "$d5" --uninstall > "$tmp/out9c" || { cat "$tmp/out9c"; fail "uninstall with symlinks failed"; }
+[[ "$(snap "$outside")" == "$before" ]] || fail "uninstall removed files through a symlink"
+ok "update, --force and uninstall never write or delete through a symlink"
+
+# ── 10. Without jq: retired hooks are kept, uninstall fails closed ──────────
+nojq="$tmp/nojq-bin"
+mkdir -p "$nojq"
+for bindir in /usr/bin /bin; do
+  for f in "$bindir"/*; do
+    b="${f##*/}"
+    [[ "$b" == jq || -e "$nojq/$b" ]] || ln -s "$f" "$nojq/$b"
+  done
+done
+d6="$tmp/nojq/.claude"
+runat "$d6" >/dev/null || fail "install for no-jq case failed"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$d6/hooks/zz-old.sh"
+inject_manifest_entry "$d6/.agentic-os-manifest.json" "hooks/zz-old.sh" "$(sha "$d6/hooks/zz-old.sh")"
+PATH="$nojq" HOME="$home" CLAUDE_DIR="$d6" "$BASH" "$rel/install.sh" > "$tmp/out10" 2>&1 \
+  || { cat "$tmp/out10"; fail "no-jq update failed"; }
+[[ -f "$d6/hooks/zz-old.sh" ]] || fail "no-jq update deleted a retired hook it could not unregister"
+grep -q 'keep retired hook hooks/zz-old.sh — jq is required' "$tmp/out10" || fail "no-jq retired hook not reported"
+grep -q '"hooks/zz-old.sh"' "$d6/.agentic-os-manifest.json" || fail "no-jq kept hook dropped from the manifest"
+if PATH="$nojq" HOME="$home" CLAUDE_DIR="$d6" "$BASH" "$rel/install.sh" --uninstall > "$tmp/out10b" 2>&1; then
+  fail "no-jq uninstall should fail closed"
+fi
+[[ -f "$d6/agents/engineer.md" && -f "$d6/.agentic-os-manifest.json" ]] || fail "no-jq uninstall removed files"
+ok "without jq, retired hooks are kept and uninstall fails closed"
+
+# ── 11. A settings.json the merge rejects fails fast, before any copy ────────
+d7="$tmp/badsettings/.claude"
+mkdir -p "$d7"
+printf '{not json' > "$d7/settings.json"
+if runat "$d7" --dry-run > "$tmp/out11a"; then fail "dry run passed on an unmergeable settings.json"; fi
+if runat "$d7" > "$tmp/out11b"; then fail "install passed on an unmergeable settings.json"; fi
+[[ "$(cd "$d7" && find . -type f)" == "./settings.json" && "$(cat "$d7/settings.json")" == '{not json' ]] \
+  || fail "install changed the destination before failing on settings.json: $(cd "$d7" && find . | head -5)"
+ok "an unmergeable settings.json fails dry-run and install before anything is copied"
+
+# ── 12. Hook backups never collide ───────────────────────────────────────────
+d8="$tmp/baks/.claude"
+runat "$d8" >/dev/null || fail "install for backup case failed"
+for i in 1 2; do
+  printf '\n# tweak %s\n' "$i" >> "$d8/hooks/survey-before-act.sh"
+  runat "$d8" >/dev/null || fail "backup run $i failed"
+done
+[[ "$(find "$d8/hooks" -name 'survey-before-act.sh.bak.*' | wc -l | tr -d ' ')" == 2 ]] || fail "hook backups collided"
+ok "each hook refresh writes its own backup"
+
+# ── 13. Argument guards ──────────────────────────────────────────────────────
 if run --uninstall --force >/dev/null; then fail "--uninstall --force should be rejected"; fi
 ok "--uninstall rejects --force"
 

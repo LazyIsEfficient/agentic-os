@@ -58,6 +58,9 @@ $ExpectedSha256 = "7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353e
 $RetiredHooks = @()
 
 $ManifestName = ".agentic-os-manifest.json"
+# Hook basenames a manifest tracked that this release no longer ships, so they
+# are unregistered even if $RetiredHooks forgot them.
+$script:DerivedRetired = @()
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -147,7 +150,7 @@ $Root  = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath
 $Work  = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 $Stage = Join-Path $Work "stage"
-$Stamp = Get-Date -Format "yyyyMMddHHmmss"
+$Stamp = "$(Get-Date -Format "yyyyMMddHHmmss").$PID"
 $Pfx   = if ($DryRun) { "[dry-run] " } else { "" }
 $script:Warnings = 0
 
@@ -156,14 +159,42 @@ function Warn([string]$Msg) { Write-Host "  ! $Pfx$Msg"; $script:Warnings++ }
 
 # ── Manifest ───────────────────────────────────────────────────────────────────
 
-$SafeRel = '^[A-Za-z0-9._@+/-]+$'
-
 function Get-Sha([string]$Path) { (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLower() }
 
 function Join-Rel([string]$Base, [string]$Rel) { Join-Path $Base ($Rel -replace '/', [System.IO.Path]::DirectorySeparatorChar) }
 
+# First path components this root ships. Nothing outside them is ever written
+# or removed.
+$ShippedPrefixes = @('skills', 'agents', 'commands', 'hooks')
+
+function Test-ReparsePoint([string]$Path) {
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item) -and [bool]($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+}
+
+# The single gate in front of every write, backup, and delete (same rules as
+# install.sh safe_rel): every component is [A-Za-z0-9._@+-] and none is `.`/`..`;
+# at least two components (never the manifest, settings.json, CLAUDE.md, or
+# anything else at the root); the first is a shipped prefix; and no component
+# from $Root down to the file is a symlink/junction (reparse point), so nothing
+# is ever reached outside $Root or through a link.
 function Test-SafeRel([string]$Rel) {
-  ($Rel -match $SafeRel) -and -not $Rel.StartsWith('/') -and -not ($Rel -match '(^|/)\.\.(/|$)')
+  if ($Rel -cnotmatch '^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$') { return $false }
+  if ("/$Rel/" -match '/\.\.?/') { return $false }
+  $parts = $Rel.Split('/')
+  if ($ShippedPrefixes -cnotcontains $parts[0]) { return $false }
+  $p = $Root
+  foreach ($c in $parts) {
+    $p = Join-Path $p $c
+    if (-not (Test-Path -LiteralPath $p)) { break }
+    if (Test-ReparsePoint $p) { return $false }
+  }
+  return $true
+}
+
+function Skip-Unsafe([string]$Rel) {
+  $shown = $Rel -replace "`r", '\r' -replace "`n", '\n'
+  Warn "skip $shown — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
 }
 
 # rel -> sha for every file under $Dir (paths use '/').
@@ -178,15 +209,15 @@ function Get-TreeHashes([string]$Dir) {
   return $map
 }
 
-# rel -> sha from a manifest; absolute or `..` paths are ignored so a tampered
-# manifest can never aim removal outside the install root.
+# rel -> sha for each well-formed manifest entry (path charset, 64 lowercase
+# hex). A parse filter only; Test-SafeRel guards every action.
 function Read-Manifest([string]$RootDir) {
   $map = @{}
   $mf = Join-Path $RootDir $ManifestName
   if (-not (Test-Path -LiteralPath $mf)) { return $map }
   $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
   foreach ($e in @($json.files)) {
-    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '^[0-9a-f]{64}$') -and (Test-SafeRel $e.path)) {
+    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '^[0-9a-f]{64}$') -and ($e.path -cmatch '^[A-Za-z0-9._@+/-]+$')) {
       $map[$e.path] = $e.sha256
     }
   }
@@ -228,6 +259,7 @@ function Remove-EmptyDirs([string]$RootDir, $RelDirs) {
     $cur = $d
     while ($cur -and $cur -ne '.') {
       $p = Join-Rel $RootDir $cur
+      if (Test-ReparsePoint $p) { break }
       if (Test-Path -LiteralPath $p) {
         if (@(Get-ChildItem -LiteralPath $p -Force).Count -gt 0) { break }
         Remove-Item -LiteralPath $p -Force
@@ -301,7 +333,8 @@ function Get-HookCommands($Json) {
 
 # Mode "merge": strip retired handlers everywhere, strip template handlers in
 # shipped events, append our groups. Mode "uninstall": strip template + retired
-# handlers everywhere. A non-object `hooks` (or, merging, a non-array shipped
+# handlers everywhere. Mode "check": run the merge without writing, so an
+# unmergeable settings.json fails before anything is copied. A non-object `hooks` (or, merging, a non-array shipped
 # event) throws before anything is written.
 function Update-ClaudeHookSettings([string]$Mode) {
   if (-not (Test-Path $SettingsTemplate)) { return }
@@ -314,10 +347,12 @@ function Update-ClaudeHookSettings([string]$Mode) {
   $tplCmds = @(foreach ($tev in ($raw | ConvertFrom-Json).hooks.PSObject.Properties) {
     foreach ($tg in @($tev.Value)) { foreach ($th in @($tg.hooks)) { $th.command } } })
   $tplSet = New-OwnedSet $tplCmds
-  $retSet = New-OwnedSet @($RetiredHooks | ForEach-Object { "bash `$HOME/.claude/hooks/$_" })
-  $allSet = New-OwnedSet (@($tplCmds) + @($RetiredHooks | ForEach-Object { "bash `$HOME/.claude/hooks/$_" }))
+  $retCmds = @(@($RetiredHooks) + @($script:DerivedRetired) | Where-Object { $_ } | ForEach-Object { "bash `$HOME/.claude/hooks/$_" })
+  $retSet = New-OwnedSet $retCmds
+  $allSet = New-OwnedSet (@($tplCmds) + $retCmds)
 
   if (-not (Test-Path $DestFile)) {
+    if ($Mode -eq "check") { return }
     if ($Mode -eq "uninstall") { Write-Host "  . no $DestFile — no hook entries to unregister"; return }
     # Fresh file: write the rewritten template VERBATIM (no JSON round-trip, so
     # the Windows PowerShell 5.1 single-element-array unwrap cannot happen).
@@ -337,7 +372,7 @@ function Update-ClaudeHookSettings([string]$Mode) {
   if ($null -ne $existing -and $existing -isnot [System.Management.Automation.PSCustomObject]) {
     throw "Error: failed to update AgenticOS hooks in ${DestFile}: hooks is not an object."
   }
-  $stripSet = if ($Mode -eq "merge") { $retSet } else { $allSet }
+  $stripSet = if ($Mode -eq "uninstall") { $allSet } else { $retSet }
   $merged = [ordered]@{}
   if ($null -ne $existing) {
     foreach ($ev in $existing.PSObject.Properties) {
@@ -350,7 +385,7 @@ function Update-ClaudeHookSettings([string]$Mode) {
       }
     }
   }
-  if ($Mode -eq "merge") {
+  if ($Mode -ne "uninstall") {
     $incoming = ($rewritten | ConvertFrom-Json).hooks
     foreach ($ev in $incoming.PSObject.Properties) {
       $groups = if ($merged.Contains($ev.Name)) { $merged[$ev.Name] } else { @() }
@@ -362,6 +397,8 @@ function Update-ClaudeHookSettings([string]$Mode) {
       $merged[$ev.Name] = $keptGroups + @($ev.Value)
     }
   }
+  # "check" only proves the merge would succeed (it throws otherwise).
+  if ($Mode -eq "check") { return }
   if ($Mode -eq "uninstall" -and $merged.Count -eq 0 -and $null -ne $existing -and @($existing.PSObject.Properties).Count -gt 0) {
     $destJson.PSObject.Properties.Remove('hooks')
   } elseif ($null -ne $existing -or $Mode -eq "merge") {
@@ -393,6 +430,7 @@ if ($Uninstall) {
   # hook scripts it still points at are left in place.
   Write-Host ""
   Write-Host "Hook registration: $(Join-Path $Root 'settings.json')"
+  $script:DerivedRetired = @((Read-Manifest $Root).Keys | Where-Object { $_ -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$' } | ForEach-Object { $_.Substring(6) })
   if (Test-Path -LiteralPath $Root) { Update-ClaudeHookSettings "uninstall" }
   Write-Host ""
   $mf = Join-Path $Root $ManifestName
@@ -402,6 +440,7 @@ if ($Uninstall) {
     $old = Read-Manifest $Root
     $dirs = @(); $removed = 0; $kept = 0
     foreach ($rel in (Get-SortedKeys $old)) {
+      if (-not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
       $target = Join-Rel $Root $rel
       if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { continue }
       if ((Get-Sha $target) -eq $old[$rel]) {
@@ -471,10 +510,12 @@ Install-Dir "hooks"
 # phase 2 removes, prunes empty dirs and writes the manifest — so settings.json
 # never points at a hook file that is not on disk, even if the merge throws.
 
-$new = Get-TreeHashes $Stage
-foreach ($rel in $new.Keys) {
-  if (-not ($rel -match '^[A-Za-z0-9._@+/-]+$')) { throw "Error: release contains a path outside [A-Za-z0-9._@+-] — refusing to install: $rel" }
+foreach ($item in Get-ChildItem -LiteralPath $Stage -Recurse -Force) {
+  if ($item.Name -cnotmatch '^[A-Za-z0-9._@+-]+$') { throw "Error: release contains a path outside [A-Za-z0-9._@+-] — refusing to install: $($item.FullName)" }
 }
+# Fail fast, before anything is copied: an unmergeable settings.json throws here.
+Update-ClaudeHookSettings "check"
+$new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
 $all = @{}
 foreach ($k in $new.Keys) { $all[$k] = 1 }
@@ -485,14 +526,20 @@ $removals = New-Object System.Collections.ArrayList
 $added = 0; $updated = 0; $same = 0; $legacyKept = 0
 
 foreach ($rel in (Get-SortedKeys $all)) {
+  if (-not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
   $target = Join-Rel $Root $rel
   $csha = if (Test-Path -LiteralPath $target -PathType Leaf) { Get-Sha $target } else { $null }
   $osha = if ($old.ContainsKey($rel)) { $old[$rel] } else { $null }
   if (-not $new.ContainsKey($rel)) {
     # Tracked by the old manifest, dropped by this release.
+    if ($rel -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$') { $script:DerivedRetired += $rel.Substring(6) }
     if ($null -eq $csha) { continue }
     if ($csha -eq $osha) { [void]$removals.Add(@($rel, "no longer shipped")) }
-    else { Warn "keep $rel — no longer shipped, but modified locally (now yours)" }
+    else {
+      # Stays tracked, so uninstall and -PruneLegacy still see it as modified.
+      $manifest[$rel] = $osha
+      Warn "keep $rel — no longer shipped, but modified locally"
+    }
     continue
   }
   $nsha = $new[$rel]
@@ -506,9 +553,11 @@ foreach ($rel in (Get-SortedKeys $all)) {
     Copy-Placed $from $target; Note "update $rel"; $updated++
   } elseif ($rel.StartsWith("hooks/")) {
     # Shipped hooks are security-relevant: always take the release copy.
-    if (-not $DryRun) { Copy-Item -LiteralPath $target -Destination "$target.bak.$Stamp" }
+    $bak = "$rel.bak.$Stamp"; $n = 1
+    while (Test-Path -LiteralPath (Join-Rel $Root $bak)) { $bak = "$rel.bak.$Stamp.$n"; $n++ }
+    if (-not $DryRun) { Copy-Item -LiteralPath $target -Destination (Join-Rel $Root $bak) }
     Copy-Placed $from $target
-    Warn "refresh hook $rel — it differed from the release copy; yours is saved as $rel.bak.$Stamp"
+    Warn "refresh hook $rel — it differed from the release copy; yours is saved as $bak"
     $updated++
   } elseif ($Force) {
     Copy-Placed $from $target; Note "overwrite $rel (-Force)"; $updated++
@@ -524,8 +573,10 @@ foreach ($rel in (Get-SortedKeys $all)) {
 foreach ($t in $Tombstones) {
   $d = Join-Path (Join-Path $Root "skills") $t
   if (-not (Test-Path -LiteralPath $d -PathType Container) -or (Test-Path -LiteralPath (Join-Path (Join-Path $Stage "skills") $t))) { continue }
+  if (Test-ReparsePoint $d) { Warn "skip retired skill skills/$t — it is a symlink; not touched"; continue }
   $legacy = @(foreach ($f in Get-ChildItem -LiteralPath $d -Recurse -File -Force) {
     $rel = "skills/$t/" + ($f.FullName.Substring((Convert-Path -LiteralPath $d).TrimEnd('\', '/').Length + 1) -replace '\\', '/')
+    if (-not $rel.StartsWith("skills/$t/") -or -not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
     if (-not $old.ContainsKey($rel)) { $rel }
   })
   if ($legacy.Count -eq 0) { continue }
@@ -540,6 +591,8 @@ Update-ClaudeHookSettings "merge"
 
 $dirs = @()
 foreach ($r in $removals) {
+  # Re-checked at the point of deletion.
+  if (-not (Test-SafeRel $r[0])) { Skip-Unsafe $r[0]; continue }
   Note "remove $($r[0]) ($($r[1]))"
   if (-not $DryRun) { Remove-Item -LiteralPath (Join-Rel $Root $r[0]) -Force }
   $dirs += (Get-RelDir $r[0])

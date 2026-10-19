@@ -77,12 +77,26 @@ _CODEX_HOOKS_JQ='
   end
 '
 
+# $3 = "check": only verify an existing hooks.json would merge (writes nothing).
 merge_codex_hook_settings() {
-  local repo_root="$1" dest="$2"
+  local repo_root="$1" dest="$2" mode="${3:-}"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/codex-hooks.json"
   local dest_file="$dest/hooks.json"
   [[ -f "$src" ]] || return 0
+  if [[ "$mode" == "check" ]]; then
+    if [[ ! -f "$dest_file" ]] || ! command -v jq &>/dev/null; then return 0; fi
+    local probe
+    probe="$(mktemp)"
+    if ! jq --arg mode merge --argjson incoming "$(_codex_hooks_json_for_dest "$src" "$dest/hooks")" \
+        "$_CODEX_HOOKS_JQ" "$dest_file" > "$probe" 2>/dev/null; then
+      rm -f "$probe"
+      echo "Error: $dest_file cannot be merged (is it valid JSON?) — fix it first. Nothing was changed." >&2
+      return 1
+    fi
+    rm -f "$probe"
+    return 0
+  fi
   mkdir -p "$dest"
 
   if ! command -v jq &>/dev/null; then
@@ -102,6 +116,8 @@ merge_codex_hook_settings() {
   if [[ -f "$dest_file" ]]; then
     # Preserve unrelated Codex hooks; replace only AgenticOS-marked groups, so
     # the merge is idempotent without owning the user's whole hooks object.
+    # `cp -p` first so the rewrite keeps the file's mode.
+    cp -p "$dest_file" "$dest_file.tmp"
     if ! jq --arg mode merge --argjson incoming "$hooks_json" "$_CODEX_HOOKS_JQ" \
         "$dest_file" > "$dest_file.tmp"; then
       rm -f "$dest_file.tmp"
@@ -204,12 +220,29 @@ _CLAUDE_HOOKS_JQ='
     end
 '
 
-# $3 = space-separated retired hook basenames (optional).
+# $3 = space-separated retired hook basenames (optional). $4 = "check": only
+# verify an existing settings.json would merge (writes and creates nothing).
 merge_claude_hook_settings() {
-  local repo_root="$1" dest="$2" retired="${3:-}"
+  local repo_root="$1" dest="$2" retired="${3:-}" mode="${4:-}"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
   [[ -f "$src" ]] || return 0
+  if [[ "$mode" == "check" ]]; then
+    if [[ ! -f "$dest/settings.json" ]] || ! command -v jq &>/dev/null; then return 0; fi
+    local cdest probe
+    cdest="$(cd "$dest" && pwd -P)"
+    probe="$(mktemp)"
+    if ! jq --arg mode merge --argjson incoming "$(_claude_hooks_json_for_dest "$src" "$cdest/hooks")" \
+        --slurpfile tpl "$src" --argjson retired "$(_retired_hooks_json "$retired")" \
+        --arg canon "$cdest/hooks" --arg given "${dest%/}/hooks" \
+        "$_CLAUDE_HOOKS_JQ" "$cdest/settings.json" > "$probe" 2>/dev/null; then
+      rm -f "$probe"
+      echo "Error: $cdest/settings.json cannot be merged (needs valid JSON with an object \"hooks\") — fix it first. Nothing was changed." >&2
+      return 1
+    fi
+    rm -f "$probe"
+    return 0
+  fi
 
   # Canonicalise DEST (trailing slashes, `..`, symlinks) so `CLAUDE_DIR=~/.claude/`
   # and `~/.claude` produce identical commands and never double-register.

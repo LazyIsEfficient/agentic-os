@@ -229,7 +229,7 @@ source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
 TOMBSTONES="$(sed -n 's/^TOMBSTONES="\(.*\)"$/\1/p' "$REPO_ROOT/scripts/validate.sh")"
 
 WORK="$(mktemp -d)"
-STAMP="$(date +%Y%m%d%H%M%S)"
+STAMP="$(date +%Y%m%d%H%M%S).$$"
 P=""
 [[ "$DRY_RUN" == "true" ]] && P="[dry-run] "
 N_WARN=0
@@ -240,7 +240,8 @@ warn() { printf '  ⚠ %s%s\n' "$P" "$*"; N_WARN=$((N_WARN + 1)); }
 # ── Manifest ──────────────────────────────────────────────────────────────────
 
 # Hash NUL-separated paths (list file $2, relative to dir $1) into "<rel>\t<sha>"
-# lines in $3, sorted by path.
+# lines in $3, sorted by path. Callers only pass paths that are already
+# charset-checked (no tab/newline), so the TSV is unambiguous.
 hash_into() {
   local dir="$1" list="$2" out="$3"
   : > "$out"
@@ -250,8 +251,9 @@ hash_into() {
     | LC_ALL=C sort > "$out"
 }
 
-# "<rel>\t<sha>" for each entry of manifest $1. An absolute or `..` path is
-# ignored, so a tampered manifest can never aim removal outside its root.
+# "<rel>\t<sha>" for each well-formed entry of manifest $1 (path charset
+# [A-Za-z0-9._@+/-], 64-hex sha). This is a parse filter only; containment is
+# enforced by safe_rel before anything is written or removed.
 read_manifest() {
   [[ -f "$1" ]] || return 0
   LC_ALL=C awk '
@@ -259,13 +261,13 @@ read_manifest() {
       s = substr($0, RSTART, RLENGTH)
       p = s; sub(/^"path": "/, "", p); sub(/", "sha256".*$/, "", p)
       h = s; sub(/.*"sha256": "/, "", h); sub(/"$/, "", h)
-      if (length(h) != 64 || p !~ /^[A-Za-z0-9._@+\/-]+$/ || p ~ /^\// || p ~ /(^|\/)\.\.(\/|$)/) next
+      if (length(h) != 64 || p !~ /^[A-Za-z0-9._@+\/-]+$/) next
       print p "\t" h
     }' "$1" | LC_ALL=C sort -u
 }
 
 # Release paths are restricted to [A-Za-z0-9._@+-] segments, so manifest JSON
-# needs no escaping and every path survives a tab/newline-delimited plan.
+# needs no escaping.
 write_manifest() {
   local root="$1" tsv="$2" platform="$3" out="$1/$MANIFEST_NAME"
   {
@@ -280,6 +282,54 @@ write_manifest() {
   mv "$out.tmp" "$out"
 }
 
+# ── Path safety ───────────────────────────────────────────────────────────────
+
+# Canonical (symlink-resolved) form of the root being processed; set by
+# set_root before any safe_rel call. Empty while the root does not exist yet.
+ROOT_CANON=""
+set_root() {
+  ROOT_CANON=""
+  if [[ -d "$1" ]]; then ROOT_CANON="$(cd "$1" && pwd -P)"; fi
+}
+
+# Succeeds only when "$1/$2" may be written or removed. The single gate in
+# front of every write, backup, and rm:
+#   - every component is [A-Za-z0-9._@+-], none is `.`/`..`, and there are at
+#     least two (nothing at the root itself: never the manifest, settings.json,
+#     hooks.json, CLAUDE.md, AGENTS.md);
+#   - the first component is a shipped prefix from $3 ("*" = any skill dir of a
+#     Codex skills root, except memory/ledger);
+#   - no component from the root down to the file is a symlink, and the parent
+#     resolves (pwd -P) inside the canonical root.
+safe_rel() {
+  local root="$1" rel="$2" allow="$3" first p c dir canon
+  [[ "$rel" =~ ^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$ ]] || return 1
+  case "/$rel/" in */./*|*/../*) return 1 ;; esac
+  first="${rel%%/*}"
+  if [[ "$allow" == "*" ]]; then
+    case "$first" in memory|ledger) return 1 ;; esac
+  else
+    case " $allow " in *" $first "*) ;; *) return 1 ;; esac
+  fi
+  p="$root"
+  local IFS=/
+  for c in $rel; do
+    p="$p/$c"
+    [[ -L "$p" ]] && return 1
+  done
+  dir="${p%/*}"
+  if [[ -d "$dir" ]]; then
+    # A fresh root only appears once the first file is placed.
+    [[ -n "$ROOT_CANON" ]] || set_root "$root"
+    [[ -n "$ROOT_CANON" ]] || return 1
+    canon="$(cd "$dir" && pwd -P)"
+    [[ "$canon" == "$ROOT_CANON" || "$canon" == "$ROOT_CANON"/* ]] || return 1
+  fi
+  return 0
+}
+
+unsafe() { warn "skip $(printf '%q' "$1") — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"; }
+
 # ── Sync one install root against its staged release tree ───────────────────
 #
 # Phase 1 (sync_place) adds/updates files and plans removals; phase 2
@@ -290,11 +340,13 @@ write_manifest() {
 #   $1 id (work-dir name)  $2 stage dir  $3 install root
 #   $4 hook prefix ("hooks/" or "")  $5 skills prefix ("skills/", or "" when the
 #   root IS the skills dir, "-" when it holds no skills)  $6 platform  $7 label
+#   $8 shipped first-component allowlist (see safe_rel)
 sync_place() {
-  local id="$1" stage="$2" root="$3" hookp="$4" skillp="$5"
-  local w="$WORK/$id" rel nsha osha csha
+  local id="$1" stage="$2" root="$3" hookp="$4" skillp="$5" allow="$8"
+  local w="$WORK/$id" rel nsha osha csha bak n
   local added=0 updated=0 same=0 legacy_kept=0
   mkdir -p "$w"
+  set_root "$root"
 
   if [[ -n "$(LC_ALL=C find "$stage" -name '*[!A-Za-z0-9._@+-]*' -print)" ]]; then
     echo "Error: release contains a path outside [A-Za-z0-9._@+-] — refusing to install:" >&2
@@ -307,7 +359,7 @@ sync_place() {
   read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"
   cut -f1 "$w/old.tsv" > "$w/old.paths"
   cut -f1 "$w/new.tsv" "$w/old.tsv" | LC_ALL=C sort -u | while IFS= read -r rel; do
-    if [[ -f "$root/$rel" ]]; then printf '%s\0' "$rel"; fi
+    if [[ -f "$root/$rel" ]] && safe_rel "$root" "$rel" "$allow"; then printf '%s\0' "$rel"; fi
   done > "$w/cur.lst"
   hash_into "$root" "$w/cur.lst" "$w/cur.tsv"
 
@@ -319,10 +371,18 @@ sync_place() {
   ' "$w/new.tsv" "$w/old.tsv" "$w/cur.tsv" | LC_ALL=C sort > "$w/plan.tsv"
 
   : > "$w/manifest.tsv"
-  : > "$w/remove.tsv"
+  : > "$w/remove.lst"
   while IFS=$'\t' read -r rel nsha osha csha; do
+    if ! safe_rel "$root" "$rel" "$allow"; then
+      unsafe "$rel"
+      continue
+    fi
     if [[ "$nsha" == "-" ]]; then
       # Tracked by the old manifest, dropped by this release.
+      if [[ -n "$hookp" && "$rel" =~ ^hooks/[A-Za-z0-9._-]+\.sh$ ]]; then
+        # Unregister it from settings.json even if RETIRED_HOOKS forgot it.
+        printf '%s\n' "${rel##*/}" >> "$WORK/retired.derived"
+      fi
       if [[ "$csha" == "-" ]]; then
         :
       elif [[ -n "$hookp" && "$rel" == "$hookp"* ]] && ! command -v jq &>/dev/null; then
@@ -331,9 +391,11 @@ sync_place() {
         printf '%s\t%s\n' "$rel" "$osha" >> "$w/manifest.tsv"
         warn "keep retired hook $rel — jq is required to unregister it first"
       elif [[ "$csha" == "$osha" ]]; then
-        printf '%s\tno longer shipped\n' "$rel" >> "$w/remove.tsv"
+        printf '%s\0%s\0' "$rel" "no longer shipped" >> "$w/remove.lst"
       else
-        warn "keep $rel — no longer shipped, but modified locally (now yours)"
+        # Stays tracked, so uninstall and --prune-legacy still see it as modified.
+        printf '%s\t%s\n' "$rel" "$osha" >> "$w/manifest.tsv"
+        warn "keep $rel — no longer shipped, but modified locally"
       fi
       continue
     fi
@@ -349,9 +411,12 @@ sync_place() {
       updated=$((updated + 1))
     elif [[ -n "$hookp" && "$rel" == "$hookp"* ]]; then
       # Shipped hooks are security-relevant: always take the release copy.
-      [[ "$DRY_RUN" == "true" ]] || cp -p "$root/$rel" "$root/$rel.bak.$STAMP"
+      bak="$rel.bak.$STAMP"
+      n=1
+      while [[ -e "$root/$bak" || -L "$root/$bak" ]]; do bak="$rel.bak.$STAMP.$n"; n=$((n + 1)); done
+      [[ "$DRY_RUN" == "true" ]] || cp -p "$root/$rel" "$root/$bak"
       place "$stage/$rel" "$root/$rel"
-      warn "refresh hook $rel — it differed from the release copy; yours is saved as $rel.bak.$STAMP"
+      warn "refresh hook $rel — it differed from the release copy; yours is saved as $bak"
       updated=$((updated + 1))
     elif [[ "$FORCE" == "true" ]]; then
       place "$stage/$rel" "$root/$rel"
@@ -366,21 +431,31 @@ sync_place() {
   done < "$w/plan.tsv"
 
   # Retired skills from pre-manifest installs: files the old manifest does not
-  # track are removed only with --prune-legacy, listed one by one first.
+  # track are removed only with --prune-legacy, listed one by one first. Every
+  # name is validated before use; anything odd is reported and left alone.
   local t d f frel names="$TOMBSTONES"
   [[ "$skillp" == "-" ]] && names=""   # "-": this root holds no skills
   for t in $names; do
     d="$skillp$t"
-    [[ -d "$root/$d" && ! -e "$stage/$d" ]] || continue
+    [[ ! -e "$stage/$d" ]] || continue
+    if [[ -L "$root/$d" ]]; then
+      warn "skip retired skill $d — it is a symlink; not touched"
+      continue
+    fi
+    [[ -d "$root/$d" ]] || continue
     : > "$w/legacy.lst"
     while IFS= read -r -d '' f; do
       frel="${f#"$root"/}"
-      if ! grep -qxF -- "$frel" "$w/old.paths"; then printf '%s\n' "$frel" >> "$w/legacy.lst"; fi
+      if [[ "$frel" != "$d"/* ]] || ! safe_rel "$root" "$frel" "$allow"; then
+        unsafe "$frel"
+        continue
+      fi
+      if ! grep -qxF -- "$frel" "$w/old.paths"; then printf '%s\0' "$frel" >> "$w/legacy.lst"; fi
     done < <(find "$root/$d" ! -type d -print0)
     [[ -s "$w/legacy.lst" ]] || continue
     if [[ "$PRUNE_LEGACY" == "true" ]]; then
-      while IFS= read -r frel; do
-        printf '%s\tretired skill %s (--prune-legacy)\n' "$frel" "$t" >> "$w/remove.tsv"
+      while IFS= read -r -d '' frel; do
+        printf '%s\0%s\0' "$frel" "retired skill $t (--prune-legacy)" >> "$w/remove.lst"
       done < "$w/legacy.lst"
     else
       warn "retired skill directory $d is still installed (predates the manifest) — re-run with --prune-legacy to remove it"
@@ -391,14 +466,21 @@ sync_place() {
 }
 
 sync_finish() {
-  local id="$1" root="$3" platform="$6" label="$7"
+  local id="$1" root="$3" platform="$6" label="$7" allow="$8"
   local w="$WORK/$id" rel why added updated same legacy_kept
+  set_root "$root"
   : > "$w/dirs.lst"
-  while IFS=$'\t' read -r rel why; do
+  while IFS= read -r -d '' rel && IFS= read -r -d '' why; do
+    # Re-checked at the point of deletion: the tree may have changed since
+    # the plan was made (e.g. the hook merge ran in between).
+    if ! safe_rel "$root" "$rel" "$allow"; then
+      unsafe "$rel"
+      continue
+    fi
     note "remove $rel ($why)"
     [[ "$DRY_RUN" == "true" ]] || rm -f "$root/$rel"
     dirname "$rel" >> "$w/dirs.lst"
-  done < "$w/remove.tsv"
+  done < "$w/remove.lst"
   prune_empty_dirs "$root" "$w/dirs.lst"
 
   { read -r added; read -r updated; read -r same; read -r legacy_kept; } < "$w/counts"
@@ -417,23 +499,34 @@ place() {
   cp "$1" "$2"
 }
 
-# Remove now-empty directories from each listed dir up to (never including) root.
+# Remove now-empty directories from each listed dir up to (never including)
+# root. Inputs are dirnames of safe_rel-checked paths; rmdir never follows a
+# symlink and only removes empty directories.
 prune_empty_dirs() {
   local root="$1" list="$2" d
   [[ "$DRY_RUN" == "true" ]] && return 0
   LC_ALL=C sort -ru "$list" | while IFS= read -r d; do
     while [[ -n "$d" && "$d" != "." && "$d" != "/" ]]; do
+      [[ -L "$root/$d" ]] && break
       rmdir "$root/$d" 2>/dev/null || break
       d="$(dirname "$d")"
     done
   done
 }
 
-# Remove every unmodified manifest file under $1; keep (and name) modified ones.
+# Basenames of the hook scripts a manifest tracks (all AgenticOS-owned), so
+# uninstall unregisters them even if a later release forgot RETIRED_HOOKS.
+manifest_hook_names() {
+  read_manifest "$1" | cut -f1 | sed -n 's#^hooks/\([A-Za-z0-9._-]*\.sh\)$#\1#p' | tr '\n' ' '
+}
+
+# Remove every unmodified manifest file under $2; keep (and name) modified ones.
+#   $1 id  $2 root  $3 label  $4 shipped first-component allowlist
 uninstall_root() {
-  local id="$1" root="$2" label="$3"
+  local id="$1" root="$2" label="$3" allow="$4"
   local w="$WORK/$id" mf="$2/$MANIFEST_NAME" rel osha csha removed=0 kept=0
   mkdir -p "$w"
+  set_root "$root"
   echo ""
   echo "$label: $root"
   if [[ ! -f "$mf" ]]; then
@@ -442,7 +535,7 @@ uninstall_root() {
   fi
   read_manifest "$mf" > "$w/old.tsv"
   cut -f1 "$w/old.tsv" | while IFS= read -r rel; do
-    if [[ -f "$root/$rel" ]]; then printf '%s\0' "$rel"; fi
+    if [[ -f "$root/$rel" ]] && safe_rel "$root" "$rel" "$allow"; then printf '%s\0' "$rel"; fi
   done > "$w/cur.lst"
   hash_into "$root" "$w/cur.lst" "$w/cur.tsv"
   LC_ALL=C awk -F'\t' -v OFS='\t' '
@@ -453,7 +546,9 @@ uninstall_root() {
 
   : > "$w/dirs.lst"
   while IFS=$'\t' read -r rel osha csha; do
-    if [[ "$csha" == "-" ]]; then
+    if ! safe_rel "$root" "$rel" "$allow"; then
+      unsafe "$rel"
+    elif [[ "$csha" == "-" ]]; then
       continue
     elif [[ "$csha" == "$osha" ]]; then
       note "remove $rel"
@@ -539,6 +634,12 @@ install_codex_agents() {
 
 # ── Uninstall ─────────────────────────────────────────────────────────────────
 
+# First path components each root ships (safe_rel's allowlist). Nothing
+# outside these is ever written or removed.
+CLAUDE_ALLOW="skills agents commands hooks"
+CODEX_CONFIG_ALLOW="agents hooks"
+: > "$WORK/retired.derived"
+
 if [[ "$UNINSTALL" == "true" ]]; then
   echo ""
   echo "${P}Uninstalling AgenticOS ($PLATFORM)"
@@ -547,14 +648,15 @@ if [[ "$UNINSTALL" == "true" ]]; then
   if [[ "$PLATFORM" == "claude" ]]; then
     echo ""
     echo "Hook registration: ${DEST%/}/settings.json"
-    unregister_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS" "$DRY_RUN"
-    uninstall_root claude "$DEST" "Claude Code"
+    unregister_claude_hook_settings "$REPO_ROOT" "$DEST" \
+      "$RETIRED_HOOKS $(manifest_hook_names "$DEST/$MANIFEST_NAME")" "$DRY_RUN"
+    uninstall_root claude "$DEST" "Claude Code" "$CLAUDE_ALLOW"
   else
     echo ""
     echo "Hook registration: $CODEX_CONFIG_DIR/hooks.json"
     unregister_codex_hook_settings "$CODEX_CONFIG_DIR" "$DRY_RUN"
-    uninstall_root codex-skills "$CODEX_SKILLS_DEST" "Codex skills"
-    uninstall_root codex-config "$CODEX_CONFIG_DIR" "Codex agents + hooks"
+    uninstall_root codex-skills "$CODEX_SKILLS_DEST" "Codex skills" "*"
+    uninstall_root codex-config "$CODEX_CONFIG_DIR" "Codex agents + hooks" "$CODEX_CONFIG_ALLOW"
   fi
   echo ""
   echo "${P}Uninstall complete: $N_WARN file(s) kept with a warning. Hook backups (*.bak.*) and files you created were not touched."
@@ -577,15 +679,18 @@ if [[ "$PLATFORM" == "claude" ]]; then
   # Workflows: NOTHING ships. The only workflow is maintainer-only.
   install_dir "hooks"
 
-  CLAUDE_ARGS=(claude "$STAGE" "$DEST" "hooks/" "skills/" claude "skills, agents, commands, hooks")
+  # Fail fast, before anything is copied: a settings.json the merge would
+  # reject aborts here (dry run included) with the destination untouched.
+  merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS" check
+  CLAUDE_ARGS=(claude "$STAGE" "$DEST" "hooks/" "skills/" claude "skills, agents, commands, hooks" "$CLAUDE_ALLOW")
   sync_place "${CLAUDE_ARGS[@]}"
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into ${DEST%/}/settings.json"
   else
     if [[ -d "$DEST/hooks" ]]; then
-      find "$DEST/hooks" -name "*.sh" -exec chmod +x {} \;
+      find "$DEST/hooks" -type f -name "*.sh" -exec chmod +x {} \;
     fi
-    merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS"
+    merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS $(tr '\n' ' ' < "$WORK/retired.derived")"
   fi
   sync_finish "${CLAUDE_ARGS[@]}"
 
@@ -603,15 +708,16 @@ else
     cp "$SRC/hooks/$hook" "$STAGE/config/hooks/$hook"
   done
 
-  SKILLS_ARGS=(codex-skills "$STAGE/skills" "$CODEX_SKILLS_DEST" "" "" codex "skills")
-  CONFIG_ARGS=(codex-config "$STAGE/config" "$CODEX_CONFIG_DIR" "hooks/" "-" codex "agents (Codex TOML) + hooks")
+  merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR" check
+  SKILLS_ARGS=(codex-skills "$STAGE/skills" "$CODEX_SKILLS_DEST" "" "" codex "skills" "*")
+  CONFIG_ARGS=(codex-config "$STAGE/config" "$CODEX_CONFIG_DIR" "hooks/" "-" codex "agents (Codex TOML) + hooks" "$CODEX_CONFIG_ALLOW")
   sync_place "${SKILLS_ARGS[@]}"
   sync_place "${CONFIG_ARGS[@]}"
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into $CODEX_CONFIG_DIR/hooks.json"
   else
     if [[ -d "$CODEX_HOOKS_DEST" ]]; then
-      find "$CODEX_HOOKS_DEST" -name "*.sh" -exec chmod +x {} \;
+      find "$CODEX_HOOKS_DEST" -type f -name "*.sh" -exec chmod +x {} \;
     fi
     merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR"
   fi
