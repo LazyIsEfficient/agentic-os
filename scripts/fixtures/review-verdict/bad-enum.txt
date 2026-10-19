@@ -1,0 +1,3 @@
+```json
+{"schema":"agentic-os/review-verdict@1","agent":"code-reviewer","base":"origin/main","head":"0123456789abcdef0123456789abcdef01234567","verdict":"ship-with-fixes","findings":[{"tier":3,"severity":"blocking","file":"","line":0,"summary":"x"}]}
+```

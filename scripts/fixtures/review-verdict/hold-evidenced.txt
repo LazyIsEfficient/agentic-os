@@ -1,0 +1,22 @@
+Verdict: hold
+Reason: auth bypass reproduced.
+
+Critical / High
+- src/auth.ts:42 — empty token bypasses the session check
+
+```json
+{
+  "schema": "agentic-os/review-verdict@1",
+  "agent": "security-reviewer",
+  "base": "origin/main",
+  "head": "0123456789abcdef0123456789abcdef01234567",
+  "verdict": "hold",
+  "findings": [
+    {"tier": 1, "severity": "critical", "file": "src/auth.ts", "line": 42,
+     "summary": "Empty token bypasses the session check",
+     "evidence": "curl -H 'Authorization: ' localhost:3000/admin returns 200"},
+    {"tier": 2, "severity": "low", "file": "src/auth.ts", "line": null,
+     "summary": "Consider a constant-time compare helper"}
+  ]
+}
+```

@@ -1,0 +1,11 @@
+Example quoted earlier in the review:
+
+```json
+{"schema":"agentic-os/review-verdict@1","agent":"code-reviewer","base":"origin/main","head":"0123456789abcdef0123456789abcdef01234567","verdict":"hold","findings":[{"tier":0,"severity":"high","file":"x","line":1,"summary":"s","evidence":"bash scripts/validate.sh exits 1"}]}
+```
+
+Final:
+
+```json
+{"schema":"agentic-os/review-verdict@1","agent":"code-reviewer","base":"origin/main","head":"0123456789abcdef0123456789abcdef01234567","verdict":"fix-before-merge","findings":[{"tier":2,"severity":"medium","file":"src/a.ts","line":7,"summary":"Name is misleading"}]}
+```

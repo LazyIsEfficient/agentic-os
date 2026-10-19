@@ -27,7 +27,7 @@ eq("files read >1x (/a.txt in m1 + m2)", r.awareness_signals.repeat_read_files, 
 eq("repeated tool calls (Read /a.txt + Bash echo x)", r.awareness_signals.repeated_tool_calls, 2);
 eq("no lines skipped", r.skipped_lines, 0);
 process.exit(fail);
-'
+' || exit 1
 # ── nested tool input (regression: replacer-array misuse stripped nested keys) ──
 # n1/n2 are DISTINCT nested Edits (different edits[0].old/new) and must NOT count
 # as a repeat. n3/n4 are deeply equal but with keys in different order at both the
@@ -40,7 +40,7 @@ let fail = 0;
 const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console.log(`FAIL  ${n}: expected ${b}, got ${a}`); fail = 1; } };
 eq("distinct nested Edits not counted as repeat; key-order-equal pair is (=> 1)", r.awareness_signals.repeated_tool_calls, 1);
 process.exit(fail);
-'
+' || exit 1
 
 # ── id-less assistant records each count as their own turn ──────────────────────
 # Two assistant usage blocks with NO id/requestId/uuid must not collapse under
@@ -57,9 +57,9 @@ const eq = (n, a, b) => { if (a === b) console.log("PASS  " + n); else { console
 eq("id-less records each count as a turn (not collapsed)", r.turns, 2);
 eq("id-less output tokens summed (15 + 15)", r.tokens.output, 30);
 process.exit(fail);
-'
+' || { rm -f "$DIR/fixtures/idless-transcript.jsonl"; exit 1; }
 rm -f "$DIR/fixtures/idless-transcript.jsonl"
 
-bash "$DIR/session-metrics-cursor-test.sh"
+bash "$DIR/session-metrics-cursor-test.sh" || exit 1
 
 echo "session-metrics-test: OK"

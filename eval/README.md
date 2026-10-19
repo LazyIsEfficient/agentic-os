@@ -22,6 +22,23 @@ single fixture first if cost-sensitive.
 To exercise the `cargo-test` checker you must opt in (it compiles/runs model-generated
 code — see Security): `EVAL_ALLOW_CODE_EXEC=1 /eval-harness code-slugify-rust`.
 
+### The general-purpose ban and this harness
+
+`.claude/hooks/block-general-purpose.sh` (registered in `.claude/settings.json` on
+`Agent|Task`) denies `general-purpose` spawns. This harness dispatches `general-purpose`
+on purpose: the baseline produce arm, every Check step, and every Judge step here, plus
+both arms of `reliability/reliability-harness.js`. A run started in this repo loads the
+project settings. If Workflow `agent()` spawns go through PreToolUse, those dispatches
+get denied.
+**UNVERIFIED:** whether Workflow `agent()` spawns go through PreToolUse has not been tested.
+
+There is deliberately no env-var or flag-file bypass, because the model could set one
+itself. The exemption is operator-side: start the session without project settings,
+e.g. `claude --setting-sources user,local`. Then run `/eval-harness`. This only helps if
+your user settings don't also register the hook. A global `install.sh` adds it to
+`~/.claude/settings.json`; if you installed globally, run with a settings source that
+omits it.
+
 ## How it fits together
 
 | Piece | File | Role |
