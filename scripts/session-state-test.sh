@@ -55,7 +55,7 @@ cp "$SKILL_SRC/scripts/session-state.sh"             "$fb/.claude/skills/session
 cp "$SKILL_SRC/assets/SESSION-STATE.template.md"     "$fb/.claude/skills/session-state/assets/"
 git -C "$fb" init -q
 (
-  cd "$fb/src/nested"
+  cd "$fb/src/nested" || exit 1
   env -u CLAUDE_PROJECT_DIR bash "$fb/.claude/skills/session-state/scripts/session-state.sh" init >/dev/null 2>&1
 )
 [ -f "$fb/SESSION-STATE.md" ] \

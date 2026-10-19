@@ -12,6 +12,9 @@ verdict contract with its SubagentStop capture / Stop gate hooks.
 | Date | Run | Summary |
 |---|---|---|
 | 2026-10-19 | fix/audit-stop-gate (#258) | Added `ReviewVerdictArtifact` (`.claude/reviews/<HEAD>-<agent>.json`, content = `ReviewVerdictNormalized`), `ReviewVerdictCaptureHookIO` (SubagentStop `review-verdict-capture.sh`), and `ReviewGateStopHookIO` (Stop `review-gate-stop.sh`, `{"decision":"block","reason"}`). Updated `ReviewVerdict` / `ReviewVerdictNormalized`: parser moved to `.claude/hooks/lib/parse-verdict.sh` (`scripts/parse-verdict.sh` is now a wrapper) and now ships with hooks; duplicate-key check is `jq --stream` (python3 dependency removed; new fixture `duplicate-key-nested.txt`); all parser line citations re-cut. |
+| 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
+| 2026-10-19 | fix/audit-validate-rules | No-op: new `scripts/validate.sh` static checks (R4/R6/R9/R12/R13, skill-length, workflow-agent-type, no-general-purpose), a `warn()` helper emitting `WARN [tag]: path — reason`, and a warning count in the summary line are human-readable CLI output with no machine consumer in the repo (no file outside `scripts/validate*.sh` references the `WARN [` line). Warnings never change the exit code. No API/persistence/message changes. |
+| 2026-10-19 | fix/audit-ledger-fp | Added findings-ledger contracts (issue #279): `FindingsLedgerEvent` (append-only JSONL event log; new optional `fingerprint_scheme` / `category` / `symbol` keys, structured scheme-2 fingerprint, RECURRING only on a sighting from a different `run_id`; `add` rejects control characters in `--file`/`--category`/`--symbol`; scheme-2 path/symbol normalization) and `FindingsLedgerExportRow` (new `export` per-fingerprint summary, no claim text but raw `file`/`symbol` free text; refuses `--out` inside the ledger directory, reads under the lock, atomic `mkstemp` + `os.replace` write). Line citations refreshed after PR #288 review fixes. |
 | 2026-10-19 | fix/audit-scan-scripts (security fix round 2) | Updated `ReviewScanReport`: new `skipped` reason `"manifest resolves outside the repo root"` (both scripts); new check-imports rules `js-import-outside-root` / `py-import-outside-root`; new security-scan copy/containment `error` reasons (npm-audit, pip-audit, cargo-audit); noted text-output control-char escaping and per-line script prefix; every line citation re-verified and shifted to current files. |
 | 2026-10-19 | fix/audit-scan-scripts (gate fixes) | Updated `ReviewScanReport`: new top-level `skipped` array (`{path, reason}`) in both scripts; optional scanner `notes` array (security-scan only); removed stale `"no files in scope"` reason; exit 2 adds missing `--paths` entry, security-scan exit 3 adds no-file-in-scope, check-imports exit 4 adds helper failure / unparseable manifest; added env inputs table (`SECURITY_SCAN_NPM_REGISTRY`, `SECURITY_SCAN_GITLEAKS_CONFIG`, `PYTHONPATH`); `file` path normalization corrected; every line citation re-verified against current files. |
 | 2026-10-19 | fix/audit-scan-scripts | Added `ReviewScanReport`: shared `--json` stdout payload + exit-code contract for the new `scripts/security-scan.sh` and `scripts/check-imports.sh` (consumed by reviewers as Tier 0/1 evidence). |
@@ -59,6 +62,57 @@ Deny (`block-general-purpose.sh:36`, `:61-62`):
 | `hookSpecificOutput.hookEventName` | string | yes | Literal `"PreToolUse"` — `:36`, `:62` |
 | `hookSpecificOutput.permissionDecision` | string | yes | Literal `"deny"` — `:36`, `:62` |
 | `hookSpecificOutput.permissionDecisionReason` | string | yes | Prefixed `block-general-purpose: `. Gives the cause (general-purpose/untyped, `jq` missing, or unparseable payload) followed by the specialist list `$SPECIALISTS` — `:31`, `:43`, `:61`, `:66` |
+
+---
+
+### FindingsLedgerEvent
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Append-only JSONL at `<main repo>/.claude/ledger/findings.jsonl`, resolved via `git rev-parse --git-common-dir` so linked worktrees converge on the main checkout's ledger; falls back to the nearest CWD ancestor containing `.claude/`; `--ledger PATH` overrides (`ledger.py:176-210`,`:239-245`). Written by `cmd_add` (`ledger.py:330-377`) and `_transition` for `promote` / `retire` (`:423-445`) through `append_event`, one `json.dumps(event, sort_keys=True, ensure_ascii=False)` line per event (`:266-277`), under an exclusive sidecar `<ledger>.lock` with a `LOCK_TIMEOUT_S = 20` deadline, exit 2 on timeout (`:98`,`:213-236`). Read back and validated by `read_events` (`:248-263`): every line must carry all `REQUIRED_KEYS` and a `status` in `STATUSES`, else exit 2. `cmd_add` rejects any control character (Unicode category `Cc`, via `has_control_chars`) in `--file` / `--category` / `--symbol` with exit 2 (`:326-334`), so a newline-joined scheme-1 payload cannot collide with a scheme-2 one (`:165-170`, `ledger-format.md:77-83`). Events are never edited or deleted (`ledger-format.md:9-11`). |
+| **Source** | `.claude/skills/findings-ledger/scripts/ledger.py` (lines 90-98, 129-173, 248-277, 326-377, 423-457); prose schema `.claude/skills/findings-ledger/references/ledger-format.md` (lines 14-29, 65-83) |
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `fingerprint` | string (16 hex) | yes | sha256 hex truncated to `FINGERPRINT_LEN = 16` (`ledger.py:94`). Scheme 1: `file.strip() + "\n" + normalize(claim)` (`:129-133`, must stay byte-stable). Scheme 2: `"\n".join(("v2", normalize_path(file), category, normalize_symbol(symbol)))` (`:165-173`) |
+| `fingerprint_scheme` | integer `1` \| `2` | no | `2` (`SCHEME_STRUCTURED`) when `add --category` given, else `1` (`SCHEME_TEXT`) — `ledger.py:95-96`,`:343-354`. Absent on pre-#279 events, read as `1` (`:307`,`:432`). Transition events copy it from the fingerprint's first event (`:432`) |
+| `category` | string (kebab-case slug) \| null | no | Stripped, lowercased and must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`, else exit 2 (`ledger.py:97`,`:144-147`,`:344-347`); the normalized slug is what is stored (`:365`). No control characters (`:331-334`). Null for scheme 1; absent on legacy events (read via `.get`, `:308`,`:433`) |
+| `symbol` | string \| null | no | Stored as passed (`args.symbol`, `ledger.py:366`); normalized only inside the hash — backticks, a trailing `()` and surrounding whitespace peeled in any order until stable, then internal whitespace collapsed (`:150-162`). No control characters (`:331-334`). `--symbol` without `--category` exits 2 (`:350-351`). Null when omitted; absent on legacy events |
+| `file` | string | yes | Repo-relative path the finding is about (`ledger.py:505`); stored raw (`:367`). No control characters (`:331-334`). Normalized only in the scheme-2 hash: trimmed, `\` → `/`, empty and `.` segments dropped (so `a//b`, `./a/b`, `a/./b`, `a/b/` all hash as `a/b`), leading `/` kept, `..` left alone (`:136-141`). Scheme 1 uses `file.strip()` only (`:132`) |
+| `claim` | string | yes | One-sentence claim summary (`ledger.py:506`). Transition events copy the first event's claim (`:436`) |
+| `tier` | integer `1` \| `2` | yes | `--tier` choices `(1, 2)` (`ledger.py:507`); tier 1 without non-blank `--evidence` is demoted to 2 (`:338-342`). Transitions copy the first event's tier (`:437`) |
+| `source` | string | yes | Emitting agent on `add` (`ledger.py:509`); default `"triage"` on `promote` / `retire` (`:532`,`:539`) |
+| `run_id` | string \| null | yes (key) | Required on `add` (`ledger.py:510`); defaults to null on transitions (`:533`,`:540`). Recurrence counts distinct `run_id`s among `NEW`/`RECURRING` sightings (`:297-301`) |
+| `date` | string `YYYY-MM-DD` | yes | Defaults to today; validated with `date.fromisoformat` (`ledger.py:280-284`,`:512`,`:549-550`) |
+| `evidence` | string \| null | yes (key) | Evidence artifact path; required non-blank for `PROMOTED` (`ledger.py:451-452`); always null on `RETIRED-NOISE` (`retire` passes no evidence, `_transition` default `None`: `:423`,`:456-457`) |
+| `status` | enum string | yes | `NEW` \| `RECURRING` \| `INVESTIGATING` \| `PROMOTED` \| `RETIRED-NOISE` (`ledger.py:90`). On `add`: `RECURRING` only if a prior sighting of the fingerprint came from a **different** `run_id`, else `NEW` (`:359-361`) |
+
+`REQUIRED_KEYS` = `fingerprint, file, claim, tier, source, run_id, date, evidence, status` (`ledger.py:92-93`); `fingerprint_scheme`, `category`, `symbol` are written on every new event but not required on read.
+
+---
+
+### FindingsLedgerExportRow
+
+| Field | Value |
+|---|---|
+| **Kind** | `persistence` |
+| **Ingestion route** | Written by `ledger.py export --out <path>` (`cmd_export`, `ledger.py:464-493`) to a user-supplied path, intended as a committable team-shared artifact outside `.claude/ledger/` (e.g. `.claude/ledger-shared/<name>.jsonl`, `ledger-format.md:168-169`). Refuses any `--out` that resolves inside the ledger's directory (the ledger, its `.lock` sidecar, or any sibling) with exit 2 (`:467-469`). Reads events under the same `locked()` sidecar lock as writers (`:470-471`). JSONL, one row per fingerprint, sorted by fingerprint, `sort_keys=True, ensure_ascii=False` (`:473`,`:477-478`). Rewritten in full atomically: `tempfile.mkstemp(dir=out.parent, prefix=".<name>.", suffix=".tmp")`, `chmod` to `0o666 & ~umask`, write, then `os.replace` onto `--out`; the temp file is unlinked on any failure (`:479-492`). No claim text, but `file` and `symbol` are reviewer-supplied free text copied verbatim from the first event, so in team-shared mode they land in git history (`ledger-format.md:177-180`). Not read back by `ledger.py` (`ledger-format.md:180`). |
+| **Source** | `.claude/skills/findings-ledger/scripts/ledger.py` (lines 295-317, 460-493); prose `.claude/skills/findings-ledger/references/ledger-format.md` (lines 151-182) |
+
+Keys are exactly `EXPORT_KEYS` (`ledger.py:460-461`), derived from `summarize` (`:295-317`):
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `fingerprint` | string (16 hex) | yes | Group key — `ledger.py:306` |
+| `fingerprint_scheme` | integer `1` \| `2` | yes | From first event; `1` when absent (`ledger.py:307`) |
+| `category` | string \| null | yes (key) | From first event (`ledger.py:308`) |
+| `symbol` | string \| null | yes (key) | From first event (`ledger.py:309`), raw as passed to `add` — reviewer-supplied free text, committed in team-shared mode |
+| `file` | string | yes | From first event (`ledger.py:313`), raw as passed to `add` — reviewer-supplied free text, committed in team-shared mode |
+| `count` | integer ≥ 0 | yes | Distinct `run_id`s among `NEW`/`RECURRING` events (`ledger.py:297`,`:301`) |
+| `status` | enum string | yes | Status of the most recent event (`ledger.py:302`) |
+| `first_seen` | string `YYYY-MM-DD` | yes | Earliest sighting date; first event's `date` if no sightings (`ledger.py:304`,`:315`,`:476`) |
+| `last_seen` | string `YYYY-MM-DD` | yes | Latest sighting date; first event's `date` if no sightings (`ledger.py:304`,`:316`,`:476`) |
 
 ---
 
@@ -319,6 +373,8 @@ Skipped object (`skip`, `security-scan.sh:186-188`, `check-imports.sh:204-206`):
 | 2 | usage error: bad flag (`:108`), no `jq` (`:85`), `--base` with `--paths` (`:112-113`), not a git work tree without `--paths` (`:131`), invalid / unresolvable `--base` (`:133-135`), missing `--paths` entry (`:150-151`) | usage error: bad flag (`:133`), no `jq` (`:110`), `--base` with `--paths` (`:137-138`), `--base` outside git (`:149`), invalid / unresolvable `--base` (`:150-152`), not a git work tree without `--paths` (`:159`), missing `--paths` entry (`:170-171`) |
 | 3 | nothing checked: no file in scope (`:270`), or no scanner ran (all `unavailable`) (`:265`) | nothing to check — no JS/TS/Python sources or manifests in scope (`:287-294`) |
 | 4 | a scanner errored and none produced findings (`:264`) | a check could not run and nothing was found: `$PYTHON` missing (`:504`,`:585`), Python helper failed (`:534`,`:631`), manifest unparseable (`:588`) (`:668`) |
+
+---
 
 ### ReviewVerdict
 

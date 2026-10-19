@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # install-hook-settings.sh — merge consumer hook registration into global config.
 # Sourced by install.sh (not executed directly).
 
