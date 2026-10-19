@@ -97,7 +97,7 @@ The library shows uplift on a metric only when the #273 report puts **OFF − ON
 
 These hold regardless of what any metric says.
 
-1. **Zero `general-purpose` dispatches.** Every subagent the library spawns has a typed specialist (`Explore`, `Plan`, `engineer` and the stack engineers, the reviewers). An untyped or `general-purpose` spawn is a defect in the library, not a judgment call. Enforcement is the PreToolUse hook `block-general-purpose.sh` from PR #284, which fails closed. Until #284 merges, this invariant is doctrine with no mechanical gate behind it. The eval's OFF arm is the absence of the library, not a library dispatch; how the harness runs it under the ban is described in PR #284 and decided in #273.
+1. **Never dispatch `general-purpose`.** Every subagent the library spawns has a typed specialist (`Explore`, `Plan`, `engineer` and the stack engineers, the reviewers). An untyped or `general-purpose` spawn is a defect in the library, not a judgment call. Enforcement is the PreToolUse hook `block-general-purpose.sh` (PR #284, merged), which fails closed, plus the `no-general-purpose` check in `scripts/validate.sh`. The eval's OFF arm is the absence of the library, not a library dispatch; how the harness runs it under the ban is described in PR #284 and decided in #273.
 2. **Cold reviewers stay cold.** Gate reviewers start with no context from the session whose output they review. That independence is the mechanism the primary outcome depends on.
 3. **Only Tier 0 and Tier 1 evidence gates.** Pure LLM judgment (Tier 2) never blocks work and never moves a primary metric (`.claude/rules/review-tiers.md`).
 
@@ -151,7 +151,7 @@ These hold regardless of what any metric says.
 - Adding more agents, reviewers or hooks without a hypothesis about which defect or slop component they reduce
 - Token cuts that have not been checked against SDR and SR
 - Complex inter-agent natural language negotiation protocols that increase token burn without a defect-rate effect
-- General-purpose "agent orchestration frameworks," and `general-purpose` subagents in particular
+- General-purpose "agent orchestration frameworks" (and the library must never dispatch `general-purpose` subagents)
 - Chasing raw model capability parity (we ride the frontier models; we do not try to out-reason them with volume)
 
 ---
@@ -190,8 +190,8 @@ Lever numbers are stable; other files reference them.
 
 ## Sequence (what depends on what)
 
-1. PR #286 lands `scripts/security-scan.sh` and `scripts/check-imports.sh`. These are the tools P1 and part of P2 need.
-2. PR #284 lands the `general-purpose` ban, making Invariant 1 mechanical.
+1. PR #286 (merged) lands `scripts/security-scan.sh` and `scripts/check-imports.sh`. These are the tools P1 and part of P2 need.
+2. PR #284 (merged) bans `general-purpose` spawns, making Invariant 1 mechanical.
 3. #273 builds the seeded-vulnerability corpus, pins the remaining slop tools, and produces the first ON vs OFF report with intervals. That report is the first measurement of the primary outcome. It depends on step 1. It also depends on step 2 only for how the OFF arm is run.
 4. Token-reduction work (#237) is checked against the #273 baseline under the tradeoff rule. Cuts that predate the baseline are re-checked once it exists.
 5. Components that show no effect on SDR or SR in the #273 report become candidates for removal. Their removal must also leave both rates unchanged or better.
@@ -202,7 +202,7 @@ Lever numbers are stable; other files reference them.
 
 - On the #273 corpus, the library-ON arm has a lower security-defect rate and a lower slop rate than the OFF arm, with intervals that exclude zero, reproduced on re-run.
 - Every blocking reviewer finding in this repo carries a scanner output or counterexample, and the set of defects caught by scripts keeps growing through the ratchet.
-- Zero `general-purpose` dispatches, enforced by a hook rather than by memory.
+- Never dispatch `general-purpose`: enforced by a hook rather than by memory.
 - Tokens per outcome stays within the guardrail, and no token saving has been accepted at the cost of a primary-rate regression.
 - Long, multi-step sessions with a human in the loop stay coherent: settled decisions are not re-litigated, existing infrastructure is noticed and reused, and awareness drift is minimized.
 - The project is referenced as an example of **serious harness engineering** that measures security and quality outcomes with deterministic tools, not agent hype.
