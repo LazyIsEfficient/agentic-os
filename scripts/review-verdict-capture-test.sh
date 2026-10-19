@@ -9,6 +9,7 @@ BASH_BIN="$(command -v bash)"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$TMP/xdg"
 
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }

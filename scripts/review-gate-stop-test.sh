@@ -12,6 +12,9 @@ trap 'rm -rf "$TMP"' EXIT
 # Fail-open session markers land under $TMPDIR; keep them inside this run.
 export TMPDIR="$TMP/tmpdir"
 mkdir -p "$TMPDIR"
+# Hermetic git: no user/system config or global excludes (a global ignore of
+# .claude/worktrees/ would mask the hook's own exclusion).
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$TMP/xdg"
 
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
@@ -288,6 +291,16 @@ git -C "$TMP/evilplan" commit -q -m planner
 run "$TMP/evilplan"
 [[ ! -e "$TMP/evil-ran" ]] || fail "hook outside the repo executed the repo's gate-plan.sh"
 expect_block "outside hook uses the fallback planner, not the repo's script" "code-reviewer" "security-reviewer"
+
+# 26b. A hook in another checkout's .claude/hooks (different repository) does
+#      not use that checkout's planner for this repo either.
+new_repo "$TMP/otherproj"
+mkdir -p "$TMP/otherproj/.claude/hooks" "$TMP/otherproj/scripts"
+cp "$HOOK" "$TMP/otherproj/.claude/hooks/"
+printf '#!/usr/bin/env bash\ntouch "%s"\n' "$TMP/other-ran" > "$TMP/otherproj/scripts/gate-plan.sh"
+run "$TMP/evilplan" '{"stop_hook_active":false}' "$TMP/otherproj/.claude/hooks/review-gate-stop.sh"
+[[ ! -e "$TMP/other-ran" ]] || fail "hook used a planner from a different repository"
+expect_block "planner is used only for the same repository" "code-reviewer"
 
 # 27. Worktrees: the payload cwd wins over CLAUDE_PROJECT_DIR; the planner of
 #     the hook's own checkout is used for a worktree of the same repo.
