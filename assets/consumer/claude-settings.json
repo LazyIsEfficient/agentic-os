@@ -7,6 +7,12 @@
           { "type": "command", "command": "bash $HOME/.claude/hooks/block-bad-bash.sh" },
           { "type": "command", "command": "bash $HOME/.claude/hooks/survey-before-act.sh" }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          { "type": "command", "command": "bash $HOME/.claude/hooks/block-general-purpose.sh" }
+        ]
       }
     ],
     "SessionStart": [

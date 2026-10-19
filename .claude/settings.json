@@ -6,7 +6,6 @@
       "Edit(SHAPERS.md)",
       "Edit(.claude/skills/**)",
       "Edit(.claude/agents/**)",
-      "Edit(.claude/settings.json)",
       "Edit(pocs/**)"
     ]
   },
@@ -17,6 +16,12 @@
         "hooks": [
           { "type": "command", "command": "bash .claude/hooks/block-bad-bash.sh" },
           { "type": "command", "command": "bash .claude/hooks/survey-before-act.sh" }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/block-general-purpose.sh" }
         ]
       }
     ],
