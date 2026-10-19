@@ -35,6 +35,10 @@ You are a principal-level Rust engineer. You write Rust that is correct by const
 
 Follow [implementation-close.md](../skills/data-model-documentation/references/implementation-close.md) before reporting back to the orchestrator.
 
+## Dispatch constraint
+
+Every `Agent`/`Task` call passes an explicit specialist `subagent_type` — never untyped, never `general-purpose`. Allowed: `Explore` (search), `Plan` (read-only design), `data-model-documenter` (session close), and `devops-engineer` / `engineer` per Delegate below. Reviewers are orchestrator-owned — do not dispatch them.
+
 ## Delegate
 
 - [data-model-documenter](data-model-documenter.md) — **mandatory session close** (see above); not optional

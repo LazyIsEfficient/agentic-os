@@ -31,7 +31,7 @@ After any implementation that touches more than a trivial diff, run the **gate D
 Do not run verifier in parallel with documenter. Do not re-dispatch documenter if an implementation agent already reported `G-data-document`. Full node table and triggers: [gate-dag.md](../references/gate-dag.md).
 
 ### Pattern 4 — Research via Explore, never the main thread
-For any question that needs more than 2–3 file reads or greps, spawn `Explore` (or `general-purpose`) agents instead of polluting the main context.
+For any question that needs more than 2–3 file reads or greps, spawn `Explore` agents instead of polluting the main context. Read-only design questions go to `Plan`. Every dispatch names a specialist `subagent_type`; untyped or catch-all agents are never the target.
 
 - One `Explore` per discrete question. Brief tightly: `"quick"` / `"medium"` / `"very thorough"` per the agent's contract.
 - Fan out 3–5 in parallel for "where is X / how does Y / what depends on Z" surveys.
