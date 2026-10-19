@@ -23,6 +23,9 @@ the tree under review. If only a project copy exists, report
 ```sh
 SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/security/scripts/security-scan.sh"
 [ -f "$SCAN" ] || SCAN="$HOME/.agents/skills/security/scripts/security-scan.sh"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$SCAN")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) SCAN=/dev/null/refused-in-tree ;; esac
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit
 SECURITY_SCAN_OFFLINE=1 bash "$SCAN" --base <base> --json; echo "exit=$?"
 ```
@@ -57,6 +60,9 @@ Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — only determ
 # Installed copy only: never execute a script from the tree under review.
 LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$LEDGER")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) LEDGER=/dev/null/refused-in-tree ;; esac
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source security-reviewer --run-id <branch-or-pr> \

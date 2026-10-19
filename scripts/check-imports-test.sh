@@ -137,6 +137,27 @@ OUT="$(cd "$G" && HOME="$T/home" PYTHON="$T/home/venv/bin/python3" bash "$CHECK"
 [ "$(jqo '.scanners[0].reason == "~/venv/bin/python3 not found; cannot resolve Python imports"')" = true ] \
   && ok "error reasons scrub \$HOME (→ ~)" || no "reason scrub" "$OUT"
 
+# ── interpreters inside the scanned tree never run ────────────────────────────
+CANARY="$T/py-canary"
+mkdir -p "$G/.venv/bin" "$G/bin"
+for planted in "$G/.venv/bin/python3" "$G/bin/python3"; do
+  printf '#!/bin/sh\ntouch "%s"\nexit 0\n' "$CANARY" > "$planted"; chmod +x "$planted"
+done
+for py in "$G/.venv/bin/python3" ".venv/bin/python3"; do
+  rm -f "$CANARY"
+  OUT="$(cd "$G" && PYTHON="$py" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+  { [ "$RC" -eq 4 ] && [ ! -e "$CANARY" ] \
+    && jqo '.scanners[0].reason' | grep -qF "is inside the scanned repo; not run"; } \
+    && ok "PYTHON=$py (inside the repo) never runs → error, exit 4" \
+    || no "PYTHON in tree ($py)" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) $OUT"
+done
+rm -f "$CANARY"
+OUT="$(cd "$G" && PATH="./bin:$G/.venv/bin:$PATH" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+{ [ ! -e "$CANARY" ] && [ "$(jqo '.scanners[0].status')" != "error" ]; } \
+  && ok "planted python3 on PATH (./bin, .venv/bin) skipped; system python3 used" \
+  || no "planted PATH python3" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) $OUT"
+rm -rf "${G:?}/.venv" "${G:?}/bin" "$CANARY"
+
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run --bogus
 [ "$RC" -eq 2 ] && ok "unknown flag → exit 2" || no "unknown flag" "rc=$RC"

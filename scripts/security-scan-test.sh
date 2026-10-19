@@ -218,6 +218,29 @@ OUT="$(cd "$PROJ" && SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=findings PATH="$FULL_P
 { [ "$RC" -eq 1 ] && grep -qF -- "<--config> <$RULES>" "$LOG"; } \
   && ok "scripts/security-scan.sh wrapper execs the shipped scanner" || no "wrapper" "rc=$RC out=$OUT $(cat "$T/stderr")"
 
+# ── planted tools on PATH: binaries inside the scanned tree never run ─────────
+# ./bin/semgrep (relative entry) and node_modules/.bin/{semgrep,jq} (absolute
+# entry inside the repo) each drop a canary and claim a clean scan.
+CANARY="$T/canary"
+mkdir -p "$PROJ/bin" "$PROJ/node_modules/.bin"
+for planted in "$PROJ/bin/semgrep" "$PROJ/node_modules/.bin/semgrep" "$PROJ/node_modules/.bin/jq"; do
+  printf '#!/usr/bin/env bash\ntouch "%s"\necho %s\n' "$CANARY" "'{\"results\":[],\"errors\":[]}'" > "$planted"
+  chmod +x "$planted"
+done
+rm -f "$CANARY"
+run "./bin:$PROJ/node_modules/.bin:$SYS" --json --paths app.js
+{ [ ! -e "$CANARY" ] \
+  && [ "$(jqo '.scanners[] | select(.name=="semgrep") | "\(.status)|\(.reason)"')" = "unavailable|semgrep found only inside the scanned repo or on a relative PATH entry; not run" ]; } \
+  && ok "planted ./bin/semgrep and node_modules/.bin/{semgrep,jq} never run; semgrep reported unavailable" \
+  || no "planted PATH tools" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) out=$OUT"
+rm -f "$CANARY"
+: > "$LOG"
+FAKE_SEMGREP=findings run "$PROJ/node_modules/.bin:$FULL_PATH" --json --paths app.js
+{ [ ! -e "$CANARY" ] && [ "$RC" -eq 1 ] && grep -q '^semgrep' "$LOG"; } \
+  && ok "a trusted semgrep later on PATH is used instead of the planted one" \
+  || no "trusted fallback" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED)"
+rm -rf "${PROJ:?}/bin" "${PROJ:?}/node_modules" "$CANARY"
+
 # Wrapper is CDPATH-safe: invoked by a relative path with CDPATH set, it must
 # still reach the scanner (usage error → 2), not die on a doubled path (127).
 RC=0; (cd "$SCRIPT_DIR/.." && CDPATH=".:/tmp" bash scripts/security-scan.sh --bogus >/dev/null 2>&1) || RC=$?

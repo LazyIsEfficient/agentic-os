@@ -42,9 +42,29 @@ directory:
 S=skills/security/scripts/security-scan.sh   # or: skills/code-review-and-quality/scripts/check-imports.sh
 SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/$S"
 [ -f "$SCAN" ] || SCAN="$HOME/.agents/$S"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$SCAN")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) SCAN=/dev/null/refused-in-tree ;; esac
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit
 SECURITY_SCAN_OFFLINE=1 bash "$SCAN" --base <base> --json; echo "exit=$?"   # check-imports: no env needed
 ```
+
+**The in-tree guard** (the `TOP` and `case` lines) is the same check in every
+reviewer snippet, `ledger.py` included. A user-level path can still land
+inside the project: `CLAUDE_CONFIG_DIR` may point into the repo, or the
+project may be `$HOME` itself. So the guard canonicalises the resolved
+script's directory and the project toplevel (`pwd -P`) and refuses when the
+script is inside it. It fails closed: an unresolvable directory or toplevel
+yields `/`, which is refused too. A refused script becomes
+`/dev/null/refused-in-tree` and bash exits 126. A missing one exits 127.
+Both mean `scanner unavailable`.
+
+**Tools on PATH.** Both scanners also drop every relative PATH entry, and
+every entry whose real location is inside the repo root or the cwd, before
+they run anything (jq, git, gitleaks, semgrep, the auditors, python3). A
+planted `node_modules/.bin/semgrep` or `./bin/semgrep` never runs. A tool
+found only there is reported as `<tool> found only inside the scanned repo or
+on a relative PATH entry; not run`.
 
 **Reviewing agentic-os itself.** The installed copy may lag the repo, so a
 change to a scanner is reviewed with the previous installed version, not the
@@ -61,7 +81,7 @@ charge of its own verdict. Its own tests (`scripts/security-scan-test.sh`,
 | 2 | Usage error, usually a bad `--base`. Fix the call and rerun. If it persists, treat it like 4. | Same. |
 | 3 | Nothing checked: no file in scope, or no scanner installed. Tier 2 `scanner unavailable: security-scan`. | No JS/TS/Python sources or manifests in scope. Say `check-imports: nothing to check` in the report. This is not a gap, so there is no finding. |
 | 4 | A scanner errored. Tier 2 `scanner unavailable: <name>` with its `reason`. | A check could not run (python3 missing, unparseable manifest). Tier 2 `scanner unavailable: check-imports`. |
-| 127, no installed copy (a project copy doesn't count) | Tier 2 `scanner unavailable: security-scan`. | Tier 2 `scanner unavailable: check-imports`. |
+| 126/127: copy refused as in-tree, or no installed copy (a project copy doesn't count) | Tier 2 `scanner unavailable: security-scan`. | Tier 2 `scanner unavailable: check-imports`. |
 
 Never skip a scanner silently. Each `scanner unavailable` finding goes into the
 verdict as tier 2, severity `low`, `file` `.`, `line` `null`. Its `evidence` is
@@ -116,10 +136,12 @@ offline evidence.
 
 ## check-imports and Python
 
-Python imports resolve with `$PYTHON` (default `python3`). Reviewers leave
-it at the default. Never point it at an interpreter inside the tree (such as
-`.venv/bin/python`): its start-up (`.pth` files) runs code from the tree. The
-cost is that a third-party package missing from the system `python3` shows up
+Python imports resolve with `$PYTHON` (default `python3`, found on the
+sanitized PATH). Reviewers leave it at the default. A `PYTHON` whose
+directory is inside the repo (such as `.venv/bin/python`) is never run: its
+start-up (`.pth` files, `pyvenv.cfg`) runs code from the tree. check-imports
+reports `py-imports` `error` with `PYTHON (<value>) is inside the scanned
+repo; not run` (exit 4). The cost is that a third-party package missing from the system `python3` shows up
 as `py-unresolved-module`. If the package is declared in the project's
 manifest, dismiss the hit as a false positive. If it isn't declared anywhere,
 it is a real finding.

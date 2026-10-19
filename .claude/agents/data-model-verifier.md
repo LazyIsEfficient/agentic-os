@@ -33,6 +33,9 @@ Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). REFUTED is Tie
 # Installed copy only: never execute a script from the tree under review.
 LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$LEDGER")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) LEDGER=/dev/null/refused-in-tree ;; esac
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source data-model-verifier --run-id <branch-or-pr>

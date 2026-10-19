@@ -28,6 +28,9 @@ Reviewers (`code-reviewer`, `security-reviewer`, `library-reviewer`, `data-model
 ```sh
 LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$LEDGER")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) LEDGER=/dev/null/refused-in-tree ;; esac
 ```
 
 `ledger.py` writes to the current git repo's `.claude/ledger/`, not to its own install dir, so the installed copy still journals into the project. Scanners follow the same rule: [scanner-evidence.md](../../code-review-and-quality/references/scanner-evidence.md).

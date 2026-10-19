@@ -35,8 +35,9 @@
 #                  package (x.py or x/ in the file's dir, an ancestor dir, or an
 #                  ancestor's src/) or be found by
 #                  `$PYTHON -I -c '...importlib.util.find_spec(name)...'`.
-#                  PYTHON defaults to python3 — point it at the project venv's
-#                  interpreter so installed packages resolve. `-I` is kept on
+#                  PYTHON defaults to python3. A PYTHON inside the scanned repo
+#                  (e.g. .venv/bin/python) is never run: py-imports reports
+#                  `error` (exit 4), since its start-up runs repo code. `-I` is kept on
 #                  purpose (it stops a repo sitecustomize.py or cwd module from
 #                  executing); PYTHONPATH entries are re-added to sys.path
 #                  explicitly by the helper, minus empty entries (= the cwd).
@@ -100,6 +101,25 @@
 # unused-deps baseline) and python3 (for Python files and pyproject.toml).
 set -euo pipefail
 
+# The caller's PATH may reach into the untrusted tree (node_modules/.bin, ./bin,
+# .venv/bin), where a planted jq/git/python3 would run and report clean.
+# Keep only absolute PATH entries whose real location is outside every given
+# dir, so no tool, and nothing a tool execs via PATH, comes from the tree.
+# Applied to the cwd now and to the repo root once it is known.
+safe_path() { # safe_path <dir>... → $PATH minus relative entries and entries inside a <dir>
+  local e real d out="" inside
+  local -a entries
+  IFS=: read -r -a entries <<<"$PATH"
+  for e in ${entries[@]+"${entries[@]}"}; do
+    case "$e" in /*) ;; *) continue ;; esac
+    real="$(cd -P -- "$e" 2>/dev/null && pwd -P)" || continue
+    inside=false
+    for d in "$@"; do case "$real/" in "$d"/*) inside=true ;; esac; done
+    [[ "$inside" == true ]] || out="${out:+$out:}$e"
+  done
+  printf '%s' "$out"
+}
+PATH="$(safe_path "$(pwd -P)")"
 PYTHON="${PYTHON:-python3}"
 
 usage() {
@@ -186,6 +206,21 @@ if [[ "$IN_GIT" == true ]]; then
 else
   ROOT="$PWDP"
 fi
+PATH="$(safe_path "$ROOT" "$PWDP")"
+
+# An interpreter inside the tree (e.g. PYTHON=.venv/bin/python) runs repo code at
+# start-up (.pth files, pyvenv.cfg), so it is never run. The check is on the
+# invocation dir, not the final symlink target: a venv python links to a system
+# binary but still loads the venv's site-packages.
+PY_REASON=""
+if py_path="$(command -v "$PYTHON" 2>/dev/null)"; then
+  case "$py_path" in /*) ;; *) py_path="./$py_path" ;; esac
+  py_dir="$(cd -P -- "$(dirname -- "$py_path")" 2>/dev/null && pwd -P)" || py_dir=""
+  case "$py_dir/" in "$ROOT"/*|"$PWDP"/*|/) PY_REASON="PYTHON ($PYTHON) is inside the scanned repo; not run" ;; esac
+else
+  PY_REASON="$PYTHON not found"
+fi
+py_ok() { [[ -z "$PY_REASON" ]]; }
 
 # Physical absolute path of $1 with every symlink followed; fails on loops or
 # a missing parent directory. $1 always starts with "./" or "/".
@@ -512,8 +547,8 @@ py_local_module() {
 check_py() {
   local out="$TMP/py.jsonl" pending="$TMP/py-pending.tsv" f line spec top
   : > "$out"; : > "$pending"
-  if ! command -v "$PYTHON" >/dev/null 2>&1; then
-    emit py-imports error "$PYTHON not found; cannot resolve Python imports" "$TMP/empty.jsonl"
+  if ! py_ok; then
+    emit py-imports error "$PY_REASON; cannot resolve Python imports" "$TMP/empty.jsonl"
     return
   fi
   for f in "${PY[@]}"; do
@@ -593,8 +628,8 @@ check_unused() {
       pyproject.toml) kind=pyproject ;;
       *) kind=requirements ;;
     esac
-    if [[ "$kind" == pyproject ]] && ! command -v "$PYTHON" >/dev/null 2>&1; then
-      emit unused-deps error "$PYTHON not found; cannot parse $m" "$TMP/empty.jsonl"; return
+    if [[ "$kind" == pyproject ]] && ! py_ok; then
+      emit unused-deps error "$PY_REASON; cannot parse $m" "$TMP/empty.jsonl"; return
     fi
     if ! manifest_deps "$kind" "$m" 2>"$TMP/manifest.err" | LC_ALL=C sort -u > "$TMP/now.txt"; then
       emit unused-deps error "cannot parse $m: $(tail -c 300 "$TMP/manifest.err")" "$TMP/empty.jsonl"; return
@@ -638,7 +673,7 @@ check_unused() {
       local tops=()
       while IFS= read -r spec; do tops+=("$spec"); done < <(sort -u "$TMP/used.txt")
       : > "$TMP/dists.tsv"
-      if [[ ${#tops[@]} -gt 0 ]] && command -v "$PYTHON" >/dev/null 2>&1; then
+      if [[ ${#tops[@]} -gt 0 ]] && py_ok; then
         if ! "$PYTHON" -I -c "$PY_HELPER" dists "${tops[@]}" > "$TMP/dists.tsv" 2>"$TMP/py.err"; then
           emit unused-deps error "$PYTHON helper failed: $(tail -c 300 "$TMP/py.err")" "$TMP/empty.jsonl"; return
         fi

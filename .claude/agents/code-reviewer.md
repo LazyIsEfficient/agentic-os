@@ -28,6 +28,9 @@ each tier 2 finding with the category shown.
    ```sh
    CHK="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/code-review-and-quality/scripts/check-imports.sh"
    [ -f "$CHK" ] || CHK="$HOME/.agents/skills/code-review-and-quality/scripts/check-imports.sh"
+   # Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+   TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+   case "$(cd -P -- "$(dirname -- "$CHK")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) CHK=/dev/null/refused-in-tree ;; esac
    cd "${CLAUDE_PROJECT_DIR:-.}" || exit
    bash "$CHK" --base <base> --json; echo "exit=$?"
    ```
@@ -68,6 +71,9 @@ Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — only determ
 # Installed copy only: never execute a script from the tree under review.
 LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
 [ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$LEDGER")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) LEDGER=/dev/null/refused-in-tree ;; esac
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source code-reviewer --run-id <branch-or-pr> \

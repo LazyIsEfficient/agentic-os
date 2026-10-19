@@ -63,6 +63,12 @@
 #                     reported `unavailable` when a lockfile is in scope.
 #   gitleaks          unchanged (local rules only).
 #
+# Tools are looked up on a sanitized PATH: relative entries and entries whose
+# real location is inside the repo root or cwd are dropped first, so a planted
+# node_modules/.bin/semgrep never runs. A scanner found only there is reported
+# `unavailable` ("<tool> found only inside the scanned repo or on a relative
+# PATH entry; not run").
+#
 # Per-scanner status: ran (no findings) | findings | unavailable | error.
 #
 # --json emits:
@@ -83,6 +89,35 @@
 # Requires bash (3.2+ compatible), jq and git (git only for --base / default scope).
 # shellcheck disable=SC2016  # single-quoted jq programs use jq variables ($pwd, $file…)
 set -euo pipefail
+
+# The caller's PATH may reach into the untrusted tree (node_modules/.bin, ./bin,
+# .venv/bin), where a planted gitleaks/semgrep/jq would run and report clean.
+# Keep only absolute PATH entries whose real location is outside every given
+# dir, so no tool, and nothing a tool execs via PATH, comes from the tree.
+# Applied to the cwd now and to the repo root once it is known.
+ORIG_PATH="$PATH"
+safe_path() { # safe_path <dir>... → $PATH minus relative entries and entries inside a <dir>
+  local e real d out="" inside
+  local -a entries
+  IFS=: read -r -a entries <<<"$PATH"
+  for e in ${entries[@]+"${entries[@]}"}; do
+    case "$e" in /*) ;; *) continue ;; esac
+    real="$(cd -P -- "$e" 2>/dev/null && pwd -P)" || continue
+    inside=false
+    for d in "$@"; do case "$real/" in "$d"/*) inside=true ;; esac; done
+    [[ "$inside" == true ]] || out="${out:+$out:}$e"
+  done
+  printf '%s' "$out"
+}
+PATH="$(safe_path "$(pwd -P)")"
+# not_found <tool> → the `unavailable` reason for a tool missing from the safe PATH.
+not_found() {
+  if PATH="$ORIG_PATH" command -v "$1" >/dev/null 2>&1; then
+    printf '%s found only inside the scanned repo or on a relative PATH entry; not run' "$1"
+  else
+    printf '%s not installed' "$1"
+  fi
+}
 
 OFFLINE=false
 [[ "${SECURITY_SCAN_OFFLINE:-}" == 1 ]] && OFFLINE=true
@@ -141,6 +176,7 @@ if [[ "$IN_GIT" == true ]]; then
 else
   ROOT="$PWDP"
 fi
+PATH="$(safe_path "$ROOT" "$PWDP")"
 
 # Collect candidate paths NUL-safely (git paths are untrusted: spaces, newlines,
 # leading dashes).
@@ -301,7 +337,7 @@ finish() {
 # ── gitleaks ──────────────────────────────────────────────────────────────────
 scan_gitleaks() {
   if ! command -v gitleaks >/dev/null 2>&1; then
-    emit gitleaks unavailable "gitleaks not installed" '[]'; return
+    emit gitleaks unavailable "$(not_found gitleaks)" '[]'; return
   fi
   local cfg=() notes=() d rel n
   [[ -n "$GITLEAKS_CONFIG_OVERRIDE" ]] && cfg=(--config "$GITLEAKS_CONFIG_OVERRIDE")
@@ -340,7 +376,7 @@ scan_gitleaks() {
 # ── semgrep ───────────────────────────────────────────────────────────────────
 scan_semgrep() {
   if ! command -v semgrep >/dev/null 2>&1; then
-    emit semgrep unavailable "semgrep not installed" '[]'; return
+    emit semgrep unavailable "$(not_found semgrep)" '[]'; return
   fi
   if [[ "$OFFLINE" == true && ! -e "$SEMGREP_CONFIG" ]]; then
     emit semgrep unavailable "offline mode: SEMGREP_CONFIG is not a local file or directory ($SEMGREP_CONFIG)" '[]'; return
