@@ -1,19 +1,58 @@
 # Data Model
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
-cross-session memory files and the Claude Code Stop-hook memory-extraction
-contracts.
+cross-session memory files, the Claude Code Stop-hook memory-extraction
+contracts, and the PreToolUse general-purpose-ban hook I/O.
 
-**Last updated:** 2026-07-13
+**Last updated:** 2026-10-19
 
 ## Change log
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-gp-ban (PR #284) | Added `BlockGeneralPurposeHookIO`: PreToolUse (`Agent\|Task`) hook stdin fields consumed and the `hookSpecificOutput` deny payload emitted by `.claude/hooks/block-general-purpose.sh`. |
 | 2026-07-13 | remove-dispatch-gate | Removed the dispatch-gate contracts (`DispatchGateAuditRecord`, `DispatchGateHookDecision`, `DispatchGateHookEventPayload`, `DispatchGateLedger`, `DispatchGatePolicyConfig`); that gate was retired and its scripts and config deleted. |
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
 | 2026-07-06 | fix/macos-bash-issue-with-validate-script | No-op: `scripts/validate.sh` changes (ulimit fd bump, check_tombstones grep refactor) are internal control flow only — no data contracts affected. |
+
+---
+
+### BlockGeneralPurposeHookIO
+
+| Field | Value |
+|---|---|
+| **Kind** | `message` |
+| **Ingestion route** | The Claude Code **PreToolUse** hook, registered with matcher `Agent\|Task` and `"onFailure": "block"` in `.claude/settings.json:22-24` (consumer copy: `assets/consumer/claude-settings.json:12-14`). INPUT is the PreToolUse event JSON read from **stdin** (`input=$(< /dev/stdin)`, `block-general-purpose.sh:40`); OUTPUT is printed to **stdout** for the hook runtime. Always exits 0. **Fails closed**: missing `jq` or any jq error (invalid JSON, non-object payload, missing/non-string `tool_name`, non-string `subagent_type`) emits a deny (`:42-44`, `:46-48`, `:65-67`). No bypass switch (`:25-27`). |
+| **Source** | `.claude/hooks/block-general-purpose.sh` (lines 29–68) |
+
+**INPUT** (PreToolUse event, stdin) — only these fields are consumed:
+
+```json
+{ "tool_name": "Agent", "tool_input": { "subagent_type": "engineer" } }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `tool_name` | string (non-empty) | yes | Not a string or `""` → jq `error` → fail-closed deny. Anything other than `"Agent"` / `"Task"` → `skip` (allow) — `block-general-purpose.sh:50-51` |
+| `tool_input.subagent_type` | string | no | Absent → `""`. Lowercased with `[^a-z0-9]` stripped; `""` or `generalpurpose` → deny, otherwise allow. A non-string value makes `ascii_downcase` error → fail-closed deny — `block-general-purpose.sh:53-54` |
+
+**OUTPUT** (stdout) — exactly one of:
+
+Allow (named specialist, or not an Agent/Task call): no output, exit 0 (`block-general-purpose.sh:59`).
+
+Deny (`block-general-purpose.sh:36`, `:61-62`):
+
+```json
+{ "hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "<text>" } }
+```
+
+| Name | Type | Required | Notes |
+|---|---|---|---|
+| `hookSpecificOutput` | object | yes (on deny) | Container for the three fields below |
+| `hookSpecificOutput.hookEventName` | string | yes | Literal `"PreToolUse"` — `:36`, `:62` |
+| `hookSpecificOutput.permissionDecision` | string | yes | Literal `"deny"` — `:36`, `:62` |
+| `hookSpecificOutput.permissionDecisionReason` | string | yes | Prefixed `block-general-purpose: `. Gives the cause (general-purpose/untyped, `jq` missing, or unparseable payload) followed by the specialist list `$SPECIALISTS` — `:31`, `:43`, `:61`, `:66` |
 
 ---
 
