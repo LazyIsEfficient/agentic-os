@@ -4,12 +4,13 @@ Canonical catalog of data contracts that cross a boundary in this repo — the
 cross-session memory files and the Claude Code Stop-hook memory-extraction
 contracts.
 
-**Last updated:** 2026-07-13
+**Last updated:** 2026-10-19
 
 ## Change log
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-validate-rules | No-op: new `scripts/validate.sh` static checks (R4/R6/R9/R12/R13, skill-length, workflow-agent-type, no-general-purpose), a `warn()` helper emitting `WARN [tag]: path — reason`, and a warning count in the summary line are human-readable CLI output with no machine consumer in the repo (no file outside `scripts/validate*.sh` references the `WARN [` line). Warnings never change the exit code. No API/persistence/message changes. |
 | 2026-07-13 | remove-dispatch-gate | Removed the dispatch-gate contracts (`DispatchGateAuditRecord`, `DispatchGateHookDecision`, `DispatchGateHookEventPayload`, `DispatchGateLedger`, `DispatchGatePolicyConfig`); that gate was retired and its scripts and config deleted. |
 | 2026-07-13 | feat/memory-extraction | Added memory-encoding contracts (issue #217): `MemoryEntryFile` + `MemoryIndexLine` (memory-extraction skill on-disk format), `MemoryExtractHookState` (hook-owned per-session turn counter), and `MemoryExtractStopHookIO` (Stop-hook stdin/stdout). |
 | 2026-07-07 | feat/claude-md-flatten | No-op: `scripts/build-claude-md.sh` + `validate.sh` `claude-flat-sync` exchange generated markdown via BEGIN/END RULE marker comments — an internal build-artifact convention with no fields, not a data contract. No API/persistence/message changes. |
