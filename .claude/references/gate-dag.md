@@ -153,4 +153,6 @@ Gate agents follow [review-tiers](../rules/review-tiers.md):
 | `scripts/gate-plan.sh` | Tier 0 planner — waves + checkboxes from diff |
 | `scripts/check-pr-ship-gates.sh` | Tier 0 PR checkbox gate (uses gate-plan-lib) |
 | `scripts/implementation-close-test.sh` | Tier 0 — implementation agents declare `G-data-document` close |
+| [review-verdict.md](review-verdict.md) | Gate reviewer brief (base ref + paths only) and `agentic-os/review-verdict@1` output contract |
+| `scripts/parse-verdict.sh` | Tier 0 — validates and normalizes a reviewer's verdict block (exit 0 / 1 invalid / 2 hold) |
 | `data-model-documentation/references/implementation-close.md` | Session-close contract for implementation agents (shipped with skill) |

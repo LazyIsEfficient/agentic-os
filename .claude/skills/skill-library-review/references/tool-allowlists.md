@@ -7,7 +7,7 @@ The `tools:` field is an allowlist. Omit to inherit. List explicitly to restrict
 | Role | Allowlist | Rationale |
 |---|---|---|
 | **Build / implement** | (omit — inherit) | Needs full toolset for the diversity of tasks |
-| **Read-only reviewer** | `Read, Grep, Glob, Bash, WebFetch, WebSearch` | No `Edit` / `Write` / `NotebookEdit`; matches the built-in Explore agent |
+| **Read-only reviewer** | `Read, Grep, Glob, Bash` | No `Edit` / `Write` / `NotebookEdit`. No `WebFetch` / `WebSearch` for reviewers that read untrusted diffs — network access is a prompt-injection exfil path. Add them only when the role needs external citations (e.g. `adversarial-claims-reviewer` checking published results) |
 | **Intake / shaper** | `Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion` | Adds `AskUserQuestion`; excludes `Agent` (no nested spawn), `Edit` / `Write` (intake-only) |
 | **Authoring (e.g., course-author)** | reviewer set + `Edit, Write, AskUserQuestion` | Genuine writing role; still no nested `Agent` |
 | **Orchestrator** | inherit, including `Agent` | Coordinates sub-agents — needs spawn permission |

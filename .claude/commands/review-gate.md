@@ -36,19 +36,19 @@ Dispatch **only triggered Wave 1 nodes** in a **single message, multiple Agent c
 - **`data-model-documenter`** — if `G-data-document` triggered **and** not already run at implementation close
 - **`library-reviewer`** — if `G-library-review` triggered
 
-Brief each agent with goal, exact changed paths, and diff. Agents start with no context from this conversation.
+Brief each agent with **only** the base ref (e.g. `origin/main`) and the exact changed paths — no goal, no rationale, no pasted diff. Each reviewer runs `git diff <base>...HEAD` itself (cold-context invariant in its agent file) and ends with an `agentic-os/review-verdict@1` block ([review-verdict.md](../references/review-verdict.md)).
 
 ## Step 3 — Wave 2 (conditional)
 
 After Wave 1 completes:
 
 1. Re-check whether `DATA_MODEL.md` changed (`git diff HEAD -- DATA_MODEL.md` or status).
-2. If yes: dispatch **`data-model-verifier`** (`G-data-verify`) with `readonly: true` — catalog diff, changed section names, and Source paths only (cold context).
+2. If yes: dispatch **`data-model-verifier`** (`G-data-verify`) with `readonly: true` — base ref, changed section names, and Source paths only (cold context).
 3. If **hold** (REFUTED > 0): fix catalog or source, then **re-dispatch `data-model-verifier`** until **pass** before `checkpoint:ship-ready`.
 
 ## Step 4 — `checkpoint:ship-ready`
 
-1. Summarize every gate agent verdict.
+1. Summarize every gate agent verdict; `bash scripts/parse-verdict.sh` on each report (exit 1 = malformed — re-dispatch that reviewer; exit 2 = evidenced `hold`).
 2. Fix Tier 0/1 findings; log Tier 2 to findings ledger ([findings-ledger](../skills/findings-ledger/SKILL.md)).
 3. Do **not** mark work complete until all required nodes ran and findings are addressed.
 
