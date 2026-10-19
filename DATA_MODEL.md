@@ -10,6 +10,7 @@ contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 | Date | Run | Summary |
 |---|---|---|
+| 2026-10-19 | fix/audit-postedit-hook (review round 3) | Updated `PostEditScanHookIO`: unsafe-path skip now `UNSAFE_RE='[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]'` on the payload path (jq, emits `"skip"`) and on the resolved real path (`jq -Rse`; a jq error also skips), alongside bash `[[:cntrl:]]`; cap reworked (`add()` replaced by `hit()`: first hit per rule always listed in `$first`, repeats in `$extra` capped at `MAX_FINDINGS` = 20, loop breaks on refusal; syntax findings uncapped; gitleaks runs even after the regex cap); new stop line `- ...stopped after 20 repeat findings (the first hit of every rule is always listed); ...`; AWS secret-key exemption in `generic-secret-assignment`; `biome.json` added to JSONC skip list. Removed stale notes (gitleaks skipped after cap, `head -n 20` truncation). All citations re-verified; settings ranges unchanged. |
 | 2026-10-19 | fix/audit-postedit-hook (review fixes) | Updated `PostEditScanHookIO`: control-character `file_path` / resolved path silently skipped; `MAX_FINDINGS` = 20 cap with early stop and a `...stopped after 20 findings` reason line; syntax findings no longer echo checker messages (`bash -n: line N: syntax error`, `jq: line N, column M: invalid JSON`, `python: line N: <ErrorClass>`; `first_line()` removed); JSONC files skip jq; new `openai-api-key` / `anthropic-api-key` rules; tightened `generic-secret-assignment` (key must end in keyword, unquoted values, `looks_secret()` filters); placeholder list adds `replace` (and documents `change_me`); reason passed to `jq -Rsc` on stdin. All citations re-verified; settings ranges unchanged in content. |
 | 2026-10-19 | fix/audit-postedit-hook (issue #259) | Added `PostEditScanHookIO`: PostToolUse (`Edit\|Write\|MultiEdit`) hook stdin field `tool_input.file_path`, `CLAUDE_PROJECT_DIR` containment root, consumed gitleaks report fields (`StartLine`, `RuleID`), and the fail-open `{"decision":"block","reason"}` findings payload emitted by `.claude/hooks/post-edit-scan.sh`. |
 | 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
@@ -249,8 +250,8 @@ Block / steer (`memory-extract.sh:72`):
 | Field | Value |
 |---|---|
 | **Kind** | `message` |
-| **Ingestion route** | The Claude Code **PostToolUse** hook, registered with matcher `Edit\|Write\|MultiEdit` and `"timeout": 30` in `.claude/settings.json:28-34` (consumer copy: `assets/consumer/claude-settings.json:18-24`). INPUT is the PostToolUse event JSON read from **stdin** (`input=$(< /dev/stdin)`, `post-edit-scan.sh:48`); OUTPUT is printed to **stdout** for the hook runtime. Always exits 0. **Fails open** (`:35-38`): missing `jq`, an unparseable payload, a missing/non-string/empty `file_path`, or `mktemp` failure prints one `post-edit-scan: ...` line to stderr and exits 0 with no stdout (`note()`, `:46`, `:49`, `:52-56`, `:89`). |
-| **Source** | `.claude/hooks/post-edit-scan.sh` (lines 42–238) |
+| **Ingestion route** | The Claude Code **PostToolUse** hook, registered with matcher `Edit\|Write\|MultiEdit` and `"timeout": 30` in `.claude/settings.json:28-34` (consumer copy: `assets/consumer/claude-settings.json:18-24`). INPUT is the PostToolUse event JSON read from **stdin** (`input=$(< /dev/stdin)`, `post-edit-scan.sh:50`); OUTPUT is printed to **stdout** for the hook runtime. Always exits 0. **Fails open** (`:37-40`): missing `jq`, an unparseable payload, a missing/non-string/empty `file_path`, or `mktemp` failure prints one `post-edit-scan: ...` line to stderr and exits 0 with no stdout (`note()`, `:48`, `:51`, `:59-63`, `:98`). |
+| **Source** | `.claude/hooks/post-edit-scan.sh` (lines 42–261) |
 
 **INPUT** (PostToolUse event, stdin) — only this field is consumed:
 
@@ -260,27 +261,27 @@ Block / steer (`memory-extract.sh:72`):
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `tool_input.file_path` | string (non-empty) | yes | Not a string → jq `error("no file_path")` → fail-open note; `""` → fail-open note — `post-edit-scan.sh:52-56`. A path containing any control character (jq `test("[[:cntrl:]]")`) becomes `"skip"` and exits 0 silently; the path is never echoed — `:51-57`. Symlinks resolved (`resolve()`, `:60-69`); silently skipped (exit 0, no stderr) if resolution fails, the resolved path is outside the project root, the resolved path contains a control character (bash `*[[:cntrl:]]*`), it is not a regular file, or it is over `MAX_BYTES` = 1048576 — `:42`, `:80-86` |
+| `tool_input.file_path` | string (non-empty) | yes | Not a string → jq `error("no file_path")` → fail-open note; `""` → fail-open note — `post-edit-scan.sh:59-63`. **Unsafe characters:** `UNSAFE_RE='[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]'` (C0/C1 controls, format chars such as zero-width and bidi overrides, U+2028/U+2029) — `:53-56`. A payload path matching it (jq `test($re)`) becomes `"skip"` and exits 0 silently; the path is never echoed — `:58-64`. Symlinks resolved (`resolve()`, `:66-76`); silently skipped (exit 0, no stderr) if resolution fails, the resolved path is outside the project root, the resolved path contains a control character (bash `*[[:cntrl:]]*`, `:91`) or matches `UNSAFE_RE` (`jq -Rse ... 'test($re) \| not'`; a jq error also skips, `:89-92`), it is not a regular file, or it is over `MAX_BYTES` = 1048576 — `:44`, `:87-95` |
 
 **Environment** consumed:
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `CLAUDE_PROJECT_DIR` | string (dir path) | no | Containment root. Falls back to `git rev-parse --show-toplevel`, then `pwd -P` — `post-edit-scan.sh:71-78`. Finding paths are relative to this root (`rel`, `:87`) |
-| `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML` | string | no | Deliberately **unset** for the gitleaks run (edited tree is untrusted) — `:176` |
+| `CLAUDE_PROJECT_DIR` | string (dir path) | no | Containment root. Falls back to `git rev-parse --show-toplevel`, then `pwd -P` — `post-edit-scan.sh:78-85`. Finding paths are relative to this root (`rel`, `:96`) |
+| `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML` | string | no | Deliberately **unset** for the gitleaks run (edited tree is untrusted) — `:199` |
 
-**Consumed external payload** — gitleaks JSON report (`--report-format json`, written to a temp file, `:176-179`). gitleaks runs only if installed and the finding cap was not already hit by the regex pass (`:174`). The report is read only when gitleaks exits 0 within `GITLEAKS_TIMEOUT` = 5 s and is a JSON array (`:44`, `:182-186`); otherwise a stderr line is printed and the regex findings still stand (`:192`).
+**Consumed external payload** — gitleaks JSON report (`--report-format json`, written to a temp file, `:199-202`). gitleaks runs whenever it is installed (`:197`), including after the regex pass hit the repeat cap. The report is read only when gitleaks exits 0 within `GITLEAKS_TIMEOUT` = 5 s and is a JSON array (`:46`, `:204-209`); otherwise a stderr line is printed and the regex findings still stand (`:214`).
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `[].StartLine` | number | yes | Line number in the finding line — `:190` |
-| `[].RuleID` | string | yes | Emitted as rule `gitleaks:<RuleID>` — `:190` |
+| `[].StartLine` | number | yes | Line number in the finding line — `:212` |
+| `[].RuleID` | string | yes | Emitted as rule `gitleaks:<RuleID>`; also the `hit()` rule key — `:210-212` |
 
 **OUTPUT** (stdout) — exactly one of:
 
-Clean or skipped: no output, exit 0 (`post-edit-scan.sh:225`, plus the skip/fail-open exits above).
+Clean or skipped: no output, exit 0 (`[ -s "$first" ] || exit 0`, `post-edit-scan.sh:247`, plus the skip/fail-open exits above).
 
-Findings (`post-edit-scan.sh:227-237`). The reason text is assembled in a temp file and passed to jq on **stdin** (`jq -Rsc '{decision:"block", reason:rtrimstr("\n")}' < "$tmp/reason"`, `:237`), not via argv:
+Findings (`post-edit-scan.sh:249-260`). The reason text is assembled in a temp file and passed to jq on **stdin** (`jq -Rsc '{decision:"block", reason:rtrimstr("\n")}' < "$tmp/reason"`, `:260`), not via argv:
 
 ```json
 {"decision":"block","reason":"<text>"}
@@ -288,26 +289,26 @@ Findings (`post-edit-scan.sh:227-237`). The reason text is assembled in a temp f
 
 | Name | Type | Required | Notes |
 |---|---|---|---|
-| `decision` | string | yes | Literal `"block"`. For PostToolUse this attaches `reason` to the tool result; the edit is not undone — `:27-29`, `:237` |
-| `reason` | string | yes | Header `post-edit-scan found problems in the file you just edited (<relpath>). The edit was applied; fix these now:` then one `- <finding>` line per unique finding (`sort -u`), at most `MAX_FINDINGS` = 20 (`head -n`) — `:43`, `:228-229`. When the cap is hit, the line `- ...stopped after 20 findings; more may exist. Fix these, and the next edit rescans the file.` follows — `:230-232`. If any finding is a secret, a rotation/remediation sentence is appended — `:233-235`. Trailing newline trimmed (`rtrimstr`) — `:237` |
+| `decision` | string | yes | Literal `"block"`. For PostToolUse this attaches `reason` to the tool result; the edit is not undone — `:28-30`, `:260` |
+| `reason` | string | yes | Header `post-edit-scan found problems in the file you just edited (<relpath>). The edit was applied; fix these now:` (`:250`), then `- <finding>` lines: all first hits (`sort -u "$first"`, `:251`), then the repeat hits (`sort -u "$extra" | grep -vxF -f "$first"`, at most `MAX_FINDINGS` = 20, `:45`, `:252`). When the cap was hit, the line `- ...stopped after 20 repeat findings (the first hit of every rule is always listed); more may exist. Fix these, and the next edit rescans the file.` follows — `:253-255`. If any first-hit line contains ` secret `, a rotation/remediation sentence is appended — `:256-258`. Trailing newline trimmed (`rtrimstr`) — `:260` |
 
 Finding line formats inside `reason`:
 
 | Format | Rule / checker values | Source |
 |---|---|---|
-| `<relpath>:<line> secret <rule>` | Case-sensitive regexes: `aws-access-key-id`, `private-key`, `github-token`, `slack-token`, `stripe-live-key`, `openai-api-key` (`sk-proj-`), `anthropic-api-key` (`sk-ant-`), `google-api-key`, `jwt`. Case-insensitive `generic-secret-assignment` (see Notes). `gitleaks:<RuleID>` | `:103-113`, `:119`, `:152-169`, `:190` |
-| `<relpath> syntax bash -n: line <N>: syntax error` | `*.sh` files | `:207-211` |
-| `<relpath> syntax jq: line <N>, column <M>: invalid JSON` | `*.json` files, except JSONC files (`*.jsonc`, `*/.vscode/*.json`, basename `tsconfig*.json`, `jsconfig*.json`, `devcontainer.json`, `.devcontainer.json`, `.eslintrc*.json`), which skip the jq check | `:199-205`, `:212-216` |
-| `<relpath> syntax python: line <N>: <ErrorClass>` | `*.py` files, when `python3` is on PATH. `<ErrorClass>` is the last `^[A-Za-z]+(Error\|Exception)` match (fallback `compile failed`); bytecode goes to a temp `pycache_prefix` | `:217-222` |
+| `<relpath>:<line> secret <rule>` | Case-sensitive regexes: `aws-access-key-id`, `private-key`, `github-token`, `slack-token`, `stripe-live-key`, `openai-api-key` (`sk-proj-`), `anthropic-api-key` (`sk-ant-`), `google-api-key`, `jwt`. Case-insensitive `generic-secret-assignment` (see Notes). `gitleaks:<RuleID>` | `:121-131`, `:136-137`, `:169-193`, `:210-212` |
+| `<relpath> syntax bash -n: line <N>: syntax error` | `*.sh` files | `:229-233` |
+| `<relpath> syntax jq: line <N>, column <M>: invalid JSON` | `*.json` files, except JSONC files (`*.jsonc`, `*/.vscode/*.json`, basename `tsconfig*.json`, `jsconfig*.json`, `devcontainer.json`, `.devcontainer.json`, `.eslintrc*.json`, `biome.json`), which skip the jq check | `:221-227`, `:234-238` |
+| `<relpath> syntax python: line <N>: <ErrorClass>` | `*.py` files, when `python3` is on PATH. `<ErrorClass>` is the last `^[A-Za-z]+(Error\|Exception)` match (fallback `compile failed`); bytecode goes to a temp `pycache_prefix` | `:239-244` |
 
-In all three syntax formats the `line …: ` prefix is omitted when no `line N(, column M)?` is found in the checker output (`line_of()`, `${pl:+$pl: }`, `:198`, `:210`, `:215`, `:221`). Checker messages themselves are never echoed (`:196-197`).
+In all three syntax formats the `line …: ` prefix is omitted when no `line N(, column M)?` is found in the checker output (`line_of()`, `${pl:+$pl: }`, `:220`, `:231-232`, `:236-237`, `:241-243`). Checker messages themselves are never echoed (`:218-219`). Syntax findings are written straight to `$first` (not through `hit()`), so they are never capped (`:232`, `:237`, `:243`).
 
 Notes:
-- Secret **values are never emitted** — only `file:line rule`; gitleaks runs with `--redact` (`:12-13`, `:176`). Syntax findings keep only the line/column and error class because checker messages can quote file content (`:17-18`, `:196-197`).
-- **Cap:** `add()` increments a counter and sets `capped` at `MAX_FINDINGS` = 20; every scan loop (built-in rules, generic assignment, gitleaks) stops once capped, and gitleaks is not started if the regex pass already capped (`:96-100`, `:153`, `:157`, `:160`, `:168`, `:174`, `:189`). The syntax checks still run and can append one more line, which `head -n 20` may drop after `sort -u` (`:206-229`).
-- **`generic-secret-assignment`** (`GENERIC_RE`, `grep -i`, `:114-119`): the key name must END in `password`, `passwd`, `passphrase`, `secret`, `token`, `api[_-]?key`, `access[_-]?key`, or `private[_-]?key`, optionally followed by `[_-]?(key|secret)` and an optional closing quote, then `:=`, `=>`, `:` or `=`. The value is either quoted (16+ chars, no quote or whitespace) or unquoted for `.env`/YAML (16+ chars excluding quotes, whitespace, `#,;(){}<>`). The extracted value must also pass `looks_secret()` (`:130-144`): contains a digit AND a letter; no `/` or whitespace; does not start with `$` (rejects `$VAR` and bcrypt/argon hashes); not a dotted identifier (`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$`).
-- Matches judged placeholders are suppressed, case-insensitively (`is_placeholder()`, `:121-128`): substrings `example`, `xxxx`, `changeme`, `change_me`, `replace`, `placeholder`, `your_`, `your-`, `redacted`, `dummy`, or `<...>`, `${`, `{{`, `://`. Lockfiles skip the built-in regex set but not gitleaks (`:146-151`).
-- `.gitleaksignore` and inline `gitleaks:allow` are ignored (`--gitleaks-ignore-path` to an empty temp dir, `--ignore-gitleaks-allow`, `:175-178`). A missing scanner is never reported (`:33`).
+- Secret **values are never emitted** — only `file:line rule`; gitleaks runs with `--redact` (`:12-13`, `:199`). Syntax findings keep only the line/column and error class because checker messages can quote file content (`:17-18`, `:218-219`).
+- **Cap** (`hit <rule> <finding>`, `:100-118`): the first hit of each rule key (built-in rule names, `generic-secret-assignment`, `gitleaks:<RuleID>`) is always written to `$first`, tracked in the space-delimited `seen` list. Later hits of an already-seen rule go to `$extra` while `extras` < `MAX_FINDINGS` = 20; past that, `hit` sets `capped=1` and returns 1. The built-in rule loop and the generic-assignment loop `break` on that return (`:174`, `:192`); the gitleaks loop ignores it (`|| true`, `:211`). So after the cap, each later rule (and each new gitleaks RuleID) still records its first hit; only repeats are dropped. `capped` is set only when a repeat is actually refused, so exactly 20 repeats with none further does not print the stop line. Each file is `sort -u`-ed, and repeat lines whose text equals a first-hit line (for example two matches of one rule on the same line) are dropped with `grep -vxF -f "$first"`, so no finding is listed twice (`:251-252`).
+- **`generic-secret-assignment`** (`GENERIC_RE`, `grep -i`, `:132-137`, `:177-193`): the key name must END in `password`, `passwd`, `passphrase`, `secret`, `token`, `api[_-]?key`, `access[_-]?key`, or `private[_-]?key`, optionally followed by `[_-]?(key|secret)` and an optional closing quote, then `:=`, `=>`, `:` or `=`. The value is either quoted (16+ chars, no quote or whitespace) or unquoted for `.env`/YAML (16+ chars excluding quotes, whitespace, `#,;(){}<>`). The extracted value must also pass `looks_secret()` (`:148-162`, call `:182`): contains a digit AND a letter; no `/` or whitespace; does not start with `$` (rejects `$VAR` and bcrypt/argon hashes); not a dotted identifier (`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$`). **AWS exemption** (`:182-191`): a value that fails `looks_secret()` is still reported if it matches `^[A-Za-z0-9/+]{40}$`, contains a digit, and the full source line (`sed -n "${ln}p"`) contains `aws_secret` or `secret_access_key` (case-insensitive, under `nocasematch`, `:139`, `:195`).
+- Matches judged placeholders are suppressed, case-insensitively (`is_placeholder()`, `:140-146`; called at `:173`, `:181`): substrings `example`, `xxxx`, `changeme`, `change_me`, `replace`, `placeholder`, `your_`, `your-`, `redacted`, `dummy`, or `<...>`, `${`, `{{`, `://`. Lockfiles skip the built-in regex set but not gitleaks (`:164-169`).
+- `.gitleaksignore` and inline `gitleaks:allow` are ignored (`--gitleaks-ignore-path` to an empty temp dir, `--ignore-gitleaks-allow`, `:198-201`). A missing scanner is never reported (`:35`).
 
 ---
 
