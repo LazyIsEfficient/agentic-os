@@ -28,6 +28,7 @@ jobs:
       - run: bash scripts/security-scan-test.sh
       - run: bash scripts/check-imports-test.sh
       - run: python3 -I .claude/skills/findings-ledger/scripts/test_ledger.py
+      - run: bash scripts/post-edit-scan-test.sh
       - run: bash scripts/review-gate-stop-test.sh
       - run: bash scripts/review-verdict-capture-test.sh
       - run: git ls-files -z '*.sh' .githooks/pre-commit | xargs -0 shellcheck -S warning --
