@@ -595,6 +595,24 @@ JS
 run_validate "$c56"
 assert_not_flagged "case 56 names (workflow meta.name ending in t parses intact)" names "wf-test.js"
 
+# 57: `python -m` after leading flags — `python3 -I -m http.server` evaded the
+# `python[[:space:]]+-m` rule (PR #292 review). Combined `-Im` too.
+c57="$(make_copy)"; mkdir -p "$c57/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -I -m http.server 8080\n' > "$c57/.claude/hooks/fm.sh"
+assert_trips "case 57 hook-safety (python flags before -m)" "$c57" hook-safety
+c57b="$(make_copy)"; mkdir -p "$c57b/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -Im http.server 8080\n' > "$c57b/.claude/hooks/fm.sh"
+assert_trips "case 57b hook-safety (python combined -Im)" "$c57b" hook-safety
+c57c="$(make_copy)"; mkdir -p "$c57c/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -m py_compile x.py; python3 -I -m http.server\n' > "$c57c/.claude/hooks/fm.sh"
+assert_trips "case 57c hook-safety (py_compile allowlist does not mask a second -m)" "$c57c" hook-safety
+
+# 58: the allowlisted `-m py_compile` (post-edit-scan.sh's own call) passes.
+c58="$(make_copy)"; mkdir -p "$c58/.claude/hooks"
+printf '#!/usr/bin/env bash\npython3 -I -X pycache_prefix="$tmp/pyc" -m py_compile "$real"\n' > "$c58/.claude/hooks/pc.sh"
+run_validate "$c58"
+assert_not_flagged "case 58 hook-safety (python -m py_compile allowlisted)" hook-safety "pc.sh"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "validate-test.sh: $PASS passed, $FAIL failed."
