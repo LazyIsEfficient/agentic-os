@@ -119,8 +119,8 @@ iso_export_task() {
 # the real installer from the HEAD export into the arm's temp config dir only.
 iso_install_library() {
   local src="$1" root="$2" log="$3"
-  HOME="$root/home" CLAUDE_DIR="$root/home/.claude" \
-    bash "$src/install.sh" --force >"$log" 2>&1
+  env -i HOME="$root/home" CLAUDE_DIR="$root/home/.claude" TMPDIR="$root/tmp" \
+    PATH="$(iso_child_path)" bash "$src/install.sh" --force >"$log" 2>&1
 }
 
 # iso_on_manifest <src>: relative paths install.sh copies into the config dir.
@@ -140,6 +140,37 @@ iso_library_markers() {
 ISO_FAILS=()
 iso_fail() { ISO_FAILS+=("$1"); }
 iso_join() { head -5 | tr '\n' ' '; }
+
+# iso_hook_commands <settings.json>: every hook command, sorted, duplicates kept.
+iso_hook_commands() {
+  jq -r '[.. | objects | select(has("command")) | .command] | .[]' "$1" | LC_ALL=C sort
+}
+
+# iso_check_on_settings <src> <cfg>: settings.json must be exactly what
+# install.sh writes, i.e. the consumer template with $HOME/.claude/hooks
+# rewritten to $cfg/hooks (the same jq rewrite as install-hook-settings.sh).
+# The narrower checks run first so a failure says what is wrong.
+iso_check_on_settings() {
+  local src="$1" cfg="$2" settings="$2/settings.json" expected keys cmd bad
+  if ! jq -e 'type == "object"' "$settings" >/dev/null 2>&1; then
+    iso_fail "ON settings.json is missing or not a JSON object"
+    return
+  fi
+  expected="$(jq -S --arg hd "$cfg/hooks" '
+    walk(if type == "object" and has("command")
+         then .command |= gsub("\\$HOME/.claude/hooks"; $hd) else . end)
+    | {hooks: .hooks}' "$src/assets/consumer/claude-settings.json")"
+  keys="$(jq -c 'keys' "$settings")"
+  [ "$keys" = '["hooks"]' ] || iso_fail "ON settings.json top-level keys are $keys, expected [\"hooks\"]"
+  bad="$(iso_hook_commands "$settings" | while IFS= read -r cmd; do
+      case "$cmd" in "bash $cfg/hooks/"*.sh) ;; *) echo "$cmd" ;; esac
+    done | iso_join)"
+  [ -z "$bad" ] || iso_fail "ON settings.json has hook commands outside $cfg/hooks: $bad"
+  [ "$(iso_hook_commands "$settings")" = "$(echo "$expected" | jq -r '[.. | objects | select(has("command")) | .command] | .[]' | LC_ALL=C sort)" ] \
+    || iso_fail "ON settings.json hook commands differ from what install.sh registers"
+  [ "$(jq -S . "$settings")" = "$expected" ] \
+    || iso_fail "ON settings.json differs from what install.sh writes"
+}
 
 # iso_preflight <arm on|off> <root> <src>   (src = an iso_export_src dir)
 # Fills ISO_FAILS (empty = pass) and ISO_LISTING_SHA. Never runs claude.
@@ -201,8 +232,7 @@ iso_preflight() {
         cmp -s "$src/.claude/$rel" "$cfg/$rel" || changed=$((changed + 1))
       done < <(iso_on_manifest "$src")
       [ "$changed" -eq 0 ] || iso_fail "ON manifest: $changed library file(s) differ from HEAD in $cfg"
-      grep -qF "$cfg/hooks/block-general-purpose.sh" "$cfg/settings.json" 2>/dev/null \
-        || iso_fail "ON settings.json does not register the library hooks from $cfg/hooks"
+      iso_check_on_settings "$src" "$cfg"
       ;;
     *) iso_fail "unknown arm: $arm" ;;
   esac
@@ -212,20 +242,28 @@ iso_preflight() {
   [ "${#ISO_FAILS[@]}" -eq 0 ]
 }
 
-# iso_record <jsonl> <arm> <session_id> <run_id> <repo_sha> <auth_var>
+# iso_harness_dirty <repo>: "true" when eval/metrics/ (the harness, which runs
+# from the working tree, unlike the arms) has uncommitted or untracked changes.
+iso_harness_dirty() {
+  if [ -n "$(git -C "$1" status --porcelain -- eval/metrics 2>/dev/null)" ]; then echo true; else echo false; fi
+}
+
+# iso_record <jsonl> <arm> <session_id> <run_id> <repo_sha> <auth_var> <harness_dirty>
 # Appends one preflight record. Values go through argv/env into node, never a
 # shell-built JSON string. The auth VALUE is never an input here.
 iso_record() {
-  local out="$1" arm="$2" sid="$3" run_id="$4" sha="$5" auth_var="$6"
+  local out="$1" arm="$2" sid="$3" run_id="$4" sha="$5" auth_var="$6" hdirty="$7"
   local fails
   fails="$(printf '%s\n' "${ISO_FAILS[@]+"${ISO_FAILS[@]}"}")"
+  HARNESS_DIRTY="$hdirty" \
   ARM="$arm" SID="$sid" RUN_ID="$run_id" SHA="$sha" AUTH_VAR="$auth_var" \
   LISTING="$ISO_LISTING_SHA" FAILS="$fails" PASSTHROUGH="$ISO_ENV_PASSTHROUGH" \
   node -e '
     const e = process.env;
     const failures = e.FAILS.split("\n").filter(Boolean);
     process.stdout.write(JSON.stringify({
-      run_id: e.RUN_ID, repo_sha: e.SHA, arm: e.ARM, session_id: e.SID,
+      run_id: e.RUN_ID, repo_sha: e.SHA, harness_dirty: e.HARNESS_DIRTY === "true",
+      arm: e.ARM, session_id: e.SID,
       recorded_utc: new Date().toISOString(),
       config_dir_listing_sha256: e.LISTING,
       preflight: failures.length ? "fail" : "pass", failures,

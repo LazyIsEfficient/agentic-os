@@ -49,6 +49,7 @@ AUTH_VAR="$(iso_auth_var)" || { iso_auth_help; exit 1; }
 gen_id() { node -e 'console.log(crypto.randomUUID())'; }
 RUN_ID="$(gen_id)"
 REPO_SHA="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+HARNESS_DIRTY="$(iso_harness_dirty "$REPO")"
 OUT="${OUT:-$DIR/runs/$(date -u +%Y%m%dT%H%M%SZ)-arms}"
 mkdir -p "$OUT"
 LEDGER="$OUT/isolation.jsonl"
@@ -90,7 +91,7 @@ setup_arm() {
 preflight_arm() {
   local arm="$1" root="$2" sid="$3" ok=0 f
   iso_preflight "$arm" "$root" "$SRC" || ok=1
-  iso_record "$LEDGER" "$arm" "$sid" "$RUN_ID" "$REPO_SHA" "$AUTH_VAR"
+  iso_record "$LEDGER" "$arm" "$sid" "$RUN_ID" "$REPO_SHA" "$AUTH_VAR" "$HARNESS_DIRTY"
   [ "$ok" = 0 ] && return 0
   echo "PREFLIGHT FAILED ($arm arm) — aborting; nothing was sent to claude:" >&2
   for f in "${ISO_FAILS[@]}"; do echo "  - $f" >&2; done

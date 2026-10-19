@@ -62,7 +62,7 @@ a temp dir, or one that only swaps `--settings`, still loads the library.
 - **What each arm gets.**
   - OFF gets nothing installed.
   - ON gets the library from the export's own `install.sh`, run as
-    `HOME=<root>/home CLAUDE_DIR=<root>/home/.claude install.sh --force`.
+    `env -i HOME=<root>/home CLAUDE_DIR=<root>/home/.claude TMPDIR=<root>/tmp PATH=<child path> install.sh --force`.
   - The export is deleted after preflight, before either arm runs.
   - The real `~/.claude` is never read or written.
 - **Allowlisted environment.** The child keeps only `PATH LANG LC_ALL TERM USER LOGNAME
@@ -89,10 +89,16 @@ a temp dir, or one that only swaps `--settings`, still loads the library.
     `settings.json`. The manifest is every file under `.claude/{skills,agents,hooks}`
     plus the three shipped commands. Any extra file aborts the run: a plugin, a
     `.claude.json`, a rogue skill or a `CLAUDE.md`. So does any missing file. Every
-    manifest file must be byte-identical to `HEAD`, and `settings.json` must register
-    the hooks from that dir.
+    manifest file must be byte-identical to `HEAD`. `settings.json` must be exactly
+    what `install.sh` writes, checked in four steps:
+    - its only top-level key is `hooks`, so `enabledPlugins`, `apiKeyHelper`, `env`
+      and similar keys are rejected;
+    - every hook command is `bash <config>/hooks/*.sh`;
+    - the set of hook commands equals the set the installer registers;
+    - the whole file equals the rewritten consumer template.
 - **Record.** Each preflight appends one line to `<out>/isolation.jsonl`: `run_id`,
-  `repo_sha`, `arm`, `session_id`, `recorded_utc`, `config_dir_listing_sha256` (a hash
+  `repo_sha`, `harness_dirty` (true when `eval/metrics/` has uncommitted changes: the
+  harness runs from the working tree, unlike the arms), `arm`, `session_id`, `recorded_utc`, `config_dir_listing_sha256` (a hash
   of every path plus file contents), `preflight` (`pass`/`fail`), `failures[]`,
   `auth_var` (name only) and `env_passthrough`. A report cites these lines to prove
   isolation.
