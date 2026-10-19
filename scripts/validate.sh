@@ -18,6 +18,7 @@
 #
 # Exit 0 if clean, non-zero if any invariant fails. Each failure prints:
 #   FAIL [<invariant>]: <path> — <reason>
+# Advisory findings print `WARN [<invariant>]: ...` and never change the exit code.
 #
 # ── Frontmatter parsing assumptions (documented per spec) ──────────────────────
 # Frontmatter is the block between the first two lines that are exactly "---".
@@ -69,6 +70,16 @@ fail() {
   # $1 = invariant tag, $2 = path, $3 = reason
   printf 'FAIL [%s]: %s — %s\n' "$1" "$2" "$3"
   FAILURES=$((FAILURES + 1))
+}
+
+# Warnings never affect the exit code. Used for RULESET guidance caps ("~N")
+# and for checks a known in-flight PR will satisfy; promote to fail() once main
+# is clean.
+WARNINGS=0
+warn() {
+  # $1 = invariant tag, $2 = path, $3 = reason
+  printf 'WARN [%s]: %s — %s\n' "$1" "$2" "$3"
+  WARNINGS=$((WARNINGS + 1))
 }
 
 # ── Frontmatter helpers ────────────────────────────────────────────────────────
@@ -130,6 +141,45 @@ fm_value() {
   '
 }
 
+# Extract the FULL value of a frontmatter key: inline value, block scalar
+# (`|`, `>`, `>-`, ...), or a plain scalar continued on indented lines. Lines
+# are trimmed and joined with single spaces; blank lines inside a block are
+# dropped and one layer of surrounding quotes is stripped. That makes lengths
+# approximate to within a few chars of the YAML-parsed value — deterministic,
+# which is what the gate needs.
+fm_full_value() {
+  local key="$1"
+  awk -v key="$key" '
+    !found && $0 ~ "^"key":" {
+      found=1
+      val=$0
+      sub("^"key":[ \t]*", "", val)
+      gsub(/[ \t\r]+$/, "", val)
+      out = (val ~ /^[|>][-+0-9]*$/) ? "" : val
+      next
+    }
+    found {
+      if ($0 ~ /^[ \t\r]*$/) next
+      if ($0 !~ /^[ \t]/) exit
+      line=$0
+      sub(/^[ \t]+/, "", line)
+      gsub(/[ \t\r]+$/, "", line)
+      out = (out == "") ? line : out " " line
+    }
+    END {
+      if (!found) exit
+      if (out ~ /^".*"$/ || out ~ /^\047.*\047$/) out = substr(out, 2, length(out) - 2)
+      print out
+    }
+  '
+}
+
+# Character (not byte) count of stdin: drop UTF-8 continuation bytes, count the
+# rest. Locale-free, so macOS and Linux agree under LC_ALL=C.
+char_count() {
+  tr -d '\200-\277' | wc -c | tr -d ' '
+}
+
 # ── Invariant 1 + 2: frontmatter presence & names ──────────────────────────────
 KEBAB_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
 
@@ -154,6 +204,23 @@ check_frontmatter_and_names() {
         if [[ "$name" != "$dir" ]]; then
           fail names "$f" "name '$name' != parent dir '$dir'"
         fi
+      fi
+      # R9: reserved words. Checked on name AND folder so a mismatch can't hide it.
+      local lc; lc="$(printf '%s %s' "$name" "$dir" | tr '[:upper:]' '[:lower:]')"
+      if [[ "$lc" == *claude* || "$lc" == *anthropic* ]]; then
+        fail reserved-name "$f" "skill name/folder contains reserved word 'claude' or 'anthropic' (R9)"
+      fi
+      # R12: description hard limit 1024 chars; R32: local guidance ~800 (warn).
+      local desc_len; desc_len="$(printf '%s\n' "$block" | fm_full_value description | tr -d '\n' | char_count)"
+      if [[ "$desc_len" -gt 1024 ]]; then
+        fail description-length "$f" "description is $desc_len chars (max 1024, R12)"
+      elif [[ "$desc_len" -gt 800 ]]; then
+        warn description-length "$f" "description is $desc_len chars (local guidance ~800, R32)"
+      fi
+      # R21/R32: SKILL.md ~100-line local cap. "~" = guidance, so warn only.
+      local nlines; nlines="$(wc -l < "$f" | tr -d ' ')"
+      if [[ "$nlines" -gt 100 ]]; then
+        warn skill-length "$f" "SKILL.md is $nlines lines (local guidance ~100, R21/R32) — move detail into references/"
       fi
     done < <(find "$CLAUDE/skills" -name SKILL.md -type f | sort)
   fi
@@ -217,13 +284,14 @@ check_frontmatter_and_names() {
       fi
       local k
       for k in name description phases; do
-        if ! printf '%s\n' "$meta" | grep -Eq "(^|[ \t,{])${k}[ \t]*:"; then
+        # POSIX classes, not `\t`: BSD grep/sed read `\t` in a bracket literally.
+        if ! printf '%s\n' "$meta" | grep -Eq "(^|[[:space:],{])${k}[[:space:]]*:"; then
           fail frontmatter "$f" "meta object missing key: $k"
         fi
       done
       # meta.name value: first `name:` line, strip to the quoted/unquoted token.
-      local mname; mname="$(printf '%s\n' "$meta" | grep -E '(^|[ \t,{])name[ \t]*:' | head -1 \
-        | sed -E 's/.*name[ \t]*:[ \t]*//; s/[",]+//g; s/[ \t\r]+$//')"
+      local mname; mname="$(printf '%s\n' "$meta" | grep -E '(^|[[:space:],{])name[[:space:]]*:' | head -1 \
+        | sed -E 's/.*name[[:space:]]*:[[:space:]]*//; s/[",]+//g; s/[[:space:]]+$//')"
       local base; base="$(basename "$f" .js)"
       if [[ -n "$mname" ]]; then
         if ! [[ "$mname" =~ $KEBAB_RE ]]; then
@@ -776,6 +844,179 @@ check_tombstones() {
   done
 }
 
+# ── Invariant 10: skill-structure (R4/R6) ──────────────────────────────────────
+# Every other skill check discovers skills via `find -name SKILL.md`, which is
+# case-sensitive — a folder with `skill.md` or no main file at all would be
+# silently skipped. This closes that hole:
+#   (a) every top-level dir under skills/ contains SKILL.md;
+#   (b) no case variant (skill.md, SKILL.MD, ...) exists anywhere under skills/
+#       — on a case-insensitive FS (macOS) (a) passes for `skill.md`, so (b) is
+#       what catches it there;
+#   (c) SKILL.md appears only at a skill's root (exactly one per skill).
+check_skill_structure() {
+  [[ -d "$CLAUDE/skills" ]] || return 0
+  local d f
+  for d in "$CLAUDE/skills"/*/; do
+    [[ -d "$d" ]] || continue
+    d="${d%/}"
+    [[ -f "$d/SKILL.md" ]] || fail skill-structure "$d" "skill folder has no SKILL.md (R4) — every other skill check would silently skip it"
+  done
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && fail skill-structure "$f" "main file must be named exactly SKILL.md, case-sensitive (R6)"
+  done < <(find "$CLAUDE/skills" -iname 'skill.md' ! -name 'SKILL.md' -type f | sort)
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && fail skill-structure "$f" "nested SKILL.md — a skill is one folder with exactly one SKILL.md at its root (R4)"
+  done < <(find "$CLAUDE/skills" -mindepth 3 -name 'SKILL.md' -type f | sort)
+  return 0
+}
+
+# ── Invariant 10b: no-symlinks ─────────────────────────────────────────────────
+# `[[ -f ]]` follows symlinks but every content check uses `find -type f`, which
+# does not — so a symlinked SKILL.md (or agent/command/workflow) passes structure
+# checks while its target, possibly outside the repo, is never scanned. Library
+# surfaces hold no symlinks today; any symlink there is a hard fail.
+check_no_symlinks() {
+  local dir f
+  for dir in skills agents commands workflows; do
+    [[ -d "$CLAUDE/$dir" ]] || continue
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && fail no-symlinks "$f" "symlink in .claude/$dir/ — content checks skip symlinks, so its target is never validated"
+    done < <(find "$CLAUDE/$dir" -type l | sort)
+  done
+  return 0
+}
+
+# ── Invariant 11: frontmatter-brackets (R13) ───────────────────────────────────
+# No `<` or `>` anywhere in skill/agent/command frontmatter — it is injected into
+# the system prompt. Allowed: a YAML block-scalar indicator (`key: >-`, at any
+# indent), and in a command's `argument-hint:` value only whole `<placeholder>`
+# tokens (`<name>`, `<a|b|c>` alternation) — any other bracket use, e.g.
+# `<system>text`, still fails (R13 exception is the documented syntax only).
+check_frontmatter_brackets() {
+  local f is_cmd hit
+  local files=()
+  [[ -d "$CLAUDE/skills" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/skills" -name 'SKILL.md' -type f | sort)
+  [[ -d "$CLAUDE/agents" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/agents" -maxdepth 1 -name '*.md' -type f | sort)
+  [[ -d "$CLAUDE/commands" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/commands" -maxdepth 1 -name '*.md' -type f | sort)
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  for f in "${files[@]}"; do
+    is_cmd=0
+    [[ "$f" == "$CLAUDE/commands/"* ]] && is_cmd=1
+    # Line numbers are file-relative: +1 for the opening `---`.
+    hit="$(fm_block "$f" | awk -v is_cmd="$is_cmd" '
+      is_cmd && /^argument-hint:/ {
+        v = $0
+        sub(/^argument-hint:[ \t]*/, "", v)
+        gsub(/[ \t\r]+$/, "", v)
+        if (v ~ /^".*"$/ || v ~ /^\047.*\047$/) v = substr(v, 2, length(v) - 2)
+        n = split(v, toks, /[ \t]+/)
+        for (j = 1; j <= n; j++)
+          if (toks[j] ~ /[<>]/ && toks[j] !~ /^<[a-z0-9_-]+(\|[a-z0-9_-]+)*>$/) { print NR + 1; exit }
+        next
+      }
+      /^[ \t]*[A-Za-z0-9_-]+:[ \t]*[|>][-+0-9]*[ \t\r]*$/ { next }
+      /[<>]/ { print NR + 1; exit }
+    ')"
+    [[ -n "$hit" ]] && fail frontmatter-brackets "$f" "'<' or '>' in frontmatter (line $hit) — prompt-injection vector (R13)"
+  done
+  return 0
+}
+
+# ── Invariant 12: workflow-agent-type ──────────────────────────────────────────
+# Every agent(...) call in .claude/workflows/*.js must pass `agentType` so the
+# workflow dispatches a named specialist, never a default/general agent. A tiny
+# awk lexer tracks paren depth from each `agent(` while skipping string, template
+# and comment contents, so prose inside prompts can neither close the call early
+# nor satisfy the check. Regex literals are not lexed (none in the library today).
+check_workflow_agent_type() {
+  [[ -d "$CLAUDE/workflows" ]] || return 0
+  local f ln
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    while IFS= read -r ln; do
+      [[ -n "$ln" ]] && fail workflow-agent-type "$f" "agent( call at line $ln does not pass agentType"
+    done < <(awk '
+      BEGIN { st = "code"; depth = 0; incall = 0 }
+      {
+        s = $0 "\n"; n = length(s); i = 1
+        while (i <= n) {
+          c = substr(s, i, 1); c2 = substr(s, i, 2)
+          if (st == "line") { if (c == "\n") st = "code"; i++; continue }
+          if (st == "block") { if (c2 == "*/") { st = "code"; i += 2 } else i++; continue }
+          if (st == "sq" || st == "dq" || st == "bq") {
+            if (c == "\\") { i += 2; continue }
+            if ((st == "sq" && c == "\047") || (st == "dq" && c == "\"") || (st == "bq" && c == "`")) st = "code"
+            i++; continue
+          }
+          if (c2 == "//") { st = "line"; i += 2; continue }
+          if (c2 == "/*") { st = "block"; i += 2; continue }
+          if (c == "\047") { st = "sq"; i++; continue }
+          if (c == "\"") { st = "dq"; i++; continue }
+          if (c == "`") { st = "bq"; i++; continue }
+          if (!incall && substr(s, i, 5) == "agent" && (i == 1 || substr(s, i - 1, 1) !~ /[A-Za-z0-9_$.]/)) {
+            rest = substr(s, i + 5)
+            if (match(rest, /^[ \t]*\(/)) {
+              incall = 1; depth = 1; start = NR; buf = ""
+              i += 5 + RLENGTH; continue
+            }
+          }
+          if (incall) {
+            buf = buf c
+            if (c == "(") depth++
+            else if (c == ")") {
+              depth--
+              if (depth == 0) {
+                incall = 0
+                if (buf !~ /(^|[^A-Za-z0-9_$])agentType([^A-Za-z0-9_$]|$)/) print start
+              }
+            }
+          }
+          i++
+        }
+      }
+      END { if (incall) print start }
+    ' "$f")
+  done < <(find "$CLAUDE/workflows" -maxdepth 1 -name '*.js' -type f | sort)
+  return 0
+}
+
+# ── Invariant 13: no-general-purpose ───────────────────────────────────────────
+# Doctrine: engineering work is never dispatched to the `general-purpose` agent.
+# Flag any reference to it as a dispatch target outside eval/ (eval keeps it as a
+# measured baseline arm). Matching is pragmatic, not a parse:
+#   - flagged forms: `generalPurpose` (always the identifier), and
+#     general-purpose when backticked, quoted, followed by agent/subagent, or
+#     after subagent_type — so the English adjective ("a general-purpose
+#     mechanism") is not flagged;
+#   - exempt: lines where a negation binds to the dispatch verb — "never|don't|
+#     do not|must not" + "use|dispatch|spawn", "is banned|is not allowed|is
+#     never", or "bans" directly before the name ("installing it bans
+#     `general-purpose`"). A bare negation word is not enough: "do not
+#     hesitate to dispatch `general-purpose`" endorses it, "the hook bans Bash;
+#     dispatch `general-purpose`" bans something else, and "research on main thread forbidden —
+#     dispatch Agent(explore|generalPurpose)" forbids something else;
+#   - not scanned: .git, eval/, node_modules, gitignored local state
+#     (.claude/memory, .claude/ledger, .claude/worktrees), this validator + its
+#     self-test, and the ban's own enforcement (block-general-purpose.sh, its
+#     test, and scripts/fixtures/) — all of which must spell the pattern.
+GP_RE='generalPurpose|`general-purpose`|["'"'"']general-purpose["'"'"']|general-purpose[[:space:]]+(sub)?agents?\b|subagent_type[^[:alnum:]]*general-purpose'
+GP_FORBID_RE='(never|don'"'"'t|do not|must not)[[:space:]]+(use|dispatch|spawn)\b|\bis[[:space:]]+(banned|not allowed|never)\b|\bbans[[:space:]]+(`general-purpose`|generalPurpose)'
+check_no_general_purpose() {
+  local f ln text
+  while IFS=: read -r f ln text; do
+    [[ -n "$f" && -n "$ln" ]] || continue
+    grep -Eiq "$GP_FORBID_RE" <<<"$text" && continue
+    fail no-general-purpose "${f#./}" "line $ln references the general-purpose agent as a dispatch target — name a specialist"
+  done < <(cd "$ROOT" && find . \
+      \( -path ./.git -o -path ./eval -o -name node_modules \
+         -o -path ./.claude/memory -o -path ./.claude/ledger -o -path ./.claude/worktrees \) -prune \
+      -o -type f ! -path ./scripts/validate.sh ! -path ./scripts/validate-test.sh \
+         ! -path ./.claude/hooks/block-general-purpose.sh ! -path ./scripts/block-general-purpose-test.sh \
+         ! -path './scripts/fixtures/*' -print0 \
+    | xargs -0 grep -nIE "$GP_RE" 2>/dev/null | sort)
+  return 0
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_frontmatter_and_names
 check_dangling_refs
@@ -787,12 +1028,17 @@ check_hook_safety
 check_claude_hook_registration
 check_codex_hook_registration
 check_tombstones
+check_skill_structure
+check_no_symlinks
+check_frontmatter_brackets
+check_workflow_agent_type
+check_no_general_purpose
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$FAILURES" -gt 0 ]]; then
-  echo "validate.sh: $FAILURES failure(s)."
+  echo "validate.sh: $FAILURES failure(s), $WARNINGS warning(s)."
   exit 1
 fi
-echo "validate.sh: OK — all invariants pass."
+echo "validate.sh: OK — all invariants pass ($WARNINGS warning(s))."
 exit 0
