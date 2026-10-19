@@ -2,8 +2,7 @@
 
 Canonical catalog of data contracts that cross a boundary in this repo — the
 cross-session memory files, the Claude Code Stop-hook memory-extraction
-contracts, the PreToolUse general-purpose-ban hook I/O, and the PostToolUse
-post-edit scan hook I/O.
+contracts, and the PreToolUse general-purpose-ban hook I/O.
 
 **Last updated:** 2026-10-19
 
@@ -13,6 +12,7 @@ post-edit scan hook I/O.
 |---|---|---|
 | 2026-10-19 | fix/audit-postedit-hook (review fixes) | Updated `PostEditScanHookIO`: control-character `file_path` / resolved path silently skipped; `MAX_FINDINGS` = 20 cap with early stop and a `...stopped after 20 findings` reason line; syntax findings no longer echo checker messages (`bash -n: line N: syntax error`, `jq: line N, column M: invalid JSON`, `python: line N: <ErrorClass>`; `first_line()` removed); JSONC files skip jq; new `openai-api-key` / `anthropic-api-key` rules; tightened `generic-secret-assignment` (key must end in keyword, unquoted values, `looks_secret()` filters); placeholder list adds `replace` (and documents `change_me`); reason passed to `jq -Rsc` on stdin. All citations re-verified; settings ranges unchanged in content. |
 | 2026-10-19 | fix/audit-postedit-hook (issue #259) | Added `PostEditScanHookIO`: PostToolUse (`Edit\|Write\|MultiEdit`) hook stdin field `tool_input.file_path`, `CLAUDE_PROJECT_DIR` containment root, consumed gitleaks report fields (`StartLine`, `RuleID`), and the fail-open `{"decision":"block","reason"}` findings payload emitted by `.claude/hooks/post-edit-scan.sh`. |
+| 2026-10-19 | fix/audit-shellcheck (issue #275) | No-op: shellcheck hygiene + eval test exit codes; no contract change. |
 | 2026-10-19 | fix/audit-validate-rules | No-op: new `scripts/validate.sh` static checks (R4/R6/R9/R12/R13, skill-length, workflow-agent-type, no-general-purpose), a `warn()` helper emitting `WARN [tag]: path — reason`, and a warning count in the summary line are human-readable CLI output with no machine consumer in the repo (no file outside `scripts/validate*.sh` references the `WARN [` line). Warnings never change the exit code. No API/persistence/message changes. |
 | 2026-10-19 | fix/audit-ledger-fp | Added findings-ledger contracts (issue #279): `FindingsLedgerEvent` (append-only JSONL event log; new optional `fingerprint_scheme` / `category` / `symbol` keys, structured scheme-2 fingerprint, RECURRING only on a sighting from a different `run_id`; `add` rejects control characters in `--file`/`--category`/`--symbol`; scheme-2 path/symbol normalization) and `FindingsLedgerExportRow` (new `export` per-fingerprint summary, no claim text but raw `file`/`symbol` free text; refuses `--out` inside the ledger directory, reads under the lock, atomic `mkstemp` + `os.replace` write). Line citations refreshed after PR #288 review fixes. |
 | 2026-10-19 | fix/audit-scan-scripts (security fix round 2) | Updated `ReviewScanReport`: new `skipped` reason `"manifest resolves outside the repo root"` (both scripts); new check-imports rules `js-import-outside-root` / `py-import-outside-root`; new security-scan copy/containment `error` reasons (npm-audit, pip-audit, cargo-audit); noted text-output control-char escaping and per-line script prefix; every line citation re-verified and shifted to current files. |

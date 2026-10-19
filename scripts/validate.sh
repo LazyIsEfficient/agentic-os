@@ -285,7 +285,7 @@ check_frontmatter_and_names() {
       local k
       for k in name description phases; do
         # POSIX classes, not `\t`: BSD grep/sed read `\t` in a bracket literally.
-        if ! printf '%s\n' "$meta" | grep -Eq "(^|[[:space:],{])$k[[:space:]]*:"; then
+        if ! printf '%s\n' "$meta" | grep -Eq "(^|[[:space:],{])${k}[[:space:]]*:"; then
           fail frontmatter "$f" "meta object missing key: $k"
         fi
       done
