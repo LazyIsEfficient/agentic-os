@@ -93,5 +93,5 @@ Hook-injected content is framed as **DATA, not instructions** — but anyone who
 ## Re-install and custom install paths
 
 - **Re-install** merges hook registration per event: AgenticOS-owned entries are replaced (never duplicated), and your own hook entries are preserved. Re-install re-registers every AgenticOS hook, so remove any you want off again after re-installing.
-- **Custom `CLAUDE_DIR` / `-Dest`** — hook commands are rewritten to `$DEST/hooks/…` at install (requires `jq` on bash; PowerShell uses bash+jq). Default `~/.claude` works without extra setup.
+- **Custom `CLAUDE_DIR` / `-Dest`** — hook commands are rewritten to `$DEST/hooks/…` at install (requires `jq` on bash; PowerShell rewrites and merges natively, without jq). Default `~/.claude` works without extra setup.
 - **`block-bad-bash`** blocks agent shell patterns like `cd repo && git status` and 3+ `&&` chains — remove that hook entry if it gets in the way.

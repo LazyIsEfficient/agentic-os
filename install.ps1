@@ -200,64 +200,73 @@ function Install-ClaudeHookSettings {
   # concern.) Forward slashes: bash-on-Windows accepts them and, unlike the
   # backslash form, they need no JSON escaping. $Dest is validated at the top of
   # this script to exclude `$`, so the replacement string is injection-safe.
-  $HooksDirFwd = ($HooksDir -replace '\\', '/')
+  # Canonical absolute path (no trailing separator, relative -Dest resolved) so
+  # `-Dest x\` and `-Dest x` write identical commands and never double-register.
+  $HooksDirFwd = ([System.IO.Path]::GetFullPath((Convert-Path -LiteralPath $HooksDir)) -replace '\\', '/').TrimEnd('/')
+  # The as-given form older installs wrote — recognised as ours on upgrade.
+  $HooksDirGivenFwd = ($HooksDir -replace '\\', '/').TrimEnd('/')
   $raw = Get-Content $SrcFile -Raw
   $rewritten = $raw -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd
 
   # Merge per event, same semantics as install.sh (scripts/lib/
-  # install-hook-settings.sh) and SECURITY.md: strip AgenticOS-owned handlers
-  # (command references a script our template registers, under this install's
-  # hooks dir or the literal `$HOME/.claude/hooks`) from every event, drop
-  # groups left empty, append ours. Consumer hooks and all other top-level keys
-  # are preserved; re-install is idempotent.
+  # install-hook-settings.sh) and SECURITY.md. A handler is AgenticOS-owned only
+  # when its whole command (trimmed, runs of `/` collapsed) EQUALS a template
+  # command, in the literal `$HOME/.claude/hooks/...` form or with the hooks dir
+  # substituted (canonical or as-given). Compound/piped commands that merely
+  # contain our path stay the consumer's. In each event we ship: strip owned
+  # handlers, drop groups left empty, append ours. Events we don't ship and all
+  # other top-level keys are untouched; re-install is idempotent. A non-object
+  # `hooks`, or a non-array value for an event we ship, fails closed (throws
+  # before anything is written).
   if (Test-Path $DestFile) {
     # -Depth 100 so a consumer's deeply-nested keys round-trip intact. NOTE: on
     # Windows PowerShell 5.1 this JSON round-trip can unwrap single-element
     # arrays — the Windows smoke test (RELEASING.md step 6) must confirm
     # hooks.PreToolUse stays an array on an EXISTING settings.json before tagging.
-    $names = @([regex]::Matches($raw, '\$HOME/\.claude/hooks/([^/\s"'']+)') |
-      ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-    $prefixes = @('$HOME/.claude/hooks/', "$HooksDirFwd/")
+    $normCmd = { param([string]$c) ($c.Trim() -replace '/+', '/') }
+    $tplCmds = @(foreach ($tev in ($raw | ConvertFrom-Json).hooks.PSObject.Properties) {
+      foreach ($tg in @($tev.Value)) { foreach ($th in @($tg.hooks)) { $th.command } } })
+    $owned = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+    foreach ($c in $tplCmds) {
+      foreach ($form in @($c,
+          ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd),
+          ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirGivenFwd))) {
+        [void]$owned.Add((& $normCmd $form))
+      }
+    }
     $isOwned = {
-      param([string]$Cmd)
-      if (-not $Cmd) { return $false }
-      foreach ($n in $names) { foreach ($p in $prefixes) {
-        $path = $p + $n
-        $i = $Cmd.IndexOf($path, [StringComparison]::Ordinal)
-        while ($i -ge 0) {
-          $end = $i + $path.Length
-          $before = if ($i -eq 0) { '' } else { $Cmd.Substring($i - 1, 1) }
-          $after  = if ($end -ge $Cmd.Length) { '' } else { $Cmd.Substring($end, 1) }
-          if (($before -in @('', ' ', '"', "'")) -and ($after -in @('', ' ', '"', "'", ';'))) { return $true }
-          $i = $Cmd.IndexOf($path, $i + 1, [StringComparison]::Ordinal)
-        }
-      } }
-      return $false
+      param($Cmd)
+      ($Cmd -is [string]) -and $owned.Contains((& $normCmd $Cmd))
     }
 
     $incoming = ($rewritten | ConvertFrom-Json).hooks
     $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+    $existing = if ($destJson.PSObject.Properties['hooks']) { $destJson.hooks } else { $null }
+    if ($null -ne $existing -and $existing -isnot [System.Management.Automation.PSCustomObject]) {
+      throw "Error: failed to merge AgenticOS hooks into ${DestFile}: hooks is not an object."
+    }
     $merged = [ordered]@{}
-    if ($destJson.PSObject.Properties['hooks'] -and $destJson.hooks) {
-      foreach ($ev in $destJson.hooks.PSObject.Properties) {
-        $groups = $ev.Value
-        if ($groups -isnot [System.Array]) { $merged[$ev.Name] = $groups; continue }
-        $kept = @()
-        foreach ($g in $groups) {
-          if ($g -is [psobject] -and $g.PSObject.Properties['hooks'] -and $g.hooks -is [System.Array]) {
-            $handlers = @($g.hooks | Where-Object { -not (& $isOwned ([string]$_.command)) })
-            if ($handlers.Count -eq 0) { continue }
-            $g.hooks = $handlers
-          }
-          $kept += ,$g
-        }
-        if ($kept.Count -eq 0 -and $groups.Count -gt 0 -and -not $incoming.PSObject.Properties[$ev.Name]) { continue }
-        $merged[$ev.Name] = $kept
-      }
+    if ($null -ne $existing) {
+      foreach ($ev in $existing.PSObject.Properties) { $merged[$ev.Name] = $ev.Value }
     }
     foreach ($ev in $incoming.PSObject.Properties) {
-      $existing = if ($merged.Contains($ev.Name)) { @($merged[$ev.Name]) } else { @() }
-      $merged[$ev.Name] = @($existing) + @($ev.Value)
+      $groups = if ($merged.Contains($ev.Name)) { $merged[$ev.Name] } else { $null }
+      if ($null -eq $groups) { $groups = @() }
+      if ($groups -isnot [System.Array]) {
+        throw "Error: failed to merge AgenticOS hooks into ${DestFile}: hooks.$($ev.Name) is not an array."
+      }
+      $kept = @()
+      foreach ($g in $groups) {
+        if ($g -is [System.Management.Automation.PSCustomObject] -and $g.PSObject.Properties['hooks'] -and $g.hooks -is [System.Array]) {
+          $handlers = @($g.hooks | Where-Object {
+            -not ($_ -is [System.Management.Automation.PSCustomObject] -and $_.PSObject.Properties['command'] -and (& $isOwned $_.command))
+          })
+          if ($handlers.Count -eq 0) { continue }
+          $g.hooks = $handlers
+        }
+        $kept += ,$g
+      }
+      $merged[$ev.Name] = @($kept) + @($ev.Value)
     }
     $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]$merged) -Force
     $out = $destJson | ConvertTo-Json -Depth 100
