@@ -125,21 +125,8 @@ longer matters, and paraphrases collide.
   | `dead-code` | unreachable or unused code/config |
   | `secret-exposure` | credential or token logged, committed or leaked |
 
-  Reviewer vocabulary — `code-reviewer`'s slop checklist and
-  `security-reviewer`'s scanner step use exactly these, so their Tier 2
-  findings recur across runs. `--symbol` is the name in the right column.
-
-  | Slug | Use for | `--symbol` |
-  |------|---------|------------|
-  | `security/scanner-unavailable` | a `security-scan.sh` scanner was `unavailable`/`error`, or the run exited 3/4 | scanner name (`gitleaks`, `semgrep`, `dependency-audit`, or `security-scan` for the whole run) |
-  | `slop/scanner-unavailable` | `check-imports.sh` exited 3/4 or could not be found | `check-imports` |
-  | `slop/nonexistent-api` | a call to a method/attribute that doesn't exist on a module that does — beyond what `check-imports.sh` resolves | the API name |
-  | `slop/unused-dep` | new dependency nothing imports, when `check-imports.sh` did not flag it (e.g. a devDependency) | package name |
-  | `slop/stdlib-dup-dep` | new dependency duplicating the stdlib or an existing dependency | package name |
-  | `dead-code` | (seed slug above, reused) unreachable or unused code | function or key |
-  | `slop/duplicated-helper` | a new helper that re-implements one already in the codebase | the new helper |
-  | `slop/speculative-generality` | abstraction, option or hook with fewer than three uses | the abstraction |
-  | `slop/comment-noise` | comments restating the code, or change-log comments | function or heading |
+  Reviewer vocabulary (`slop/*`, `security/*`, used by code-reviewer and
+  security-reviewer): [references/ledger-format.md](references/ledger-format.md#reviewer-category-vocabulary).
 
 - `--symbol` (optional, requires `--category`) — the function, heading, or
   config key the finding is about. Backticks and a trailing `()` are

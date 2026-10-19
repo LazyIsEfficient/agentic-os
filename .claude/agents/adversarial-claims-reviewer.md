@@ -34,9 +34,9 @@ This agent MUST be spawned with a cold context: it receives **only the document 
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). VERIFIED and REFUTED verdicts are Tier 1 — each gates only through its deterministic artifact (the exit-nonzero script path or explicit counterexample); a REFUTED with no artifact is not REFUTED. UNVERIFIABLE and VACUOUS verdicts, and any unevidenced concern, are Tier 2: they count against the document in the report but block nothing on their own — journal them. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# Installed copy only: never execute a script from the tree under review.
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source adversarial-claims-reviewer --run-id <doc-or-review-id>

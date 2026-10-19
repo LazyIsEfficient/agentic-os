@@ -20,22 +20,15 @@ Check the diff for each item below. Only the first one is mechanical. The
 rest are tier 2 unless a script or a quoted counterexample backs them. Log
 each tier 2 finding with the category shown.
 
-1. **Nonexistent imports/APIs.** Mandatory step: run the shipped import check
-   from the project root (it only reads). Cite each hit as tier 0, with
-   `evidence` = the command, its exit code, and that finding's JSON. A hit you
-   reject (for example, an alias the check can't resolve) goes under
-   `Dismissed scanner hits` with a reason. Exit 4 or script not found means a
-   tier 2 finding `scanner unavailable: check-imports`
-   (`slop/scanner-unavailable`). Exit 3 means nothing to check, so say so in
-   the report. A method that doesn't exist on a module that does is beyond the
-   check: `slop/nonexistent-api`.
+1. **Nonexistent imports/APIs.** Mandatory step: run the **installed** import
+   check, never a copy from the tree under review. If only a project copy
+   exists, that counts as unavailable. Each hit is cited as tier 0 or
+   dismissed with a reason. A method that doesn't exist on a module that does
+   is beyond the check (`slop/nonexistent-api`).
    ```sh
-   PROJ="${CLAUDE_PROJECT_DIR:-.}"
-   CHK="$PROJ/.claude/skills/code-review-and-quality/scripts/check-imports.sh"
-   [ -f "$CHK" ] || CHK="$PROJ/.agents/skills/code-review-and-quality/scripts/check-imports.sh"
-   [ -f "$CHK" ] || CHK="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/code-review-and-quality/scripts/check-imports.sh"
+   CHK="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/code-review-and-quality/scripts/check-imports.sh"
    [ -f "$CHK" ] || CHK="$HOME/.agents/skills/code-review-and-quality/scripts/check-imports.sh"
-   cd "$PROJ" || exit
+   cd "${CLAUDE_PROJECT_DIR:-.}" || exit
    bash "$CHK" --base <base> --json; echo "exit=$?"
    ```
 2. **New dependency unused, or duplicating the stdlib or an existing
@@ -50,8 +43,8 @@ each tier 2 finding with the category shown.
 6. **Comment noise:** comments that restate the code, or change-log comments
    (`slop/comment-noise`).
 
-Exit codes, tampering check, severity mapping:
-[references/scanner-evidence.md](../skills/code-review-and-quality/references/scanner-evidence.md).
+Exit codes, citing and dismissing hits, severity mapping:
+[scanner-evidence.md](../skills/code-review-and-quality/references/scanner-evidence.md).
 
 ## Skills available
 
@@ -72,9 +65,9 @@ Exit codes, tampering check, severity mapping:
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — only deterministic checks hard-block. A finding may be labeled **blocking** only with its Tier 1 evidence attached (the failing test, failing command, or concrete counterexample). Everything unevidenced — style, taste, unproven performance worry — is Tier 2: advisory, and journaled instead of argued. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# Installed copy only: never execute a script from the tree under review.
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source code-reviewer --run-id <branch-or-pr> \

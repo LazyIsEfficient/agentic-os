@@ -296,9 +296,21 @@ fi
 
 : > "$TMP/results.jsonl"
 : > "$TMP/empty.jsonl"
+# Reasons quote helper stderr, which can name absolute paths. Literal
+# substitutions, longest first: temp dir → <tmp>, repo root / cwd → relative,
+# $HOME → ~. Empty and "/" values are skipped (a HOME=/ must not rewrite every "/").
+SCRUB_SUBS="$(jq -cn --arg t "$TMP" --arg tp "$(cd -P -- "$TMP" && pwd -P)" --arg r "$ROOT" \
+  --arg p "$PWDP" --arg l "$PWD" --arg h "${HOME:-}" '
+  def ok: length > 1;
+  [ (if ($t|ok) then [$t, "<tmp>"] else empty end), (if ($tp|ok) then [$tp, "<tmp>"] else empty end),
+    (if ($r|ok) then [$r + "/", ""], [$r, "."] else empty end),
+    (if ($p|ok) then [$p + "/", ""] else empty end), (if ($l|ok) then [$l + "/", ""] else empty end),
+    (if ($h|ok) then [$h, "~"] else empty end) ]')"
+
 emit() {
-  jq -cn --arg name "$1" --arg status "$2" --arg reason "$3" --slurpfile f "$4" \
-    '{name:$name, status:$status, findings:$f} + (if $reason == "" then {} else {reason:$reason} end)' \
+  jq -cn --arg name "$1" --arg status "$2" --arg reason "$3" --slurpfile f "$4" --argjson subs "$SCRUB_SUBS" \
+    'def scrub: reduce $subs[] as $s (.; split($s[0]) | join($s[1]));
+     {name:$name, status:$status, findings:$f} + (if $reason == "" then {} else {reason:($reason | scrub)} end)' \
     >> "$TMP/results.jsonl"
 }
 # finding <out-file> <file> <line> <rule> <severity> <message>

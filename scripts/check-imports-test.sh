@@ -132,6 +132,10 @@ run --json --paths README.md
 OUT="$(cd "$G" && PYTHON=/nonexistent/python3 bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
 [ "$RC" -eq 4 ] && [ "$(jqo '.scanners[0].status')" = "error" ] \
   && ok "python missing → py-imports error, exit 4" || no "exit 4" "rc=$RC $OUT"
+mkdir -p "$T/home"
+OUT="$(cd "$G" && HOME="$T/home" PYTHON="$T/home/venv/bin/python3" bash "$CHECK" --json --paths mypkg/a.py 2>"$T/stderr")"; RC=$?
+[ "$(jqo '.scanners[0].reason == "~/venv/bin/python3 not found; cannot resolve Python imports"')" = true ] \
+  && ok "error reasons scrub \$HOME (→ ~)" || no "reason scrub" "$OUT"
 
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run --bogus
@@ -235,6 +239,8 @@ OUT="$(cd "$G" && bash "$WRAPPER" --json --paths wrapped.js 2>"$T/stderr")"; RC=
 { [ "$RC" -eq 1 ] && has js-unresolved-relative wrapped.js 1 "'./nope'"; } \
   && ok "scripts/check-imports.sh wrapper execs the shipped check" || no "wrapper" "rc=$RC $OUT $(cat "$T/stderr")"
 rm -f "$G/wrapped.js"
+RC=0; (cd "$SCRIPT_DIR/.." && CDPATH=".:/tmp" bash scripts/check-imports.sh --bogus >/dev/null 2>&1) || RC=$?
+[ "$RC" -eq 2 ] && ok "wrapper survives CDPATH (relative invocation)" || no "wrapper CDPATH" "rc=$RC"
 
 echo ""
 echo "check-imports-test: $P passed, $F failed."

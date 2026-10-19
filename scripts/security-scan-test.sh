@@ -63,10 +63,12 @@ cfg=""
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do [ "$1" = "--config" ] && cfg="$2"; shift; done
 shift
 case "${FAKE_SEMGREP:-clean}" in
-  prefixed) # real semgrep prefixes a local ruleset's rule ids with its dir path
-    pre="$(dirname "$cfg")"; pre="${pre#/}"; pre="$(printf '%s' "$pre" | tr / .)"
+  prefixed) # real semgrep 1.181.0 prefixes a local ruleset's rule ids with its
+            # dir path, "/" → "." and spaces dropped ("/a b/x.yml" → "ab.")
+    pre="$(dirname "$cfg")"; pre="${pre#/}"; pre="$(printf '%s' "$pre" | tr / . | tr -d ' ')"
     printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"%s.aos.js.eval-dynamic","extra":{"severity":"ERROR","message":"eval"}}],"errors":[]}\n' "$1" "$pre" ;;
   error) echo '{"results":[],"errors":[{"level":"error","message":"invalid configuration file found"}]}'; exit 7 ;;
+  errorpath) printf '{"results":[],"errors":[{"level":"error","message":"bad rule in %s/rules/x.yml while scanning %s/app.js"}]}\n' "$HOME" "$PWD"; exit 7 ;;
   findings) printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"javascript.lang.security.eval","extra":{"severity":"ERROR","message":"eval detected"}}],"errors":[]}\n' "$1" ;;
   *) echo '{"results":[],"errors":[]}' ;;
 esac
@@ -176,6 +178,11 @@ FAKE_SEMGREP=error run "$FULL_PATH" --json --paths app.js
 [ "$(jqo '.scanners[] | select(.name=="semgrep") | .status')" = "error" ] \
   && jqo '.scanners[] | select(.name=="semgrep") | .reason' | grep -q 'invalid configuration' \
   && ok "semgrep error status carries the scanner's reason" || no "semgrep error reason" "$OUT"
+mkdir -p "$T/home"
+HOME="$T/home" FAKE_SEMGREP=errorpath run "$FULL_PATH" --json --paths app.js
+reason="$(jqo '.scanners[] | select(.name=="semgrep") | .reason')"
+{ [ "$RC" -eq 4 ] && [ "$reason" = "semgrep exited 7: bad rule in ~/rules/x.yml while scanning app.js" ]; } \
+  && ok "error reasons scrub \$HOME (→ ~) and the project path (→ relative)" || no "reason scrub" "rc=$RC reason=$reason"
 FAKE_OSV=error run "$FULL_PATH" --json --paths app.js
 [ "$RC" -eq 4 ] && [ "$(jqo '.scanners[] | select(.name=="osv-scanner") | .status')" = "error" ] \
   && ok "osv-scanner unexpected exit code → error / exit 4" || no "osv error" "rc=$RC out=$OUT"
@@ -201,10 +208,20 @@ SECURITY_SCAN_OFFLINE=1 SEMGREP_CONFIG=p/security-audit run "$FULL_PATH" --json 
 SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=prefixed run "$FULL_PATH" --json --paths app.js
 [ "$(jqo '.scanners[] | select(.name=="semgrep") | .findings[0].rule')" = "aos.js.eval-dynamic" ] \
   && ok "offline: ruleset-path prefix stripped from semgrep rule ids" || no "rule id prefix" "$OUT"
+mkdir -p "$T/John Smith/rules"; : > "$T/John Smith/rules/r.yml"
+FAKE_SEMGREP=prefixed SEMGREP_CONFIG="$T/John Smith/rules/r.yml" run "$FULL_PATH" --json --paths app.js
+[ "$(jqo '.scanners[] | select(.name=="semgrep") | .findings[0].rule')" = "aos.js.eval-dynamic" ] \
+  && ok "rule-id prefix stripped even when semgrep drops spaces from a spaced ruleset path" \
+  || no "spaced rule id prefix" "$OUT"
 : > "$LOG"
 OUT="$(cd "$PROJ" && SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=findings PATH="$FULL_PATH" bash "$WRAPPER" --json --paths app.js 2>"$T/stderr")"; RC=$?
 { [ "$RC" -eq 1 ] && grep -qF -- "<--config> <$RULES>" "$LOG"; } \
   && ok "scripts/security-scan.sh wrapper execs the shipped scanner" || no "wrapper" "rc=$RC out=$OUT $(cat "$T/stderr")"
+
+# Wrapper is CDPATH-safe: invoked by a relative path with CDPATH set, it must
+# still reach the scanner (usage error → 2), not die on a doubled path (127).
+RC=0; (cd "$SCRIPT_DIR/.." && CDPATH=".:/tmp" bash scripts/security-scan.sh --bogus >/dev/null 2>&1) || RC=$?
+[ "$RC" -eq 2 ] && ok "wrapper survives CDPATH (relative invocation)" || no "wrapper CDPATH" "rc=$RC"
 
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run "$FULL_PATH" --bogus

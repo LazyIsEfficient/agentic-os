@@ -226,11 +226,23 @@ done
 : > "$TMP/results.jsonl"
 
 # emit <name> <status> <reason> <findings-json-array> [notes-json-array]
+# Reasons quote scanner stderr, which can name absolute paths. Literal
+# substitutions, longest first: temp dir → <tmp>, repo root / cwd → relative,
+# $HOME → ~. Empty and "/" values are skipped (a HOME=/ must not rewrite every "/").
+SCRUB_SUBS="$(jq -cn --arg t "$TMP" --arg tp "$(cd -P -- "$TMP" && pwd -P)" --arg r "$ROOT" \
+  --arg p "$PWDP" --arg l "$PWD" --arg h "${HOME:-}" '
+  def ok: length > 1;
+  [ (if ($t|ok) then [$t, "<tmp>"] else empty end), (if ($tp|ok) then [$tp, "<tmp>"] else empty end),
+    (if ($r|ok) then [$r + "/", ""], [$r, "."] else empty end),
+    (if ($p|ok) then [$p + "/", ""] else empty end), (if ($l|ok) then [$l + "/", ""] else empty end),
+    (if ($h|ok) then [$h, "~"] else empty end) ]')"
+
 emit() {
   jq -cn --arg name "$1" --arg status "$2" --arg reason "$3" --argjson findings "$4" \
-    --argjson notes "${5:-[]}" \
-    '{name:$name, status:$status, findings:$findings}
-     + (if $reason == "" then {} else {reason:$reason} end)
+    --argjson notes "${5:-[]}" --argjson subs "$SCRUB_SUBS" \
+    'def scrub: reduce $subs[] as $s (.; split($s[0]) | join($s[1]));
+     {name:$name, status:$status, findings:$findings}
+     + (if $reason == "" then {} else {reason:($reason | scrub)} end)
      + (if ($notes | length) == 0 then {} else {notes:$notes} end)' \
     >> "$TMP/results.jsonl"
 }
@@ -343,17 +355,19 @@ scan_semgrep() {
     [[ -n "$msg" ]] || msg="$(head -c 300 "$TMP/semgrep.err")"
     emit semgrep error "semgrep exited $rc: $msg" '[]'; return
   fi
-  # semgrep prefixes rule ids from a local ruleset file with its directory path,
-  # "/" → "." (verified semgrep 1.181.0). Strip it for an absolute file config so
-  # rule ids are stable across install locations and never leak the home path.
-  local id_prefix=""
-  if [[ "$SEMGREP_CONFIG" == /* && -f "$SEMGREP_CONFIG" ]]; then
-    id_prefix="$(dirname -- "$SEMGREP_CONFIG")"; id_prefix="${id_prefix#/}"; id_prefix="${id_prefix//\//.}."
-  fi
+  # semgrep prefixes rule ids from a local ruleset with a mangled form of its
+  # directory path ("/" → ".", spaces dropped; verified semgrep 1.181.0), so the
+  # prefix cannot be rebuilt reliably. For a local config, keep only the shipped
+  # ruleset's own id, `aos.<lang>.<rule>` — the final three dot-segments — so
+  # ids are stable across install locations and never leak the home path.
+  local local_cfg=false
+  [[ -e "$SEMGREP_CONFIG" ]] && local_cfg=true
   local findings
-  findings="$(jqr --arg idp "$id_prefix" "$REL_FILTER"'
+  findings="$(jqr --argjson lc "$local_cfg" "$REL_FILTER"'
     [.results[] | {file: (.path | rel), line: .start.line,
-                   rule: (if $idp == "" then .check_id else (.check_id | ltrimstr($idp)) end),
+                   rule: (.check_id as $id
+                          | if $lc then ($id | capture("(?:^|\\.)(?<r>aos\\.[a-z0-9-]+\\.[a-z0-9-]+)$").r // $id)
+                            else $id end),
                    severity: (.extra.severity // "UNKNOWN"), message: .extra.message}]' "$out")"
   emit semgrep "$(status_for "$(jq 'length' <<<"$findings")")" "" "$findings"
 }

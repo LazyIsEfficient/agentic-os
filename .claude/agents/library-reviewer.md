@@ -40,9 +40,9 @@ Spawn with **only** a base ref and the changed paths — never the implementer's
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — only deterministic checks hard-block. Tier 0 is `scripts/validate.sh` territory (frontmatter presence, name/dir match, dangling links) — cite it, don't re-find it. Tier 1 findings (may block) are those whose quoted live line is itself reproducible evidence: a `tools:` allowlist contradicting a declared read-only role, a cross-reference target that does not exist. Routing-quality, description-vagueness, and single-responsibility judgments are Tier 2: advisory, journaled instead of argued. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# Installed copy only: never execute a script from the tree under review.
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source library-reviewer --run-id <branch-or-pr>

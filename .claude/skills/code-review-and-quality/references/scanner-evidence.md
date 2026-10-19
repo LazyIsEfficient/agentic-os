@@ -20,26 +20,37 @@ wrappers around these files.
 
 ## Resolve and run
 
-Resolve the project copy first, then the global install. Run from the project
-root, because both scanners scope to the current directory:
+**Only the installed copy, never the tree under review.** The repo being
+reviewed is untrusted, and that includes its base commit, not only the diff.
+A repo that commits its own `.claude/skills/security/scripts/security-scan.sh`
+would get a reviewer that prefers project copies to execute it: the script
+can run arbitrary code and print a forged clean result. So reviewers run only
+the user-level install:
+
+- `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/...` (`install.sh`)
+- `$HOME/.agents/skills/...` (`install.sh --codex`)
+
+They never run `$PROJ/.claude/skills/...` or `$PROJ/.agents/skills/...`.
+`install.sh --codex --project` installs into the tree, so those copies are
+excluded too. If only a project copy exists, report `scanner unavailable`
+(tier 2) and do not run it. The same rule applies to `ledger.py`.
+
+Run from the project root, because both scanners scope to the current
+directory:
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
 S=skills/security/scripts/security-scan.sh   # or: skills/code-review-and-quality/scripts/check-imports.sh
-SCAN="$PROJ/.claude/$S"
-[ -f "$SCAN" ] || SCAN="$PROJ/.agents/$S"
-[ -f "$SCAN" ] || SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/$S"
+SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/$S"
 [ -f "$SCAN" ] || SCAN="$HOME/.agents/$S"
-cd "$PROJ" || exit
+cd "${CLAUDE_PROJECT_DIR:-.}" || exit
 SECURITY_SCAN_OFFLINE=1 bash "$SCAN" --base <base> --json; echo "exit=$?"   # check-imports: no env needed
 ```
 
-**Tampering check.** The diff under review can change the scanner itself. Run
-`git diff --name-only <base>...HEAD` and look for the resolved scanner or its
-ruleset. If either is in the diff, say so in the report header. In that case a
-clean result is not evidence, and it can never support `pass` on its own.
-Findings still count, because a tampered scanner can only invent hits that you
-then confirm by reading the code.
+**Reviewing agentic-os itself.** The installed copy may lag the repo, so a
+change to a scanner is reviewed with the previous installed version, not the
+new one. That is accepted: running the version under review would put it in
+charge of its own verdict. Its own tests (`scripts/security-scan-test.sh`,
+`scripts/check-imports-test.sh`) are the evidence for scanner changes.
 
 ## Exit codes and what to report
 
@@ -50,7 +61,7 @@ then confirm by reading the code.
 | 2 | Usage error, usually a bad `--base`. Fix the call and rerun. If it persists, treat it like 4. | Same. |
 | 3 | Nothing checked: no file in scope, or no scanner installed. Tier 2 `scanner unavailable: security-scan`. | No JS/TS/Python sources or manifests in scope. Say `check-imports: nothing to check` in the report. This is not a gap, so there is no finding. |
 | 4 | A scanner errored. Tier 2 `scanner unavailable: <name>` with its `reason`. | A check could not run (python3 missing, unparseable manifest). Tier 2 `scanner unavailable: check-imports`. |
-| script not found | Tier 2 `scanner unavailable: security-scan`. | Tier 2 `scanner unavailable: check-imports`. |
+| 127, no installed copy (a project copy doesn't count) | Tier 2 `scanner unavailable: security-scan`. | Tier 2 `scanner unavailable: check-imports`. |
 
 Never skip a scanner silently. Each `scanner unavailable` finding goes into the
 verdict as tier 2, severity `low`, `file` `.`, `line` `null`. Its `evidence` is
@@ -105,7 +116,10 @@ offline evidence.
 
 ## check-imports and Python
 
-Python imports resolve with `$PYTHON` (default `python3`). To resolve
-installed packages, set `PYTHON=.venv/bin/python`, but only when
-`git ls-files .venv` is empty. A committed venv belongs to the untrusted tree,
-and its interpreter start-up (`.pth` files) runs code.
+Python imports resolve with `$PYTHON` (default `python3`). Reviewers leave
+it at the default. Never point it at an interpreter inside the tree (such as
+`.venv/bin/python`): its start-up (`.pth` files) runs code from the tree. The
+cost is that a third-party package missing from the system `python3` shows up
+as `py-unresolved-module`. If the package is declared in the project's
+manifest, dismiss the hit as a false positive. If it isn't declared anywhere,
+it is a real finding.

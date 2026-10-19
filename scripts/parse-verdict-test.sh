@@ -146,4 +146,12 @@ set -e
 expect_rc 1 "missing file exits 1"
 pass "missing file"
 
+# Wrapper is CDPATH-safe under a relative invocation (127 = doubled cd path).
+set +e
+out="$(cd "$REPO" && CDPATH=".:/tmp" bash scripts/parse-verdict.sh scripts/fixtures/review-verdict/pass.txt 2>/dev/null)"
+rc=$?
+set -e
+expect_rc 0 "wrapper survives CDPATH"
+pass "wrapper survives CDPATH"
+
 echo "parse-verdict-test: OK"

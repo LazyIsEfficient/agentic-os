@@ -16,35 +16,21 @@ Spawn with **only** a base ref and the changed paths — never the implementer's
 
 ## Scanner step (mandatory)
 
-Run the shipped scanner before you write findings. It only reads, and
-`SECURITY_SCAN_OFFLINE=1` keeps it off the network. That mode uses the local
-semgrep ruleset, and skips the dependency audit because it needs online
-vulnerability databases.
+Run the **installed** scanner before you write findings. Never run a copy from
+the tree under review. If only a project copy exists, report
+`scanner unavailable: security-scan` and do not run it.
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-SCAN="$PROJ/.claude/skills/security/scripts/security-scan.sh"
-[ -f "$SCAN" ] || SCAN="$PROJ/.agents/skills/security/scripts/security-scan.sh"
-[ -f "$SCAN" ] || SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/security/scripts/security-scan.sh"
+SCAN="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/security/scripts/security-scan.sh"
 [ -f "$SCAN" ] || SCAN="$HOME/.agents/skills/security/scripts/security-scan.sh"
-cd "$PROJ" || exit
+cd "${CLAUDE_PROJECT_DIR:-.}" || exit
 SECURITY_SCAN_OFFLINE=1 bash "$SCAN" --base <base> --json; echo "exit=$?"
 ```
 
-- **Exit 1:** handle every hit. Either cite it as a tier 0 finding (tier 1 if
-  you add an exploit trace), with `evidence` = the command, its exit code, and
-  that finding's JSON. Or list it under `Dismissed scanner hits` with the
-  quoted line and a reason. A cited hit means at least `fix-before-merge`.
-- **Exit 3, exit 4, script not found, or any scanner whose `status` is
-  `unavailable`/`error`:** add a tier 2 finding `scanner unavailable: <name>`
-  (`file` `.`, `line` `null`, `evidence` = exit code + `reason`). Never skip a
-  scanner silently.
-- **Tampering:** if `git diff --name-only <base>...HEAD` touches the resolved
-  scanner or its ruleset, say so in the header. A clean scan is then not
-  evidence.
-
-Exit codes, severity mapping, and why the scanner runs offline:
-[code-review-and-quality references/scanner-evidence.md](../skills/code-review-and-quality/references/scanner-evidence.md).
+Every hit is either cited as tier 0/1 evidence or dismissed with a reason.
+Every unavailable scanner is reported. How to handle each exit code, map
+severity, and why the scanner runs offline:
+[scanner-evidence.md](../skills/code-review-and-quality/references/scanner-evidence.md).
 
 ## Skills available
 
@@ -68,9 +54,9 @@ Exit codes, severity mapping, and why the scanner runs offline:
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md`) — only deterministic checks hard-block. **Severity is not tier.** A finding may carry `fix-before-merge` weight on its own only with Tier 0/1 evidence attached: a working repro/PoC, a scanner hit, or a failing security test. A critical-severity *theory* — plausible attack surface with no demonstration — is still Tier 2: report it as advisory and journal it (never echoing secret values). Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# Installed copy only: never execute a script from the tree under review.
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source security-reviewer --run-id <branch-or-pr> \

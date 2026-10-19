@@ -90,6 +90,24 @@ same symbol collide (a too-early promotion candidate, cheap to dismiss).
 The same defect recorded once per scheme gets two fingerprints. Renames
 still break grouping.
 
+## Reviewer category vocabulary
+
+`code-reviewer`'s slop checklist and `security-reviewer`'s scanner step use exactly
+these slugs, so their Tier 2 findings recur across runs. `--symbol` is the name in
+the right-hand column.
+
+| Slug | Use for | `--symbol` |
+|------|---------|------------|
+| `security/scanner-unavailable` | a `security-scan.sh` scanner was `unavailable`/`error`, the run exited 3/4, or there is no installed copy | scanner name (`gitleaks`, `semgrep`, `dependency-audit`, or `security-scan` for the whole run) |
+| `slop/scanner-unavailable` | `check-imports.sh` exited 4, or has no installed copy | `check-imports` |
+| `slop/nonexistent-api` | a call to a method/attribute that doesn't exist on a module that does — beyond what `check-imports.sh` resolves | the API name |
+| `slop/unused-dep` | new dependency nothing imports, when `check-imports.sh` did not flag it (e.g. a devDependency) | package name |
+| `slop/stdlib-dup-dep` | new dependency duplicating the stdlib or an existing dependency | package name |
+| `dead-code` | (SKILL.md seed slug, reused) unreachable or unused code | function or key |
+| `slop/duplicated-helper` | a new helper that re-implements one already in the codebase | the new helper |
+| `slop/speculative-generality` | abstraction, option or hook with fewer than three uses | the abstraction |
+| `slop/comment-noise` | comments restating the code, or change-log comments | function or heading |
+
 ## Text fingerprint normalization (scheme 1) — a heuristic, not identity
 
 Goal: the SAME defect phrased two ways across runs should usually collide to

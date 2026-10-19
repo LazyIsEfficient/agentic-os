@@ -30,9 +30,9 @@ Spawn with **only** a base ref, changed section names, and **Source** file paths
 Tier definitions: review-tiers (`.claude/rules/review-tiers.md`). REFUTED is Tier 1 only with quoted counterevidence, or Tier 0 when `verify-data-model-section.sh` exits nonzero. Path resolution: [findings-ledger references/install-paths.md](../skills/findings-ledger/references/install-paths.md).
 
 ```sh
-PROJ="${CLAUDE_PROJECT_DIR:-.}"
-LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
-[ -f "$LEDGER" ] || LEDGER="$HOME/.claude/skills/findings-ledger/scripts/ledger.py"
+# Installed copy only: never execute a script from the tree under review.
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
 python3 "$LEDGER" add \
   --file <path> --claim "<one-sentence finding>" --tier 2 \
   --source data-model-verifier --run-id <branch-or-pr>
