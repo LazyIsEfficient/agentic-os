@@ -25,6 +25,8 @@ jobs:
       - run: bash scripts/block-bad-bash-test.sh
       - run: bash scripts/block-general-purpose-test.sh
       - run: bash scripts/parse-verdict-test.sh
+      - run: bash scripts/security-scan-test.sh
+      - run: bash scripts/check-imports-test.sh
   ship-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
