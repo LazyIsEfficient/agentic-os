@@ -465,7 +465,7 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 | Field | Value |
 |---|---|
 | **Kind** | `persistence` |
-| **Ingestion route** | One JSON file per (HEAD, reviewer) at `<git-root>/.claude/reviews/<HEAD-sha>-<agent>.json`. **Writer:** only the SubagentStop hook `review-verdict-capture.sh` (reviewers are read-only and never write it — `review-verdict-capture.sh:3-4`; `review-verdict.md:121-127`). **Reader:** only the Stop hook `review-gate-stop.sh` (`review-gate-stop.sh:183-187`; `review-verdict.md:127-129`). `<git-root>` is resolved from the SubagentStop payload `cwd` first (so a review in a git worktree binds to that worktree's HEAD), then `CLAUDE_PROJECT_DIR`, then `$PWD` (`review-verdict-capture.sh:22-23`,`:56-60`). |
+| **Ingestion route** | One JSON file per (HEAD, reviewer) at `<git-root>/.claude/reviews/<HEAD-sha>-<agent>.json`. **Writer:** only the SubagentStop hook `review-verdict-capture.sh` (reviewers are read-only and never write it — `review-verdict-capture.sh:3-4`; `review-verdict.md:121-127`). **Reader:** only the Stop hook `review-gate-stop.sh` (`review-gate-stop.sh:193-205`; `review-verdict.md:127-129`). `<git-root>` is resolved from the SubagentStop payload `cwd` first (so a review in a git worktree binds to that worktree's HEAD), then `CLAUDE_PROJECT_DIR`, then `$PWD` (`review-verdict-capture.sh:22-23`,`:56-60`). |
 | **Source** | `.claude/hooks/review-verdict-capture.sh` (lines 56–62, 87–117); `.claude/hooks/review-gate-stop.sh` (lines 107, 182–194); `.claude/references/review-verdict.md` (lines 119–129); `.gitignore:29-31` |
 
 **Content:** exactly the `ReviewVerdictNormalized` JSON (see that section — fields are not duplicated here): the parser's stdout written verbatim plus a trailing newline (`write_atomic` writes `printf '%s\n' "$2"` with `$2` = `$out`, `review-verdict-capture.sh:111`,`:117`).
@@ -485,9 +485,9 @@ Unknown extra keys at either level are not rejected; they are dropped from the n
 
 **Atomic write / overwrite:** both the verdict file and `.gitignore` go through `write_atomic`: temp file `mktemp "$reviews/.tmp.XXXXXX"` in the same dir, write, then `mv -f` onto the final name; on failure the temp file is removed (`:108-114`). Per the hook comment, `mv` replaces a symlink at the destination instead of following it (`:97-99`). A re-review of the same HEAD by the same agent overwrites the prior file (`:117`); a failed verdict write → fail-open note (`:117`).
 
-**Self-gitignore:** whenever `.claude/reviews/.gitignore` does not exist at capture time, it is written atomically with the single line `*`; a failure there is ignored (`review-verdict-capture.sh:25-26`,`:116`). The repo `.gitignore` also lists `.claude/reviews/` (`.gitignore:31`), and `review-gate-stop.sh` excludes `^\.claude/reviews/` from its changed-path set (`review-gate-stop.sh:107`,`:116-117`).
+**Self-gitignore:** whenever `.claude/reviews/.gitignore` does not exist at capture time, it is written atomically with the single line `*`; a failure there is ignored (`review-verdict-capture.sh:25-26`,`:116`). The repo `.gitignore` also lists `.claude/reviews/` (`.gitignore:31`), and `review-gate-stop.sh` excludes `^\.claude/reviews/` from its changed-path set (`review-gate-stop.sh:118`,`:127-128`).
 
-**Read rules** (`review-gate-stop.sh:182-194`): for each required reviewer `a`, reads `$root/.claude/reviews/$head-$a.json` and accepts it only when `.agent == a` AND `.head == <current HEAD>` and `.verdict` is in `pass` \| `fix-before-merge` \| `hold` (`:184-187`). `pass` → satisfied; `fix-before-merge` → satisfied (listed as advisory info); `hold` → block; missing / malformed / mismatched → treated as missing → block (`:188-193`).
+**Read rules** (`review-gate-stop.sh:193-205`): for each required reviewer `a`, reads `$root/.claude/reviews/$head-$a.json` and accepts it only when `.agent == a` AND `.head == <current HEAD>` and `.verdict` is in `pass` \| `fix-before-merge` \| `hold` (`:195-198`). `pass` → satisfied; `fix-before-merge` → satisfied (listed as advisory info); `hold` → block; missing / malformed / mismatched → treated as missing → block (`:199-204`).
 
 ---
 
