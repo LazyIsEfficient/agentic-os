@@ -39,6 +39,20 @@ maintainer-only and is never shipped to consumers.
 
 From a clean checkout of **`main`** at the commit you want to release:
 
+0. **Refresh the earlier-release hash list** (needs the tags locally:
+   `git fetch --tags`), and commit it if it changed:
+
+   ```bash
+   bash scripts/gen-release-hashes.sh
+   ```
+
+   `assets/release-hashes.txt` lists the SHA-256 of every file in every
+   earlier `vX.Y.Z` tag. When the installer adopts an install that predates the
+   manifest, it uses this list to tell an untouched earlier-release file (which
+   it updates) from a user edit (which it keeps). `release.sh` runs
+   `gen-release-hashes.sh --check --exclude <version>` and refuses to build
+   while the list is stale. The list ships in the release asset.
+
 1. **Build the asset and get the digest.** This also runs `validate.sh` first
    and fails closed if the library is structurally invalid:
 

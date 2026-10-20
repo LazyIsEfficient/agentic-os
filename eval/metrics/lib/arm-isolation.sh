@@ -28,9 +28,9 @@ ISO_ENV_PASSTHROUGH="PATH LANG LC_ALL TERM USER LOGNAME SHELL"
 ISO_SYSTEM_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 ISO_MANAGED_DIRS="/Library/Application Support/ClaudeCode:/etc/claude-code"
 # Before the arm runs, the ON config dir holds exactly the install manifest
-# plus these paths (relative to the config dir). install.sh writes
-# settings.json; Claude Code has not run yet, so it has created nothing.
-ISO_ON_ALLOWLIST="settings.json"
+# plus these paths (relative to the config dir). install.sh writes both;
+# Claude Code has not run yet, so it has created nothing.
+ISO_ON_ALLOWLIST="settings.json .agentic-os-manifest.json"
 ISO_SHIPPED_COMMANDS="commands/skill-new.md commands/agent-new.md commands/state.md"
 # Case-insensitive match for anything Claude Code loads as project config:
 # files, dirs and symlinks alike.

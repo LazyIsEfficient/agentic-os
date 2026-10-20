@@ -64,7 +64,10 @@ fi
 # Reproducible payload: .claude + the consumer hook templates + validate.sh and
 # the install hook-merge helper it sources. Installers/README are excluded (they
 # embed the digest — including them would make the hash self-referential).
-ARCHIVE_PATHS=(.claude assets/consumer docs/awareness-harness-activation.md scripts/validate.sh scripts/lib/install-hook-settings.sh)
+# assets/release-hashes.txt lets the installer recognise unmodified files from
+# earlier releases when it adopts a pre-manifest install; never ship it stale.
+bash "$ROOT/scripts/gen-release-hashes.sh" --check --exclude "$VERSION"
+ARCHIVE_PATHS=(.claude assets/consumer assets/release-hashes.txt docs/awareness-harness-activation.md scripts/validate.sh scripts/lib/install-hook-settings.sh)
 git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
     "$REF^{tree}" "${ARCHIVE_PATHS[@]}" | gzip -n > "$ROOT/$ASSET"
 

@@ -68,6 +68,12 @@ check "stub called once per arm" '[ -d "$T/stub-log/call-0" ] && [ -d "$T/stub-l
 ON="$T/stub-log/call-0"; OFF="$T/stub-log/call-1"
 cp -R "$T/stub-log" "$T/stub-log-keep"
 ON_HOME="$(cat "$ON/home")"; OFF_HOME="$(cat "$OFF/home")"
+# Every later check, and the cleanup below, derives paths from these two. If the
+# kept run never reached the stub they are empty, and "$ON_HOME/.." would be "/..".
+if [ -z "$ON_HOME" ] || [ -z "$OFF_HOME" ]; then
+  fail "kept run reached the stub in both arms"; tail -20 "$T/keep.stderr" "$T/keep.stdout"
+  echo "run-arms-isolation-test: FAILED"; exit 1
+fi
 check "arms get distinct HOME" '[ "$ON_HOME" != "$OFF_HOME" ]'
 check "arms get distinct CLAUDE_CONFIG_DIR" '[ "$(cat "$ON/config")" != "$(cat "$OFF/config")" ]'
 check "CLAUDE_CONFIG_DIR is HOME/.claude in each arm" '[ "$(cat "$ON/config")" = "$ON_HOME/.claude" ] && [ "$(cat "$OFF/config")" = "$OFF_HOME/.claude" ]'
@@ -94,11 +100,13 @@ check "isolation.jsonl has a pass record per arm" \
 check "compare ran" 'grep -q "output" "$T/keep.stdout"'
 check "kept roots still exist" '[ -d "$ON_HOME" ] && [ -d "$OFF_HOME" ]'
 check "canary never in output, artifacts, stub log, or kept roots" \
-  '! grep -rqF "$CANARY" "$T/keep.stdout" "$T/keep.stderr" "$T/out-keep" "$T/stub-log-keep" "$ON_HOME/.." "$OFF_HOME/.."'
+  '[ -n "$ON_HOME" ] && [ -n "$OFF_HOME" ] && ! grep -rqF "$CANARY" "$T/keep.stdout" "$T/keep.stderr" "$T/out-keep" "$T/stub-log-keep" "$ON_HOME/.." "$OFF_HOME/.."'
 EXPECTED_DIRTY="$(iso_harness_dirty "$REPO")"
 check "isolation.jsonl records harness_dirty as a boolean matching git status" \
   '[ "$(node -e '"'"'const l=require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse);console.log(l.map(r=>typeof r.harness_dirty==="boolean"?String(r.harness_dirty):"bad").join(","))'"'"' "$T/out-keep/isolation.jsonl")" = "$EXPECTED_DIRTY,$EXPECTED_DIRTY" ]'
-rm -rf "$(dirname "$ON_HOME")" "$(dirname "$OFF_HOME")"
+for h in "$ON_HOME" "$OFF_HOME"; do
+  case "$h" in "$T/arms-tmp/"?*) rm -rf "$(dirname "$h")" ;; *) fail "refusing to remove arm root outside $T/arms-tmp: $h" ;; esac
+done
 
 # ---- 2. default run cleans up ------------------------------------------------
 run_case clean

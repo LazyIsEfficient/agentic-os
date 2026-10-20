@@ -54,6 +54,7 @@ cp -R "$REPO/.claude" "$rel/.claude"
 rm -rf "$rel/.claude/memory" "$rel/.claude/ledger" "$rel/.claude/worktrees"
 cp -R "$REPO/docs" "$rel/docs"
 cp -R "$REPO/assets/consumer" "$rel/assets/consumer"
+cp "$REPO/assets/release-hashes.txt" "$rel/assets/release-hashes.txt"
 
 printf 'dropped in release B\n' > "$rel/.claude/skills/autoresearch/zz-dropped.txt"
 printf 'dropped in release B, edited locally\n' > "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt"
@@ -246,7 +247,13 @@ grep -q '\[dry-run\] remove agents/engineer.md' "$tmp/out-udry" || fail "uninsta
 grep -q '\[dry-run\] unregister hook: bash .*/hooks/block-bad-bash.sh' "$tmp/out-udry" || fail "uninstall dry-run did not list hook entries"
 ok "uninstall --dry-run reports and changes nothing"
 
+# Hostile entries again, now aimed at uninstall's own path gates.
+inject_manifest_entry "$mf" "settings.json" "$(sha "$dest/settings.json")"
+inject_manifest_entry "$mf" "skills/../CANARY.md" "$(sha "$dest/CANARY.md")"
+inject_manifest_entry "$mf" "memory/MEMORY.md" "$(sha "$dest/memory/MEMORY.md")"
 run --uninstall > "$tmp/out5" || { cat "$tmp/out5"; fail "uninstall failed"; }
+for c in CANARY.md settings.json memory/MEMORY.md; do [[ -f "$dest/$c" ]] || fail "uninstall followed a hostile manifest entry and deleted $c"; done
+grep -q "skip skills/../CANARY.md — unsafe path" "$tmp/out5" || fail "uninstall did not report the hostile .. entry"
 [[ ! -e "$mf" ]] || fail "manifest not removed"
 [[ ! -e "$dest/agents/engineer.md" && ! -e "$dest/hooks/block-bad-bash.sh" && ! -e "$dest/commands/state.md" ]] || fail "owned files not removed"
 grep -q 'modified again' "$dest/skills/autoresearch/SKILL.md" || fail "modified file removed by uninstall"
@@ -301,12 +308,38 @@ jq -e '[.files[].path] | index(["autoresearch/SKILL.md"]) != null' "$cs/.agentic
 jq '.hooks.Stop = [{"hooks":[{"type":"command","command":"bash /opt/user-stop.sh"}]}]' "$cx/hooks.json" > "$cx/hooks.json.tmp"
 mv "$cx/hooks.json.tmp" "$cx/hooks.json"
 printf 'mine\n' > "$cs/zz-user-note.md"
+chmod 640 "$cx/hooks.json"
+runx > "$tmp/outx1b" || { cat "$tmp/outx1b"; fail "codex reinstall failed"; }
+[[ "$(ls -l "$cx/hooks.json" | cut -c1-10)" == "-rw-r-----" ]] || fail "codex hooks.json mode not preserved by the merge"
+# Hostile entries under the Codex skills root (shared with other tools):
+# a single-component name of a known (tombstoned) skill, another tool's dir,
+# and memory/.
+printf 'other tool\n' > "$cs/route"
+mkdir -p "$cs/other-vendor-skill" "$cs/memory"
+printf 'other tool\n' > "$cs/other-vendor-skill/SKILL.md"
+printf 'canary\n' > "$cs/memory/MEMORY.md"
+for e in route other-vendor-skill/SKILL.md memory/MEMORY.md; do
+  inject_manifest_entry "$cs/.agentic-os-manifest.json" "$e" "$(sha "$cs/$e")"
+done
 runx --uninstall > "$tmp/outx2" || { cat "$tmp/outx2"; fail "codex uninstall failed"; }
+for e in route other-vendor-skill/SKILL.md memory/MEMORY.md; do
+  [[ -f "$cs/$e" ]] || fail "codex uninstall followed a hostile manifest entry and deleted $e"
+done
 [[ ! -e "$cx/agents/engineer.toml" && ! -e "$cs/autoresearch/SKILL.md" ]] || fail "codex owned files not removed"
 [[ -f "$cs/zz-user-note.md" ]] || fail "codex uninstall removed a user file"
 jq -e '.hooks == {"Stop":[{"hooks":[{"type":"command","command":"bash /opt/user-stop.sh"}]}]}' "$cx/hooks.json" >/dev/null \
   || fail "codex uninstall: wrong hooks.json $(jq -c . "$cx/hooks.json")"
 ok "codex install writes per-root manifests; uninstall removes owned files and AgenticOS hook groups only"
+ok "codex merge keeps hooks.json's mode; hostile entries under the skills root are never removed"
+
+cx2="$tmp/codex-bad/.codex"; cs2="$tmp/codex-bad/skills"
+mkdir -p "$cx2"
+printf '{not json' > "$cx2/hooks.json"
+if HOME="$home" CODEX_HOME="$cx2" CODEX_SKILLS_DIR="$cs2" bash "$rel/install.sh" --codex > "$tmp/outx3" 2>&1; then
+  fail "codex install passed on an unmergeable hooks.json"
+fi
+[[ ! -e "$cs2" && "$(cd "$cx2" && find . -type f)" == "./hooks.json" ]] || fail "codex install copied files before failing on hooks.json"
+ok "an unmergeable Codex hooks.json fails before anything is copied"
 
 # ── 9. Symlinks never lead writes or removals outside the root (PoC 3) ─────
 d5="$tmp/symlinked/.claude"
@@ -372,7 +405,72 @@ done
 [[ "$(find "$d8/hooks" -name 'survey-before-act.sh.bak.*' | wc -l | tr -d ' ')" == 2 ]] || fail "hook backups collided"
 ok "each hook refresh writes its own backup"
 
-# ── 13. Argument guards ──────────────────────────────────────────────────────
+# ── 13. Writes never follow a planted link (round-2 PoC) ────────────────────
+d9="$tmp/links/.claude"
+runat "$d9" >/dev/null || fail "install for link case failed"
+printf 'CANARY\n' > "$outside/canaryA"
+ln -s "$outside/canaryA" "$d9/.agentic-os-manifest.json.tmp"
+runat "$d9" >/dev/null || fail "reinstall with a planted .tmp link failed"
+[[ "$(cat "$outside/canaryA")" == "CANARY" ]] || fail "manifest write followed a planted .tmp symlink"
+[[ -f "$d9/.agentic-os-manifest.json" && ! -L "$d9/.agentic-os-manifest.json" ]] || fail "manifest is not a regular file"
+h9="$d9/hooks/survey-before-act.sh"
+printf 'USER-CANARY-B\n' > "$outside/canaryB"
+rm "$h9"
+ln "$outside/canaryB" "$h9"
+runat "$d9" > "$tmp/out13" || { cat "$tmp/out13"; fail "reinstall with a hard-linked hook failed"; }
+[[ "$(cat "$outside/canaryB")" == "USER-CANARY-B" ]] || fail "hook refresh wrote through a hard link"
+cmp -s "$h9" "$rel/.claude/hooks/survey-before-act.sh" || fail "hard-linked hook not refreshed"
+grep -q 'hooks/survey-before-act.sh was hard-linked elsewhere' "$tmp/out13" || fail "hard link not reported"
+mv "$d9/.agentic-os-manifest.json" "$outside/manifest-real"
+ln -s "$outside/manifest-real" "$d9/.agentic-os-manifest.json"
+if runat "$d9" >/dev/null; then fail "install accepted a symlinked manifest"; fi
+rm "$d9/.agentic-os-manifest.json"
+printf '{}\n' > "$outside/settings-real"
+mv "$d9/settings.json" "$outside/settings-old"
+ln -s "$outside/settings-real" "$d9/settings.json"
+if runat "$d9" >/dev/null; then fail "install rewrote a symlinked settings.json"; fi
+[[ "$(cat "$outside/settings-real")" == "{}" ]] || fail "symlinked settings.json target was written"
+ok "manifest, hook and settings writes never go through a planted symlink or hard link"
+
+# ── 14. Adoption recognises earlier-release copies (no spurious keeps) ──────
+# Simulated prior release: an install whose files are older AgenticOS copies
+# listed in assets/release-hashes.txt, plus one genuine user edit.
+d10="$tmp/prior/.claude"
+mkdir -p "$d10"
+cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$rel/.claude/hooks" "$d10/"
+printf '\n<!-- an older AgenticOS release -->\n' >> "$d10/agents/engineer.md"
+printf '\n<!-- an older AgenticOS release -->\n' >> "$d10/skills/autoresearch/SKILL.md"
+printf '\nmy own edit\n' >> "$d10/agents/code-reviewer.md"
+for f in agents/engineer.md skills/autoresearch/SKILL.md; do
+  printf '%s  %s\n' "$(sha "$d10/$f")" "$f" >> "$rel/assets/release-hashes.txt"
+done
+runat "$d10" > "$tmp/out14" || { cat "$tmp/out14"; fail "prior-release adoption failed"; }
+cmp -s "$d10/agents/engineer.md" "$rel/.claude/agents/engineer.md" || fail "earlier-release copy kept instead of updated"
+grep -q 'update agents/engineer.md' "$tmp/out14" || fail "earlier-release copy not reported as updated"
+grep -q 'my own edit' "$d10/agents/code-reviewer.md" || fail "a genuine user edit was overwritten on adoption"
+[[ "$(grep -c '⚠ keep ' "$tmp/out14")" == 1 ]] || fail "spurious keeps on adoption: $(grep '⚠ keep ' "$tmp/out14")"
+runat "$d10" > "$tmp/out14b" || fail "second run after adoption failed"
+[[ "$(grep -c '⚠ keep ' "$tmp/out14b")" == 1 ]] || fail "spurious keeps on the run after adoption: $(grep '⚠ keep ' "$tmp/out14b")"
+ok "adoption updates earlier-release copies and keeps only genuine edits, on both runs"
+
+# Real upgrade from the v3.0.1 release, when the tag is available locally.
+if git -C "$REPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
+  old="$tmp/v3.0.1"
+  mkdir -p "$old"
+  git -C "$REPO" archive v3.0.1 | tar -x -C "$old"
+  d11="$tmp/from-v301/.claude"
+  HOME="$home" CLAUDE_DIR="$d11" bash "$old/install.sh" > "$tmp/out15a" 2>&1 || { tail -5 "$tmp/out15a"; fail "v3.0.1 install failed"; }
+  HOME="$home" CLAUDE_DIR="$d11" bash "$REPO/install.sh" > "$tmp/out15b" 2>&1 || { tail -5 "$tmp/out15b"; fail "upgrade from v3.0.1 failed"; }
+  HOME="$home" CLAUDE_DIR="$d11" bash "$REPO/install.sh" > "$tmp/out15c" 2>&1 || { tail -5 "$tmp/out15c"; fail "second run after v3.0.1 upgrade failed"; }
+  for o in "$tmp/out15b" "$tmp/out15c"; do
+    if grep -q '⚠ keep ' "$o"; then fail "spurious keeps upgrading from v3.0.1: $(grep -c '⚠ keep ' "$o") e.g. $(grep -m1 '⚠ keep ' "$o")"; fi
+  done
+  ok "upgrade from the v3.0.1 release keeps nothing it should update (both runs)"
+else
+  echo "SKIP  upgrade from v3.0.1 (tag not available; git fetch --tags)"
+fi
+
+# ── 15. Argument guards ──────────────────────────────────────────────────────
 if run --uninstall --force >/dev/null; then fail "--uninstall --force should be rejected"; fi
 ok "--uninstall rejects --force"
 

@@ -23,11 +23,31 @@ _retired_hooks_json() {
   jq -nc --arg r "$1" '$r | split(" ") | map(select(length > 0))'
 }
 
-# Scratch file for an unregister rewrite. A real run writes beside the target
-# (`cp -p` keeps a 0600 settings file 0600 across the `mv`); a dry run writes
-# outside the install dir so it leaves no trace there.
+# Fresh temp file beside $1 (mktemp: O_EXCL, unpredictable name), so a link
+# planted at a fixed `.tmp` name can never redirect the write; the caller then
+# `mv`s it over $1, which replaces the directory entry instead of writing
+# through it. With $1 present, `cp -p` first so its mode (settings.json may
+# hold `env` secrets at 0600) survives the rewrite.
+_tmp_beside() {
+  local t
+  t="$(mktemp "$(dirname "$1")/.$(basename "$1").XXXXXX")"
+  if [[ -f "$1" ]]; then cp -p "$1" "$t"; fi
+  printf '%s' "$t"
+}
+
+# settings.json / hooks.json must be a regular file (or absent): a symlink is
+# refused rather than written through or silently replaced.
+_refuse_link() {
+  if [[ -L "$1" ]]; then
+    echo "Error: $1 is a symlink — AgenticOS will not rewrite it. Merge the hooks by hand, or replace it with a regular file. Nothing was changed." >&2
+    return 1
+  fi
+}
+
+# Scratch file for an unregister rewrite: beside the target on a real run; a
+# dry run writes outside the install dir so it leaves no trace there.
 _unregister_tmp() {
-  if [[ "$2" == "true" ]]; then mktemp; else cp -p "$1" "$1.tmp"; printf '%s' "$1.tmp"; fi
+  if [[ "$2" == "true" ]]; then mktemp; else _tmp_beside "$1"; fi
 }
 
 # Print every hook command present in $1 but not in $2, one per line, prefixed.
@@ -84,6 +104,7 @@ merge_codex_hook_settings() {
   local src="$repo_root/assets/consumer/codex-hooks.json"
   local dest_file="$dest/hooks.json"
   [[ -f "$src" ]] || return 0
+  _refuse_link "$dest_file" || return 1
   if [[ "$mode" == "check" ]]; then
     if [[ ! -f "$dest_file" ]] || ! command -v jq &>/dev/null; then return 0; fi
     local probe
@@ -102,7 +123,10 @@ merge_codex_hook_settings() {
   if ! command -v jq &>/dev/null; then
     if [[ ! -f "$dest_file" ]]; then
       # Safe because _validate_install_dest rejects sed replacement metacharacters.
-      sed "s|\\\$HOME/.codex/hooks|$dest/hooks|g" "$src" > "$dest_file"
+      local fresh
+      fresh="$(_tmp_beside "$dest_file")"
+      sed "s|\\\$HOME/.codex/hooks|$dest/hooks|g" "$src" > "$fresh"
+      mv -f "$fresh" "$dest_file"
       echo "  ✓ Codex hooks active → $dest_file"
     else
       echo "  ⚠ jq required to merge AgenticOS hooks into existing $dest_file" >&2
@@ -116,17 +140,20 @@ merge_codex_hook_settings() {
   if [[ -f "$dest_file" ]]; then
     # Preserve unrelated Codex hooks; replace only AgenticOS-marked groups, so
     # the merge is idempotent without owning the user's whole hooks object.
-    # `cp -p` first so the rewrite keeps the file's mode.
-    cp -p "$dest_file" "$dest_file.tmp"
+    local out
+    out="$(_tmp_beside "$dest_file")"
     if ! jq --arg mode merge --argjson incoming "$hooks_json" "$_CODEX_HOOKS_JQ" \
-        "$dest_file" > "$dest_file.tmp"; then
-      rm -f "$dest_file.tmp"
+        "$dest_file" > "$out"; then
+      rm -f "$out"
       echo "Error: failed to merge AgenticOS hooks into $dest_file (is it valid JSON?)." >&2
       return 1
     fi
-    mv "$dest_file.tmp" "$dest_file"
+    mv -f "$out" "$dest_file"
   else
-    jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"
+    local fresh
+    fresh="$(_tmp_beside "$dest_file")"
+    jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$fresh"
+    mv -f "$fresh" "$dest_file"
   fi
   echo "  ✓ Codex hooks active → $dest_file"
 }
@@ -138,6 +165,7 @@ unregister_codex_hook_settings() {
   _validate_install_dest "$dest"
   local dest_file="$dest/hooks.json" prefix="  - "
   [[ "$dry" == "true" ]] && prefix="  [dry-run] "
+  _refuse_link "$dest_file" || return 1
   if [[ ! -f "$dest_file" ]]; then
     echo "  · no $dest_file — no hook entries to unregister"
     return 0
@@ -227,6 +255,7 @@ merge_claude_hook_settings() {
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
   [[ -f "$src" ]] || return 0
+  _refuse_link "$dest/settings.json" || return 1
   if [[ "$mode" == "check" ]]; then
     if [[ ! -f "$dest/settings.json" ]] || ! command -v jq &>/dev/null; then return 0; fi
     local cdest probe
@@ -254,7 +283,10 @@ merge_claude_hook_settings() {
 
   if ! command -v jq &>/dev/null; then
     if [[ ! -f "$dest_file" && "$dest" == "$(cd "$HOME" && pwd -P)/.claude" ]]; then
-      cp "$src" "$dest_file"
+      local fresh
+      fresh="$(_tmp_beside "$dest_file")"
+      cp "$src" "$fresh"
+      mv -f "$fresh" "$dest_file"
       echo "  ✓ hooks active → $dest_file"
     else
       echo "  ⚠ jq required to install hook registration (custom CLAUDE_DIR needs jq)" >&2
@@ -267,20 +299,22 @@ merge_claude_hook_settings() {
   retired_json="$(_retired_hooks_json "$retired")"
 
   if [[ -f "$dest_file" ]]; then
-    # `cp -p` first so the rewrite keeps the file's mode (settings.json may hold
-    # `env` secrets at 0600).
-    cp -p "$dest_file" "$dest_file.tmp"
+    local out
+    out="$(_tmp_beside "$dest_file")"
     if ! jq --arg mode merge --argjson incoming "$hooks_json" --slurpfile tpl "$src" \
         --argjson retired "$retired_json" \
         --arg canon "$dest/hooks" --arg given "${given%/}/hooks" \
-        "$_CLAUDE_HOOKS_JQ" "$dest_file" > "$dest_file.tmp"; then
-      rm -f "$dest_file.tmp"
+        "$_CLAUDE_HOOKS_JQ" "$dest_file" > "$out"; then
+      rm -f "$out"
       echo "Error: failed to merge AgenticOS hooks into $dest_file (needs valid JSON with an object \"hooks\")." >&2
       return 1
     fi
-    mv "$dest_file.tmp" "$dest_file"
+    mv -f "$out" "$dest_file"
   else
-    jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$dest_file"
+    local fresh
+    fresh="$(_tmp_beside "$dest_file")"
+    jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$fresh"
+    mv -f "$fresh" "$dest_file"
   fi
   echo "  ✓ hooks active → $dest_file"
 }
@@ -296,6 +330,7 @@ unregister_claude_hook_settings() {
   local given="$dest"
   dest="$(cd "$dest" && pwd -P)"
   local dest_file="$dest/settings.json"
+  _refuse_link "$dest_file" || return 1
   if [[ ! -f "$dest_file" ]]; then
     echo "  · no $dest_file — no hook entries to unregister"
     return 0
