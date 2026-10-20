@@ -21,6 +21,20 @@ LEDGER="$PROJ/.claude/skills/findings-ledger/scripts/ledger.py"
 
 Use `"$LEDGER"` (or the equivalent for other skills) in place of a hardcoded `.claude/skills/…` path.
 
+## Exception: reviewer agents use the installed copy only
+
+Reviewers (`code-reviewer`, `security-reviewer`, `library-reviewer`, `data-model-verifier`, `adversarial-claims-reviewer`) read untrusted trees. A project copy lives inside that tree, and so does a `--codex --project` install. A repo could commit a fake `ledger.py` or scanner there and get the reviewer to run it. Reviewers therefore never resolve project-first:
+
+```sh
+LEDGER="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/findings-ledger/scripts/ledger.py"
+[ -f "$LEDGER" ] || LEDGER="$HOME/.agents/skills/findings-ledger/scripts/ledger.py"
+# Refuse a copy inside the project (CLAUDE_CONFIG_DIR or HOME in the tree).
+TOP="$(cd -P -- "$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")" && pwd -P)"
+case "$(cd -P -- "$(dirname -- "$LEDGER")" 2>/dev/null && pwd -P)/" in "$TOP"/*|/) LEDGER=/dev/null/refused-in-tree ;; esac
+```
+
+`ledger.py` writes to the current git repo's `.claude/ledger/`, not to its own install dir, so the installed copy still journals into the project. Scanners follow the same rule: [scanner-evidence.md](../../code-review-and-quality/references/scanner-evidence.md).
+
 **Tests:** `bash scripts/install-paths-test.sh` (also run from `validate-test.sh`).
 
 **Tier doctrine** lives in-repo only: `.claude/rules/review-tiers.md`.

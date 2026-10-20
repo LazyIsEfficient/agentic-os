@@ -24,6 +24,7 @@ Can another engineer (or agent) understand this code without the author explaini
 - **Are abstractions earning their complexity?** (Don't generalize until the third use case)
 - Would comments help clarify non-obvious intent? (But don't comment obvious code.)
 - Are there dead code artifacts: no-op variables (`_unused`), backwards-compat shims, or `// removed` comments?
+- Do the imports exist? Run `scripts/check-imports.sh --base <base> --json`. Its hits are Tier 0 evidence. The rest of this list is judgment (Tier 2). See [scanner-evidence.md](scanner-evidence.md).
 
 ## 3. Architecture
 
@@ -31,7 +32,8 @@ Does the change fit the system's design?
 
 - Does it follow existing patterns or introduce a new one? If new, is it justified?
 - Does it maintain clean module boundaries?
-- Is there code duplication that should be shared?
+- Is there code duplication that should be shared? Does a new helper re-implement an existing one?
+- Is every new dependency imported, and not a duplicate of the stdlib or an existing dependency?
 - Are dependencies flowing in the right direction (no circular dependencies)?
 - Is the abstraction level appropriate (not over-engineered, not too coupled)?
 

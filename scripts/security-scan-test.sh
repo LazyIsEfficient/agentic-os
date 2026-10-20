@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # security-scan-test.sh — deterministic, OFFLINE fixture tests for
-# scripts/security-scan.sh. No real scanner is needed: fake gitleaks / semgrep /
-# osv-scanner executables on a controlled PATH emit canned output, switched by
-# FAKE_GITLEAKS / FAKE_SEMGREP / FAKE_OSV (findings | clean | error). Covers every
-# exit code (0, 1, 2, 3, 4), a path with spaces and a leading dash, --base scope,
-# and SEMGREP_CONFIG pass-through.
+# .claude/skills/security/scripts/security-scan.sh (shipped with the skills;
+# scripts/security-scan.sh is a wrapper). No real scanner is needed: fake gitleaks /
+# semgrep / osv-scanner executables on a controlled PATH emit canned output,
+# switched by FAKE_GITLEAKS / FAKE_SEMGREP / FAKE_OSV (findings | clean | error).
+# Covers every exit code (0, 1, 2, 3, 4), a path with spaces and a leading dash,
+# --base scope, SEMGREP_CONFIG pass-through and SECURITY_SCAN_OFFLINE=1.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCAN="$SCRIPT_DIR/security-scan.sh"
+SCAN="$SCRIPT_DIR/../.claude/skills/security/scripts/security-scan.sh"
+WRAPPER="$SCRIPT_DIR/security-scan.sh"
 [ -f "$SCAN" ] || { echo "security-scan-test: $SCAN not found" >&2; exit 2; }
 
 T="$(mktemp -d)"
@@ -57,10 +59,16 @@ cat > "$FAKE/semgrep" <<'EOF'
 #!/usr/bin/env bash
 # fake semgrep: `semgrep scan --config C --json ... -- FILES...`
 printf 'semgrep' >> "$FAKE_LOG"; printf ' <%s>' "$@" >> "$FAKE_LOG"; echo >> "$FAKE_LOG"
-while [ $# -gt 0 ] && [ "$1" != "--" ]; do shift; done
+cfg=""
+while [ $# -gt 0 ] && [ "$1" != "--" ]; do [ "$1" = "--config" ] && cfg="$2"; shift; done
 shift
 case "${FAKE_SEMGREP:-clean}" in
+  prefixed) # real semgrep 1.181.0 prefixes a local ruleset's rule ids with its
+            # dir path, "/" → "." and spaces dropped ("/a b/x.yml" → "ab.")
+    pre="$(dirname "$cfg")"; pre="${pre#/}"; pre="$(printf '%s' "$pre" | tr / . | tr -d ' ')"
+    printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"%s.aos.js.eval-dynamic","extra":{"severity":"ERROR","message":"eval"}}],"errors":[]}\n' "$1" "$pre" ;;
   error) echo '{"results":[],"errors":[{"level":"error","message":"invalid configuration file found"}]}'; exit 7 ;;
+  errorpath) printf '{"results":[],"errors":[{"level":"error","message":"bad rule in %s/rules/x.yml while scanning %s/app.js"}]}\n' "$HOME" "$PWD"; exit 7 ;;
   findings) printf '{"results":[{"path":"%s","start":{"line":1},"check_id":"javascript.lang.security.eval","extra":{"severity":"ERROR","message":"eval detected"}}],"errors":[]}\n' "$1" ;;
   *) echo '{"results":[],"errors":[]}' ;;
 esac
@@ -170,11 +178,73 @@ FAKE_SEMGREP=error run "$FULL_PATH" --json --paths app.js
 [ "$(jqo '.scanners[] | select(.name=="semgrep") | .status')" = "error" ] \
   && jqo '.scanners[] | select(.name=="semgrep") | .reason' | grep -q 'invalid configuration' \
   && ok "semgrep error status carries the scanner's reason" || no "semgrep error reason" "$OUT"
+mkdir -p "$T/home"
+HOME="$T/home" FAKE_SEMGREP=errorpath run "$FULL_PATH" --json --paths app.js
+reason="$(jqo '.scanners[] | select(.name=="semgrep") | .reason')"
+{ [ "$RC" -eq 4 ] && [ "$reason" = "semgrep exited 7: bad rule in ~/rules/x.yml while scanning app.js" ]; } \
+  && ok "error reasons scrub \$HOME (→ ~) and the project path (→ relative)" || no "reason scrub" "rc=$RC reason=$reason"
 FAKE_OSV=error run "$FULL_PATH" --json --paths app.js
 [ "$RC" -eq 4 ] && [ "$(jqo '.scanners[] | select(.name=="osv-scanner") | .status')" = "error" ] \
   && ok "osv-scanner unexpected exit code → error / exit 4" || no "osv error" "rc=$RC out=$OUT"
 FAKE_GITLEAKS=findings FAKE_SEMGREP=error run "$FULL_PATH" --json --paths "dir with space/-leading.js"
 [ "$RC" -eq 1 ] && ok "findings outrank errors (exit 1, error still visible)" || no "findings+error" "rc=$RC"
+
+# ── SECURITY_SCAN_OFFLINE=1: no rule fetch, no online vulnerability DB ───────
+RULES="$(cd -P "$(dirname "$SCAN")" && pwd -P)/security-scan-semgrep.yml"
+[ -f "$RULES" ] && ok "shipped offline semgrep ruleset exists beside the scanner" || no "offline ruleset" "$RULES missing"
+: > "$LOG"
+SECURITY_SCAN_OFFLINE=1 FAKE_OSV=findings run "$FULL_PATH" --json --paths app.js
+{ [ "$RC" -eq 0 ] && grep -qF -- "<--config> <$RULES>" "$LOG" && ! grep -q '^osv-scanner' "$LOG" \
+  && [ "$(jqo '.scanners[] | select(.name=="dependency-audit") | "\(.status)|\(.reason)"')" = "unavailable|offline mode: dependency audits query online vulnerability databases" ]; } \
+  && ok "offline: semgrep uses the shipped ruleset; dependency audit unavailable, osv never run" \
+  || no "offline mode" "rc=$RC out=$OUT log=$(cat "$LOG")"
+: > "$LOG"
+SECURITY_SCAN_OFFLINE=1 SEMGREP_CONFIG=p/security-audit run "$FULL_PATH" --json --paths app.js
+{ ! grep -q '^semgrep' "$LOG" \
+  && [ "$(jqo '.scanners[] | select(.name=="semgrep") | .status')" = "unavailable" ] \
+  && jqo '.scanners[] | select(.name=="semgrep") | .reason' | grep -qF 'offline mode: SEMGREP_CONFIG is not a local file'; } \
+  && ok "offline: a registry SEMGREP_CONFIG is reported unavailable, never fetched" \
+  || no "offline registry config" "rc=$RC out=$OUT log=$(cat "$LOG")"
+SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=prefixed run "$FULL_PATH" --json --paths app.js
+[ "$(jqo '.scanners[] | select(.name=="semgrep") | .findings[0].rule')" = "aos.js.eval-dynamic" ] \
+  && ok "offline: ruleset-path prefix stripped from semgrep rule ids" || no "rule id prefix" "$OUT"
+mkdir -p "$T/John Smith/rules"; : > "$T/John Smith/rules/r.yml"
+FAKE_SEMGREP=prefixed SEMGREP_CONFIG="$T/John Smith/rules/r.yml" run "$FULL_PATH" --json --paths app.js
+[ "$(jqo '.scanners[] | select(.name=="semgrep") | .findings[0].rule')" = "aos.js.eval-dynamic" ] \
+  && ok "rule-id prefix stripped even when semgrep drops spaces from a spaced ruleset path" \
+  || no "spaced rule id prefix" "$OUT"
+: > "$LOG"
+OUT="$(cd "$PROJ" && SECURITY_SCAN_OFFLINE=1 FAKE_SEMGREP=findings PATH="$FULL_PATH" bash "$WRAPPER" --json --paths app.js 2>"$T/stderr")"; RC=$?
+{ [ "$RC" -eq 1 ] && grep -qF -- "<--config> <$RULES>" "$LOG"; } \
+  && ok "scripts/security-scan.sh wrapper execs the shipped scanner" || no "wrapper" "rc=$RC out=$OUT $(cat "$T/stderr")"
+
+# ── planted tools on PATH: binaries inside the scanned tree never run ─────────
+# ./bin/semgrep (relative entry) and node_modules/.bin/{semgrep,jq} (absolute
+# entry inside the repo) each drop a canary and claim a clean scan.
+CANARY="$T/canary"
+mkdir -p "$PROJ/bin" "$PROJ/node_modules/.bin"
+for planted in "$PROJ/bin/semgrep" "$PROJ/node_modules/.bin/semgrep" "$PROJ/node_modules/.bin/jq"; do
+  printf '#!/usr/bin/env bash\ntouch "%s"\necho %s\n' "$CANARY" "'{\"results\":[],\"errors\":[]}'" > "$planted"
+  chmod +x "$planted"
+done
+rm -f "$CANARY"
+run "./bin:$PROJ/node_modules/.bin:$SYS" --json --paths app.js
+{ [ ! -e "$CANARY" ] \
+  && [ "$(jqo '.scanners[] | select(.name=="semgrep") | "\(.status)|\(.reason)"')" = "unavailable|semgrep found only inside the scanned repo or on a relative PATH entry; not run" ]; } \
+  && ok "planted ./bin/semgrep and node_modules/.bin/{semgrep,jq} never run; semgrep reported unavailable" \
+  || no "planted PATH tools" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED) out=$OUT"
+rm -f "$CANARY"
+: > "$LOG"
+FAKE_SEMGREP=findings run "$PROJ/node_modules/.bin:$FULL_PATH" --json --paths app.js
+{ [ ! -e "$CANARY" ] && [ "$RC" -eq 1 ] && grep -q '^semgrep' "$LOG"; } \
+  && ok "a trusted semgrep later on PATH is used instead of the planted one" \
+  || no "trusted fallback" "rc=$RC canary=$([ -e "$CANARY" ] && echo CREATED)"
+rm -rf "${PROJ:?}/bin" "${PROJ:?}/node_modules" "$CANARY"
+
+# Wrapper is CDPATH-safe: invoked by a relative path with CDPATH set, it must
+# still reach the scanner (usage error → 2), not die on a doubled path (127).
+RC=0; (cd "$SCRIPT_DIR/.." && CDPATH=".:/tmp" bash scripts/security-scan.sh --bogus >/dev/null 2>&1) || RC=$?
+[ "$RC" -eq 2 ] && ok "wrapper survives CDPATH (relative invocation)" || no "wrapper CDPATH" "rc=$RC"
 
 # ── exit 2: usage errors ──────────────────────────────────────────────────────
 run "$FULL_PATH" --bogus

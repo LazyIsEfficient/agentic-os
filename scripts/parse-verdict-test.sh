@@ -48,6 +48,26 @@ jq_true '.findings[0].tier == 2 and .findings[0].demoted_from == 1' "blank-evide
 jq_true '.verdict == "fix-before-merge" and .verdict_demoted_from == "hold"' "unevidenced hold downgraded"
 pass "unevidenced hold demoted"
 
+# Scanner evidence end to end: scanner-evidence.json is real security-scan.sh
+# --json output (SECURITY_SCAN_OFFLINE=1, semgrep 1.181.0, shipped ruleset). The
+# reviewer cites that hit as tier 0, and the parser keeps it, so the verdict
+# exits 3 (fix-before-merge). Unavailable scanners are explicit tier 2 findings.
+run fix-before-merge-scanner.txt
+expect_rc 3 "scanner-evidenced finding exits 3 (fix-before-merge)"
+jq_true '.verdict == "fix-before-merge" and (has("verdict_demoted_from") | not)' "scanner verdict kept"
+jq_true '.findings[0].tier == 0 and (.findings[0] | has("demoted_from") | not)' "scanner hit kept at tier 0"
+jq_true '[.findings[] | select(.tier == 2) | .summary] == ["scanner unavailable: gitleaks", "scanner unavailable: dependency-audit"]' \
+  "unavailable scanners reported as tier 2"
+cited="$(printf '%s' "$out" | jq -c '.findings[0].evidence | capture("semgrep finding (?<j>\\{.*\\})$").j | fromjson')" \
+  || fail "evidence embeds the scanner finding JSON"
+hit="$(jq -c '.scanners[] | select(.name == "semgrep") | .findings[0]' "$FIX/scanner-evidence.json")"
+[[ -n "$cited" && "$cited" == "$hit" ]] || fail "evidence matches scanner-evidence.json (cited=$cited hit=$hit)"
+printf '%s' "$out" | jq -e --argjson h "$hit" '.findings[0] | .file == $h.file and .line == $h.line' >/dev/null \
+  || fail "finding file:line matches the scanner hit"
+grep -qxF "$(jq -c . "$FIX/scanner-evidence.json")" "$FIX/fix-before-merge-scanner.txt" \
+  || fail "report quotes the full scanner output"
+pass "scanner evidence → fix-before-merge"
+
 # expect_reject <fixture> <stderr needle> <label>
 expect_reject() {
   run "$1"
@@ -125,5 +145,13 @@ rc=$?
 set -e
 expect_rc 1 "missing file exits 1"
 pass "missing file"
+
+# Wrapper is CDPATH-safe under a relative invocation (127 = doubled cd path).
+set +e
+out="$(cd "$REPO" && CDPATH=".:/tmp" bash scripts/parse-verdict.sh scripts/fixtures/review-verdict/pass.txt 2>/dev/null)"
+rc=$?
+set -e
+expect_rc 0 "wrapper survives CDPATH"
+pass "wrapper survives CDPATH"
 
 echo "parse-verdict-test: OK"
