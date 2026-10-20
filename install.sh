@@ -105,8 +105,19 @@ fi
 
 if [[ "$PLATFORM" == "claude" ]]; then
   DEST="${CLAUDE_DIR:-$HOME/.claude}"
-  if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
-    echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
+  # No whitespace: Claude hook commands are registered unquoted
+  # (`bash <DEST>/hooks/x.sh`, the template form the owned-handler match
+  # relies on), so a space would split the path and run something else.
+  if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+    echo "Error: unsafe CLAUDE_DIR/DEST (whitespace and shell metacharacters are not allowed): $DEST" >&2
+    exit 1
+  fi
+  # The registered path is the canonical one (pwd -P), so a symlinked parent
+  # must not resolve to a path with whitespace either.
+  dest_anc="$DEST"
+  while [[ ! -d "$dest_anc" ]]; do dest_anc="$(dirname "$dest_anc")"; done
+  if [[ "$(cd "$dest_anc" && pwd -P)" =~ [[:space:]] ]]; then
+    echo "Error: CLAUDE_DIR/DEST resolves to a path with whitespace ($(cd "$dest_anc" && pwd -P)); hook commands would be split. Nothing was changed." >&2
     exit 1
   fi
 else
@@ -133,6 +144,32 @@ else
       exit 1
     fi
   done
+
+  # Project scope: .codex / .agents / .agents/skills come from the repo, so a
+  # committed symlink could aim every write (and uninstall's deletes) at the
+  # user's global ~/.codex or anywhere else. Each must be a real directory
+  # (or absent) that resolves inside the project root.
+  if [[ "$CODEX_SCOPE" == "project" ]]; then
+    if [[ ! -d "$CODEX_PROJECT_ROOT" ]]; then
+      echo "Error: Codex project root does not exist: $CODEX_PROJECT_ROOT" >&2
+      exit 1
+    fi
+    proj_canon="$(cd "$CODEX_PROJECT_ROOT" && pwd -P)"
+    for rel in .codex .agents .agents/skills; do
+      p="$CODEX_PROJECT_ROOT/$rel"
+      if [[ -L "$p" ]]; then
+        echo "Error: $p is a symlink. In project scope AgenticOS only writes into real directories inside the project; replace it with a directory, then re-run. Nothing was changed." >&2
+        exit 1
+      fi
+      if [[ -d "$p" ]]; then
+        c="$(cd "$p" && pwd -P)"
+        if [[ "$c" != "$proj_canon"/* ]]; then
+          echo "Error: $p resolves outside the project ($c). Nothing was changed." >&2
+          exit 1
+        fi
+      fi
+    done
+  fi
 fi
 
 # ── Resolve source ────────────────────────────────────────────────────────────
@@ -144,9 +181,12 @@ fi
 
 TMP=""
 WORK=""
+PREFLIGHT_DIRS=""
 cleanup() {
   if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
+  local d
+  for d in $PREFLIGHT_DIRS; do rm -rf "$d"; done
 }
 trap cleanup EXIT
 
@@ -222,6 +262,8 @@ if [[ "$UNINSTALL" != "true" ]]; then
   fi
 fi
 
+# The caller's environment must not be able to satisfy the API gate below.
+unset AGENTIC_OS_HOOK_LIB_API
 # shellcheck source=scripts/lib/install-hook-settings.sh
 source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
 
@@ -429,21 +471,27 @@ refuse_linked_dirs() {
 # run included), without trusting the library to honour a dry-run flag: run
 # the real merge against a scratch copy.
 preflight_hook_settings() {
-  local kind="$1" dir="$2" name="$3" scratch="$WORK/preflight-$1"
+  local kind="$1" dir="$2" name="$3" scratch
   if [[ -L "$dir/$name" ]]; then
     echo "Error: $dir/$name is a symlink — AgenticOS will not rewrite it. Merge the hooks by hand, or replace it with a regular file. Nothing was changed." >&2
     exit 1
   fi
   [[ -f "$dir/$name" ]] || return 0
-  mkdir -p "$scratch"
+  # Fixed, charset-safe template (not $TMPDIR, which may hold characters the
+  # library's destination check rejects); cleaned up by the EXIT trap.
+  scratch="$(mktemp -d /tmp/agentic-os-preflight.XXXXXX)"
+  PREFLIGHT_DIRS="$PREFLIGHT_DIRS $scratch"
   cp "$dir/$name" "$scratch/$name"
   local ok=true
+  # Subshell: a library `exit` must fail this check, not kill the installer
+  # silently.
   if [[ "$kind" == "claude" ]]; then
-    merge_claude_hook_settings "$REPO_ROOT" "$scratch" "$RETIRED_HOOKS" >/dev/null 2>"$scratch/err" || ok=false
+    (merge_claude_hook_settings "$REPO_ROOT" "$scratch" "$RETIRED_HOOKS") >/dev/null 2>"$scratch/err" || ok=false
   else
-    merge_codex_hook_settings "$REPO_ROOT" "$scratch" >/dev/null 2>"$scratch/err" || ok=false
+    (merge_codex_hook_settings "$REPO_ROOT" "$scratch") >/dev/null 2>"$scratch/err" || ok=false
   fi
   if [[ "$ok" != "true" ]]; then
+    sed 's/^/  /' "$scratch/err" >&2
     echo "Error: $dir/$name cannot be merged (it must be valid JSON with an object \"hooks\") — fix it first. Nothing was changed." >&2
     exit 1
   fi
@@ -464,7 +512,7 @@ verify_hooks() {
     fi
   done < <(cd "$stage" && find hooks -type f | LC_ALL=C sort)
   if [[ "$bad" -ne 0 ]]; then
-    echo "Error: not every AgenticOS hook could be installed at the release version, so no hooks were registered and the manifest was not updated. Fix the paths reported above, then re-run." >&2
+    echo "Error: not every AgenticOS hook could be installed at the release version. Files that could be placed were already copied; only hook registration and the manifest update were withheld (planned removals were skipped too). Fix the paths reported above, then re-run to finish." >&2
     exit 1
   fi
 }

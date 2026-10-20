@@ -529,7 +529,87 @@ else
   echo "SKIP  new installer over the v3.0.1 payload (tag not available; git fetch --tags)"
 fi
 
-# ── 16. Argument guards ──────────────────────────────────────────────────────
+# ── 16. Project-scope Codex roots must be real dirs inside the project ─────
+gx="$tmp/global-codex"
+mkdir -p "$gx/.codex" "$gx/.agents/skills"
+printf '{"hooks":{}}\n' > "$gx/.codex/hooks.json"
+gbefore="$(snap "$gx")"
+for case in codex agents skills; do
+  pj="$tmp/proj-$case"
+  mkdir -p "$pj"
+  case "$case" in
+    codex)  ln -s "$gx/.codex" "$pj/.codex" ;;
+    agents) ln -s "$gx/.agents" "$pj/.agents" ;;
+    skills) mkdir -p "$pj/.agents"; ln -s "$gx/.agents/skills" "$pj/.agents/skills" ;;
+  esac
+  for mode in "" --uninstall; do
+    # shellcheck disable=SC2086  # $mode is empty or one flag
+    if HOME="$gx" CODEX_PROJECT_DIR="$pj" bash "$rel/install.sh" --codex --project $mode > "$tmp/out16" 2>&1; then
+      fail "project-scope ${mode:-install} followed a symlinked .$case"
+    fi
+    grep -q 'is a symlink. In project scope' "$tmp/out16" || fail "project-scope ${mode:-install}: no clear error for .$case: $(tail -1 "$tmp/out16")"
+    [[ "$(snap "$gx")" == "$gbefore" ]] || fail "project-scope ${mode:-install} with a symlinked .$case touched the global Codex dirs"
+  done
+done
+ok "project-scope Codex refuses a symlinked .codex / .agents / .agents/skills (install and uninstall)"
+
+# ── 17. Whitespace in the Claude dir is refused before any write ─────────────
+ws="$tmp/white space"
+mkdir -p "$ws"
+if HOME="$home" CLAUDE_DIR="$ws/.claude" bash "$rel/install.sh" > "$tmp/out17" 2>&1; then fail "install accepted a Claude dir with a space"; fi
+grep -q 'whitespace and shell metacharacters are not allowed' "$tmp/out17" || fail "no clear whitespace error"
+[[ ! -e "$ws/.claude" ]] || fail "install wrote into a Claude dir with a space"
+ln -s "$ws" "$tmp/nospace-link"
+if HOME="$home" CLAUDE_DIR="$tmp/nospace-link/.claude" bash "$rel/install.sh" > "$tmp/out17b" 2>&1; then
+  fail "install accepted a Claude dir that resolves to a path with a space"
+fi
+grep -q 'resolves to a path with whitespace' "$tmp/out17b" || fail "no clear error for a canonical path with a space"
+[[ ! -e "$ws/.claude" ]] || fail "install wrote through a link into a path with a space"
+ok "a Claude dir containing (or resolving to) whitespace is refused before any write"
+
+# ── 18. Preflight: odd TMPDIR, library exits, and a spoofed API marker ──────
+shim="$tmp/gnu-mktemp"
+mkdir -p "$shim" "$tmp/tmp@odd"
+cat > "$shim/mktemp" <<'SHIM'
+#!/bin/bash
+# GNU semantics: bare mktemp [-d] honours TMPDIR.
+if [[ $# -eq 0 ]]; then exec /usr/bin/mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"; fi
+if [[ $# -eq 1 && "$1" == "-d" ]]; then exec /usr/bin/mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"; fi
+exec /usr/bin/mktemp "$@"
+SHIM
+chmod +x "$shim/mktemp"
+d18="$tmp/oddtmp/.claude"
+mkdir -p "$d18"
+printf '{"hooks":{}}\n' > "$d18/settings.json"
+PATH="$shim:$PATH" TMPDIR="$tmp/tmp@odd" HOME="$home" CLAUDE_DIR="$d18" bash "$rel/install.sh" > "$tmp/out18" 2>&1 \
+  || { tail -5 "$tmp/out18"; fail "install with an @ in TMPDIR failed"; }
+[[ -f "$d18/.agentic-os-manifest.json" ]] || fail "install with an @ in TMPDIR wrote no manifest"
+ok "an unusual TMPDIR does not trip the settings preflight"
+
+relx="$tmp/rel-exiting-lib"
+cp -R "$rel" "$relx"
+printf '%s\n' 'merge_claude_hook_settings() { echo "LIB-EXIT-MARKER" >&2; exit 3; }' >> "$relx/scripts/lib/install-hook-settings.sh"
+d18b="$tmp/libexit/.claude"
+mkdir -p "$d18b"
+printf '{"hooks":{}}\n' > "$d18b/settings.json"
+if HOME="$home" CLAUDE_DIR="$d18b" bash "$relx/install.sh" > "$tmp/out18b" 2>&1; then fail "install passed with a library that exits"; fi
+grep -q 'LIB-EXIT-MARKER' "$tmp/out18b" || fail "the library's error was swallowed by the preflight"
+grep -q 'settings.json cannot be merged' "$tmp/out18b" || fail "no preflight error when the library exits"
+[[ "$(cd "$d18b" && find . -type f)" == "./settings.json" ]] || fail "files copied although the preflight failed"
+ok "a library exit during preflight is reported, not silent, and nothing is copied"
+
+rely="$tmp/rel-no-marker"
+cp -R "$rel" "$rely"
+grep -v '^AGENTIC_OS_HOOK_LIB_API=' "$rel/scripts/lib/install-hook-settings.sh" > "$rely/scripts/lib/install-hook-settings.sh"
+d18c="$tmp/spoof/.claude"
+if AGENTIC_OS_HOOK_LIB_API=2 HOME="$home" CLAUDE_DIR="$d18c" bash "$rely/install.sh" > "$tmp/out18c" 2>&1; then
+  fail "the caller's AGENTIC_OS_HOOK_LIB_API satisfied the library gate"
+fi
+grep -q 'is older than this installer' "$tmp/out18c" || fail "no library-mismatch error with a spoofed marker"
+[[ ! -e "$d18c" ]] || fail "install wrote with a spoofed library marker"
+ok "the library API gate ignores a marker set in the caller's environment"
+
+# ── 19. Argument guards ──────────────────────────────────────────────────────
 if run --uninstall --force >/dev/null; then fail "--uninstall --force should be rejected"; fi
 ok "--uninstall rejects --force"
 

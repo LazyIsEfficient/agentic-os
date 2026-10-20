@@ -675,7 +675,7 @@ $badHooks = @(foreach ($rel in (Get-SortedKeys $new)) {
 if ($badHooks.Count -gt 0) {
   foreach ($h in $badHooks) { Write-Host "  X hook $h is not installed at the release version" }
   Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
-  throw "Error: not every AgenticOS hook could be installed at the release version, so no hooks were registered and the manifest was not updated. Fix the paths reported above, then re-run."
+  throw "Error: not every AgenticOS hook could be installed at the release version. Files that could be placed were already copied; only hook registration and the manifest update were withheld (planned removals were skipped too). Fix the paths reported above, then re-run to finish."
 }
 
 Update-ClaudeHookSettings "merge"
