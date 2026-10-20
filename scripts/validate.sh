@@ -476,6 +476,41 @@ check_claude_flat_sync() {
   return 0
 }
 
+# ── Invariant 4b: consumer-doctrine ────────────────────────────────────────────
+# assets/consumer/doctrine.md (installed by `install.sh --with-doctrine`) is
+# GENERATED from .claude/rules/ by scripts/build-consumer-doctrine.sh.
+#   (a) an install.sh that ships it needs it present (when assets/consumer/
+#       is part of the tree at all)
+#   (b) every `<!-- source: .claude/rules/<name>.md -->` marker names a rule
+#       file on disk, and there is at least one
+#   (c) it never contains the installer's CLAUDE.md / AGENTS.md block markers
+#   (d) whole-file `--check` against the builder, when the builder is present
+#       (it is not in the release tarball; (a)-(c) are self-contained)
+check_consumer_doctrine() {
+  local df="$ROOT/assets/consumer/doctrine.md" name n=0
+  if [[ ! -f "$df" ]]; then
+    if [[ -d "$ROOT/assets/consumer" && -f "$ROOT/install.sh" ]] && grep -q -- '--with-doctrine' "$ROOT/install.sh"; then
+      fail consumer-doctrine "$df" "missing, but install.sh ships it — run scripts/build-consumer-doctrine.sh"
+    fi
+    return 0
+  fi
+  while IFS= read -r name; do
+    n=$((n + 1))
+    if [[ ! "$name" =~ ^[a-z0-9-]+\.md$ || ! -f "$CLAUDE/rules/$name" ]]; then
+      fail consumer-doctrine "$df" "source marker cites missing rule '.claude/rules/$name'"
+    fi
+  done < <(sed -n 's#^<!-- source: \.claude/rules/\(.*\) -->$#\1#p' "$df")
+  [[ "$n" -gt 0 ]] || fail consumer-doctrine "$df" "no <!-- source: .claude/rules/<name>.md --> markers"
+  if grep -q 'agentic-os:doctrine:' "$df"; then
+    fail consumer-doctrine "$df" "contains the installer's agentic-os:doctrine:* block markers"
+  fi
+  local builder="$ROOT/scripts/build-consumer-doctrine.sh"
+  if [[ -f "$builder" ]] && ! bash "$builder" --check >/dev/null 2>&1; then
+    fail consumer-doctrine "$df" "out of sync with .claude/rules/ (or a curation rewrite no longer matches) — run scripts/build-consumer-doctrine.sh"
+  fi
+  return 0
+}
+
 # ── Invariant 5: memory-length ─────────────────────────────────────────────────
 check_memory_length() {
   local mf="$CLAUDE/memory/MEMORY.md"
@@ -1088,6 +1123,7 @@ check_install_pins
 check_frontmatter_and_names
 check_dangling_refs
 check_claude_flat_sync
+check_consumer_doctrine
 check_memory_length
 check_ship_manifest
 check_review_tiers

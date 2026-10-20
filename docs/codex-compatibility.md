@@ -15,6 +15,7 @@ The Codex shell path currently targets macOS/Linux (or another Bash environment)
 | `.claude/commands/*.md` | None | Not installed; [Codex custom prompts are deprecated in favor of skills](https://learn.chatgpt.com/docs/custom-prompts) |
 | `.claude/memory/` hooks | None | Not installed; [Codex provides a native local memory system](https://learn.chatgpt.com/docs/customization/memories) |
 | `CLAUDE.md` / `.claude/rules/` | None | Not copied; durable Codex guidance belongs in [`AGENTS.md`](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
+| `assets/consumer/doctrine.md` (generated from four `.claude/rules/` files) | `$CODEX_HOME/AGENTS.md` or the project root `AGENTS.md` | Opt-in with `--with-doctrine`; inlined between `<!-- agentic-os:doctrine:begin -->` / `end` markers because `AGENTS.md` has no import syntax. See the README's opt-in doctrine section |
 
 Codex's documented skill locations are `.agents/skills` for repository scope and `~/.agents/skills` for user scope. Custom agents are standalone TOML files under `.codex/agents` or `~/.codex/agents`. Project hooks and config load only after the repository is trusted. See the official [skills](https://learn.chatgpt.com/docs/build-skills), [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), and [hooks](https://learn.chatgpt.com/docs/hooks) documentation.
 

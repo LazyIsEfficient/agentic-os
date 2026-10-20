@@ -236,11 +236,38 @@ Each install writes `.agentic-os-manifest.json` in its destination. The manifest
 - **Update:** re-run the installer. A file you have not changed since install is replaced with the new release's copy. A file you changed is kept, and the installer names it in a warning. Add `--force` to overwrite those too.
 - **Hooks are always refreshed.** A shipped hook script is security-relevant, so the installer always replaces it with the release copy. If you had edited it, your version is saved as `<file>.bak.<timestamp>` and the installer warns you.
 - **Prune:** a file that a new release no longer ships is removed if you have not changed it. If you have, it is kept with a warning on every run, and it stays in the manifest, so uninstall and `--prune-legacy` also treat it as yours. Hooks that a release retires are unregistered from `settings.json`, and their files are pruned the same way. That includes any hook script the old manifest tracked that the new release dropped. Directories left empty are removed.
-- **Your files are never touched.** Anything not listed in a manifest, such as your own skills or hooks, is left alone. The installer only ever writes or deletes inside the shipped directories (`skills/`, `agents/`, `commands/`, `hooks/`; for Codex, skill dirs plus `agents/` and `hooks/`). It never writes or deletes through a symlink or at the root of the install dir (`settings.json`, `CLAUDE.md`, the manifest). It also refuses any path with unusual characters. Each refused path is reported as `skip ... unsafe path` and left alone.
+- **Your files are never touched.** Anything not listed in a manifest, such as your own skills or hooks, is left alone. The installer only ever writes or deletes inside the shipped directories (`skills/`, `agents/`, `commands/`, `hooks/`, plus `agentic-os/` with `--with-doctrine`; for Codex, skill dirs plus `agents/` and `hooks/`). It never writes or deletes through a symlink or at the root of the install dir (`settings.json`, `CLAUDE.md`, the manifest). The exceptions are the hook merge into `settings.json` / `hooks.json` and, only with [`--with-doctrine`](#opt-in-doctrine---with-doctrine), one marked block in `CLAUDE.md` / `AGENTS.md`. It also refuses any path with unusual characters. Each refused path is reported as `skip ... unsafe path` and left alone.
 - **Fails fast on a broken settings file.** If `settings.json` (or Codex `hooks.json`) cannot be merged, the installer stops before copying anything, and `--dry-run` reports the same error.
 - **Installs from before manifests existed:** the first run adopts the install. A file that matches the copy from any earlier release is updated. The installer ships a list of every earlier release's file hashes (`assets/release-hashes.txt`) for this check. A file that matches no release copy is treated as your edit, and is kept and named. Retired skill directories, such as `security-and-hardening`, are reported but not removed. Pass `--prune-legacy` to remove them. Only files that byte-match an earlier AgenticOS release are deleted, and each one is listed as it is removed. Anything else in the directory is kept and named, such as your own notes or another tool's files, and so is the directory. Add `--dry-run` first to preview the list.
 - **Uninstall:** `./install.sh --uninstall` (`--codex --uninstall` for Codex, `.\install.ps1 -Uninstall` on Windows). Removes every unchanged manifest file and keeps changed ones with a warning. Removes only the AgenticOS hook entries from `settings.json` or `hooks.json`, leaving your own hooks and the rest of the file in place. Finally removes the manifest. It prints each file removed or kept.
 - **Preview:** add `--dry-run` (`-DryRun`) to any of the above to print what would change without changing anything.
+
+### Opt-in doctrine (`--with-doctrine`)
+
+> **Available after the next release**, like the lifecycle flags above: the `v3.0.1` installer ignores unknown flags, so use `--with-doctrine` only from a local clone until then.
+
+Skills and agents tell Claude *how* to do a task. The doctrine tells it how to treat evidence: read a file before claiming what is in it, write `UNVERIFIED:` instead of guessing, check a subagent's diff before trusting its summary, and let only deterministic checks block work. It is the `factual-correctness`, `grounding`, `review-tiers` and `verification` rules from this repo's `.claude/rules/`, minus the parts that only make sense here. They are generated into one file, [`assets/consumer/doctrine.md`](assets/consumer/doctrine.md).
+
+```bash
+./install.sh --with-doctrine                    # Claude Code
+./install.sh --codex --with-doctrine            # Codex, user scope
+CODEX_PROJECT_DIR=/path/to/project ./install.sh --codex --project --with-doctrine
+.\install.ps1 -WithDoctrine                     # Windows (not yet run in CI)
+```
+
+- **Claude Code:** the doctrine is installed as `~/.claude/agentic-os/doctrine.md`, tracked in the manifest like every other file. `~/.claude/CLAUDE.md` gets one marked block at the top that imports it. Claude Code resolves the relative import against `CLAUDE.md`'s own directory:
+
+  ```markdown
+  <!-- agentic-os:doctrine:begin -->
+  @agentic-os/doctrine.md
+  <!-- agentic-os:doctrine:end -->
+  ```
+
+  In Claude Cowork desktop sessions, Claude Code skips user-level imports that point outside the session's working directory, so the doctrine does not load there.
+- **Codex:** `AGENTS.md` has no import syntax, so the doctrine is inlined between the same markers in `$CODEX_HOME/AGENTS.md` (user scope) or the project root's `AGENTS.md` (`--project`). Codex reads `AGENTS.override.md` instead of `AGENTS.md` when both exist in a directory. If you have one, the installer warns that the block will not load.
+- **Your file is otherwise untouched.** The installer only ever changes the lines between the markers. It creates the file if it is missing. It refuses a `CLAUDE.md` / `AGENTS.md` that is a symlink, a hard link, or has broken markers, before it writes anything. It writes through a temp file and `mv`, and keeps the file's permissions.
+- **Re-running** with or without the flag is idempotent. The doctrine is **sticky**: once installed, later runs keep the block and the file current until you uninstall. A block that a newer release changed is replaced quietly. If you edited the block yourself, the installer replaces it anyway, saves the whole file first as `CLAUDE.md.bak.<timestamp>` (or `AGENTS.md.bak.…`), and warns you. You can move the block within the file; it stays where you put it.
+- **Uninstall** (`--uninstall`) removes the block and the blank line the installer added after it, so a file that existed before comes back byte-for-byte. A file the installer created is deleted if nothing else is left in it. The doctrine file is removed through the manifest.
 
 ---
 
