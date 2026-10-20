@@ -570,7 +570,7 @@ function Join-Lines($Lines, [int]$From, [int]$To) {
   return ($Lines[$From..$To] -join "`n")
 }
 
-function Get-CurBlockSha($D) { return Get-TextSha ((Join-Lines $D.Lines $D.B $D.E).Replace("`r", '') + "`n") }
+function Get-CurBlockSha($D) { return Get-TextSha (((Join-Lines $D.Lines $D.B $D.E) -replace "`r(?=`n|$)", '') + "`n") }
 
 function Read-Latin1([string]$Path) { return $Latin1.GetString([System.IO.File]::ReadAllBytes($Path)) }
 
