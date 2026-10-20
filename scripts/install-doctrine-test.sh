@@ -109,6 +109,9 @@ if git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
   parity "Codex global" --codex
   parity "Codex project" --codex --project
 else
+  if [[ -n "${CI:-}" ]]; then
+    fail "no-flag parity: $BASE_REV is not in this clone; CI must run this test with full history (fetch-depth: 0)"
+  fi
   echo "SKIP  no-flag parity: $BASE_REV is not in this clone (shallow checkout? run with full history)"
   SKIPPED=$((SKIPPED + 1))
 fi
@@ -232,8 +235,11 @@ grep -q '\[dry-run\] remove the AgenticOS doctrine block' "$tmp/o-dryu" || fail 
 snap "$h" | cmp -s - "$tmp/s-dry2" || fail "dry-run uninstall wrote files"
 ok "--dry-run reports the doctrine block on install and uninstall and writes nothing"
 
-if runc "$h" --uninstall --with-doctrine >/dev/null; then fail "--uninstall --with-doctrine accepted"; fi
-ok "--uninstall rejects --with-doctrine"
+snap "$h" > "$tmp/s-uflag"
+if runc "$h" --uninstall --with-doctrine > "$tmp/o-uflag"; then fail "--uninstall --with-doctrine accepted"; fi
+grep -q -- '--with-doctrine does not apply to --uninstall' "$tmp/o-uflag" || { cat "$tmp/o-uflag"; fail "no --uninstall --with-doctrine error"; }
+snap "$h" | cmp -s - "$tmp/s-uflag" || fail "files changed although --uninstall --with-doctrine was rejected"
+ok "--uninstall rejects --with-doctrine, with nothing changed"
 
 # ── 7. Codex global: inlined in $CODEX_HOME/AGENTS.md ────────────────────────
 h="$(newhome codex)"
@@ -303,12 +309,126 @@ ok "a new release's doctrine replaces an unedited block silently (no .bak)"
 
 h="$(newhome moved)"; mkdir -p "$h/.claude"; printf 'a\nb\n' > "$h/.claude/CLAUDE.md"
 runc "$h" --with-doctrine >/dev/null || fail "install (moved) failed"
-{ printf 'a\n'; claude_block; printf 'b\n'; } > "$h/.claude/CLAUDE.md"
+cmp -s "$h/.claude/CLAUDE.md" <(claude_block; printf '\na\nb\n') || fail "moved: unexpected install layout"
+# Cut the 3 block lines (the separator stays at the top), paste them after "a".
+{ printf '\na\n'; claude_block; printf 'b\n'; } > "$h/.claude/CLAUDE.md"
 runc "$h" --with-doctrine >/dev/null || fail "re-run (moved) failed"
-cmp -s "$h/.claude/CLAUDE.md" <(printf 'a\n'; claude_block; printf 'b\n') || fail "re-run moved the user's relocated block"
+cmp -s "$h/.claude/CLAUDE.md" <(printf '\na\n'; claude_block; printf 'b\n') || fail "re-run moved the user's relocated block"
 runc "$h" --uninstall >/dev/null || fail "uninstall (moved) failed"
-cmp -s "$h/.claude/CLAUDE.md" <(printf 'a\nb\n') || fail "uninstall of a relocated block changed other lines"
-ok "a block the user moved stays where it is, and uninstall removes only its lines"
+cmp -s "$h/.claude/CLAUDE.md" <(printf '\na\nb\n') || fail "uninstall of a relocated block changed other lines"
+ok "a moved block stays put; uninstall removes only its lines (the separator the user left behind stays, as documented)"
+
+# ── 11. macOS /bin/bash 3.2 (#298 round 2) ───────────────────────────────────
+if [[ -x /bin/bash ]] && /bin/bash -c '[[ "${BASH_VERSINFO[0]}" -lt 4 ]]'; then
+  for f in install.sh scripts/validate.sh scripts/build-consumer-doctrine.sh scripts/install-doctrine-test.sh \
+           scripts/validate-test.sh scripts/lib/install-hook-settings.sh; do
+    /bin/bash -n "$SRCREPO/$f" 2> "$tmp/b32.err" || { cat "$tmp/b32.err"; fail "$f does not parse under /bin/bash 3"; }
+  done
+  (cd "$SRCREPO" && timeout 60 /bin/bash scripts/build-consumer-doctrine.sh --check) > "$tmp/b32.out" 2>&1 \
+    || { cat "$tmp/b32.out"; fail "builder --check fails under /bin/bash 3"; }
+  h="$(newhome bash32)"; mkdir -p "$h/.claude"; printf 'mine\n' > "$h/.claude/CLAUDE.md"; cp "$h/.claude/CLAUDE.md" "$tmp/b32.orig"
+  for a in --with-doctrine --uninstall; do
+    HOME="$h" CLAUDE_DIR="$h/.claude" PATH=/usr/bin:/bin "$(command -v timeout)" 300 /bin/bash "$rel/install.sh" "$a" > "$tmp/b32.run" 2>&1 \
+      || { tail -5 "$tmp/b32.run"; fail "install.sh $a fails under /bin/bash 3 with PATH=/usr/bin:/bin"; }
+  done
+  cmp -s "$h/.claude/CLAUDE.md" "$tmp/b32.orig" || fail "bash 3 install + uninstall did not round-trip CLAUDE.md"
+  ok "/bin/bash 3: every touched script parses, builder --check passes, install + uninstall round-trip"
+else
+  echo "SKIP  /bin/bash 3 checks: /bin/bash is not bash 3"
+  SKIPPED=$((SKIPPED + 1))
+fi
+
+# ── 12. Consent: no flag never adds a block (#298 round 2) ──────────────────
+# A. A repo-committed project manifest with a (forged) doctrine record.
+h="$(newhome forged)"; mkdir -p "$h/proj/.codex"; printf '# project agents notes\n' > "$h/proj/AGENTS.md"
+printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
+  "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
+runp "$h" > "$tmp/o-forged" || { cat "$tmp/o-forged"; fail "flagless project run (forged record) failed"; }
+[[ "$(cat "$h/proj/AGENTS.md")" == "# project agents notes" ]] || fail "a forged project record made a flagless run write AGENTS.md"
+grep -q 'treating that as an opt-out' "$tmp/o-forged" || fail "no opt-out note"
+[[ -z "$(mf_doctrine "$h/proj/.codex/.agentic-os-manifest.json")" ]] || fail "forged doctrine record kept"
+ok "a repo-committed doctrine record never makes a flagless --project run write AGENTS.md"
+
+# B. The user deletes the block by hand: that is an opt-out, not a re-add.
+h="$(newhome removed)"; mkdir -p "$h/.claude"; printf '# mine\n' > "$h/.claude/CLAUDE.md"
+runc "$h" --with-doctrine >/dev/null || fail "install (removed) failed"
+printf '# mine\n' > "$h/.claude/CLAUDE.md"
+runc "$h" > "$tmp/o-removed" || { cat "$tmp/o-removed"; fail "flagless run after removing the block failed"; }
+[[ "$(cat "$h/.claude/CLAUDE.md")" == "# mine" ]] || fail "a hand-removed block was re-added without the flag"
+grep -q 'Re-run with --with-doctrine to add it back' "$tmp/o-removed" || fail "no opt-back-in hint"
+[[ -z "$(mf_doctrine "$h/.claude/.agentic-os-manifest.json")" ]] || fail "record kept after opt-out"
+[[ ! -e "$h/.claude/agentic-os/doctrine.md" ]] || fail "doctrine file kept after opt-out"
+snap "$h" > "$tmp/s-removed"
+runc "$h" >/dev/null || fail "second flagless run failed"
+snap "$h" | cmp -s - "$tmp/s-removed" || fail "a later flagless run changed files after the opt-out"
+runc "$h" --with-doctrine >/dev/null || fail "opt back in failed"
+cmp -s "$h/.claude/CLAUDE.md" <(claude_block; printf '\n# mine\n') || fail "opting back in did not add the block"
+ok "removing the block by hand opts out (record and file dropped); --with-doctrine opts back in"
+
+# ── 13. A linked target under sticky mode or uninstall: warn, carry on ──────
+h="$(newhome stickylink)"; mkdir -p "$h/.claude" "$h/dotfiles"
+runc "$h" --with-doctrine >/dev/null || fail "install (stickylink) failed"
+mv "$h/.claude/CLAUDE.md" "$h/dotfiles/CLAUDE.md"; ln -s "$h/dotfiles/CLAUDE.md" "$h/.claude/CLAUDE.md"
+cp "$h/dotfiles/CLAUDE.md" "$tmp/sl.orig"
+runc "$h" > "$tmp/o-sl" || { cat "$tmp/o-sl"; fail "a sticky run with a symlinked CLAUDE.md failed (must warn and carry on)"; }
+grep -q 'CLAUDE.md is a symlink — AgenticOS leaves it untouched' "$tmp/o-sl" || { cat "$tmp/o-sl"; fail "no hands-off warning (sticky)"; }
+grep -q "delete the lines from '<!-- agentic-os:doctrine:begin -->'" "$tmp/o-sl" || fail "warning does not name the block to remove"
+[[ -L "$h/.claude/CLAUDE.md" ]] && cmp -s "$h/dotfiles/CLAUDE.md" "$tmp/sl.orig" || fail "sticky run touched the symlinked CLAUDE.md"
+[[ -n "$(mf_doctrine "$h/.claude/.agentic-os-manifest.json")" && -f "$h/.claude/agentic-os/doctrine.md" ]] \
+  || fail "sticky hands-off dropped the record or the doctrine file the import points at"
+! grep -q 'install without --with-doctrine' "$tmp/o-sl" || fail "sticky warning tells the user to drop a flag they did not pass"
+runc "$h" --uninstall > "$tmp/o-slu" || { cat "$tmp/o-slu"; fail "uninstall with a symlinked CLAUDE.md failed (must warn and carry on)"; }
+grep -q 'CLAUDE.md is a symlink — AgenticOS leaves it untouched' "$tmp/o-slu" || fail "no hands-off warning (uninstall)"
+[[ -L "$h/.claude/CLAUDE.md" ]] && cmp -s "$h/dotfiles/CLAUDE.md" "$tmp/sl.orig" || fail "uninstall touched the symlinked CLAUDE.md"
+[[ ! -e "$h/.claude/.agentic-os-manifest.json" && ! -e "$h/.claude/agentic-os" ]] || fail "uninstall did not finish"
+ok "a symlinked CLAUDE.md under sticky mode or uninstall: warned, left untouched, the rest completes"
+
+h="$(newhome stickyhl)"; mkdir -p "$h/.claude"
+runc "$h" --with-doctrine >/dev/null || fail "install (stickyhl) failed"
+ln "$h/.claude/CLAUDE.md" "$h/other-link.md"; cp "$h/other-link.md" "$tmp/hl.orig"
+runc "$h" > "$tmp/o-hls" || { cat "$tmp/o-hls"; fail "sticky run with a hard-linked CLAUDE.md failed"; }
+grep -q 'is hard-linked elsewhere — AgenticOS leaves it untouched' "$tmp/o-hls" || fail "no hands-off warning (hard link)"
+runc "$h" --uninstall > "$tmp/o-hlu" || { cat "$tmp/o-hlu"; fail "uninstall with a hard-linked CLAUDE.md failed"; }
+cmp -s "$h/other-link.md" "$tmp/hl.orig" || fail "the hard-linked file was changed"
+ok "a hard-linked CLAUDE.md under sticky mode or uninstall: warned, left untouched"
+
+# ── 14. Fenced / foreign markers are never taken over (poc P3) ──────────────
+h="$(newhome fenced)"; mkdir -p "$h/.claude"
+printf '# notes\n```\n%s\nmy example text\n%s\n```\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
+snap "$h" > "$tmp/s-fenced"
+if runc "$h" --with-doctrine > "$tmp/o-fenced"; then fail "foreign markers accepted"; fi
+grep -q 'around text AgenticOS did not write' "$tmp/o-fenced" || { cat "$tmp/o-fenced"; fail "no foreign-marker error"; }
+snap "$h" | cmp -s - "$tmp/s-fenced" || fail "files changed although the foreign markers were refused"
+cp "$h/.claude/CLAUDE.md" "$tmp/fenced.orig"
+runc "$h" --uninstall > "$tmp/o-fencedu" || fail "uninstall over foreign markers failed"
+cmp -s "$h/.claude/CLAUDE.md" "$tmp/fenced.orig" || fail "uninstall removed the user's own marker example"
+ok "markers around text AgenticOS did not write are refused (install) and left alone (uninstall)"
+
+# ── 15. CRLF files (poc P2) ──────────────────────────────────────────────────
+h="$(newhome crlf)"; mkdir -p "$h/.claude"; printf '# mine\n' > "$h/.claude/CLAUDE.md"
+runc "$h" --with-doctrine >/dev/null || fail "install (crlf) failed"
+LC_ALL=C awk '{ printf "%s\r\n", $0 }' "$h/.claude/CLAUDE.md" > "$tmp/crlf" && cat "$tmp/crlf" > "$h/.claude/CLAUDE.md"
+cp "$h/.claude/CLAUDE.md" "$tmp/crlf.installed"
+runc "$h" > "$tmp/o-crlf" || fail "re-run (crlf) failed"
+cmp -s "$h/.claude/CLAUDE.md" "$tmp/crlf.installed" || fail "re-run changed a CRLF-converted file (second block?)"
+! grep -q 'refresh the doctrine block' "$tmp/o-crlf" || fail "a CRLF conversion was treated as a user edit"
+runc "$h" --uninstall >/dev/null || fail "uninstall (crlf) failed"
+cmp -s "$h/.claude/CLAUDE.md" <(printf '# mine\r\n') || fail "CRLF uninstall left an orphan import or separator"
+h="$(newhome crlf2)"; mkdir -p "$h/.claude"; printf '# win\r\nline2\r\n' > "$h/.claude/CLAUDE.md"; cp "$h/.claude/CLAUDE.md" "$tmp/crlf2.orig"
+runc "$h" --with-doctrine >/dev/null || fail "install into a CRLF file failed"
+cmp -s "$h/.claude/CLAUDE.md" <(claude_block | LC_ALL=C awk '{ printf "%s\r\n", $0 }'; printf '\r\n'; cat "$tmp/crlf2.orig") \
+  || fail "block not written in the file's CRLF line ending"
+runc "$h" --uninstall >/dev/null || fail "uninstall of a CRLF file failed"
+cmp -s "$h/.claude/CLAUDE.md" "$tmp/crlf2.orig" || fail "CRLF file not restored byte-for-byte"
+ok "CRLF: markers with a trailing CR are found, the block uses the file's line ending, uninstall restores the bytes"
+
+# ── 16. A created file keeps the user's own leading blank line (poc P4) ─────
+h="$(newhome created-blank)"
+runc "$h" --with-doctrine >/dev/null || fail "install (created-blank) failed"
+printf '\n# my notes\n' >> "$h/.claude/CLAUDE.md"
+runc "$h" --uninstall >/dev/null || fail "uninstall (created-blank) failed"
+cmp -s "$h/.claude/CLAUDE.md" <(printf '\n# my notes\n') || fail "uninstall stripped a blank line the user wrote in a file the installer created"
+ok "uninstall strips the separator only from files the installer did not create"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"

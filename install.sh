@@ -18,8 +18,8 @@
 #   --with-doctrine Also install the grounding/verification/review-tier doctrine
 #                   as one marked block in CLAUDE.md (an @-import of
 #                   agentic-os/doctrine.md) or, for Codex, AGENTS.md (inlined).
-#                   Opt-in, then sticky: later runs keep it current until
-#                   --uninstall removes it.
+#                   Opt-in. Later runs without the flag keep it current
+#                   while the block is still there; deleting the block opts out.
 #
 # Lifecycle: each install root gets a manifest (.agentic-os-manifest.json) of
 # every file installed and its SHA-256. Re-running updates files you have not
@@ -552,12 +552,23 @@ verify_hooks() {
 #
 # One marked block in CLAUDE.md (Claude: an @-import of the manifest-tracked
 # agentic-os/doctrine.md, resolved relative to CLAUDE.md) or AGENTS.md (Codex:
-# no import syntax, so the doctrine is inlined). Nothing outside the markers is
-# ever changed. A new block goes at the top, followed by one blank line when
-# the file already had content, so removing "block + that blank line" restores
-# the original bytes exactly. The manifest of DOC_MF_ROOT records whether the
-# installer created the file and the sha of the block it wrote, so uninstall
-# can delete a file it created and a changed block is backed up first.
+# no import syntax, so the doctrine is inlined). Lines outside the block are
+# never changed; the one exception is the blank separator line the installer
+# adds after a new block at the top of a non-empty file, which uninstall takes
+# out again. The block is written with the file's own line ending (CRLF files
+# get CRLF), and markers are matched with an optional trailing CR.
+#
+# The manifest of DOC_MF_ROOT records whether the installer created the file
+# and the sha of the block it wrote (LF-normalised, so a CRLF conversion is not
+# an edit). The plan (doctrine_plan) is made before anything is written:
+#   write    manage the block (add / refresh on install, remove on uninstall)
+#   handsoff a sticky or uninstall run meets a target it must not rewrite
+#            (symlink, hard link, not a regular file, broken or foreign
+#            markers): warn, leave it alone, carry on
+#   optout   no flag, a record, but no block in the target: the user removed
+#            it, so stop managing it and drop the record
+#   off      nothing to do
+# An explicit --with-doctrine turns every handsoff case into a hard refusal.
 
 # Unquoted on purpose: validate.sh's ship-manifest check reads every
 # double-quoted token ending in .md in this file as a shipped command.
@@ -569,7 +580,9 @@ DOC_BEGIN="<!-- agentic-os:doctrine:begin -->"
 DOC_END="<!-- agentic-os:doctrine:end -->"
 DOC_TARGET=""     # CLAUDE.md / AGENTS.md the block lives in
 DOC_MF_ROOT=""    # install root whose manifest records the block
-DOC_CREATED=""    # "true"/"false" once the block is managed; empty = not managed
+DOC_MODE=off
+DOC_WHY=""        # handsoff / refusal reason
+DOC_CREATED=""    # "true"/"false" once recorded for the new manifest; empty = no record
 DOC_BLOCK_SHA=""
 DOC_OLD_CREATED=""
 DOC_OLD_SHA=""
@@ -580,34 +593,106 @@ read_doctrine_record() {
   LC_ALL=C sed -nE 's/^  "doctrine": \{"created": (true|false), "block_sha256": "([0-9a-f]{64})"\},$/\1 \2/p' "$1" | head -n 1
 }
 
-# Begin/end line numbers of the block in $1 ("" "" when there is none).
-doc_lines() {
-  DOC_B="$(grep -nxF -- "$DOC_BEGIN" "$1" | cut -d: -f1 | head -n 1 || true)"
-  DOC_E="$(grep -nxF -- "$DOC_END" "$1" | cut -d: -f1 | head -n 1 || true)"
+# Scan $1 for markers (a trailing CR is ignored). Sets DOC_NB / DOC_NE (counts),
+# DOC_B / DOC_E (first line numbers, 0 = none) and DOC_CRLF (1 when the file's
+# first line ends in CR).
+doc_scan() {
+  local out
+  out="$(LC_ALL=C awk -v b="$DOC_BEGIN" -v e="$DOC_END" '
+    { l = $0; cr = sub(/\r$/, "", l); if (NR == 1) crlf = cr
+      if (l == b) { nb++; if (!fb) fb = NR }
+      if (l == e) { ne++; if (!fe) fe = NR } }
+    END { printf "%d %d %d %d %d\n", nb, ne, fb, fe, crlf }' "$1")"
+  read -r DOC_NB DOC_NE DOC_B DOC_E DOC_CRLF <<< "$out"
 }
 
-# The target must be absent or one regular, singly linked file holding zero or
-# one well-formed block. Checked before anything is written (dry run included).
-doctrine_preflight() {
-  local f="$1" nb ne
-  if [[ -L "$f" ]]; then
-    echo "Error: $f is a symlink — AgenticOS will not rewrite it. Replace it with a regular file, or install without --with-doctrine. Nothing was changed." >&2
-    exit 1
-  fi
+# Why $1 may not be rewritten ("" when it may: absent, or one regular, singly
+# linked file).
+doc_unsafe_reason() {
+  local f="$1"
+  if [[ -L "$f" ]]; then echo "is a symlink"; return 0; fi
   [[ -e "$f" ]] || return 0
-  if [[ ! -f "$f" ]]; then
-    echo "Error: $f is not a regular file. Nothing was changed." >&2
+  if [[ ! -f "$f" ]]; then echo "is not a regular file"; return 0; fi
+  if [[ -n "$(find "$f" -links +1 -print)" ]]; then echo "is hard-linked elsewhere"; fi
+  return 0
+}
+
+# The block this release writes, LF line endings.
+doctrine_block() {
+  printf '%s\n' "$DOC_BEGIN"
+  if [[ "$PLATFORM" == "claude" ]]; then printf '@agentic-os/doctrine.md\n'; else cat "$DOCTRINE_SRC"; fi
+  printf '%s\n' "$DOC_END"
+}
+
+# LF-normalised sha of lines DOC_B..DOC_E of $1.
+doc_cur_sha() {
+  sed -n "${DOC_B},${DOC_E}p" "$1" | LC_ALL=C awk '{ sub(/\r$/, ""); print }' > "$WORK/doctrine.curnorm"
+  sha256_of "$WORK/doctrine.curnorm"
+}
+
+# Decide DOC_MODE before anything is written. Exits (nothing changed) on an
+# explicit --with-doctrine whose target cannot be managed.
+doctrine_plan() {
+  local f="$DOC_TARGET" why="" state cur=""
+  [[ "$WITH_DOCTRINE" == "true" || "$UNINSTALL" == "true" || -n "$DOC_OLD_SHA" ]] || return 0
+  if [[ "$UNINSTALL" != "true" && ! -f "$DOCTRINE_SRC" ]]; then
+    echo "Error: $DOCTRINE_SRC is missing from this release — cannot install the doctrine. Nothing was changed." >&2
     exit 1
   fi
-  if [[ -n "$(find "$f" -links +1 -print)" ]]; then
-    echo "Error: $f is hard-linked elsewhere — AgenticOS will not rewrite a file another path shares. Nothing was changed." >&2
-    exit 1
+  doctrine_block > "$WORK/doctrine.lf"
+  DOC_BLOCK_SHA="$(sha256_of "$WORK/doctrine.lf")"
+  why="$(doc_unsafe_reason "$f")"
+  if [[ -n "$why" ]]; then
+    state=unsafe
+  elif [[ ! -e "$f" ]]; then
+    state=absent
+  else
+    doc_scan "$f"
+    if [[ "$DOC_NB" != "$DOC_NE" || "$DOC_NB" -gt 1 ]] || [[ "$DOC_NB" == 1 && "$DOC_B" -ge "$DOC_E" ]]; then
+      state=malformed; why="has malformed AgenticOS doctrine markers ($DOC_NB begin, $DOC_NE end)"
+    elif [[ "$DOC_NB" == 0 ]]; then
+      state=none
+    else
+      state=block
+      cur="$(doc_cur_sha "$f")"
+      # With no record, only a block this release would write is ours.
+      if [[ -z "$DOC_OLD_SHA" && "$cur" != "$DOC_BLOCK_SHA" ]]; then
+        state=malformed; why="has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record"
+      fi
+    fi
   fi
-  nb="$(grep -cxF -- "$DOC_BEGIN" "$f" || true)"
-  ne="$(grep -cxF -- "$DOC_END" "$f" || true)"
-  doc_lines "$f"
-  if [[ "$nb" != "$ne" || "$nb" -gt 1 ]] || [[ "$nb" == 1 && "$DOC_B" -ge "$DOC_E" ]]; then
-    echo "Error: $f has malformed AgenticOS doctrine markers ($nb begin, $ne end). Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
+
+  if [[ "$WITH_DOCTRINE" == "true" ]]; then
+    case "$state" in
+      unsafe)
+        echo "Error: $f $why — AgenticOS will not rewrite it. Replace it with a regular file, or install without --with-doctrine. Nothing was changed." >&2
+        exit 1 ;;
+      malformed)
+        echo "Error: $f $why. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
+        exit 1 ;;
+    esac
+    DOC_MODE=write
+  elif [[ "$UNINSTALL" == "true" ]]; then
+    case "$state" in
+      unsafe|malformed) [[ -n "$DOC_OLD_SHA" || "$state" == malformed ]] && { DOC_MODE=handsoff; DOC_WHY="$why"; } ;;
+      block) DOC_MODE=write ;;
+    esac
+  else
+    case "$state" in
+      unsafe|malformed) DOC_MODE=handsoff; DOC_WHY="$why" ;;
+      block) DOC_MODE=write ;;
+      none|absent) DOC_MODE=optout ;;
+    esac
+  fi
+  return 0
+}
+
+# Fail closed if the target turned into a link or another file since the plan.
+doc_recheck() {
+  local why
+  why="$(doc_unsafe_reason "$1")"
+  if [[ -n "$why" ]]; then
+    echo "Error: $1 $why (it changed during the install) — not written. Re-run to finish." >&2
     exit 1
   fi
 }
@@ -618,9 +703,11 @@ doc_write() {
   local new="$1" f="$2" dir tmpf
   dir="$(dirname "$f")"
   mkdir -p "$dir"
+  doc_recheck "$f"
   tmpf="$(mktemp "$dir/.agentic-os.XXXXXX")"
   if [[ -f "$f" ]]; then cp -p "$f" "$tmpf"; else chmod 644 "$tmpf"; fi
   cat "$new" > "$tmpf"
+  doc_recheck "$f"
   mv -f "$tmpf" "$f"
 }
 
@@ -632,38 +719,58 @@ doc_backup() {
   printf '%s' "$bak"
 }
 
-doctrine_block() {
-  printf '%s\n' "$DOC_BEGIN"
-  if [[ "$PLATFORM" == "claude" ]]; then printf '@agentic-os/doctrine.md\n'; else cat "$DOCTRINE_SRC"; fi
-  printf '%s\n' "$DOC_END"
+# The block in the line ending of the file it goes into.
+doc_block_eol() {
+  if [[ "${DOC_CRLF:-0}" == 1 ]]; then LC_ALL=C awk '{ printf "%s\r\n", $0 }' "$WORK/doctrine.lf"; else cat "$WORK/doctrine.lf"; fi
 }
 
-# Add or refresh the block in DOC_TARGET; sets DOC_CREATED / DOC_BLOCK_SHA for
-# the manifest.
+doc_handsoff_warning() {
+  warn "$DOC_TARGET $DOC_WHY — AgenticOS leaves it untouched. If it holds the AgenticOS doctrine block, delete the lines from '$DOC_BEGIN' to '$DOC_END' by hand."
+}
+
+# Install: act on DOC_MODE; sets DOC_CREATED / DOC_BLOCK_SHA for the manifest.
 doctrine_apply() {
   local f="$DOC_TARGET" blk="$WORK/doctrine.block" new="$WORK/doctrine.new" cur bak
-  doctrine_block > "$blk"
-  DOC_BLOCK_SHA="$(sha256_of "$blk")"
+  case "$DOC_MODE" in
+    handsoff)
+      doc_handsoff_warning
+      # Keep the record (and, for Claude, the doctrine file an existing import
+      # may still point at) until the user removes the block or uninstalls.
+      DOC_CREATED="${DOC_OLD_CREATED:-false}"; DOC_BLOCK_SHA="$DOC_OLD_SHA"
+      return 0 ;;
+    optout)
+      note "no AgenticOS doctrine block in $f — treating that as an opt-out: the doctrine is no longer installed or kept current. Re-run with --with-doctrine to add it back."
+      return 0 ;;
+    write) ;;
+    *) return 0 ;;
+  esac
   if [[ ! -e "$f" ]]; then
-    DOC_CREATED=true
+    DOC_CREATED=true; DOC_CRLF=0
     note "create $f with the AgenticOS doctrine block"
-    [[ "$DRY_RUN" == "true" ]] || doc_write "$blk" "$f"
+    [[ "$DRY_RUN" == "true" ]] || doc_write "$WORK/doctrine.lf" "$f"
     return 0
   fi
   DOC_CREATED="${DOC_OLD_CREATED:-false}"
-  doc_lines "$f"
-  if [[ -z "$DOC_B" ]]; then
-    { cat "$blk"; if [[ -s "$f" ]]; then printf '\n'; cat "$f"; fi; } > "$new"
+  doc_scan "$f"
+  doc_block_eol > "$blk"
+  if [[ "$DOC_B" == 0 ]]; then
+    {
+      cat "$blk"
+      if [[ -s "$f" ]]; then
+        if [[ "$DOC_CRLF" == 1 ]]; then printf '\r\n'; else printf '\n'; fi
+        cat "$f"
+      fi
+    } > "$new"
     note "add the AgenticOS doctrine block to the top of $f"
   else
     sed -n "${DOC_B},${DOC_E}p" "$f" > "$WORK/doctrine.cur"
-    cur="$(sha256_of "$WORK/doctrine.cur")"
-    if [[ "$cur" == "$DOC_BLOCK_SHA" ]]; then
+    if cmp -s "$WORK/doctrine.cur" "$blk"; then
       return 0
     fi
+    cur="$(doc_cur_sha "$f")"
     # (BSD head rejects -n 0.)
     { if [[ "$DOC_B" -gt 1 ]]; then head -n "$((DOC_B - 1))" "$f"; fi; cat "$blk"; tail -n "+$((DOC_E + 1))" "$f"; } > "$new"
-    if [[ -n "$DOC_OLD_SHA" && "$cur" == "$DOC_OLD_SHA" ]]; then
+    if [[ "$cur" == "$DOC_BLOCK_SHA" || ( -n "$DOC_OLD_SHA" && "$cur" == "$DOC_OLD_SHA" ) ]]; then
       note "update the AgenticOS doctrine block in $f"
     else
       bak="$(doc_backup "$f")"
@@ -673,29 +780,36 @@ doctrine_apply() {
   [[ "$DRY_RUN" == "true" ]] || doc_write "$new" "$f"
 }
 
-# Remove the block from DOC_TARGET (uninstall). Deletes the file only when the
-# installer created it and nothing else is left in it.
+# Uninstall: remove the block. Deletes the file only when the installer
+# created it and nothing else is left in it.
 doctrine_remove() {
   local f="$DOC_TARGET" rest="$WORK/doctrine.rest" new="$WORK/doctrine.new" cur bak
-  [[ -f "$f" ]] || return 0
-  doc_lines "$f"
-  [[ -n "$DOC_B" ]] || return 0
-  sed -n "${DOC_B},${DOC_E}p" "$f" > "$WORK/doctrine.cur"
-  cur="$(sha256_of "$WORK/doctrine.cur")"
-  if [[ -z "$DOC_OLD_SHA" || "$cur" != "$DOC_OLD_SHA" ]]; then
+  case "$DOC_MODE" in
+    handsoff) doc_handsoff_warning; return 0 ;;
+    write) ;;
+    *) return 0 ;;
+  esac
+  doc_scan "$f"
+  cur="$(doc_cur_sha "$f")"
+  if [[ "$cur" != "$DOC_BLOCK_SHA" && ( -z "$DOC_OLD_SHA" || "$cur" != "$DOC_OLD_SHA" ) ]]; then
     bak="$(doc_backup "$f")"
     warn "the doctrine block in $f differed from what AgenticOS wrote; the whole file is saved as $bak"
   fi
   tail -n "+$((DOC_E + 1))" "$f" > "$rest"
-  if [[ "$DOC_B" == 1 ]]; then
-    # Drop the one blank separator line the installer put after the block.
-    if [[ "$(head -c 1 "$rest" | wc -l | tr -d ' ')" == 1 ]]; then tail -c +2 "$rest" > "$new"; else cp "$rest" "$new"; fi
+  if [[ "$DOC_B" == 1 && "$DOC_OLD_CREATED" != "true" ]]; then
+    # Drop the one blank separator line the installer put after the block (a
+    # file the installer created never got one).
+    if [[ "$(head -c 2 "$rest" | od -An -tx1 | tr -d ' \n')" == 0d0a ]]; then tail -c +3 "$rest" > "$new"
+    elif [[ "$(head -c 1 "$rest" | wc -l | tr -d ' ')" == 1 ]]; then tail -c +2 "$rest" > "$new"
+    else cp "$rest" "$new"; fi
+  elif [[ "$DOC_B" == 1 ]]; then
+    cp "$rest" "$new"
   else
     { head -n "$((DOC_B - 1))" "$f"; cat "$rest"; } > "$new"
   fi
   if [[ ! -s "$new" && "$DOC_OLD_CREATED" == "true" ]]; then
     note "remove $f (created by AgenticOS, now empty)"
-    [[ "$DRY_RUN" == "true" ]] || rm -f "$f"
+    if [[ "$DRY_RUN" != "true" ]]; then doc_recheck "$f"; rm -f "$f"; fi
   else
     note "remove the AgenticOS doctrine block from $f"
     [[ "$DRY_RUN" == "true" ]] || doc_write "$new" "$f"
@@ -1042,8 +1156,9 @@ fi
 CODEX_CONFIG_ALLOW="agents hooks"
 : > "$WORK/retired.derived"
 
-# Doctrine target. Opt-in with --with-doctrine, then sticky: once a manifest
-# records the block, later runs keep it current until --uninstall.
+# Doctrine target. Opt-in with --with-doctrine; afterwards a run without the
+# flag keeps the block current only while the target still holds it (see
+# doctrine_plan).
 DOCTRINE_SRC="$REPO_ROOT/assets/consumer/${DOCTRINE_REL#*/}"
 if [[ "$PLATFORM" == "claude" ]]; then
   DOC_TARGET="${DEST%/}/$CLAUDE_MD"; DOC_MF_ROOT="$DEST"
@@ -1054,17 +1169,10 @@ else
 fi
 doc_rec="$(read_doctrine_record "$DOC_MF_ROOT/$MANIFEST_NAME")"
 if [[ -n "$doc_rec" ]]; then DOC_OLD_CREATED="${doc_rec%% *}"; DOC_OLD_SHA="${doc_rec#* }"; fi
+doctrine_plan
+# Stage (Claude) and record the doctrine while it is managed or left hands-off.
 DOCTRINE=false
-if [[ "$WITH_DOCTRINE" == "true" || -n "$doc_rec" ]]; then DOCTRINE=true; fi
-if [[ "$DOCTRINE" == "true" && "$UNINSTALL" != "true" && ! -f "$DOCTRINE_SRC" ]]; then
-  echo "Error: $DOCTRINE_SRC is missing from this release — cannot install the doctrine. Nothing was changed." >&2
-  exit 1
-fi
-# Uninstall also removes a block the manifest lost track of.
-if [[ "$UNINSTALL" == "true" && "$DOCTRINE" != "true" && -f "$DOC_TARGET" && ! -L "$DOC_TARGET" ]] \
-   && grep -qxF -- "$DOC_BEGIN" "$DOC_TARGET"; then
-  DOCTRINE=true
-fi
+case "$DOC_MODE" in write|handsoff) DOCTRINE=true ;; esac
 
 if [[ "$UNINSTALL" == "true" ]]; then
   echo ""
@@ -1073,21 +1181,19 @@ if [[ "$UNINSTALL" == "true" ]]; then
   # hook scripts it still points at are left in place.
   if [[ "$PLATFORM" == "claude" ]]; then
     refuse_linked_dirs "$DEST" skills agents commands hooks
-    [[ "$DOCTRINE" != "true" ]] || doctrine_preflight "$DOC_TARGET"
     echo ""
     echo "Hook registration: ${DEST%/}/settings.json"
     unregister_claude_hook_settings "$REPO_ROOT" "$DEST" \
       "$RETIRED_HOOKS $(manifest_hook_names "$DEST/$MANIFEST_NAME")" "$DRY_RUN"
     # The block goes before the doctrine file it imports.
-    if [[ "$DOCTRINE" == "true" ]]; then echo ""; echo "Doctrine: $DOC_TARGET"; doctrine_remove; fi
+    if [[ "$DOC_MODE" != off ]]; then echo ""; echo "Doctrine: $DOC_TARGET"; doctrine_remove; fi
     uninstall_root claude "$DEST" "Claude Code" "$CLAUDE_ALLOW" "skills/"
   else
     refuse_linked_dirs "$CODEX_CONFIG_DIR" agents hooks
-    [[ "$DOCTRINE" != "true" ]] || doctrine_preflight "$DOC_TARGET"
     echo ""
     echo "Hook registration: $CODEX_CONFIG_DIR/hooks.json"
     unregister_codex_hook_settings "$CODEX_CONFIG_DIR" "$DRY_RUN"
-    if [[ "$DOCTRINE" == "true" ]]; then echo ""; echo "Doctrine: $DOC_TARGET"; doctrine_remove; fi
+    if [[ "$DOC_MODE" != off ]]; then echo ""; echo "Doctrine: $DOC_TARGET"; doctrine_remove; fi
     uninstall_root codex-skills "$CODEX_SKILLS_DEST" "Codex skills" "*" ""
     uninstall_root codex-config "$CODEX_CONFIG_DIR" "Codex agents + hooks" "$CODEX_CONFIG_ALLOW" "-"
   fi
@@ -1120,15 +1226,12 @@ if [[ "$PLATFORM" == "claude" ]]; then
 
   # Fail fast, before anything is copied (dry run included).
   refuse_linked_dirs "$DEST" skills agents commands hooks
-  if [[ "$DOCTRINE" == "true" ]]; then
-    refuse_linked_dirs "$DEST" agentic-os
-    doctrine_preflight "$DOC_TARGET"
-  fi
+  [[ "$DOCTRINE" != "true" ]] || refuse_linked_dirs "$DEST" agentic-os
   preflight_hook_settings claude "$DEST" settings.json
   CLAUDE_ARGS=(claude "$STAGE" "$DEST" "hooks/" "skills/" claude "$CLAUDE_LABEL" "$CLAUDE_ALLOW")
   sync_place "${CLAUDE_ARGS[@]}"
   verify_hooks "$STAGE" "$DEST"
-  if [[ "$DOCTRINE" == "true" && "$DRY_RUN" != "true" ]] && [[ ! -f "$DEST/$DOCTRINE_REL" || -L "$DEST/$DOCTRINE_REL" ]]; then
+  if [[ "$DOC_MODE" == write && "$DRY_RUN" != "true" ]] && [[ ! -f "$DEST/$DOCTRINE_REL" || -L "$DEST/$DOCTRINE_REL" ]]; then
     echo "Error: $DEST/agentic-os/doctrine.md could not be installed, so CLAUDE.md was not given an import of it; hook registration and the manifest update were withheld. Fix the path reported above, then re-run." >&2
     exit 1
   fi
@@ -1137,13 +1240,13 @@ if [[ "$PLATFORM" == "claude" ]]; then
   else
     merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS $(tr '\n' ' ' < "$WORK/retired.derived")"
   fi
-  [[ "$DOCTRINE" != "true" ]] || doctrine_apply
+  doctrine_apply
   sync_finish "${CLAUDE_ARGS[@]}"
 
   echo ""
   echo "${P}Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
-  if [[ "$DOCTRINE" == "true" ]]; then
-    echo "${P}The AgenticOS doctrine is imported from ${DOC_TARGET}; it stays (and is kept current) until --uninstall."
+  if [[ "$DOC_MODE" == write ]]; then
+    echo "${P}The AgenticOS doctrine is imported from ${DOC_TARGET}; it is kept current while the block is there, until --uninstall."
   fi
 else
   echo ""
@@ -1158,7 +1261,6 @@ else
   done
 
   refuse_linked_dirs "$CODEX_CONFIG_DIR" agents hooks
-  [[ "$DOCTRINE" != "true" ]] || doctrine_preflight "$DOC_TARGET"
   preflight_hook_settings codex "$CODEX_CONFIG_DIR" hooks.json
   SKILLS_ARGS=(codex-skills "$STAGE/skills" "$CODEX_SKILLS_DEST" "" "" codex "skills" "*")
   CONFIG_ARGS=(codex-config "$STAGE/config" "$CODEX_CONFIG_DIR" "hooks/" "-" codex "agents (Codex TOML) + hooks" "$CODEX_CONFIG_ALLOW")
@@ -1170,8 +1272,8 @@ else
   else
     merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR"
   fi
-  if [[ "$DOCTRINE" == "true" ]]; then
-    doctrine_apply
+  doctrine_apply
+  if [[ "$DOC_MODE" == write ]]; then
     if [[ -e "$(dirname "$DOC_TARGET")/$AGENTS_OVERRIDE_MD" ]]; then
       warn "$(dirname "$DOC_TARGET")/AGENTS.override.md exists; Codex reads it instead of AGENTS.md there, so the doctrine block will not load"
     fi

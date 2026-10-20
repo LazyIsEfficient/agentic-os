@@ -30,17 +30,19 @@ TARGET="$ROOT/assets/consumer/doctrine.md"
 RULES=(factual-correctness grounding review-tiers verification)
 
 # rule <TAB> exact source line <TAB> replacement line ("@DELETE" drops the line).
-REWRITES="$(cat <<'EOF'
+# Read with `read -d ''`, not a command substitution around a heredoc: macOS
+# /bin/bash 3.2 mis-parses the apostrophes of a quoted heredoc inside $(...).
+IFS= read -r -d '' REWRITES <<'EOF' || true
 grounding	The most common failure mode in agentic work is **generate-without-reading**: an agent states facts about files, functions, or state it never actually read. These rules apply to every agent this repo dispatches — no exceptions.	The most common failure mode in agentic work is **generate-without-reading**: an agent states facts about files, functions, or state it never actually read. These rules apply to you and to every agent you dispatch — no exceptions.
 review-tiers	Every check in this repo's review machinery belongs to exactly one tier, sorted	Every check in your review machinery belongs to exactly one tier, sorted
 review-tiers	- **TIER 0 — deterministic.** `scripts/validate.sh`, linters, any script that	- **TIER 0 — deterministic.** Your project's validators, linters, any script that
 review-tiers	   `scripts/validate.sh`.	   your project's validator script.
-review-tiers	  only Tier 0/1 findings may justify `hold`	  only Tier 0/1 findings may justify `hold`.
+review-tiers	  End with the machine verdict block — `pass | fix-before-merge | hold`, where	  Only Tier 0/1 findings may justify a `hold` verdict.
+review-tiers	  only Tier 0/1 findings may justify `hold`	@DELETE
 review-tiers	  ([review-verdict.md](../references/review-verdict.md), parsed by	@DELETE
 review-tiers	  `scripts/parse-verdict.sh`).	@DELETE
 review-tiers	- Triaging? Run `/triage-findings` — it proposes promotions and retirements;	- Triaging? Use the `findings-ledger` skill — it proposes promotions and retirements;
 EOF
-)"
 
 err() { printf 'build-consumer-doctrine: %s\n' "$*" >&2; exit 1; }
 

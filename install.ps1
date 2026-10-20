@@ -13,8 +13,9 @@
 #   -DryRun       Print what would change; change nothing
 #   -WithDoctrine Also install the grounding/verification/review-tier doctrine
 #                 as one marked block in CLAUDE.md that imports
-#                 agentic-os\doctrine.md. Opt-in, then sticky: later runs keep
-#                 it current until -Uninstall removes it.
+#                 agentic-os\doctrine.md. Opt-in. Later runs without the flag
+#                 keep it current while the block is still there; deleting the
+#                 block opts out.
 #   -Dest         Override the install destination (default: $env:USERPROFILE\.claude)
 #
 # Lifecycle (same rules as install.sh): $Dest\.agentic-os-manifest.json records
@@ -510,13 +511,18 @@ function Update-ClaudeHookSettings([string]$Mode) {
 }
 
 # ── Doctrine block (-WithDoctrine) ─────────────────────────────────────────────
-# Same rules as install.sh: one marked block at the top of CLAUDE.md that
-# imports agentic-os/doctrine.md (resolved relative to CLAUDE.md), followed by
-# one blank line when the file already had content, so removing the block plus
-# that line restores the original bytes. Text is handled as ISO-8859-1 so every
-# byte round-trips unchanged. The manifest records whether the installer
-# created the file and the sha of the block it wrote. Single-quoted file names:
-# validate.sh reads double-quoted names ending in .md as shipped commands.
+# Same rules as install.sh (see its doctrine_plan): one marked block at the top
+# of CLAUDE.md that imports agentic-os/doctrine.md, followed by one blank line
+# when the file already had content. Lines outside the block never change
+# except that separator, which uninstall takes out again (not for a file the
+# installer created, which never got one). Markers match with an optional
+# trailing CR, and the block is written in the file's own line ending. Text is
+# handled as ISO-8859-1 so every byte round-trips unchanged. The manifest
+# records whether the installer created the file and the LF-normalised sha of
+# the block. Modes: write / handsoff / optout / off, decided before any write;
+# an explicit -WithDoctrine turns every handsoff case into a refusal.
+# Single-quoted file names: validate.sh reads double-quoted names ending in .md
+# as shipped commands.
 
 $DocBegin = '<!-- agentic-os:doctrine:begin -->'
 $DocEnd   = '<!-- agentic-os:doctrine:end -->'
@@ -524,6 +530,9 @@ $DocTarget = Join-Path $Root 'CLAUDE.md'
 $DoctrineSrc = Join-Path $RepoRoot (Join-Path 'assets' (Join-Path 'consumer' 'doctrine.md'))
 $DoctrineRel = 'agentic-os/doctrine.md'
 $Latin1 = [System.Text.Encoding]::GetEncoding(28591)
+$DocBlockLf = "$DocBegin`n@$DoctrineRel`n$DocEnd`n"
+$script:DocMode = 'off'
+$script:DocWhy = ''
 $script:DocCreated = $null
 $script:DocBlockSha = $null
 
@@ -543,15 +552,17 @@ function Read-DoctrineRecord {
   return $null
 }
 
-# @{ Lines; B; E } for the text (B/E = -1 when there is no block).
+function Test-Marker([string]$Line, [string]$Marker) { return ($Line -ceq $Marker) -or ($Line -ceq "$Marker`r") }
+
+# @{ Lines; NB; NE; B; E; Crlf } (B/E = -1 when absent, 0-based).
 function Get-DocLines([string]$Text) {
   $lines = $Text -split "`n"
-  $b = -1; $e = -1
+  $nb = 0; $ne = 0; $b = -1; $e = -1
   for ($i = 0; $i -lt $lines.Count; $i++) {
-    if ($b -lt 0 -and $lines[$i] -ceq $DocBegin) { $b = $i }
-    if ($e -lt 0 -and $lines[$i] -ceq $DocEnd) { $e = $i }
+    if (Test-Marker $lines[$i] $DocBegin) { $nb++; if ($b -lt 0) { $b = $i } }
+    if (Test-Marker $lines[$i] $DocEnd) { $ne++; if ($e -lt 0) { $e = $i } }
   }
-  return @{ Lines = $lines; B = $b; E = $e }
+  return @{ Lines = $lines; NB = $nb; NE = $ne; B = $b; E = $e; Crlf = ($lines.Count -gt 1 -and $lines[0].EndsWith("`r")) }
 }
 
 function Join-Lines($Lines, [int]$From, [int]$To) {
@@ -559,14 +570,41 @@ function Join-Lines($Lines, [int]$From, [int]$To) {
   return ($Lines[$From..$To] -join "`n")
 }
 
+function Get-CurBlockSha($D) { return Get-TextSha ((Join-Lines $D.Lines $D.B $D.E).Replace("`r", '') + "`n") }
+
 function Read-Latin1([string]$Path) { return $Latin1.GetString([System.IO.File]::ReadAllBytes($Path)) }
 
+# Why $DocTarget may not be rewritten ('' when it may).
+function Get-DocUnsafeReason {
+  if (Test-ReparsePoint $DocTarget) { return 'is a symlink' }
+  if (-not (Test-Path -LiteralPath $DocTarget)) { return '' }
+  if (-not (Test-Path -LiteralPath $DocTarget -PathType Leaf)) { return 'is not a regular file' }
+  if ((Get-Item -LiteralPath $DocTarget -Force).LinkType -eq 'HardLink') { return 'is hard-linked elsewhere' }
+  return ''
+}
+
+function Assert-DocUnchanged {
+  $why = Get-DocUnsafeReason
+  if ($why) { throw "Error: $DocTarget $why (it changed during the install) — not written. Re-run to finish." }
+}
+
+# Write via a fresh temp file beside the target, then move it over. The
+# target's attributes and (on Windows) ACL are copied to the temp file first.
 function Write-BesideBytes([string]$Target, [string]$Text) {
   $dir = Split-Path $Target
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  Assert-DocUnchanged
   $tmp = Join-Path $dir (".agentic-os." + [System.IO.Path]::GetRandomFileName())
   $fs = [System.IO.File]::Open($tmp, [System.IO.FileMode]::CreateNew)
   try { $bytes = $Latin1.GetBytes($Text); $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Close() }
+  if (Test-Path -LiteralPath $Target -PathType Leaf) {
+    if ($PSVersionTable.PSEdition -eq 'Desktop' -or $IsWindows) {
+      Set-Acl -LiteralPath $tmp -AclObject (Get-Acl -LiteralPath $Target)
+    }
+    $attrs = [System.IO.File]::GetAttributes($Target) -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+    [System.IO.File]::SetAttributes($tmp, $attrs)
+  }
+  Assert-DocUnchanged
   Move-Item -LiteralPath $tmp -Destination $Target -Force
 }
 
@@ -577,41 +615,79 @@ function Backup-DocTarget {
   return $bak
 }
 
-# Absent, or one regular, singly linked file with zero or one well-formed block.
-function Assert-DoctrineTarget {
-  if (Test-ReparsePoint $DocTarget) { throw "Error: $DocTarget is a symlink — AgenticOS will not rewrite it. Replace it with a regular file, or install without -WithDoctrine. Nothing was changed." }
-  if (-not (Test-Path -LiteralPath $DocTarget)) { return }
-  if (-not (Test-Path -LiteralPath $DocTarget -PathType Leaf)) { throw "Error: $DocTarget is not a regular file. Nothing was changed." }
-  if ((Get-Item -LiteralPath $DocTarget -Force).LinkType -eq 'HardLink') { throw "Error: $DocTarget is hard-linked elsewhere — AgenticOS will not rewrite a file another path shares. Nothing was changed." }
-  $d = Get-DocLines (Read-Latin1 $DocTarget)
-  $nb = @($d.Lines | Where-Object { $_ -ceq $DocBegin }).Count
-  $ne = @($d.Lines | Where-Object { $_ -ceq $DocEnd }).Count
-  if ($nb -ne $ne -or $nb -gt 1 -or ($nb -eq 1 -and $d.B -ge $d.E)) {
-    throw "Error: $DocTarget has malformed AgenticOS doctrine markers ($nb begin, $ne end). Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed."
+function Write-DocHandsOff {
+  Warn "$DocTarget $($script:DocWhy) — AgenticOS leaves it untouched. If it holds the AgenticOS doctrine block, delete the lines from '$DocBegin' to '$DocEnd' by hand."
+}
+
+# Decide $script:DocMode before anything is written.
+function Set-DoctrinePlan($Record) {
+  if (-not ($WithDoctrine -or $Uninstall -or $Record)) { return }
+  if (-not $Uninstall -and -not (Test-Path -LiteralPath $DoctrineSrc -PathType Leaf)) {
+    throw "Error: $DoctrineSrc is missing from this release — cannot install the doctrine. Nothing was changed."
+  }
+  $script:DocBlockSha = Get-TextSha $DocBlockLf
+  $why = Get-DocUnsafeReason
+  if ($why) { $state = 'unsafe' }
+  elseif (-not (Test-Path -LiteralPath $DocTarget)) { $state = 'absent' }
+  else {
+    $d = Get-DocLines (Read-Latin1 $DocTarget)
+    if ($d.NB -ne $d.NE -or $d.NB -gt 1 -or ($d.NB -eq 1 -and $d.B -ge $d.E)) {
+      $state = 'malformed'; $why = "has malformed AgenticOS doctrine markers ($($d.NB) begin, $($d.NE) end)"
+    } elseif ($d.NB -eq 0) { $state = 'none' }
+    else {
+      $state = 'block'
+      if (-not $Record -and (Get-CurBlockSha $d) -ne $script:DocBlockSha) {
+        $state = 'malformed'; $why = 'has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record'
+      }
+    }
+  }
+  if ($WithDoctrine) {
+    if ($state -eq 'unsafe') { throw "Error: $DocTarget $why — AgenticOS will not rewrite it. Replace it with a regular file, or install without -WithDoctrine. Nothing was changed." }
+    if ($state -eq 'malformed') { throw "Error: $DocTarget $why. Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
+    $script:DocMode = 'write'
+  } elseif ($Uninstall) {
+    if (($state -eq 'unsafe' -and $Record) -or $state -eq 'malformed') { $script:DocMode = 'handsoff'; $script:DocWhy = $why }
+    elseif ($state -eq 'block') { $script:DocMode = 'write' }
+  } else {
+    if ($state -eq 'unsafe' -or $state -eq 'malformed') { $script:DocMode = 'handsoff'; $script:DocWhy = $why }
+    elseif ($state -eq 'block') { $script:DocMode = 'write' }
+    else { $script:DocMode = 'optout' }
   }
 }
 
 function Install-DoctrineBlock($Record) {
-  $blk = "$DocBegin`n@$DoctrineRel`n$DocEnd`n"
-  $script:DocBlockSha = Get-TextSha $blk
+  if ($script:DocMode -eq 'handsoff') {
+    Write-DocHandsOff
+    $script:DocCreated = if ($Record.created) { 'true' } else { 'false' }
+    $script:DocBlockSha = $Record.block_sha256
+    return
+  }
+  if ($script:DocMode -eq 'optout') {
+    Note "no AgenticOS doctrine block in $DocTarget — treating that as an opt-out: the doctrine is no longer installed or kept current. Re-run with -WithDoctrine to add it back."
+    return
+  }
+  if ($script:DocMode -ne 'write') { return }
   if (-not (Test-Path -LiteralPath $DocTarget)) {
     $script:DocCreated = 'true'
     Note "create $DocTarget with the AgenticOS doctrine block"
-    if (-not $DryRun) { Write-BesideBytes $DocTarget $blk }
+    if (-not $DryRun) { Write-BesideBytes $DocTarget $DocBlockLf }
     return
   }
   $script:DocCreated = if ($Record -and $Record.created) { 'true' } else { 'false' }
   $text = Read-Latin1 $DocTarget
   $d = Get-DocLines $text
+  $eol = if ($d.Crlf) { "`r`n" } else { "`n" }
+  $blk = $DocBlockLf.Replace("`n", $eol)
   if ($d.B -lt 0) {
-    $new = if ($text.Length -gt 0) { $blk + "`n" + $text } else { $blk }
+    $new = if ($text.Length -gt 0) { $blk + $eol + $text } else { $blk }
     Note "add the AgenticOS doctrine block to the top of $DocTarget"
   } else {
     $cur = (Join-Lines $d.Lines $d.B $d.E) + "`n"
-    if ((Get-TextSha $cur) -eq $script:DocBlockSha) { return }
+    if ($cur -ceq $blk) { return }
+    $curSha = Get-CurBlockSha $d
     $prefix = if ($d.B -gt 0) { (Join-Lines $d.Lines 0 ($d.B - 1)) + "`n" } else { '' }
     $new = $prefix + $blk + (Join-Lines $d.Lines ($d.E + 1) ($d.Lines.Count - 1))
-    if ($Record -and (Get-TextSha $cur) -eq $Record.block_sha256) {
+    if ($curSha -eq $script:DocBlockSha -or ($Record -and $curSha -eq $Record.block_sha256)) {
       Note "update the AgenticOS doctrine block in $DocTarget"
     } else {
       $bak = Backup-DocTarget
@@ -622,24 +698,27 @@ function Install-DoctrineBlock($Record) {
 }
 
 function Remove-DoctrineBlock($Record) {
-  if (-not (Test-Path -LiteralPath $DocTarget -PathType Leaf)) { return }
+  if ($script:DocMode -eq 'handsoff') { Write-DocHandsOff; return }
+  if ($script:DocMode -ne 'write') { return }
   $d = Get-DocLines (Read-Latin1 $DocTarget)
-  if ($d.B -lt 0) { return }
-  $cur = (Join-Lines $d.Lines $d.B $d.E) + "`n"
-  if (-not $Record -or (Get-TextSha $cur) -ne $Record.block_sha256) {
+  $curSha = Get-CurBlockSha $d
+  if ($curSha -ne $script:DocBlockSha -and (-not $Record -or $curSha -ne $Record.block_sha256)) {
     $bak = Backup-DocTarget
     Warn "the doctrine block in $DocTarget differed from what AgenticOS wrote; the whole file is saved as $bak"
   }
+  $created = [bool]($Record -and $Record.created)
   $rest = Join-Lines $d.Lines ($d.E + 1) ($d.Lines.Count - 1)
   if ($d.B -eq 0) {
-    if ($rest.StartsWith("`n")) { $rest = $rest.Substring(1) }
+    if (-not $created) {
+      if ($rest.StartsWith("`r`n")) { $rest = $rest.Substring(2) } elseif ($rest.StartsWith("`n")) { $rest = $rest.Substring(1) }
+    }
     $new = $rest
   } else {
     $new = (Join-Lines $d.Lines 0 ($d.B - 1)) + "`n" + $rest
   }
-  if ($new.Length -eq 0 -and $Record -and $Record.created) {
+  if ($new.Length -eq 0 -and $created) {
     Note "remove $DocTarget (created by AgenticOS, now empty)"
-    if (-not $DryRun) { Remove-Item -LiteralPath $DocTarget -Force }
+    if (-not $DryRun) { Assert-DocUnchanged; Remove-Item -LiteralPath $DocTarget -Force }
   } else {
     Note "remove the AgenticOS doctrine block from $DocTarget"
     if (-not $DryRun) { Write-BesideBytes $DocTarget $new }
@@ -647,13 +726,9 @@ function Remove-DoctrineBlock($Record) {
 }
 
 $DocRecord = Read-DoctrineRecord
-$Doctrine = [bool]($WithDoctrine -or $DocRecord)
-if ($Doctrine -and -not $Uninstall -and -not (Test-Path -LiteralPath $DoctrineSrc -PathType Leaf)) {
-  throw "Error: $DoctrineSrc is missing from this release — cannot install the doctrine. Nothing was changed."
-}
-if ($Uninstall -and -not $Doctrine -and (Test-Path -LiteralPath $DocTarget -PathType Leaf) -and -not (Test-ReparsePoint $DocTarget)) {
-  if ((Get-DocLines (Read-Latin1 $DocTarget)).B -ge 0) { $Doctrine = $true }
-}
+Set-DoctrinePlan $DocRecord
+# Stage and record the doctrine while it is managed or left hands-off.
+$Doctrine = $script:DocMode -eq 'write' -or $script:DocMode -eq 'handsoff'
 
 # ── Uninstall ──────────────────────────────────────────────────────────────────
 
@@ -664,12 +739,11 @@ if ($Uninstall) {
   # hook scripts it still points at are left in place.
   Write-Host ""
   Assert-NoLinkedDirs
-  if ($Doctrine) { Assert-DoctrineTarget }
   Write-Host "Hook registration: $(Join-Path $Root 'settings.json')"
   $script:DerivedRetired = @((Read-Manifest $Root).Keys | Where-Object { $_ -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$' } | ForEach-Object { $_.Substring(6) })
   if (Test-Path -LiteralPath $Root) { Update-ClaudeHookSettings "uninstall" }
   # The block goes before the doctrine file it imports.
-  if ($Doctrine) { Write-Host ""; Write-Host "Doctrine: $DocTarget"; Remove-DoctrineBlock $DocRecord }
+  if ($script:DocMode -ne 'off') { Write-Host ""; Write-Host "Doctrine: $DocTarget"; Remove-DoctrineBlock $DocRecord }
   Write-Host ""
   $mf = Join-Path $Root $ManifestName
   if (-not (Test-Path -LiteralPath $mf)) {
@@ -758,7 +832,7 @@ foreach ($item in Get-ChildItem -LiteralPath $Stage -Recurse -Force) {
 # Fail fast, before anything is copied: a symlinked shipped dir or an
 # unmergeable settings.json throws here.
 Assert-NoLinkedDirs
-if ($Doctrine) { Assert-NoLinkedDirs @('agentic-os'); Assert-DoctrineTarget }
+if ($Doctrine) { Assert-NoLinkedDirs @('agentic-os') }
 Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
@@ -860,12 +934,12 @@ if ($badHooks.Count -gt 0) {
 }
 
 $docFile = Join-Rel $Root $DoctrineRel
-if ($Doctrine -and -not $DryRun -and (-not (Test-Path -LiteralPath $docFile -PathType Leaf) -or (Test-ReparsePoint $docFile))) {
+if ($script:DocMode -eq 'write' -and -not $DryRun -and (-not (Test-Path -LiteralPath $docFile -PathType Leaf) -or (Test-ReparsePoint $docFile))) {
   Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
   throw "Error: $docFile could not be installed, so CLAUDE.md was not given an import of it; hook registration and the manifest update were withheld. Fix the path reported above, then re-run."
 }
 Update-ClaudeHookSettings "merge"
-if ($Doctrine) { Install-DoctrineBlock $DocRecord }
+Install-DoctrineBlock $DocRecord
 
 $dirs = @()
 foreach ($r in $removals) {
@@ -889,7 +963,7 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 
 Write-Host ""
 Write-Host "${Pfx}Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
-if ($Doctrine) { Write-Host "${Pfx}The AgenticOS doctrine is imported from $DocTarget; it stays (and is kept current) until -Uninstall." }
+if ($script:DocMode -eq 'write') { Write-Host "${Pfx}The AgenticOS doctrine is imported from $DocTarget; it is kept current while the block is there, until -Uninstall." }
 Write-Host ""
 if ($script:Kept -gt 0) { Write-Host "$($script:Kept) file(s) you modified were kept; -Force overwrites them." }
 if ($script:Foreign -gt 0) { Write-Host "$($script:Foreign) file(s) in retired skill directories are not AgenticOS release files and were left alone; they are yours to keep or remove." }
