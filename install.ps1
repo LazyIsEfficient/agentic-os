@@ -1,14 +1,23 @@
-# Install Skills Library into your Claude Code global config.
+# Install, update, or uninstall AgenticOS in your Claude Code global config.
 #
 # Usage — pipe from GitHub (no clone required):
-#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v2.6.0/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v3.0.1/install.ps1 | iex
 #
 # Usage — from a local clone:
 #   .\install.ps1
 #
 # Options:
-#   -Force   Overwrite existing files without prompting
-#   -Dest    Override the install destination (default: $env:USERPROFILE\.claude)
+#   -Force        Also overwrite AgenticOS files you modified locally
+#   -PruneLegacy  Remove retired skill directories left by pre-manifest installs
+#   -Uninstall    Remove AgenticOS-owned files and hook registrations
+#   -DryRun       Print what would change; change nothing
+#   -Dest         Override the install destination (default: $env:USERPROFILE\.claude)
+#
+# Lifecycle (same rules as install.sh): $Dest\.agentic-os-manifest.json records
+# every installed file and its SHA-256. Re-running updates files you have not
+# modified, keeps (and names) files you have, always refreshes shipped hooks
+# (backing up a modified one to <file>.bak.<timestamp>), prunes files a release
+# dropped, and never touches files that are not in the manifest.
 #
 # Integrity: the remote install path downloads a PINNED release asset and
 # verifies its SHA-256 against $ExpectedSha256 below before extracting anything.
@@ -18,6 +27,9 @@
 
 param(
   [switch]$Force,
+  [switch]$PruneLegacy,
+  [switch]$Uninstall,
+  [switch]$DryRun,
   [string]$Dest = "$env:USERPROFILE\.claude"
 )
 
@@ -25,6 +37,9 @@ $ErrorActionPreference = "Stop"
 
 if ($Dest -notmatch '^[/\\:.a-zA-Z0-9._-]+$') {
   throw "Error: unsafe -Dest (shell metacharacters not allowed): $Dest"
+}
+if ($Uninstall -and ($Force -or $PruneLegacy)) {
+  throw "Error: -Force and -PruneLegacy do not apply to -Uninstall (modified files are always kept)."
 }
 
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
@@ -35,6 +50,17 @@ $RepoName  = if ($env:REPO_NAME)  { $env:REPO_NAME  } else { "agentic-os" }
 # built from tag $Version.
 $Version        = "v3.0.1"
 $ExpectedSha256 = "7fca2eb60fe898b1eae17975a9d1bbecde21b4c813f42ef9e5ee94a87353eaea"
+
+# Hook scripts removed from assets/consumer/claude-settings.json in a past
+# release (basenames). Install and uninstall unregister them from settings.json;
+# their files are pruned through the manifest. Keep in sync with RETIRED_HOOKS
+# in install.sh (validate.sh checks).
+$RetiredHooks = @()
+
+$ManifestName = ".agentic-os-manifest.json"
+# Hook basenames a manifest tracked that this release no longer ships, so they
+# are unregistered even if $RetiredHooks forgot them.
+$script:DerivedRetired = @()
 
 # ── Resolve source ─────────────────────────────────────────────────────────────
 
@@ -47,8 +73,10 @@ $TmpDir = $null
 
 if ($LocalSrc) {
   $Src = $LocalSrc
-  Write-Host "Installing from local clone at $ScriptDir"
+  $SourceKind = "local-clone"
+  Write-Host "Using local clone at $ScriptDir"
 } else {
+  $SourceKind = "release"
   if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
     Write-Error "tar is required to extract the release asset (ships with Windows 10 1803+). Install tar or use a local clone (.\install.ps1)."
     exit 1
@@ -89,10 +117,15 @@ if ($LocalSrc) {
 # NOTE: Windows hosts may not have bash on PATH (Git Bash / WSL provide it). If
 # bash is unavailable we WARN and continue rather than block the install, since a
 # Windows-only user cannot run the validator; CI and install.sh still enforce it
-# as a hard gate on every PR and on the macOS/Linux install path.
+# as a hard gate on every PR and on the macOS/Linux install path. Uninstall
+# copies nothing, so it skips validation.
 $RepoRoot   = Split-Path $Src
 $ValidateSh = Join-Path $RepoRoot "scripts\validate.sh"
-if (Test-Path $ValidateSh) {
+if (-not (Test-Path $ValidateSh)) {
+  Write-Error "scripts/validate.sh not found at $RepoRoot — aborting."
+  exit 1
+}
+if (-not $Uninstall) {
   $bash = Get-Command bash -ErrorAction SilentlyContinue
   if ($bash) {
     Write-Host ""
@@ -105,66 +138,436 @@ if (Test-Path $ValidateSh) {
   } else {
     Write-Warning "bash not found — skipping structural validation (enforced by CI and the macOS/Linux installer)."
   }
-} else {
-  Write-Error "scripts/validate.sh not found at $RepoRoot — aborting install."
-  exit 1
 }
 
-# ── Install helper ─────────────────────────────────────────────────────────────
+# Retired skill slugs: the validator's TOMBSTONES list is the single source.
+$Tombstones = @()
+$tombLine = Select-String -LiteralPath $ValidateSh -Pattern '^TOMBSTONES="(.*)"$' | Select-Object -First 1
+if ($tombLine) { $Tombstones = @($tombLine.Matches[0].Groups[1].Value -split ' ' | Where-Object { $_ }) }
 
-function Install-Dir {
-  param([string]$Name)
-  $SrcDir  = Join-Path $Src $Name
-  $DestDir = Join-Path $Dest $Name
-  if (-not (Test-Path $SrcDir)) { return }
-  New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
+# Absolute install root (relative -Dest resolves against PowerShell's CWD).
+$Root  = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Dest).TrimEnd('\', '/')
+# A relative -Dest resolves against the current dir, which may hold spaces;
+# hook commands are registered unquoted, so the resolved path must not.
+if (-not $Uninstall -and $Root -notmatch '^[/\\:.a-zA-Z0-9._-]+$') { throw "Error: -Dest resolves to a path with whitespace or shell metacharacters ($Root); it would be pasted into hook commands. Use a plain path (to move an existing install: -Uninstall with the same -Dest, then reinstall)." }
+$Work  = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -ItemType Directory -Force -Path $Work | Out-Null
+$Stage = Join-Path $Work "stage"
+$Stamp = "$(Get-Date -Format "yyyyMMddHHmmss").$PID"
+$Pfx   = if ($DryRun) { "[dry-run] " } else { "" }
+$script:Warnings = 0
+$script:Kept = 0
+$script:Unsafe = 0
+$script:Foreign = 0
+$script:UnsafeRels = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
 
-  if ($Force) {
-    Copy-Item -Path "$SrcDir\*" -Destination $DestDir -Recurse -Force
-  } else {
-    Get-ChildItem -Path $SrcDir -Recurse -File | ForEach-Object {
-      $rel    = $_.FullName.Substring($SrcDir.Length + 1)
-      $target = Join-Path $DestDir $rel
-      if (-not (Test-Path $target)) {
-        $targetParent = Split-Path $target
-        New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-        Copy-Item -Path $_.FullName -Destination $target
+function Note([string]$Msg) { Write-Host "  $Pfx$Msg" }
+function Warn([string]$Msg) { Write-Host "  ! $Pfx$Msg"; $script:Warnings++ }
+function Kept([string]$Msg) { Warn $Msg; $script:Kept++ }
+
+# ── Manifest ───────────────────────────────────────────────────────────────────
+
+function Get-Sha([string]$Path) { (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLower() }
+
+function Join-Rel([string]$Base, [string]$Rel) { Join-Path $Base ($Rel -replace '/', [System.IO.Path]::DirectorySeparatorChar) }
+
+# First path components this root ships. Nothing outside them is ever written
+# or removed.
+$ShippedPrefixes = @('skills', 'agents', 'commands', 'hooks')
+
+# FileInfo.Attributes reads the entry itself, so a dangling symlink/junction is
+# still seen; -1 means nothing exists at $Path.
+function Test-ReparsePoint([string]$Path) {
+  $attr = [int](New-Object System.IO.FileInfo $Path).Attributes
+  return ($attr -ne -1) -and (($attr -band [int][System.IO.FileAttributes]::ReparsePoint) -ne 0)
+}
+
+# Write $Text to a fresh, uniquely named file beside $Target (CreateNew = fails
+# if anything, link included, already has that name), then move it over
+# $Target, which replaces the entry instead of writing through it.
+function Write-Beside([string]$Target, [string]$Text) {
+  $tmp = Join-Path (Split-Path $Target) (".agentic-os." + [System.IO.Path]::GetRandomFileName())
+  $fs = [System.IO.File]::Open($tmp, [System.IO.FileMode]::CreateNew)
+  try {
+    $bytes = (New-Object System.Text.UTF8Encoding $false).GetBytes($Text)
+    $fs.Write($bytes, 0, $bytes.Length)
+  } finally { $fs.Close() }
+  Move-Item -LiteralPath $tmp -Destination $Target -Force
+}
+
+# The single gate in front of every write, backup, and delete (same rules as
+# install.sh safe_rel): every component is [A-Za-z0-9._@+-] and none is `.`/`..`;
+# at least two components (never the manifest, settings.json, CLAUDE.md, or
+# anything else at the root); the first is a shipped prefix; and no component
+# from $Root down to the file is a symlink/junction (reparse point), so nothing
+# is ever reached outside $Root or through a link.
+function Test-SafeRel([string]$Rel) {
+  if ($Rel -cnotmatch '^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$') { return $false }
+  if ("/$Rel/" -match '/\.\.?/') { return $false }
+  $parts = $Rel.Split('/')
+  if ($ShippedPrefixes -cnotcontains $parts[0]) { return $false }
+  # A skills path must name a skill AgenticOS ships or has shipped.
+  if ($parts[0] -ceq 'skills' -and -not $script:SkillNames.Contains($parts[1])) { return $false }
+  # Every component, the leaf included and even when it does not exist yet: a
+  # dangling link at the leaf is still a link.
+  $p = $Root
+  foreach ($c in $parts) {
+    $p = Join-Path $p $c
+    if (Test-ReparsePoint $p) { return $false }
+  }
+  # Normalised full path must stay under the normalised root.
+  $full = [System.IO.Path]::GetFullPath($p)
+  $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+  return $full.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Skip-Unsafe([string]$Rel) {
+  $shown = $Rel -replace "`r", '\r' -replace "`n", '\n'
+  Warn "skip $shown — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
+  $script:Unsafe++
+  [void]$script:UnsafeRels.Add($Rel)
+}
+
+# A shipped top-level dir that is itself a symlink/junction (stow-style
+# dotfiles) would turn every file in it into an unsafe-path skip. Refuse it
+# once, up front (same rule as install.sh refuse_linked_dirs).
+function Assert-NoLinkedDirs {
+  foreach ($d in $ShippedPrefixes) {
+    $p = Join-Path $Root $d
+    if (Test-ReparsePoint $p) {
+      throw "Error: $p is a symlink. AgenticOS never writes or deletes through a symlink, so it cannot manage that directory. Replace it with a real directory (copy the link target's contents into it), then re-run. Nothing was changed."
+    }
+  }
+}
+
+# rel -> sha for every file under $Dir (paths use '/').
+function Get-TreeHashes([string]$Dir) {
+  $map = @{}
+  if (-not (Test-Path -LiteralPath $Dir)) { return $map }
+  $full = (Convert-Path -LiteralPath $Dir).TrimEnd('\', '/')
+  foreach ($f in Get-ChildItem -LiteralPath $full -Recurse -File -Force) {
+    $rel = $f.FullName.Substring($full.Length + 1) -replace '\\', '/'
+    $map[$rel] = Get-Sha $f.FullName
+  }
+  return $map
+}
+
+# rel -> sha for each well-formed manifest entry (path charset, 64 lowercase
+# hex). A parse filter only; Test-SafeRel guards every action.
+function Read-Manifest([string]$RootDir) {
+  $map = @{}
+  $mf = Join-Path $RootDir $ManifestName
+  if (Test-ReparsePoint $mf) { throw "Error: $mf is a symlink — refusing to use it. Remove it and re-run." }; if (-not (Test-Path -LiteralPath $mf)) { return $map }
+  $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
+  foreach ($e in @($json.files)) {
+    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '^[0-9a-f]{64}$') -and ($e.path -cmatch '^[A-Za-z0-9._@+/-]+$')) {
+      $map[$e.path] = $e.sha256
+    }
+  }
+  return $map
+}
+
+function Get-SortedKeys($Map) {
+  $keys = [string[]]@($Map.Keys)
+  [Array]::Sort($keys, [StringComparer]::Ordinal)
+  return ,$keys
+}
+
+# Same line format as install.sh so both installers read each other's manifest.
+function Write-Manifest([string]$RootDir, $Entries) {
+  $sb = New-Object System.Text.StringBuilder
+  [void]$sb.Append("{`n  `"schema`": 1,`n  `"name`": `"agentic-os`",`n  `"version`": `"$Version`",`n")
+  [void]$sb.Append("  `"source`": `"$SourceKind`",`n  `"platform`": `"claude`",`n  `"files`": [`n")
+  $keys = Get-SortedKeys $Entries
+  for ($i = 0; $i -lt $keys.Count; $i++) {
+    $sep = if ($i -lt $keys.Count - 1) { "," } else { "" }
+    [void]$sb.Append("    {`"path`": `"$($keys[$i])`", `"sha256`": `"$($Entries[$keys[$i]])`"}$sep`n")
+  }
+  [void]$sb.Append("  ]`n}`n")
+  $mf = Join-Path $RootDir $ManifestName
+  if (Test-ReparsePoint $mf) { throw "Error: $mf is a symlink — refusing to write the manifest through it. Remove it and re-run." }
+  Write-Beside $mf $sb.ToString()
+}
+
+# Copy to a uniquely named temp file beside $To, then move it over $To, so the
+# write never goes through an existing hard link or symlink at the target.
+function Copy-Placed([string]$From, [string]$To) {
+  if ($DryRun) { return }
+  $dir = Split-Path $To
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $tmp = Join-Path $dir (".agentic-os." + [System.IO.Path]::GetRandomFileName())
+  Copy-Item -LiteralPath $From -Destination $tmp
+  Move-Item -LiteralPath $tmp -Destination $To -Force
+}
+
+# rel`tsha of every file in every earlier release (assets/release-hashes.txt,
+# generated by scripts/gen-release-hashes.sh): lets adoption of a pre-manifest
+# install tell an untouched old-release file from a user edit.
+$script:KnownHashes = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+$script:SkillNames  = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+$ReleaseHashes = Join-Path $RepoRoot "assets\release-hashes.txt"
+if (Test-Path -LiteralPath $ReleaseHashes) {
+  foreach ($line in Get-Content -LiteralPath $ReleaseHashes) {
+    if ($line -cmatch '^([0-9a-f]{64})  ([A-Za-z0-9._@+/-]+)$') {
+      [void]$script:KnownHashes.Add("$($Matches[2])`t$($Matches[1])")
+      if ($Matches[2] -cmatch '^skills/([^/]+)/') { [void]$script:SkillNames.Add($Matches[1]) }
+    }
+  }
+}
+foreach ($t in $Tombstones) { [void]$script:SkillNames.Add($t) }
+foreach ($d in Get-ChildItem -LiteralPath (Join-Path $Src "skills") -Directory -ErrorAction SilentlyContinue) { [void]$script:SkillNames.Add($d.Name) }
+
+# On-disk sha $Csha of $Rel is an AgenticOS copy: the manifest's, or any
+# earlier release's copy of that path.
+function Test-Unmodified([string]$Rel, $Csha, $Osha) {
+  if ($null -eq $Csha) { return $false }
+  if ($null -ne $Osha -and $Csha -eq $Osha) { return $true }
+  return $script:KnownHashes.Contains("$Rel`t$Csha")
+}
+
+# Remove now-empty directories from each listed rel dir up to (never including) root.
+function Remove-EmptyDirs([string]$RootDir, $RelDirs) {
+  if ($DryRun) { return }
+  foreach ($d in @($RelDirs | Sort-Object -Unique -Descending)) {
+    $cur = $d
+    while ($cur -and $cur -ne '.') {
+      $p = Join-Rel $RootDir $cur
+      if (Test-ReparsePoint $p) { break }
+      if (Test-Path -LiteralPath $p) {
+        if (@(Get-ChildItem -LiteralPath $p -Force).Count -gt 0) { break }
+        Remove-Item -LiteralPath $p -Force
+      }
+      $cur = Get-RelDir $cur
+    }
+  }
+}
+
+function Get-RelDir([string]$Rel) { if ($Rel -match '/') { $Rel -replace '/[^/]*$', '' } else { '.' } }
+
+# ── Hook registration (settings.json) ──────────────────────────────────────────
+# Same semantics as scripts/lib/install-hook-settings.sh and SECURITY.md. A
+# handler is AgenticOS-owned only when its whole command (trimmed, runs of `/`
+# collapsed) EQUALS a template command or `bash <hooks dir>/<name>` for a
+# retired hook — in the literal `$HOME/.claude/hooks/...` form or with the hooks
+# dir substituted (canonical or as-given). Compound/piped commands that merely
+# contain our path stay the consumer's. Only groups/events emptied by stripping
+# are dropped.
+
+$SettingsTemplate = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
+$HooksDirFwd      = (Join-Path $Root "hooks") -replace '\\', '/'
+$HooksDirGivenFwd = ((Join-Path $Dest "hooks") -replace '\\', '/').TrimEnd('/')
+$normCmd = { param([string]$c) ($c.Trim() -replace '/+', '/') }
+
+function New-OwnedSet([string[]]$Cmds) {
+  $set = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+  foreach ($c in $Cmds) {
+    foreach ($form in @($c,
+        ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd),
+        ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirGivenFwd))) {
+      [void]$set.Add((& $normCmd $form))
+    }
+  }
+  return ,$set
+}
+
+function Test-OwnedHandler($H, $Set) {
+  ($H -is [System.Management.Automation.PSCustomObject]) -and $H.PSObject.Properties['command'] -and
+    ($H.command -is [string]) -and $Set.Contains((& $normCmd $H.command))
+}
+
+# Strip owned handlers from an event's groups; drop groups emptied by that.
+function Remove-OwnedGroups($Groups, $Set) {
+  $kept = @()
+  foreach ($g in @($Groups)) {
+    if ($g -is [System.Management.Automation.PSCustomObject] -and $g.PSObject.Properties['hooks'] -and $g.hooks -is [System.Array] -and
+        @($g.hooks | Where-Object { Test-OwnedHandler $_ $Set }).Count -gt 0) {
+      $handlers = @($g.hooks | Where-Object { -not (Test-OwnedHandler $_ $Set) })
+      if ($handlers.Count -eq 0) { continue }
+      $g.hooks = $handlers
+    }
+    $kept += ,$g
+  }
+  return ,$kept
+}
+
+function Get-HookCommands($Json) {
+  $out = @()
+  if ($Json.PSObject.Properties['hooks'] -and $Json.hooks -is [System.Management.Automation.PSCustomObject]) {
+    foreach ($ev in $Json.hooks.PSObject.Properties) {
+      foreach ($g in @($ev.Value)) {
+        if ($g -is [System.Management.Automation.PSCustomObject] -and $g.PSObject.Properties['hooks']) {
+          foreach ($h in @($g.hooks)) { if ($h -is [System.Management.Automation.PSCustomObject] -and $h.command -is [string]) { $out += $h.command } }
+        }
       }
     }
   }
-
-  Write-Host "  OK $Name -> $DestDir"
+  return ,$out
 }
 
-# Ship-tagged allowlist: copy ONLY the named files from $Src\$Name, never the
+# Mode "merge": strip retired handlers everywhere, strip template handlers in
+# shipped events, append our groups. Mode "uninstall": strip template + retired
+# handlers everywhere. Mode "check": run the merge without writing, so an
+# unmergeable settings.json fails before anything is copied. A non-object `hooks` (or, merging, a non-array shipped
+# event) throws before anything is written.
+function Update-ClaudeHookSettings([string]$Mode) {
+  if (-not (Test-Path $SettingsTemplate)) { return }
+  $DestFile = Join-Path $Root "settings.json"
+  $raw = Get-Content $SettingsTemplate -Raw
+  # Forward slashes: bash-on-Windows accepts them and, unlike the backslash form,
+  # they need no JSON escaping. $Dest is validated at the top of this script to
+  # exclude `$`, so the replacement string is injection-safe.
+  $rewritten = $raw -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd
+  $tplCmds = @(foreach ($tev in ($raw | ConvertFrom-Json).hooks.PSObject.Properties) {
+    foreach ($tg in @($tev.Value)) { foreach ($th in @($tg.hooks)) { $th.command } } })
+  $tplSet = New-OwnedSet $tplCmds
+  $retCmds = @(@($RetiredHooks) + @($script:DerivedRetired) | Where-Object { $_ } | ForEach-Object { "bash `$HOME/.claude/hooks/$_" })
+  $retSet = New-OwnedSet $retCmds
+  $allSet = New-OwnedSet (@($tplCmds) + $retCmds)
+
+  if (Test-ReparsePoint $DestFile) {
+    throw "Error: $DestFile is a symlink — AgenticOS will not rewrite it. Merge the hooks by hand, or replace it with a regular file. Nothing was changed."
+  }
+  if (-not (Test-Path $DestFile)) {
+    if ($Mode -eq "check") { return }
+    if ($Mode -eq "uninstall") { Write-Host "  . no $DestFile — no hook entries to unregister"; return }
+    # Fresh file: write the rewritten template VERBATIM (no JSON round-trip, so
+    # the Windows PowerShell 5.1 single-element-array unwrap cannot happen).
+    if ($DryRun) { Note "merge AgenticOS hook registration into $DestFile"; return }
+    Write-Beside $DestFile $rewritten
+    Write-Host "  OK hooks active -> $DestFile"
+    return
+  }
+
+  # -Depth 100 so a consumer's deeply-nested keys round-trip intact. NOTE: on
+  # Windows PowerShell 5.1 this JSON round-trip can unwrap single-element
+  # arrays — the Windows smoke test (RELEASING.md) must confirm
+  # hooks.PreToolUse stays an array on an EXISTING settings.json before tagging.
+  $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
+  $before = Get-HookCommands $destJson
+  $existing = if ($destJson.PSObject.Properties['hooks']) { $destJson.hooks } else { $null }
+  if ($null -ne $existing -and $existing -isnot [System.Management.Automation.PSCustomObject]) {
+    throw "Error: failed to update AgenticOS hooks in ${DestFile}: hooks is not an object."
+  }
+  $stripSet = if ($Mode -eq "uninstall") { $allSet } else { $retSet }
+  $merged = [ordered]@{}
+  if ($null -ne $existing) {
+    foreach ($ev in $existing.PSObject.Properties) {
+      if ($ev.Value -is [System.Array] -and $ev.Value.Count -gt 0) {
+        $kept = Remove-OwnedGroups $ev.Value $stripSet
+        if ($kept.Count -eq 0) { continue }
+        $merged[$ev.Name] = $kept
+      } else {
+        $merged[$ev.Name] = $ev.Value
+      }
+    }
+  }
+  if ($Mode -ne "uninstall") {
+    $incoming = ($rewritten | ConvertFrom-Json).hooks
+    foreach ($ev in $incoming.PSObject.Properties) {
+      $groups = if ($merged.Contains($ev.Name)) { $merged[$ev.Name] } else { @() }
+      if ($null -eq $groups) { $groups = @() }
+      if ($groups -isnot [System.Array]) {
+        throw "Error: failed to merge AgenticOS hooks into ${DestFile}: hooks.$($ev.Name) is not an array."
+      }
+      $keptGroups = Remove-OwnedGroups $groups $tplSet
+      $merged[$ev.Name] = $keptGroups + @($ev.Value)
+    }
+  }
+  # "check" only proves the merge would succeed (it throws otherwise).
+  if ($Mode -eq "check") { return }
+  if ($Mode -eq "uninstall" -and $merged.Count -eq 0 -and $null -ne $existing -and @($existing.PSObject.Properties).Count -gt 0) {
+    $destJson.PSObject.Properties.Remove('hooks')
+  } elseif ($null -ne $existing -or $Mode -eq "merge") {
+    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]$merged) -Force
+  }
+  $after = Get-HookCommands $destJson
+  if ($Mode -eq "uninstall") {
+    foreach ($c in @($before | Where-Object { $after -notcontains $_ } | Sort-Object -Unique)) {
+      Write-Host "  $(if ($DryRun) { '[dry-run] ' } else { '- ' })unregister hook: $c"
+    }
+  }
+  if ($DryRun) {
+    if ($Mode -eq "merge") { Note "merge AgenticOS hook registration into $DestFile" }
+    return
+  }
+  # Write-Beside emits UTF-8 WITHOUT a BOM on BOTH PS 5.1 and 7. (`Set-Content
+  # -Encoding utf8` writes a BOM on 5.1, which a strict JSON parser — e.g. Node
+  # JSON.parse — rejects, silently breaking hook loading.)
+  Write-Beside $DestFile ($destJson | ConvertTo-Json -Depth 100)
+  if ($Mode -eq "merge") { Write-Host "  OK hooks active -> $DestFile" }
+}
+
+# ── Uninstall ──────────────────────────────────────────────────────────────────
+
+if ($Uninstall) {
+  Write-Host ""
+  Write-Host "${Pfx}Uninstalling AgenticOS from $Root"
+  # Unregister hooks BEFORE deleting files: if the settings rewrite fails, the
+  # hook scripts it still points at are left in place.
+  Write-Host ""
+  Assert-NoLinkedDirs
+  Write-Host "Hook registration: $(Join-Path $Root 'settings.json')"
+  $script:DerivedRetired = @((Read-Manifest $Root).Keys | Where-Object { $_ -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$' } | ForEach-Object { $_.Substring(6) })
+  if (Test-Path -LiteralPath $Root) { Update-ClaudeHookSettings "uninstall" }
+  Write-Host ""
+  $mf = Join-Path $Root $ManifestName
+  if (-not (Test-Path -LiteralPath $mf)) {
+    Write-Host "  . no $ManifestName — nothing tracked to remove (a pre-manifest install: run the installer once to adopt it, then uninstall)"
+  } else {
+    $old = Read-Manifest $Root
+    $dirs = @(); $removed = 0; $kept = 0
+    foreach ($rel in (Get-SortedKeys $old)) {
+      if (-not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
+      $target = Join-Rel $Root $rel
+      if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { continue }
+      if (Test-Unmodified $rel (Get-Sha $target) $old[$rel]) {
+        Note "remove $rel"
+        if (-not $DryRun) { Remove-Item -LiteralPath $target -Force }
+        $dirs += (Get-RelDir $rel); $removed++
+      } else {
+        Kept "keep $rel — modified locally"; $kept++
+      }
+    }
+    Remove-EmptyDirs $Root $dirs
+    Note "remove $ManifestName"
+    if (-not $DryRun) { Remove-Item -LiteralPath $mf -Force }
+    Write-Host "  $Pfx$removed removed, $kept kept (modified)"
+  }
+  Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
+  if ($TmpDir -and (Test-Path $TmpDir)) { Remove-Item $TmpDir -Recurse -Force }
+  Write-Host ""
+  Write-Host "${Pfx}Uninstall complete: $($script:Kept) modified file(s) kept, $($script:Unsafe) unsafe path(s) skipped. Hook backups (*.bak.*) and files you created were not touched."
+  exit 0
+}
+
+# ── Stage the release ──────────────────────────────────────────────────────────
+
+function Install-Dir {
+  param([string]$Name)
+  $SrcDir = Join-Path $Src $Name
+  if (-not (Test-Path $SrcDir)) { return }
+  $To = Join-Path $Stage $Name
+  New-Item -ItemType Directory -Force -Path $To | Out-Null
+  Copy-Item -Path (Join-Path $SrcDir "*") -Destination $To -Recurse -Force
+}
+
+# Ship-tagged allowlist: stage ONLY the named files from $Src\$Name, never the
 # whole directory. Used for surfaces (commands) where some files are
 # maintainer-only and must not pollute a consumer's global namespace.
 function Install-Files {
   param([string]$Name, [string[]]$Files)
-  $SrcDir  = Join-Path $Src $Name
-  $DestDir = Join-Path $Dest $Name
+  $SrcDir = Join-Path $Src $Name
   if (-not (Test-Path $SrcDir)) { return }
-
-  $copied = 0
   foreach ($rel in $Files) {
-    $src = Join-Path $SrcDir $rel
-    if (-not (Test-Path $src)) { continue }
-    $target = Join-Path $DestDir $rel
-    if ($Force -or -not (Test-Path $target)) {
-      $targetParent = Split-Path $target
-      New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-      Copy-Item -Path $src -Destination $target
-    }
-    $copied++
+    $from = Join-Path $SrcDir $rel
+    if (-not (Test-Path $from)) { continue }
+    New-Item -ItemType Directory -Force -Path (Join-Path $Stage $Name) | Out-Null
+    Copy-Item -LiteralPath $from -Destination (Join-Path (Join-Path $Stage $Name) $rel)
   }
-
-  if ($copied -gt 0) { Write-Host "  OK $Name ($copied ship-tagged) -> $DestDir" }
 }
 
-# ── Run ────────────────────────────────────────────────────────────────────────
-
 Write-Host ""
-Write-Host "Installing to $Dest"
+Write-Host "${Pfx}Installing to $Root"
 
 Install-Dir "skills"
 Install-Dir "agents"
@@ -177,121 +580,145 @@ Install-Dir "agents"
 Install-Files "commands" @("skill-new.md", "agent-new.md", "state.md")
 # Workflows: NOTHING ships. The only workflow (audit-skill-library) is a
 # maintainer-only tool that stays in-repo and is never installed.
-
-# Same as install.sh's `install_dir "hooks"`: existing hook files are only
-# overwritten with -Force.
 Install-Dir "hooks"
 
-function Install-ClaudeHookSettings {
-  $SrcFile = Join-Path $RepoRoot "assets\consumer\claude-settings.json"
-  if (-not (Test-Path $SrcFile)) { return }
-  # $Dest exists by now (the hooks copy created $Dest\hooks). Convert-Path gives
-  # a full filesystem path so [IO.File]::WriteAllText — which resolves relative
-  # paths against .NET's CWD, not PowerShell's — always writes the right place.
-  $DestFile = Join-Path (Convert-Path -LiteralPath $Dest) "settings.json"
-  $HooksDir = Join-Path $Dest "hooks"
+# ── Sync $Root against the staged release ─────────────────────────────────────
+# Phase 1 adds/updates and plans removals; hook registration is merged next;
+# phase 2 removes, prunes empty dirs and writes the manifest — so settings.json
+# never points at a hook file that is not on disk, even if the merge throws.
 
-  # Rewrite the template's `$HOME/.claude/hooks` token to the actual install
-  # hooks dir, then register. Done in NATIVE PowerShell (no bash/jq shell-out)
-  # so registration never silently no-ops on a Windows box that lacks jq — the
-  # previous version required bash+jq and, when either was missing, left hooks
-  # copied-but-unregistered on any re-install or custom -Dest. (The hooks are
-  # bash scripts and still need bash at RUNTIME, but that is not install-time's
-  # concern.) Forward slashes: bash-on-Windows accepts them and, unlike the
-  # backslash form, they need no JSON escaping. $Dest is validated at the top of
-  # this script to exclude `$`, so the replacement string is injection-safe.
-  # Canonical absolute path (no trailing separator, relative -Dest resolved) so
-  # `-Dest x\` and `-Dest x` write identical commands and never double-register.
-  $HooksDirFwd = ([System.IO.Path]::GetFullPath((Convert-Path -LiteralPath $HooksDir)) -replace '\\', '/').TrimEnd('/')
-  # The as-given form older installs wrote — recognised as ours on upgrade.
-  $HooksDirGivenFwd = ($HooksDir -replace '\\', '/').TrimEnd('/')
-  $raw = Get-Content $SrcFile -Raw
-  $rewritten = $raw -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd
+foreach ($item in Get-ChildItem -LiteralPath $Stage -Recurse -Force) {
+  if ($item.Name -cnotmatch '^[A-Za-z0-9._@+-]+$') { throw "Error: release contains a path outside [A-Za-z0-9._@+-] — refusing to install: $($item.FullName)" }
+}
+# Fail fast, before anything is copied: a symlinked shipped dir or an
+# unmergeable settings.json throws here.
+Assert-NoLinkedDirs
+Update-ClaudeHookSettings "check"
+$new = Get-TreeHashes $Stage
+$old = Read-Manifest $Root
+$all = @{}
+foreach ($k in $new.Keys) { $all[$k] = 1 }
+foreach ($k in $old.Keys) { $all[$k] = 1 }
 
-  # Merge per event, same semantics as install.sh (scripts/lib/
-  # install-hook-settings.sh) and SECURITY.md. A handler is AgenticOS-owned only
-  # when its whole command (trimmed, runs of `/` collapsed) EQUALS a template
-  # command, in the literal `$HOME/.claude/hooks/...` form or with the hooks dir
-  # substituted (canonical or as-given). Compound/piped commands that merely
-  # contain our path stay the consumer's. In each event we ship: strip owned
-  # handlers, drop groups left empty, append ours. Events we don't ship and all
-  # other top-level keys are untouched; re-install is idempotent. A non-object
-  # `hooks`, or a non-array value for an event we ship, fails closed (throws
-  # before anything is written).
-  if (Test-Path $DestFile) {
-    # -Depth 100 so a consumer's deeply-nested keys round-trip intact. NOTE: on
-    # Windows PowerShell 5.1 this JSON round-trip can unwrap single-element
-    # arrays — the Windows smoke test (RELEASING.md step 6) must confirm
-    # hooks.PreToolUse stays an array on an EXISTING settings.json before tagging.
-    $normCmd = { param([string]$c) ($c.Trim() -replace '/+', '/') }
-    $tplCmds = @(foreach ($tev in ($raw | ConvertFrom-Json).hooks.PSObject.Properties) {
-      foreach ($tg in @($tev.Value)) { foreach ($th in @($tg.hooks)) { $th.command } } })
-    $owned = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
-    foreach ($c in $tplCmds) {
-      foreach ($form in @($c,
-          ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirFwd),
-          ($c -replace [regex]::Escape('$HOME/.claude/hooks'), $HooksDirGivenFwd))) {
-        [void]$owned.Add((& $normCmd $form))
-      }
-    }
-    $isOwned = {
-      param($Cmd)
-      ($Cmd -is [string]) -and $owned.Contains((& $normCmd $Cmd))
-    }
+$manifest = @{}
+$removals = New-Object System.Collections.ArrayList
+$added = 0; $updated = 0; $same = 0; $legacyKept = 0
 
-    $incoming = ($rewritten | ConvertFrom-Json).hooks
-    $destJson = Get-Content $DestFile -Raw | ConvertFrom-Json
-    $existing = if ($destJson.PSObject.Properties['hooks']) { $destJson.hooks } else { $null }
-    if ($null -ne $existing -and $existing -isnot [System.Management.Automation.PSCustomObject]) {
-      throw "Error: failed to merge AgenticOS hooks into ${DestFile}: hooks is not an object."
+foreach ($rel in (Get-SortedKeys $all)) {
+  if (-not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
+  $target = Join-Rel $Root $rel
+  $csha = if (Test-Path -LiteralPath $target -PathType Leaf) { Get-Sha $target } else { $null }
+  $osha = if ($old.ContainsKey($rel)) { $old[$rel] } else { $null }
+  if (-not $new.ContainsKey($rel)) {
+    # Tracked by the old manifest, dropped by this release.
+    if ($rel -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$') { $script:DerivedRetired += $rel.Substring(6) }
+    if ($null -eq $csha) { continue }
+    if (Test-Unmodified $rel $csha $osha) { [void]$removals.Add(@($rel, "no longer shipped")) }
+    else {
+      # Stays tracked, so uninstall and -PruneLegacy still see it as modified.
+      $manifest[$rel] = $osha
+      Kept "keep $rel — no longer shipped, but modified locally"
     }
-    $merged = [ordered]@{}
-    if ($null -ne $existing) {
-      foreach ($ev in $existing.PSObject.Properties) { $merged[$ev.Name] = $ev.Value }
-    }
-    foreach ($ev in $incoming.PSObject.Properties) {
-      $groups = if ($merged.Contains($ev.Name)) { $merged[$ev.Name] } else { $null }
-      if ($null -eq $groups) { $groups = @() }
-      if ($groups -isnot [System.Array]) {
-        throw "Error: failed to merge AgenticOS hooks into ${DestFile}: hooks.$($ev.Name) is not an array."
-      }
-      $kept = @()
-      foreach ($g in $groups) {
-        if ($g -is [System.Management.Automation.PSCustomObject] -and $g.PSObject.Properties['hooks'] -and $g.hooks -is [System.Array]) {
-          $handlers = @($g.hooks | Where-Object {
-            -not ($_ -is [System.Management.Automation.PSCustomObject] -and $_.PSObject.Properties['command'] -and (& $isOwned $_.command))
-          })
-          if ($handlers.Count -eq 0) { continue }
-          $g.hooks = $handlers
-        }
-        $kept += ,$g
-      }
-      $merged[$ev.Name] = @($kept) + @($ev.Value)
-    }
-    $destJson | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]$merged) -Force
-    $out = $destJson | ConvertTo-Json -Depth 100
-  } else {
-    # Fresh file (the common first install): the template is already exactly
-    # `{"hooks":{...}}` with correct array shapes — write its rewritten text
-    # VERBATIM, with no JSON round-trip, sidestepping the 5.1 array-unwrap
-    # entirely for this path.
-    $out = $rewritten
+    continue
   }
-
-  # WriteAllText emits UTF-8 WITHOUT a BOM on BOTH PS 5.1 and 7. (`Set-Content
-  # -Encoding utf8` writes a BOM on 5.1, which a strict JSON parser — e.g. Node
-  # JSON.parse — rejects, silently breaking hook loading.)
-  [System.IO.File]::WriteAllText($DestFile, $out)
-  Write-Host "  OK hooks active -> $DestFile"
+  $nsha = $new[$rel]
+  $manifest[$rel] = $nsha
+  $from = Join-Rel $Stage $rel
+  if ($null -eq $csha) {
+    Copy-Placed $from $target; $added++
+  } elseif ($csha -eq $nsha) {
+    $same++
+  } elseif (Test-Unmodified $rel $csha $osha) {
+    Copy-Placed $from $target; Note "update $rel"; $updated++
+  } elseif ($rel.StartsWith("hooks/")) {
+    # Shipped hooks are security-relevant: always take the release copy.
+    $bak = "$rel.bak.$Stamp"; $n = 1
+    while ((Test-Path -LiteralPath (Join-Rel $Root $bak)) -or (Test-ReparsePoint (Join-Rel $Root $bak))) { $bak = "$rel.bak.$Stamp.$n"; $n++ }
+    if (-not $DryRun) { Copy-Item -LiteralPath $target -Destination (Join-Rel $Root $bak) }
+    Copy-Placed $from $target
+    Warn "refresh hook $rel — it differed from the release copy; yours is saved as $bak"
+    $updated++
+  } elseif ($Force) {
+    Copy-Placed $from $target; Note "overwrite $rel (-Force)"; $updated++
+  } elseif ($null -eq $osha) {
+    Kept "keep $rel — differs from the release copy and predates the manifest (-Force overwrites)"; $legacyKept++
+  } else {
+    Kept "keep $rel — modified locally (-Force overwrites)"
+  }
 }
 
-Install-ClaudeHookSettings
+# Retired skills from pre-manifest installs: files the old manifest does not
+# track are removed only with -PruneLegacy, listed one by one first.
+foreach ($t in $Tombstones) {
+  $d = Join-Path (Join-Path $Root "skills") $t
+  if (-not (Test-Path -LiteralPath $d -PathType Container) -or (Test-Path -LiteralPath (Join-Path (Join-Path $Stage "skills") $t))) { continue }
+  if (Test-ReparsePoint $d) { Warn "skip retired skill skills/$t — it is a symlink; not touched"; continue }
+  $legacy = @(foreach ($f in Get-ChildItem -LiteralPath $d -Recurse -File -Force) {
+    $rel = "skills/$t/" + ($f.FullName.Substring((Convert-Path -LiteralPath $d).TrimEnd('\', '/').Length + 1) -replace '\\', '/')
+    if (-not $rel.StartsWith("skills/$t/") -or -not (Test-SafeRel $rel)) { Skip-Unsafe $rel; continue }
+    if (-not $old.ContainsKey($rel)) { $rel }
+  })
+  if ($legacy.Count -eq 0) { continue }
+  # Only a byte-exact copy of an earlier AgenticOS release of that path is ours
+  # to delete; anything else (user notes, another tool's files) stays.
+  $prunable = 0; $foreign = 0
+  foreach ($rel in $legacy) {
+    if (Test-Unmodified $rel (Get-Sha (Join-Rel $Root $rel)) $null) {
+      $prunable++
+      if ($PruneLegacy) { [void]$removals.Add(@($rel, "retired skill $t (-PruneLegacy)")) }
+    } else {
+      $foreign++
+      if ($PruneLegacy) { Warn "keep $rel — not an AgenticOS release file (retired skill $t); it is yours to keep or remove"; $script:Foreign++ }
+    }
+  }
+  if (-not $PruneLegacy) {
+    if ($prunable -gt 0) { Warn "retired skill directory skills/$t still holds $prunable AgenticOS file(s) from an earlier release — re-run with -PruneLegacy to remove them" }
+    elseif ($foreign -gt 0) { Note "retired skill directory skills/$t holds only files that are not AgenticOS release files; they are yours to keep or remove" }
+  }
+}
 
+# Every shipped hook must be on disk as a regular file at the release SHA
+# before it is registered; otherwise settings.json would run whatever is there.
+# A dry run fails on hooks it would have had to skip. On any miss: register
+# nothing, write no manifest, exit non-zero (same as install.sh verify_hooks).
+$badHooks = @(foreach ($rel in (Get-SortedKeys $new)) {
+  if (-not $rel.StartsWith("hooks/")) { continue }
+  $t = Join-Rel $Root $rel
+  if ($DryRun) { if ($script:UnsafeRels.Contains($rel)) { $rel } }
+  elseif (-not (Test-Path -LiteralPath $t -PathType Leaf) -or (Test-ReparsePoint $t) -or ((Get-Sha $t) -ne $new[$rel])) { $rel }
+})
+if ($badHooks.Count -gt 0) {
+  foreach ($h in $badHooks) { Write-Host "  X hook $h is not installed at the release version" }
+  Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
+  throw "Error: not every AgenticOS hook could be installed at the release version. Files that could be placed were already copied; only hook registration and the manifest update were withheld (planned removals were skipped too). Fix the paths reported above, then re-run to finish."
+}
+
+Update-ClaudeHookSettings "merge"
+
+$dirs = @()
+foreach ($r in $removals) {
+  # Re-checked at the point of deletion.
+  if (-not (Test-SafeRel $r[0])) { Skip-Unsafe $r[0]; continue }
+  Note "remove $($r[0]) ($($r[1]))"
+  if (-not $DryRun) { Remove-Item -LiteralPath (Join-Rel $Root $r[0]) -Force }
+  $dirs += (Get-RelDir $r[0])
+}
+Remove-EmptyDirs $Root $dirs
+if (-not $DryRun) { Write-Manifest $Root $manifest }
+Write-Host "  OK ${Pfx}skills, agents, commands, hooks -> $Root ($added added, $updated updated, $same unchanged)"
+if ($legacyKept -gt 0) {
+  Write-Host "    $legacyKept file(s) predate the manifest and differ from this release; kept. Re-run with -Force to take the release copies."
+}
+
+Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
 if ($TmpDir -and (Test-Path $TmpDir)) {
   Remove-Item $TmpDir -Recurse -Force
 }
 
 Write-Host ""
-Write-Host "Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
+Write-Host "${Pfx}Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 Write-Host ""
-Write-Host "To update later, re-run this script (-Force to overwrite customisations)."
+if ($script:Kept -gt 0) { Write-Host "$($script:Kept) file(s) you modified were kept; -Force overwrites them." }
+if ($script:Foreign -gt 0) { Write-Host "$($script:Foreign) file(s) in retired skill directories are not AgenticOS release files and were left alone; they are yours to keep or remove." }
+if ($script:Unsafe -gt 0) { Write-Host "$($script:Unsafe) path(s) were skipped as unsafe and left untouched (see the 'skip' lines above)." }
+Write-Host "To update later, re-run this script. To remove AgenticOS, re-run it with -Uninstall."

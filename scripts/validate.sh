@@ -1021,7 +1021,70 @@ check_no_general_purpose() {
   return 0
 }
 
+# ── Invariant 14: install-pins ─────────────────────────────────────────────────
+# The remote installers download $VERSION and verify it against a pinned digest;
+# a pin that drifts between files sends one installer (or the README one-liner)
+# to a different release than the others. CANONICAL SOURCE: `VERSION=` and
+# `EXPECTED_SHA256=` in install.sh — the pair scripts/release.sh's output is
+# pinned into first (RELEASING.md step 2). There is no CHANGELOG, RELEASING.md
+# only carries a `v1.0.0` placeholder, and git tags are absent from shallow CI
+# checkouts and do not yet exist on the pin commit (the tag is cut after it), so
+# none of those can be the deterministic anchor. Every other pin must equal it:
+#   - install.sh header one-liner URL (`.../vX.Y.Z/install.sh`)
+#   - install.ps1 `$Version`, `$ExpectedSha256`, header one-liner URL
+#   - README.md current-release block, asset name, digest lines, one-liner URLs
+#   - the retired-hook lists (RETIRED_HOOKS / $RetiredHooks) in both installers
+# Each file is checked only when present (the release tarball excludes the
+# installers and README, so this is inert there).
+check_install_pins() {
+  local sh="$ROOT/install.sh" ps="$ROOT/install.ps1" rd="$ROOT/README.md"
+  [[ -f "$sh" ]] || return 0
+  local ver sha v
+  ver="$(sed -nE 's/^VERSION="([^"]*)".*/\1/p' "$sh" | head -1)"
+  sha="$(sed -nE 's/^EXPECTED_SHA256="([^"]*)".*/\1/p' "$sh" | head -1)"
+  if [[ ! "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail install-pins "$sh" "VERSION=\"$ver\" is not a vX.Y.Z release tag"
+    return 0
+  fi
+  [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || fail install-pins "$sh" "EXPECTED_SHA256 is not a 64-char lowercase hex digest"
+
+  # Every `agentic-os/<tag>/` and `releases/download/<tag>/` and asset-name
+  # version in $1 must be $ver.
+  _pin_urls_match() {
+    local file="$1" got
+    while IFS= read -r got; do
+      [[ "$got" == "$ver" ]] || fail install-pins "$file" "references release $got but install.sh pins $ver"
+    done < <(grep -oE '(agentic-os/|releases/download/|agentic-os-)v[0-9]+\.[0-9]+\.[0-9]+' "$file" \
+               | sed -E 's/.*(v[0-9]+\.[0-9]+\.[0-9]+)$/\1/' | sort -u)
+  }
+  _pin_urls_match "$sh"
+
+  if [[ -f "$ps" ]]; then
+    v="$(sed -nE 's/^\$Version[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$ps" | head -1)"
+    [[ "$v" == "$ver" ]] || fail install-pins "$ps" "\$Version \"$v\" != install.sh VERSION \"$ver\""
+    v="$(sed -nE 's/^\$ExpectedSha256[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$ps" | head -1)"
+    [[ "$v" == "$sha" ]] || fail install-pins "$ps" "\$ExpectedSha256 differs from install.sh EXPECTED_SHA256"
+    _pin_urls_match "$ps"
+    local rsh rps
+    rsh="$(sed -nE 's/^RETIRED_HOOKS="([^"]*)".*/\1/p' "$sh" | tr ' ' '\n' | awk 'NF' | sort | tr '\n' ' ')"
+    rps="$(sed -nE 's/^\$RetiredHooks[[:space:]]*=[[:space:]]*@\((.*)\).*/\1/p' "$ps" | tr -d "\"' " | tr ',' '\n' | awk 'NF' | sort | tr '\n' ' ')"
+    [[ "$rsh" == "$rps" ]] || fail install-pins "$ps" "\$RetiredHooks ($rps) != install.sh RETIRED_HOOKS ($rsh)"
+  fi
+
+  if [[ -f "$rd" ]]; then
+    grep -qF "**Current release:** \`$ver\`" "$rd" \
+      || fail install-pins "$rd" "\"Current release\" line does not name $ver"
+    grep -qF "**SHA-256:** \`$sha\`" "$rd" \
+      || fail install-pins "$rd" "\"SHA-256\" line does not carry install.sh EXPECTED_SHA256"
+    while IFS= read -r v; do
+      [[ "$v" == "$sha" ]] || fail install-pins "$rd" "digest $v in a verify command != install.sh EXPECTED_SHA256"
+    done < <(grep -oE '"[0-9a-f]{64}  agentic-os-' "$rd" | cut -c2-65 | sort -u)
+    _pin_urls_match "$rd"
+  fi
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
+check_install_pins
 check_frontmatter_and_names
 check_dangling_refs
 check_claude_flat_sync

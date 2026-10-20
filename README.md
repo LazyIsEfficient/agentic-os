@@ -138,7 +138,7 @@ cd agentic-os
 ./install.sh
 ```
 
-Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, and `~/.claude/commands/`. Existing files are not overwritten by default. Add `--force` to update everything.
+Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/commands/`, and `~/.claude/hooks/`. To update, re-run the installer. See [Updating and uninstalling](#updating-and-uninstalling) for the manifest-based update and uninstall, which arrive with the next release.
 
 #### Windows (PowerShell)
 
@@ -156,7 +156,7 @@ cd agentic-os
 .\install.ps1
 ```
 
-Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, and `%USERPROFILE%\.claude\commands\`. Add `-Force` to overwrite existing files. (The remote install uses `tar`, which ships with Windows 10 1803+.)
+Files are copied to `%USERPROFILE%\.claude\skills\`, `%USERPROFILE%\.claude\agents\`, `%USERPROFILE%\.claude\commands\`, and `%USERPROFILE%\.claude\hooks\`. Update and uninstall follow the same rules as on macOS/Linux, with `-Force`, `-PruneLegacy`, `-Uninstall`, and `-DryRun`. The PowerShell lifecycle has not been run in CI yet. (The remote install uses `tar`, which ships with Windows 10 1803+.)
 
 ### Codex
 
@@ -174,7 +174,7 @@ After release, the verified one-liner is:
 curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/<release-tag>/install.sh | bash -s -- --codex
 ```
 
-The default Codex install is user-scoped: skills go to `~/.agents/skills/`, converted custom agents go to `$CODEX_HOME/agents/` (default `~/.codex/agents/`), and supported hooks go beside them. Existing files are preserved unless `--force` is passed.
+The default Codex install is user-scoped: skills go to `~/.agents/skills/`, converted custom agents go to `$CODEX_HOME/agents/` (default `~/.codex/agents/`), and supported hooks go beside them. Update and uninstall work as for Claude (`--codex --uninstall`), with one manifest in the skills directory and one in the Codex config directory.
 
 For a project-scoped install from a local AgenticOS clone, point at the target repository:
 
@@ -226,6 +226,21 @@ For a custom user-scoped Codex location:
 ```bash
 CODEX_HOME=/path/to/.codex CODEX_SKILLS_DIR=/path/to/.agents/skills ./install.sh --codex
 ```
+
+### Updating and uninstalling
+
+> **Available after the next release.** The pinned one-liner above installs `v3.0.1`, whose installer has none of this: it ignores unknown flags, so `curl … | bash -s -- --uninstall` or `--dry-run` against it runs a **real install**. Until the next release is tagged, use these flags only from a local clone (`./install.sh --uninstall`, `./install.sh --dry-run`).
+
+Each install writes `.agentic-os-manifest.json` in its destination. The manifest lists every installed file and its SHA-256, and the installer uses it on the next run:
+
+- **Update:** re-run the installer. A file you have not changed since install is replaced with the new release's copy. A file you changed is kept, and the installer names it in a warning. Add `--force` to overwrite those too.
+- **Hooks are always refreshed.** A shipped hook script is security-relevant, so the installer always replaces it with the release copy. If you had edited it, your version is saved as `<file>.bak.<timestamp>` and the installer warns you.
+- **Prune:** a file that a new release no longer ships is removed if you have not changed it. If you have, it is kept with a warning on every run, and it stays in the manifest, so uninstall and `--prune-legacy` also treat it as yours. Hooks that a release retires are unregistered from `settings.json`, and their files are pruned the same way. That includes any hook script the old manifest tracked that the new release dropped. Directories left empty are removed.
+- **Your files are never touched.** Anything not listed in a manifest, such as your own skills or hooks, is left alone. The installer only ever writes or deletes inside the shipped directories (`skills/`, `agents/`, `commands/`, `hooks/`; for Codex, skill dirs plus `agents/` and `hooks/`). It never writes or deletes through a symlink or at the root of the install dir (`settings.json`, `CLAUDE.md`, the manifest). It also refuses any path with unusual characters. Each refused path is reported as `skip ... unsafe path` and left alone.
+- **Fails fast on a broken settings file.** If `settings.json` (or Codex `hooks.json`) cannot be merged, the installer stops before copying anything, and `--dry-run` reports the same error.
+- **Installs from before manifests existed:** the first run adopts the install. A file that matches the copy from any earlier release is updated. The installer ships a list of every earlier release's file hashes (`assets/release-hashes.txt`) for this check. A file that matches no release copy is treated as your edit, and is kept and named. Retired skill directories, such as `security-and-hardening`, are reported but not removed. Pass `--prune-legacy` to remove them. Only files that byte-match an earlier AgenticOS release are deleted, and each one is listed as it is removed. Anything else in the directory is kept and named, such as your own notes or another tool's files, and so is the directory. Add `--dry-run` first to preview the list.
+- **Uninstall:** `./install.sh --uninstall` (`--codex --uninstall` for Codex, `.\install.ps1 -Uninstall` on Windows). Removes every unchanged manifest file and keeps changed ones with a warning. Removes only the AgenticOS hook entries from `settings.json` or `hooks.json`, leaving your own hooks and the rest of the file in place. Finally removes the manifest. It prints each file removed or kept.
+- **Preview:** add `--dry-run` (`-DryRun`) to any of the above to print what would change without changing anything.
 
 ---
 

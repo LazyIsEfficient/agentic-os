@@ -39,6 +39,20 @@ maintainer-only and is never shipped to consumers.
 
 From a clean checkout of **`main`** at the commit you want to release:
 
+0. **Refresh the earlier-release hash list** (needs the tags locally:
+   `git fetch --tags`), and commit it if it changed:
+
+   ```bash
+   bash scripts/gen-release-hashes.sh
+   ```
+
+   `assets/release-hashes.txt` lists the SHA-256 of every file in every
+   earlier `vX.Y.Z` tag. When the installer adopts an install that predates the
+   manifest, it uses this list to tell an untouched earlier-release file (which
+   it updates) from a user edit (which it keeps). `release.sh` runs
+   `gen-release-hashes.sh --check --exclude <version>` and refuses to build
+   while the list is stale. The list ships in the release asset.
+
 1. **Build the asset and get the digest.** This also runs `validate.sh` first
    and fails closed if the library is structurally invalid:
 
@@ -48,12 +62,27 @@ From a clean checkout of **`main`** at the commit you want to release:
 
    It writes `agentic-os-v1.0.0.tar.gz` and prints its `sha256`.
 
-2. **Pin the version + digest** in three files (keep all in sync):
-   - `install.sh` — `VERSION` and `EXPECTED_SHA256`
-   - `install.ps1` — `$Version` and `$ExpectedSha256`
-   - `README.md` — the *Current release* block and the *Verifying the download*
-     command, plus the `vX.Y.Z` in all one-liner URLs and the Codex
-     `<release-tag>` placeholder
+2. **Pin the version + digest.** `install.sh` is the canonical source:
+   set `VERSION` and `EXPECTED_SHA256` there first, then make every other pin
+   match it:
+   - `install.sh` — the `vX.Y.Z` in the header one-liner URL
+   - `install.ps1` — `$Version`, `$ExpectedSha256`, and the header one-liner URL
+   - `README.md` — the *Current release* block (version, asset, SHA-256), the
+     *Verifying the download* commands, the `vX.Y.Z` in all one-liner URLs, and
+     the Codex `<release-tag>` placeholder
+
+   `bash scripts/validate.sh` enforces this (`install-pins`): any pin that
+   disagrees with `install.sh` fails, as does a `VERSION` that is not a
+   `vX.Y.Z` tag. Release tags are not the anchor because the tag is cut
+   *after* this commit (step 3), and CI's shallow checkout has no tags.
+
+   **If the release removes a hook** from `assets/consumer/claude-settings.json`,
+   add its script basename to `RETIRED_HOOKS` in `install.sh` *and*
+   `$RetiredHooks` in `install.ps1` (validate checks they match). Existing
+   installs then unregister it from `settings.json` on update and uninstall.
+   Removed skills need no installer change: add the slug to `TOMBSTONES` in
+   `scripts/validate.sh` as usual. The manifest prunes the removed files, and
+   `--prune-legacy` reads that list for installs that predate the manifest.
 
 3. **Commit** the pin, then **tag that commit** and push the tag:
 
@@ -89,5 +118,14 @@ From a clean checkout of **`main`** at the commit you want to release:
    CODEX_HOME="$(mktemp -d)/.codex" CODEX_SKILLS_DIR="$(mktemp -d)/.agents/skills" bash -c \
      'curl -fsSL https://raw.githubusercontent.com/LazyIsEfficient/agentic-os/v1.0.0/install.sh | bash -s -- --codex'
    ```
+
+   Then smoke-test the lifecycle against the previous release on a throwaway
+   dir. Install the previous tag, re-run the new one (unmodified files update,
+   hooks refresh), then `--uninstall --dry-run` and `--uninstall`.
+   `scripts/install-lifecycle-test.sh` covers this from a local tree. It has no
+   PowerShell counterpart, so on Windows, run `.\install.ps1 -Dest <tmp>`
+   twice, then `-Uninstall -Dest <tmp>`. Confirm `settings.json` stays valid
+   JSON and that `hooks.PreToolUse` is still an array on an *existing*
+   settings file (the Windows PowerShell 5.1 single-element-array unwrap).
 
 The built `*.tar.gz` is a release artifact, not source — do not commit it.
