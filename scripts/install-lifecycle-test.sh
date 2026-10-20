@@ -438,7 +438,7 @@ mkdir -p "$nojq"
 for bindir in /usr/bin /bin; do
   for f in "$bindir"/*; do
     b="${f##*/}"
-    [[ "$b" == jq || -e "$nojq/$b" ]] || ln -s "$f" "$nojq/$b"
+    [[ "$b" == jq || -e "$nojq/$b" || -L "$nojq/$b" ]] || ln -s "$f" "$nojq/$b"
   done
 done
 d6="$tmp/nojq/.claude"
