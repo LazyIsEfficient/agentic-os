@@ -118,7 +118,7 @@ jq -e '.files | all(.path | test("^(skills|agents|hooks|commands)/"))' "$mf" >/d
 eng_sha="$(jq -r '.files[] | select(.path == "agents/engineer.md") | .sha256' "$mf")"
 [[ "$eng_sha" == "$(sha "$dest/agents/engineer.md")" ]] || fail "manifest sha256 does not match installed file"
 jq -e '[.files[].path] | index(["skills/security-and-hardening/SKILL.md"]) == null' "$mf" >/dev/null || fail "legacy skill adopted into manifest"
-grep -q 'retired skill directory skills/security-and-hardening is still installed' "$tmp/out1" || fail "no --prune-legacy hint for tombstoned skill"
+grep -q 'retired skill directory skills/security-and-hardening still holds 2 AgenticOS file' "$tmp/out1" || fail "no --prune-legacy hint for tombstoned skill"
 [[ -f "$dest/skills/security-and-hardening/SKILL.md" ]] || fail "tombstoned legacy skill removed without --prune-legacy"
 jq -e '[.. | .command? | strings | select(endswith("/hooks/zz-retired.sh"))] | length == 1' "$dest/settings.json" >/dev/null \
   || fail "release-A hook not registered"
@@ -256,6 +256,7 @@ grep -q 'mine' "$dest/skills/zz-tomb/extra.md" || fail "--prune-legacy deleted a
 grep -q 'keep skills/zz-tomb/extra.md — not an AgenticOS release file' "$tmp/out3" || fail "kept non-release legacy file not named"
 grep -q 'my own notes' "$dest/skills/security-and-hardening/my-notes.md" || fail "--prune-legacy deleted the user's notes in a retired dir"
 grep -q 'keep skills/security-and-hardening/my-notes.md — not an AgenticOS release file' "$tmp/out3" || fail "kept user note not named"
+grep -q 'are not AgenticOS release files and were left alone' "$tmp/out3" || fail "summary does not report the kept non-release files"
 ok "--prune-legacy removes only earlier-release copies; tracked edits and user files survive"
 
 # ── 5. --force overwrites a user-modified file ───────────────────────────────
@@ -263,6 +264,10 @@ run --force > "$tmp/out4" || { cat "$tmp/out4"; fail "--force failed"; }
 cmp -s "$dest/skills/autoresearch/SKILL.md" "$rel/.claude/skills/autoresearch/SKILL.md" || fail "--force did not overwrite"
 grep -q 'overwrite skills/autoresearch/SKILL.md (--force)' "$tmp/out4" || fail "--force overwrite not reported"
 ok "--force overwrites a user-modified file"
+if grep -q 'skills/security-and-hardening still holds' "$tmp/out4"; then fail "keeps asking for --prune-legacy when only the user's files remain"; fi
+grep -q 'retired skill directory skills/security-and-hardening holds only files that are not AgenticOS release files' "$tmp/out4" \
+  || fail "no note that the remaining files are the user's"
+ok "after a prune, a retired dir holding only the user's files is not flagged again"
 
 # ── 6. Uninstall ─────────────────────────────────────────────────────────────
 printf '\nmodified again\n' >> "$dest/skills/autoresearch/SKILL.md"
@@ -454,7 +459,7 @@ ok "without jq, retired hooks are kept and uninstall fails closed"
 cx6="$tmp/nojq-codex/.codex"; cs6="$tmp/nojq-codex/skills"
 mkdir -p "$cx6"
 printf '{"hooks":{}}\n' > "$cx6/hooks.json"
-PATH="$nojq" HOME="$home" CODEX_HOME="$cx6" CODEX_SKILLS_DIR="$cs6" "$BASH" "$rel/install.sh" --codex > "$tmp/out10c" 2>&1 \
+CODEX_HOOKS_REGISTERED=true PATH="$nojq" HOME="$home" CODEX_HOME="$cx6" CODEX_SKILLS_DIR="$cs6" "$BASH" "$rel/install.sh" --codex > "$tmp/out10c" 2>&1 \
   || { cat "$tmp/out10c"; fail "no-jq codex install failed"; }
 grep -q 'Hooks were NOT registered' "$tmp/out10c" || fail "no-jq codex install did not say hooks were not registered"
 if grep -q 'Review and trust the new hooks' "$tmp/out10c"; then fail "no-jq codex install claims new hooks to trust"; fi
@@ -598,16 +603,28 @@ ok "project-scope Codex refuses a symlinked .codex / .agents / .agents/skills (i
 ws="$tmp/white space"
 mkdir -p "$ws"
 if HOME="$home" CLAUDE_DIR="$ws/.claude" bash "$rel/install.sh" > "$tmp/out17" 2>&1; then fail "install accepted a Claude dir with a space"; fi
-grep -q 'contains (or resolves to) whitespace' "$tmp/out17" || fail "no clear whitespace error"
-grep -q 'run this script with --uninstall' "$tmp/out17" || fail "whitespace error does not say how to move an install"
+grep -q 'resolves to a path with whitespace or shell metacharacters' "$tmp/out17" || fail "no clear whitespace error"
+grep -q 'run with --uninstall and the same CLAUDE_DIR' "$tmp/out17" || fail "whitespace error does not say how to move an install"
 [[ ! -e "$ws/.claude" ]] || fail "install wrote into a Claude dir with a space"
 ln -s "$ws" "$tmp/nospace-link"
 if HOME="$home" CLAUDE_DIR="$tmp/nospace-link/.claude" bash "$rel/install.sh" > "$tmp/out17b" 2>&1; then
   fail "install accepted a Claude dir that resolves to a path with a space"
 fi
-grep -q 'contains (or resolves to) whitespace' "$tmp/out17b" || fail "no clear error for a canonical path with a space"
+grep -q 'resolves to a path with whitespace or shell metacharacters' "$tmp/out17b" || fail "no clear error for a canonical path with a space"
 [[ ! -e "$ws/.claude" ]] || fail "install wrote through a link into a path with a space"
 ok "a Claude dir containing (or resolving to) whitespace is refused before any write"
+
+# Reviewer PoC: a symlinked parent whose target name carries `;` and `$`
+# would put an injected command into every registered hook.
+inj="$tmp/"'x;echo${IFS}CANARY>f;y'
+mkdir -p "$inj"
+ln -s "$inj" "$tmp/plain-link"
+if (cd "$tmp" && HOME="$home" CLAUDE_DIR="$tmp/plain-link/.claude" bash "$rel/install.sh" > "$tmp/out17i" 2>&1); then
+  fail "install accepted a Claude dir that resolves to a path with shell metacharacters"
+fi
+grep -q 'resolves to a path with whitespace or shell metacharacters' "$tmp/out17i" || fail "no clear error for a canonical path with metacharacters"
+[[ -z "$(ls -A "$inj")" && ! -e "$tmp/f" ]] || fail "install wrote into the metacharacter path"
+ok "a Claude dir resolving to a path with ; or \$ is refused before any write (no hook-command injection)"
 
 # An install made in a spaced dir before this check can still be uninstalled.
 d17="$tmp/nsp/.claude"

@@ -53,6 +53,7 @@ RETIRED_HOOKS=""
 
 MANIFEST_NAME=".agentic-os-manifest.json"
 
+unset CODEX_HOOKS_REGISTERED
 FORCE=false
 DRY_RUN=false
 PRUNE_LEGACY=false
@@ -108,22 +109,6 @@ if [[ "$PLATFORM" == "claude" ]]; then
   if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
     echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
     exit 1
-  fi
-  # No whitespace for install/update: Claude hook commands are registered
-  # unquoted (`bash <DEST>/hooks/x.sh`, the template form the owned-handler
-  # match relies on), so a space would split the path and run something else.
-  # The registered path is the canonical one (pwd -P), so a symlinked parent
-  # must not resolve to whitespace either. Uninstall only string-compares and
-  # deletes manifest files (all quoted), so it stays allowed, letting an
-  # install made before this check be removed.
-  if [[ "$UNINSTALL" != "true" ]]; then
-    dest_anc="$DEST"
-    while [[ ! -d "$dest_anc" ]]; do dest_anc="$(dirname "$dest_anc")"; done
-    if [[ "$DEST" =~ [[:space:]] || "$(cd "$dest_anc" && pwd -P)" =~ [[:space:]] ]]; then
-      echo "Error: CLAUDE_DIR/DEST contains (or resolves to) whitespace: $DEST — hook commands would be split." >&2
-      echo "  Install to a path without spaces. To move an existing install: run this script with --uninstall and the same CLAUDE_DIR, then reinstall elsewhere. Nothing was changed." >&2
-      exit 1
-    fi
   fi
 else
   if [[ "$CODEX_SCOPE" == "project" ]]; then
@@ -289,6 +274,22 @@ if [[ ! "$lib_api" =~ ^[0-9]+$ || "$lib_api" -lt "$REQUIRED_LIB_API" ]]; then
   exit 1
 fi
 
+# Install/update: the CANONICAL Claude dir (symlinked parents resolved, plus
+# the not-yet-created tail of DEST) goes into hook commands, so it must pass
+# the library's hook-path gate, before anything is written. Uninstall is
+# exempt: it runs no hook command, only string-compares registered commands
+# (as jq data) and deletes quoted manifest paths, and it is the only way to
+# clean up an install made into such a path before this check existed.
+if [[ "$PLATFORM" == "claude" && "$UNINSTALL" != "true" ]]; then
+  dest_anc="$DEST"; dest_tail=""
+  while [[ ! -d "$dest_anc" ]]; do
+    dest_tail="/$(basename "$dest_anc")$dest_tail"
+    dest_anc="$(dirname "$dest_anc")"
+  done
+  _validate_hook_dir "$DEST"
+  _validate_hook_dir "$(cd "$dest_anc" && pwd -P)$dest_tail"
+fi
+
 # Retired skill slugs: the validator's TOMBSTONES list is the single source.
 TOMBSTONES="$(sed -n 's/^TOMBSTONES="\(.*\)"$/\1/p' "$REPO_ROOT/scripts/validate.sh")"
 
@@ -304,6 +305,7 @@ P=""
 N_WARN=0
 N_KEPT=0
 N_UNSAFE=0
+N_FOREIGN=0
 
 note() { printf '  %s%s\n' "$P" "$*"; }
 warn() { printf '  ⚠ %s%s\n' "$P" "$*"; N_WARN=$((N_WARN + 1)); }
@@ -594,7 +596,7 @@ sync_place() {
         # Without jq the merge cannot unregister it; never delete a hook that
         # may still be registered. Stays tracked so a later run prunes it.
         printf '%s\t%s\n' "$rel" "$osha" >> "$w/manifest.tsv"
-        kept "keep retired hook $rel — jq is required to unregister it first"
+        warn "keep retired hook $rel — jq is required to unregister it first"
       elif unmodified "$w/known.tsv" "$rel" "$csha" "$osha"; then
         printf '%s\0%s\0' "$rel" "no longer shipped" >> "$w/remove.lst"
       else
@@ -663,19 +665,30 @@ sync_place() {
       if ! grep -qxF -- "$frel" "$w/old.paths"; then printf '%s\0' "$frel" >> "$w/legacy.lst"; fi
     done < <(find "$root/$d" ! -type d -print0)
     [[ -s "$w/legacy.lst" ]] || continue
-    if [[ "$PRUNE_LEGACY" == "true" ]]; then
-      # Only a byte-exact copy of an earlier AgenticOS release of that path
-      # is ours to delete; notes the user added, edits, or another tool's
-      # files of the same name stay (and so does the dir).
-      while IFS= read -r -d '' frel; do
-        if unmodified "$w/known.tsv" "$frel" "$(sha256_of "$root/$frel")" "-"; then
+    # Only a byte-exact copy of an earlier AgenticOS release of that path is
+    # ours to delete; notes the user added, edits, or another tool's files of
+    # the same name stay (and so does the dir).
+    local prunable=0 foreign=0
+    while IFS= read -r -d '' frel; do
+      if unmodified "$w/known.tsv" "$frel" "$(sha256_of "$root/$frel")" "-"; then
+        prunable=$((prunable + 1))
+        if [[ "$PRUNE_LEGACY" == "true" ]]; then
           printf '%s\0%s\0' "$frel" "retired skill $t (--prune-legacy)" >> "$w/remove.lst"
-        else
-          kept "keep $frel — not an AgenticOS release file (retired skill $t)"
         fi
-      done < "$w/legacy.lst"
-    else
-      warn "retired skill directory $d is still installed (predates the manifest) — re-run with --prune-legacy to remove it"
+      else
+        foreign=$((foreign + 1))
+        if [[ "$PRUNE_LEGACY" == "true" ]]; then
+          warn "keep $frel — not an AgenticOS release file (retired skill $t); it is yours to keep or remove"
+          N_FOREIGN=$((N_FOREIGN + 1))
+        fi
+      fi
+    done < "$w/legacy.lst"
+    if [[ "$PRUNE_LEGACY" != "true" ]]; then
+      if [[ "$prunable" -gt 0 ]]; then
+        warn "retired skill directory $d still holds $prunable AgenticOS file(s) from an earlier release — re-run with --prune-legacy to remove them"
+      elif [[ "$foreign" -gt 0 ]]; then
+        note "retired skill directory $d holds only files that are not AgenticOS release files; they are yours to keep or remove"
+      fi
     fi
   done
 
@@ -954,6 +967,9 @@ fi
 echo ""
 if [[ "$N_KEPT" -gt 0 ]]; then
   echo "$N_KEPT file(s) you modified were kept; --force overwrites them."
+fi
+if [[ "$N_FOREIGN" -gt 0 ]]; then
+  echo "$N_FOREIGN file(s) in retired skill directories are not AgenticOS release files and were left alone; they are yours to keep or remove."
 fi
 if [[ "$N_UNSAFE" -gt 0 ]]; then
   echo "$N_UNSAFE path(s) were skipped as unsafe and left untouched (see the 'skip' lines above)."

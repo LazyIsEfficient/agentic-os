@@ -16,12 +16,16 @@ _validate_install_dest() {
   fi
 }
 
-# Claude hook commands are registered unquoted (`bash <dir>/hooks/x.sh`), so
-# whitespace in the Claude dir would word-split the command. Codex commands are
-# quoted in the template and may contain spaces.
-_reject_whitespace_dest() {
-  if [[ "$1" =~ [[:space:]] ]]; then
-    echo "Error: the Claude install dir must not contain whitespace (hook commands would be split): $1" >&2
+# The single gate for a path that ends up inside a Claude hook command. Those
+# commands are registered unquoted (`bash <dir>/hooks/x.sh`, the template form
+# the owned-handler match relies on) and use the CANONICAL dir (pwd -P), so the
+# resolved path must be plain: no whitespace (word-splitting) and no shell
+# metacharacters (`;`, `$`, ... would be command injection). Codex commands are
+# quoted in the template, so Codex dirs may contain spaces.
+_validate_hook_dir() {
+  if [[ ! "$1" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
+    echo "Error: the Claude install dir resolves to a path with whitespace or shell metacharacters: $1" >&2
+    echo "  It would be pasted into hook commands. Install to a plain path. To move an existing install: run with --uninstall and the same CLAUDE_DIR, then reinstall elsewhere. Nothing was changed." >&2
     exit 1
   fi
 }
@@ -265,10 +269,10 @@ merge_claude_hook_settings() {
   # and `~/.claude` produce identical commands and never double-register.
   # `pwd -P`, not realpath: stock macOS lacks a portable realpath.
   local given="$dest"
-  _reject_whitespace_dest "$given"
+  _validate_hook_dir "$given"
   mkdir -p "$dest"
   dest="$(cd "$dest" && pwd -P)"
-  _reject_whitespace_dest "$dest"
+  _validate_hook_dir "$dest"
   local dest_file="$dest/settings.json"
 
   if ! command -v jq &>/dev/null; then

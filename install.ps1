@@ -149,7 +149,7 @@ if ($tombLine) { $Tombstones = @($tombLine.Matches[0].Groups[1].Value -split ' '
 $Root  = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Dest).TrimEnd('\', '/')
 # A relative -Dest resolves against the current dir, which may hold spaces;
 # hook commands are registered unquoted, so the resolved path must not.
-if (-not $Uninstall -and $Root -match '\s') { throw "Error: -Dest resolves to a path with whitespace ($Root); hook commands would be split. Use a path without spaces (to move an existing install: -Uninstall with the same -Dest, then reinstall)." }
+if (-not $Uninstall -and $Root -notmatch '^[/\\:.a-zA-Z0-9._-]+$') { throw "Error: -Dest resolves to a path with whitespace or shell metacharacters ($Root); it would be pasted into hook commands. Use a plain path (to move an existing install: -Uninstall with the same -Dest, then reinstall)." }
 $Work  = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 $Stage = Join-Path $Work "stage"
@@ -158,6 +158,7 @@ $Pfx   = if ($DryRun) { "[dry-run] " } else { "" }
 $script:Warnings = 0
 $script:Kept = 0
 $script:Unsafe = 0
+$script:Foreign = 0
 $script:UnsafeRels = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
 
 function Note([string]$Msg) { Write-Host "  $Pfx$Msg" }
@@ -658,15 +659,21 @@ foreach ($t in $Tombstones) {
     if (-not $old.ContainsKey($rel)) { $rel }
   })
   if ($legacy.Count -eq 0) { continue }
-  if ($PruneLegacy) {
-    # Only a byte-exact copy of an earlier AgenticOS release of that path is
-    # ours to delete; anything else (user notes, another tool's files) stays.
-    foreach ($rel in $legacy) {
-      if (Test-Unmodified $rel (Get-Sha (Join-Rel $Root $rel)) $null) { [void]$removals.Add(@($rel, "retired skill $t (-PruneLegacy)")) }
-      else { Kept "keep $rel — not an AgenticOS release file (retired skill $t)" }
+  # Only a byte-exact copy of an earlier AgenticOS release of that path is ours
+  # to delete; anything else (user notes, another tool's files) stays.
+  $prunable = 0; $foreign = 0
+  foreach ($rel in $legacy) {
+    if (Test-Unmodified $rel (Get-Sha (Join-Rel $Root $rel)) $null) {
+      $prunable++
+      if ($PruneLegacy) { [void]$removals.Add(@($rel, "retired skill $t (-PruneLegacy)")) }
+    } else {
+      $foreign++
+      if ($PruneLegacy) { Warn "keep $rel — not an AgenticOS release file (retired skill $t); it is yours to keep or remove"; $script:Foreign++ }
     }
-  } else {
-    Warn "retired skill directory skills/$t is still installed (predates the manifest) — re-run with -PruneLegacy to remove it"
+  }
+  if (-not $PruneLegacy) {
+    if ($prunable -gt 0) { Warn "retired skill directory skills/$t still holds $prunable AgenticOS file(s) from an earlier release — re-run with -PruneLegacy to remove them" }
+    elseif ($foreign -gt 0) { Note "retired skill directory skills/$t holds only files that are not AgenticOS release files; they are yours to keep or remove" }
   }
 }
 
@@ -712,5 +719,6 @@ Write-Host ""
 Write-Host "${Pfx}Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 Write-Host ""
 if ($script:Kept -gt 0) { Write-Host "$($script:Kept) file(s) you modified were kept; -Force overwrites them." }
+if ($script:Foreign -gt 0) { Write-Host "$($script:Foreign) file(s) in retired skill directories are not AgenticOS release files and were left alone; they are yours to keep or remove." }
 if ($script:Unsafe -gt 0) { Write-Host "$($script:Unsafe) path(s) were skipped as unsafe and left untouched (see the 'skip' lines above)." }
 Write-Host "To update later, re-run this script. To remove AgenticOS, re-run it with -Uninstall."
