@@ -129,9 +129,10 @@ merge_codex_hook_settings() {
       fresh="$(_tmp_beside "$dest_file")"
       sed "s|\\\$HOME/.codex/hooks|$dest/hooks|g" "$src" > "$fresh"
       mv -f "$fresh" "$dest_file"
+      CODEX_HOOKS_REGISTERED=true
       echo "  ✓ Codex hooks active → $dest_file"
     else
-      echo "  ⚠ jq required to merge AgenticOS hooks into existing $dest_file" >&2
+      echo "  ⚠ jq required to merge AgenticOS hooks into existing $dest_file — hooks NOT registered" >&2
     fi
     return 0
   fi
@@ -157,6 +158,8 @@ merge_codex_hook_settings() {
     jq -n --argjson h "$hooks_json" '{hooks: $h}' > "$fresh"
     mv -f "$fresh" "$dest_file"
   fi
+  # shellcheck disable=SC2034  # read by install.sh for its closing message
+  CODEX_HOOKS_REGISTERED=true
   echo "  ✓ Codex hooks active → $dest_file"
 }
 
@@ -315,9 +318,9 @@ unregister_claude_hook_settings() {
   [[ "$dry" == "true" ]] && prefix="  [dry-run] "
   [[ -d "$dest" ]] || return 0
   local given="$dest"
+  # Whitespace is fine here: this only string-compares commands and rewrites
+  # JSON; it never runs a command (uninstall must work for older installs).
   dest="$(cd "$dest" && pwd -P)"
-  _reject_whitespace_dest "$given"
-  _reject_whitespace_dest "$dest"
   local dest_file="$dest/settings.json"
   _refuse_link "$dest_file" || return 1
   if [[ ! -f "$dest_file" ]]; then

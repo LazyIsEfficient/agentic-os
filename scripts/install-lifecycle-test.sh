@@ -22,6 +22,21 @@ home="$tmp/home"
 dest="$home/.claude"
 mkdir -p "$home"
 
+# Snapshot the checkout once: tracked + untracked files, minus ignored ones
+# (runtime files that concurrent sessions' hooks write into .claude/, such as
+# reviews/, session-state.checkpoints, survey-guard.warns). Every install below
+# runs from this copy, so nothing editing the checkout mid-run can change what
+# this run tests. Only read-only git queries (tags, archive) use $REPO.
+SRCREPO="$tmp/src"
+mkdir -p "$SRCREPO"
+if git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  (cd "$REPO" && git ls-files -z -co --exclude-standard \
+     | while IFS= read -r -d '' f; do if [[ -e "$f" || -L "$f" ]]; then printf '%s\0' "$f"; fi; done \
+     | tar --null -T - -cf -) | tar -xf - -C "$SRCREPO"
+else
+  cp -R "$REPO/." "$SRCREPO/"
+fi
+
 P=0
 fail() { echo "FAIL install-lifecycle: $*" >&2; exit 1; }
 ok() { printf 'PASS  %s\n' "$1"; P=$((P + 1)); }
@@ -47,14 +62,14 @@ inject_manifest_entry() {
 # ── Build release A ───────────────────────────────────────────────────────────
 rel="$tmp/rel"
 mkdir -p "$rel/scripts/lib" "$rel/assets"
-cp "$REPO/install.sh" "$REPO/install.ps1" "$REPO/CLAUDE.md" "$rel/"
-cp "$REPO/scripts/validate.sh" "$REPO/scripts/build-claude-md.sh" "$rel/scripts/"
-cp "$REPO/scripts/lib/install-hook-settings.sh" "$rel/scripts/lib/"
-cp -R "$REPO/.claude" "$rel/.claude"
+cp "$SRCREPO/install.sh" "$SRCREPO/install.ps1" "$SRCREPO/CLAUDE.md" "$rel/"
+cp "$SRCREPO/scripts/validate.sh" "$SRCREPO/scripts/build-claude-md.sh" "$rel/scripts/"
+cp "$SRCREPO/scripts/lib/install-hook-settings.sh" "$rel/scripts/lib/"
+cp -R "$SRCREPO/.claude" "$rel/.claude"
 rm -rf "$rel/.claude/memory" "$rel/.claude/ledger" "$rel/.claude/worktrees"
-cp -R "$REPO/docs" "$rel/docs"
-cp -R "$REPO/assets/consumer" "$rel/assets/consumer"
-cp "$REPO/assets/release-hashes.txt" "$rel/assets/release-hashes.txt"
+cp -R "$SRCREPO/docs" "$rel/docs"
+cp -R "$SRCREPO/assets/consumer" "$rel/assets/consumer"
+cp "$SRCREPO/assets/release-hashes.txt" "$rel/assets/release-hashes.txt"
 
 printf 'dropped in release B\n' > "$rel/.claude/skills/autoresearch/zz-dropped.txt"
 printf 'dropped in release B, edited locally\n' > "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt"
@@ -83,13 +98,18 @@ runat() { local d="$1"; shift; HOME="$home" CLAUDE_DIR="$d" bash "$rel/install.s
 mkdir -p "$dest/skills/security-and-hardening/references"
 printf 'old\n' > "$dest/skills/security-and-hardening/SKILL.md"
 printf 'old\n' > "$dest/skills/security-and-hardening/references/x.md"
+# Those two are (simulated) earlier-release copies; the note is the user's.
+for f in skills/security-and-hardening/SKILL.md skills/security-and-hardening/references/x.md; do
+  printf '%s  %s\n' "$(sha "$dest/$f")" "$f" >> "$rel/assets/release-hashes.txt"
+done
+printf 'my own notes\n' > "$dest/skills/security-and-hardening/my-notes.md"
 
 # ── 1. Fresh install writes the manifest ─────────────────────────────────────
 run > "$tmp/out1" || { cat "$tmp/out1"; fail "fresh install failed"; }
 mf="$dest/.agentic-os-manifest.json"
 [[ -f "$mf" ]] || fail "fresh install wrote no manifest"
 jq -e . "$mf" >/dev/null || fail "manifest is not valid JSON"
-want_ver="$(sed -nE 's/^VERSION="([^"]*)".*/\1/p' "$REPO/install.sh")"
+want_ver="$(sed -nE 's/^VERSION="([^"]*)".*/\1/p' "$SRCREPO/install.sh")"
 jq -e --arg v "$want_ver" '.schema == 1 and .version == $v and .platform == "claude" and .source == "local-clone"' "$mf" >/dev/null \
   || fail "manifest header wrong: $(jq -c 'del(.files)' "$mf")"
 want_n="$( (cd "$rel/.claude" && find skills agents hooks -type f; ls commands/skill-new.md commands/agent-new.md commands/state.md) | wc -l | tr -d ' ')"
@@ -112,6 +132,7 @@ mkdir -p "$dest/skills/my-own-skill"
 printf 'mine\n' > "$dest/skills/my-own-skill/SKILL.md"
 printf 'mine\n' > "$dest/agents/my-agent.md"
 printf 'mine\n' > "$dest/hooks/my-hook.sh"
+chmod 600 "$dest/hooks/my-hook.sh"
 jq '.hooks.Stop += [{"hooks":[{"type":"command","command":"bash /opt/consumer-stop.sh"}]}]
     | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","command":"bash /opt/consumer-guard.sh"}]}]
     | .permissions = {"allow":["Edit(foo)"]}' "$dest/settings.json" > "$dest/settings.json.tmp"
@@ -174,6 +195,8 @@ bak="$(find "$dest/hooks" -name 'block-bad-bash.sh.bak.*' | head -1)"
 grep -q 'refresh hook hooks/block-bad-bash.sh' "$tmp/out2" || fail "no warning for refreshed hook"
 [[ -x "$dest/hooks/block-bad-bash.sh" ]] || fail "refreshed hook not executable"
 ok "update always refreshes a hook and backs up the user-modified copy"
+[[ "$(ls -l "$dest/hooks/my-hook.sh" | cut -c1-10)" == "-rw-------" ]] || fail "update changed the mode of a user's own hook file"
+ok "a user's own file in hooks/ keeps its mode (no blanket chmod +x)"
 
 [[ ! -e "$dest/skills/autoresearch/zz-dropped.txt" ]] || fail "file dropped from release not pruned"
 grep -q 'remove skills/autoresearch/zz-dropped.txt (no longer shipped)' "$tmp/out2" || fail "prune not reported"
@@ -229,8 +252,11 @@ grep -qF "skip $(printf '%q' "skills/security-and-hardening/x"$'\n'"CANARY2.md")
 ok "--prune-legacy never acts on a newline-bearing file name (reviewer PoC 1)"
 
 grep -q 'edited' "$dest/skills/zz-tomb/SKILL.md" || fail "--prune-legacy deleted a tracked, user-edited file"
-[[ ! -e "$dest/skills/zz-tomb/extra.md" ]] || fail "--prune-legacy left an untracked file in a retired skill"
-ok "--prune-legacy removes only untracked files; tracked edits survive"
+grep -q 'mine' "$dest/skills/zz-tomb/extra.md" || fail "--prune-legacy deleted a user file that is not an AgenticOS release copy"
+grep -q 'keep skills/zz-tomb/extra.md — not an AgenticOS release file' "$tmp/out3" || fail "kept non-release legacy file not named"
+grep -q 'my own notes' "$dest/skills/security-and-hardening/my-notes.md" || fail "--prune-legacy deleted the user's notes in a retired dir"
+grep -q 'keep skills/security-and-hardening/my-notes.md — not an AgenticOS release file' "$tmp/out3" || fail "kept user note not named"
+ok "--prune-legacy removes only earlier-release copies; tracked edits and user files survive"
 
 # ── 5. --force overwrites a user-modified file ───────────────────────────────
 run --force > "$tmp/out4" || { cat "$tmp/out4"; fail "--force failed"; }
@@ -321,6 +347,12 @@ printf 'canary\n' > "$cs/memory/MEMORY.md"
 for e in route other-vendor-skill/SKILL.md memory/MEMORY.md; do
   inject_manifest_entry "$cs/.agentic-os-manifest.json" "$e" "$(sha "$cs/$e")"
 done
+# Another tool's skill under a retired name in the shared skills dir.
+mkdir -p "$cs/standards-enforcer"
+printf 'another vendor\n' > "$cs/standards-enforcer/SKILL.md"
+runx --prune-legacy > "$tmp/outx1c" || { cat "$tmp/outx1c"; fail "codex --prune-legacy failed"; }
+grep -q 'another vendor' "$cs/standards-enforcer/SKILL.md" || fail "codex --prune-legacy deleted another tool's skill"
+grep -q 'keep standards-enforcer/SKILL.md — not an AgenticOS release file' "$tmp/outx1c" || fail "codex: kept foreign skill not named"
 runx --uninstall > "$tmp/outx2" || { cat "$tmp/outx2"; fail "codex uninstall failed"; }
 for e in route other-vendor-skill/SKILL.md memory/MEMORY.md; do
   [[ -f "$cs/$e" ]] || fail "codex uninstall followed a hostile manifest entry and deleted $e"
@@ -419,6 +451,15 @@ fi
 [[ -f "$d6/agents/engineer.md" && -f "$d6/.agentic-os-manifest.json" ]] || fail "no-jq uninstall removed files"
 ok "without jq, retired hooks are kept and uninstall fails closed"
 
+cx6="$tmp/nojq-codex/.codex"; cs6="$tmp/nojq-codex/skills"
+mkdir -p "$cx6"
+printf '{"hooks":{}}\n' > "$cx6/hooks.json"
+PATH="$nojq" HOME="$home" CODEX_HOME="$cx6" CODEX_SKILLS_DIR="$cs6" "$BASH" "$rel/install.sh" --codex > "$tmp/out10c" 2>&1 \
+  || { cat "$tmp/out10c"; fail "no-jq codex install failed"; }
+grep -q 'Hooks were NOT registered' "$tmp/out10c" || fail "no-jq codex install did not say hooks were not registered"
+if grep -q 'Review and trust the new hooks' "$tmp/out10c"; then fail "no-jq codex install claims new hooks to trust"; fi
+ok "a Codex install that could not register hooks says so"
+
 # ── 11. A settings.json the merge rejects fails fast, before any copy ────────
 d7="$tmp/badsettings/.claude"
 mkdir -p "$d7"
@@ -494,8 +535,8 @@ if git -C "$REPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
   git -C "$REPO" archive v3.0.1 | tar -x -C "$old"
   d11="$tmp/from-v301/.claude"
   HOME="$home" CLAUDE_DIR="$d11" bash "$old/install.sh" > "$tmp/out15a" 2>&1 || { tail -5 "$tmp/out15a"; fail "v3.0.1 install failed"; }
-  HOME="$home" CLAUDE_DIR="$d11" bash "$REPO/install.sh" > "$tmp/out15b" 2>&1 || { tail -5 "$tmp/out15b"; fail "upgrade from v3.0.1 failed"; }
-  HOME="$home" CLAUDE_DIR="$d11" bash "$REPO/install.sh" > "$tmp/out15c" 2>&1 || { tail -5 "$tmp/out15c"; fail "second run after v3.0.1 upgrade failed"; }
+  HOME="$home" CLAUDE_DIR="$d11" bash "$SRCREPO/install.sh" > "$tmp/out15b" 2>&1 || { tail -5 "$tmp/out15b"; fail "upgrade from v3.0.1 failed"; }
+  HOME="$home" CLAUDE_DIR="$d11" bash "$SRCREPO/install.sh" > "$tmp/out15c" 2>&1 || { tail -5 "$tmp/out15c"; fail "second run after v3.0.1 upgrade failed"; }
   for o in "$tmp/out15b" "$tmp/out15c"; do
     if grep -q '⚠ keep ' "$o"; then fail "spurious keeps upgrading from v3.0.1: $(grep -c '⚠ keep ' "$o") e.g. $(grep -m1 '⚠ keep ' "$o")"; fi
   done
@@ -510,7 +551,7 @@ if git -C "$REPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
   mkdir -p "$pay"
   git -C "$REPO" archive v3.0.1 .claude assets/consumer scripts/validate.sh \
     scripts/lib/install-hook-settings.sh docs/awareness-harness-activation.md | tar -x -C "$pay"
-  cp "$REPO/install.sh" "$pay/install.sh"
+  cp "$SRCREPO/install.sh" "$pay/install.sh"
   d14="$tmp/old-payload-home/.claude"
   mkdir -p "$d14"
   printf '{"permissions":{"allow":["Edit(foo)"]}}\n' > "$d14/settings.json"
@@ -557,15 +598,29 @@ ok "project-scope Codex refuses a symlinked .codex / .agents / .agents/skills (i
 ws="$tmp/white space"
 mkdir -p "$ws"
 if HOME="$home" CLAUDE_DIR="$ws/.claude" bash "$rel/install.sh" > "$tmp/out17" 2>&1; then fail "install accepted a Claude dir with a space"; fi
-grep -q 'whitespace and shell metacharacters are not allowed' "$tmp/out17" || fail "no clear whitespace error"
+grep -q 'contains (or resolves to) whitespace' "$tmp/out17" || fail "no clear whitespace error"
+grep -q 'run this script with --uninstall' "$tmp/out17" || fail "whitespace error does not say how to move an install"
 [[ ! -e "$ws/.claude" ]] || fail "install wrote into a Claude dir with a space"
 ln -s "$ws" "$tmp/nospace-link"
 if HOME="$home" CLAUDE_DIR="$tmp/nospace-link/.claude" bash "$rel/install.sh" > "$tmp/out17b" 2>&1; then
   fail "install accepted a Claude dir that resolves to a path with a space"
 fi
-grep -q 'resolves to a path with whitespace' "$tmp/out17b" || fail "no clear error for a canonical path with a space"
+grep -q 'contains (or resolves to) whitespace' "$tmp/out17b" || fail "no clear error for a canonical path with a space"
 [[ ! -e "$ws/.claude" ]] || fail "install wrote through a link into a path with a space"
 ok "a Claude dir containing (or resolving to) whitespace is refused before any write"
+
+# An install made in a spaced dir before this check can still be uninstalled.
+d17="$tmp/nsp/.claude"
+runat "$d17" >/dev/null || fail "install for spaced-uninstall case failed"
+mkdir -p "$tmp/sp ace"
+mv "$tmp/nsp/.claude" "$tmp/sp ace/.claude"
+sed "s#$tmp/nsp/.claude#$tmp/sp ace/.claude#g" "$tmp/sp ace/.claude/settings.json" > "$tmp/settings17"
+mv "$tmp/settings17" "$tmp/sp ace/.claude/settings.json"
+HOME="$home" CLAUDE_DIR="$tmp/sp ace/.claude" bash "$rel/install.sh" --uninstall > "$tmp/out17c" 2>&1 \
+  || { tail -5 "$tmp/out17c"; fail "uninstall refused a Claude dir with a space"; }
+[[ ! -e "$tmp/sp ace/.claude/agents/engineer.md" && ! -e "$tmp/sp ace/.claude/.agentic-os-manifest.json" ]] || fail "spaced uninstall left owned files"
+jq -e '. == {}' "$tmp/sp ace/.claude/settings.json" >/dev/null || fail "spaced uninstall left hook entries: $(cat "$tmp/sp ace/.claude/settings.json")"
+ok "an existing install in a dir with a space can still be uninstalled"
 
 # ── 18. Preflight: odd TMPDIR, library exits, and a spoofed API marker ──────
 shim="$tmp/gnu-mktemp"

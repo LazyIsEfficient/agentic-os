@@ -105,20 +105,25 @@ fi
 
 if [[ "$PLATFORM" == "claude" ]]; then
   DEST="${CLAUDE_DIR:-$HOME/.claude}"
-  # No whitespace: Claude hook commands are registered unquoted
-  # (`bash <DEST>/hooks/x.sh`, the template form the owned-handler match
-  # relies on), so a space would split the path and run something else.
-  if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._-]+$ ]]; then
-    echo "Error: unsafe CLAUDE_DIR/DEST (whitespace and shell metacharacters are not allowed): $DEST" >&2
+  if [[ ! "$DEST" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
+    echo "Error: unsafe CLAUDE_DIR/DEST (shell metacharacters not allowed): $DEST" >&2
     exit 1
   fi
+  # No whitespace for install/update: Claude hook commands are registered
+  # unquoted (`bash <DEST>/hooks/x.sh`, the template form the owned-handler
+  # match relies on), so a space would split the path and run something else.
   # The registered path is the canonical one (pwd -P), so a symlinked parent
-  # must not resolve to a path with whitespace either.
-  dest_anc="$DEST"
-  while [[ ! -d "$dest_anc" ]]; do dest_anc="$(dirname "$dest_anc")"; done
-  if [[ "$(cd "$dest_anc" && pwd -P)" =~ [[:space:]] ]]; then
-    echo "Error: CLAUDE_DIR/DEST resolves to a path with whitespace ($(cd "$dest_anc" && pwd -P)); hook commands would be split. Nothing was changed." >&2
-    exit 1
+  # must not resolve to whitespace either. Uninstall only string-compares and
+  # deletes manifest files (all quoted), so it stays allowed, letting an
+  # install made before this check be removed.
+  if [[ "$UNINSTALL" != "true" ]]; then
+    dest_anc="$DEST"
+    while [[ ! -d "$dest_anc" ]]; do dest_anc="$(dirname "$dest_anc")"; done
+    if [[ "$DEST" =~ [[:space:]] || "$(cd "$dest_anc" && pwd -P)" =~ [[:space:]] ]]; then
+      echo "Error: CLAUDE_DIR/DEST contains (or resolves to) whitespace: $DEST — hook commands would be split." >&2
+      echo "  Install to a path without spaces. To move an existing install: run this script with --uninstall and the same CLAUDE_DIR, then reinstall elsewhere. Nothing was changed." >&2
+      exit 1
+    fi
   fi
 else
   if [[ "$CODEX_SCOPE" == "project" ]]; then
@@ -136,7 +141,6 @@ else
     CODEX_SKILLS_DEST="${CODEX_SKILLS_DIR:-$HOME/.agents/skills}"
   fi
   CODEX_AGENTS_DEST="$CODEX_CONFIG_DIR/agents"
-  CODEX_HOOKS_DEST="$CODEX_CONFIG_DIR/hooks"
 
   for path in "$CODEX_CONFIG_DIR" "$CODEX_SKILLS_DEST"; do
     if [[ ! "$path" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
@@ -477,9 +481,11 @@ preflight_hook_settings() {
     exit 1
   fi
   [[ -f "$dir/$name" ]] || return 0
-  # Fixed, charset-safe template (not $TMPDIR, which may hold characters the
-  # library's destination check rejects); cleaned up by the EXIT trap.
-  scratch="$(mktemp -d /tmp/agentic-os-preflight.XXXXXX)"
+  # $TMPDIR only if it passes the library's destination charset, else /tmp;
+  # unique via mktemp, cleaned up by the EXIT trap.
+  local base="${TMPDIR:-/tmp}"
+  [[ "$base" =~ ^[/.a-zA-Z0-9._-]+$ ]] || base=/tmp
+  scratch="$(mktemp -d "${base%/}/agentic-os-preflight.XXXXXX")"
   PREFLIGHT_DIRS="$PREFLIGHT_DIRS $scratch"
   cp "$dir/$name" "$scratch/$name"
   local ok=true
@@ -514,6 +520,13 @@ verify_hooks() {
   if [[ "$bad" -ne 0 ]]; then
     echo "Error: not every AgenticOS hook could be installed at the release version. Files that could be placed were already copied; only hook registration and the manifest update were withheld (planned removals were skipped too). Fix the paths reported above, then re-run to finish." >&2
     exit 1
+  fi
+  # Executable bit on the verified shipped hooks only (never on a user's own
+  # files in hooks/, nor through a hard link).
+  if [[ "$DRY_RUN" != "true" ]]; then
+    while IFS= read -r rel; do
+      if [[ "$rel" == *.sh && -n "$(find "$root/$rel" -links 1 -print)" ]]; then chmod +x "$root/$rel"; fi
+    done < <(cd "$stage" && find hooks -type f | LC_ALL=C sort)
   fi
 }
 
@@ -651,8 +664,15 @@ sync_place() {
     done < <(find "$root/$d" ! -type d -print0)
     [[ -s "$w/legacy.lst" ]] || continue
     if [[ "$PRUNE_LEGACY" == "true" ]]; then
+      # Only a byte-exact copy of an earlier AgenticOS release of that path
+      # is ours to delete; notes the user added, edits, or another tool's
+      # files of the same name stay (and so does the dir).
       while IFS= read -r -d '' frel; do
-        printf '%s\0%s\0' "$frel" "retired skill $t (--prune-legacy)" >> "$w/remove.lst"
+        if unmodified "$w/known.tsv" "$frel" "$(sha256_of "$root/$frel")" "-"; then
+          printf '%s\0%s\0' "$frel" "retired skill $t (--prune-legacy)" >> "$w/remove.lst"
+        else
+          kept "keep $frel — not an AgenticOS release file (retired skill $t)"
+        fi
       done < "$w/legacy.lst"
     else
       warn "retired skill directory $d is still installed (predates the manifest) — re-run with --prune-legacy to remove it"
@@ -889,9 +909,6 @@ if [[ "$PLATFORM" == "claude" ]]; then
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into ${DEST%/}/settings.json"
   else
-    if [[ -d "$DEST/hooks" ]]; then
-      find "$DEST/hooks" -type f -links 1 -name "*.sh" -exec chmod +x {} \;
-    fi
     merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS $(tr '\n' ' ' < "$WORK/retired.derived")"
   fi
   sync_finish "${CLAUDE_ARGS[@]}"
@@ -920,16 +937,17 @@ else
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into $CODEX_CONFIG_DIR/hooks.json"
   else
-    if [[ -d "$CODEX_HOOKS_DEST" ]]; then
-      find "$CODEX_HOOKS_DEST" -type f -links 1 -name "*.sh" -exec chmod +x {} \;
-    fi
     merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR"
   fi
   sync_finish "${SKILLS_ARGS[@]}"
   sync_finish "${CONFIG_ARGS[@]}"
 
   echo ""
-  echo "${P}Done. Restart Codex to load the skills and agents. Review and trust the new hooks with /hooks."
+  if [[ "$DRY_RUN" == "true" || "${CODEX_HOOKS_REGISTERED:-false}" == "true" ]]; then
+    echo "${P}Done. Restart Codex to load the skills and agents. Review and trust the new hooks with /hooks."
+  else
+    echo "Done. Restart Codex to load the skills and agents. Hooks were NOT registered: jq is needed to merge them into the existing $CODEX_CONFIG_DIR/hooks.json. Install jq and re-run."
+  fi
   echo "Claude slash commands and custom .claude/memory hooks were not installed; Codex uses skills/custom agents and its native memory system instead."
 fi
 

@@ -147,6 +147,9 @@ if ($tombLine) { $Tombstones = @($tombLine.Matches[0].Groups[1].Value -split ' '
 
 # Absolute install root (relative -Dest resolves against PowerShell's CWD).
 $Root  = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Dest).TrimEnd('\', '/')
+# A relative -Dest resolves against the current dir, which may hold spaces;
+# hook commands are registered unquoted, so the resolved path must not.
+if (-not $Uninstall -and $Root -match '\s') { throw "Error: -Dest resolves to a path with whitespace ($Root); hook commands would be split. Use a path without spaces (to move an existing install: -Uninstall with the same -Dest, then reinstall)." }
 $Work  = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 $Stage = Join-Path $Work "stage"
@@ -656,7 +659,12 @@ foreach ($t in $Tombstones) {
   })
   if ($legacy.Count -eq 0) { continue }
   if ($PruneLegacy) {
-    foreach ($rel in $legacy) { [void]$removals.Add(@($rel, "retired skill $t (-PruneLegacy)")) }
+    # Only a byte-exact copy of an earlier AgenticOS release of that path is
+    # ours to delete; anything else (user notes, another tool's files) stays.
+    foreach ($rel in $legacy) {
+      if (Test-Unmodified $rel (Get-Sha (Join-Rel $Root $rel)) $null) { [void]$removals.Add(@($rel, "retired skill $t (-PruneLegacy)")) }
+      else { Kept "keep $rel — not an AgenticOS release file (retired skill $t)" }
+    }
   } else {
     Warn "retired skill directory skills/$t is still installed (predates the manifest) — re-run with -PruneLegacy to remove it"
   }
