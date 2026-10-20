@@ -504,7 +504,17 @@ check_consumer_doctrine() {
   if grep -q 'agentic-os:doctrine:' "$df"; then
     fail consumer-doctrine "$df" "contains the installer's agentic-os:doctrine:* block markers"
   fi
-  local builder="$ROOT/scripts/build-consumer-doctrine.sh"
+  local builder="$ROOT/scripts/build-consumer-doctrine.sh" m
+  # The builder hashes Codex blocks with the same markers the installers write.
+  for m in begin end; do
+    if [[ -f "$ROOT/install.sh" ]] && grep -q -- '--with-doctrine' "$ROOT/install.sh" \
+       && ! grep -qF "=\"<!-- agentic-os:doctrine:$m -->\"" "$ROOT/install.sh"; then
+      fail consumer-doctrine "$ROOT/install.sh" "DOC_$m marker is not <!-- agentic-os:doctrine:$m -->"
+    fi
+    if [[ -f "$builder" ]] && ! grep -qF "='<!-- agentic-os:doctrine:$m -->'" "$builder"; then
+      fail consumer-doctrine "$builder" "$m marker is not <!-- agentic-os:doctrine:$m -->"
+    fi
+  done
   if [[ -f "$builder" ]] && ! bash "$builder" --check >/dev/null 2>&1; then
     fail consumer-doctrine "$df" "out of sync with .claude/rules/ (or a curation rewrite no longer matches) — run scripts/build-consumer-doctrine.sh"
   fi

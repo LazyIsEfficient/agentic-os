@@ -413,6 +413,8 @@ safe_rel() {
     skill="$first"
   else
     case " $allow " in *" $first "*) ;; *) return 1 ;; esac
+    # agentic-os/ holds exactly one AgenticOS file.
+    if [[ "$first" == "agentic-os" && "$rel" != "$DOCTRINE_REL" ]]; then return 1; fi
     if [[ "$first" == "skills" ]]; then skill="${rel#skills/}"; skill="${skill%%/*}"; fi
   fi
   if [[ -n "$skill" ]]; then
@@ -630,6 +632,16 @@ doc_cur_sha() {
   sha256_of "$WORK/doctrine.curnorm"
 }
 
+# True when LF-normalised sha $1 is a block this release writes, or one an
+# earlier release wrote (Codex inlines the doctrine, so each doctrine version
+# is a different block; scripts/build-consumer-doctrine.sh appends every
+# version's sha to DOC_KNOWN_FILE and never removes one).
+doc_known_block() {
+  [[ "$1" == "$DOC_BLOCK_SHA" ]] && return 0
+  [[ "$PLATFORM" != "claude" && -f "$DOC_KNOWN_FILE" ]] || return 1
+  grep -qxF -- "$1" "$DOC_KNOWN_FILE"
+}
+
 # Decide DOC_MODE before anything is written. Exits (nothing changed) on an
 # explicit --with-doctrine whose target cannot be managed.
 doctrine_plan() {
@@ -655,9 +667,11 @@ doctrine_plan() {
     else
       state=block
       cur="$(doc_cur_sha "$f")"
-      # With no record, only a block this release would write is ours.
-      if [[ -z "$DOC_OLD_SHA" && "$cur" != "$DOC_BLOCK_SHA" ]]; then
-        state=malformed; why="has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record"
+      # Ours only if it is a block this or an earlier release writes. A
+      # manifest record is no proof: in project scope the repository ships it.
+      if ! doc_known_block "$cur"; then
+        state=foreign
+        why="holds an AgenticOS doctrine block that matches no block AgenticOS has shipped (edited by hand, or not written by AgenticOS)"
       fi
     fi
   fi
@@ -670,16 +684,26 @@ doctrine_plan() {
       malformed)
         echo "Error: $f $why. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
         exit 1 ;;
+      foreign)
+        # The user asked for the doctrine: an edited block of an install they
+        # recorded is refreshed (after a .bak); markers with no record are not.
+        if [[ -z "$DOC_OLD_SHA" ]]; then
+          echo "Error: $f has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
+          exit 1
+        fi ;;
     esac
     DOC_MODE=write
   elif [[ "$UNINSTALL" == "true" ]]; then
     case "$state" in
-      unsafe|malformed) [[ -n "$DOC_OLD_SHA" || "$state" == malformed ]] && { DOC_MODE=handsoff; DOC_WHY="$why"; } ;;
+      # Unsafe with no record: nothing says AgenticOS ever wrote there, so a
+      # user who never used the flag sees no doctrine output at all (off).
+      unsafe) if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE=handsoff; DOC_WHY="$why"; fi ;;
+      malformed|foreign) DOC_MODE=handsoff; DOC_WHY="$why" ;;
       block) DOC_MODE=write ;;
     esac
   else
     case "$state" in
-      unsafe|malformed) DOC_MODE=handsoff; DOC_WHY="$why" ;;
+      unsafe|malformed|foreign) DOC_MODE=handsoff; DOC_WHY="$why" ;;
       block) DOC_MODE=write ;;
       none|absent) DOC_MODE=optout ;;
     esac
@@ -750,9 +774,12 @@ doctrine_apply() {
     [[ "$DRY_RUN" == "true" ]] || doc_write "$WORK/doctrine.lf" "$f"
     return 0
   fi
-  DOC_CREATED="${DOC_OLD_CREATED:-false}"
   doc_scan "$f"
   doc_block_eol > "$blk"
+  # The file existed: "created" survives only for a block this install put in
+  # a file it created (a re-add into the user's own file is not a creation).
+  DOC_CREATED=false
+  if [[ "$DOC_B" != 0 && "$DOC_OLD_CREATED" == "true" ]]; then DOC_CREATED=true; fi
   if [[ "$DOC_B" == 0 ]]; then
     {
       cat "$blk"
@@ -770,7 +797,7 @@ doctrine_apply() {
     cur="$(doc_cur_sha "$f")"
     # (BSD head rejects -n 0.)
     { if [[ "$DOC_B" -gt 1 ]]; then head -n "$((DOC_B - 1))" "$f"; fi; cat "$blk"; tail -n "+$((DOC_E + 1))" "$f"; } > "$new"
-    if [[ "$cur" == "$DOC_BLOCK_SHA" || ( -n "$DOC_OLD_SHA" && "$cur" == "$DOC_OLD_SHA" ) ]]; then
+    if doc_known_block "$cur"; then
       note "update the AgenticOS doctrine block in $f"
     else
       bak="$(doc_backup "$f")"
@@ -783,18 +810,14 @@ doctrine_apply() {
 # Uninstall: remove the block. Deletes the file only when the installer
 # created it and nothing else is left in it.
 doctrine_remove() {
-  local f="$DOC_TARGET" rest="$WORK/doctrine.rest" new="$WORK/doctrine.new" cur bak
+  local f="$DOC_TARGET" rest="$WORK/doctrine.rest" new="$WORK/doctrine.new"
   case "$DOC_MODE" in
     handsoff) doc_handsoff_warning; return 0 ;;
     write) ;;
     *) return 0 ;;
   esac
+  # DOC_MODE=write here means the block is one AgenticOS ships (doctrine_plan).
   doc_scan "$f"
-  cur="$(doc_cur_sha "$f")"
-  if [[ "$cur" != "$DOC_BLOCK_SHA" && ( -z "$DOC_OLD_SHA" || "$cur" != "$DOC_OLD_SHA" ) ]]; then
-    bak="$(doc_backup "$f")"
-    warn "the doctrine block in $f differed from what AgenticOS wrote; the whole file is saved as $bak"
-  fi
   tail -n "+$((DOC_E + 1))" "$f" > "$rest"
   if [[ "$DOC_B" == 1 && "$DOC_OLD_CREATED" != "true" ]]; then
     # Drop the one blank separator line the installer put after the block (a
@@ -1060,6 +1083,9 @@ uninstall_root() {
       unsafe "$rel"
     elif [[ "$csha" == "-" ]]; then
       continue
+    elif [[ "$id" == claude && "$DOC_MODE" == handsoff && "$rel" == "$DOCTRINE_REL" ]]; then
+      # The CLAUDE.md block left in place may still import it.
+      warn "keep $rel — the CLAUDE.md block AgenticOS could not remove may still import it; delete it after removing that block"
     elif unmodified "$w/known.tsv" "$rel" "$csha" "$osha"; then
       note "remove $rel"
       [[ "$DRY_RUN" == "true" ]] || rm -f "$root/$rel"
@@ -1160,6 +1186,7 @@ CODEX_CONFIG_ALLOW="agents hooks"
 # flag keeps the block current only while the target still holds it (see
 # doctrine_plan).
 DOCTRINE_SRC="$REPO_ROOT/assets/consumer/${DOCTRINE_REL#*/}"
+DOC_KNOWN_FILE="$REPO_ROOT/assets/consumer/doctrine-block-shas.txt"
 if [[ "$PLATFORM" == "claude" ]]; then
   DOC_TARGET="${DEST%/}/$CLAUDE_MD"; DOC_MF_ROOT="$DEST"
 elif [[ "$CODEX_SCOPE" == "project" ]]; then

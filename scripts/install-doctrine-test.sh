@@ -10,7 +10,8 @@
 # ~/.claude and ~/.codex are never touched, and the claude CLI is never run.
 #
 # The no-flag parity case needs the pre-#271 install.sh from git history
-# (BASE_REV); in a shallow clone without it, that case is reported as SKIP.
+# (BASE_REV). In a shallow clone without it, that case is SKIPped locally and
+# FAILs when CI is set.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -192,10 +193,12 @@ cmp -s "$cf" <(claude_block; printf '\nmine\n') || fail "edited block was not re
 bak="$(ls "$h/.claude"/CLAUDE.md.bak.* 2>/dev/null | head -n 1 || true)"
 [[ -n "$bak" ]] && cmp -s "$bak" "$tmp/edited-copy" || fail "no byte-exact backup of the edited file"
 awk -v b="$BEGIN" '{ print } $0 == b { print "edited again" }' "$cf" > "$tmp/edited" && cat "$tmp/edited" > "$cf"
+cp "$cf" "$tmp/edited-again"
 runc "$h" --uninstall > "$tmp/o-edited-u" || fail "uninstall over an edited block failed"
-[[ "$(cat "$cf")" == "mine" ]] || fail "uninstall over an edited block did not restore the user content"
-[[ "$(ls "$h/.claude"/CLAUDE.md.bak.* | wc -l | tr -d ' ')" == 2 ]] || fail "uninstall did not back up the edited block"
-ok "a user-edited block is refreshed (install) or removed (uninstall) only after a byte-exact .bak"
+grep -q 'matches no block AgenticOS has shipped' "$tmp/o-edited-u" || fail "uninstall did not warn about the edited block"
+cmp -s "$cf" "$tmp/edited-again" || fail "uninstall changed an edited block (it must be left for the user)"
+[[ -f "$h/.claude/agentic-os/doctrine.md" ]] || fail "hands-off uninstall removed the doctrine file the block still imports"
+ok "an edited block is refreshed after a byte-exact .bak with --with-doctrine, and left alone (with a warning) by uninstall"
 
 # ── 5. Refusals: symlink, hard link, malformed markers ──────────────────────
 h="$(newhome symlink)"; mkdir -p "$h/.claude" "$h/elsewhere"
@@ -380,7 +383,8 @@ grep -q "delete the lines from '<!-- agentic-os:doctrine:begin -->'" "$tmp/o-sl"
 runc "$h" --uninstall > "$tmp/o-slu" || { cat "$tmp/o-slu"; fail "uninstall with a symlinked CLAUDE.md failed (must warn and carry on)"; }
 grep -q 'CLAUDE.md is a symlink — AgenticOS leaves it untouched' "$tmp/o-slu" || fail "no hands-off warning (uninstall)"
 [[ -L "$h/.claude/CLAUDE.md" ]] && cmp -s "$h/dotfiles/CLAUDE.md" "$tmp/sl.orig" || fail "uninstall touched the symlinked CLAUDE.md"
-[[ ! -e "$h/.claude/.agentic-os-manifest.json" && ! -e "$h/.claude/agentic-os" ]] || fail "uninstall did not finish"
+[[ ! -e "$h/.claude/.agentic-os-manifest.json" ]] || fail "uninstall did not finish"
+[[ -f "$h/.claude/agentic-os/doctrine.md" ]] || fail "hands-off uninstall removed the doctrine file the left-behind import points at"
 ok "a symlinked CLAUDE.md under sticky mode or uninstall: warned, left untouched, the rest completes"
 
 h="$(newhome stickyhl)"; mkdir -p "$h/.claude"
@@ -429,6 +433,64 @@ printf '\n# my notes\n' >> "$h/.claude/CLAUDE.md"
 runc "$h" --uninstall >/dev/null || fail "uninstall (created-blank) failed"
 cmp -s "$h/.claude/CLAUDE.md" <(printf '\n# my notes\n') || fail "uninstall stripped a blank line the user wrote in a file the installer created"
 ok "uninstall strips the separator only from files the installer did not create"
+
+# ── 17. A forged record never makes foreign markers ours (round 3, 12C) ─────
+h="$(newhome forged-markers)"; mkdir -p "$h/proj/.codex"
+printf '%s\nREPO-OWNED-CANARY\n%s\n' "$BEGIN" "$END" > "$h/proj/AGENTS.md"
+cp "$h/proj/AGENTS.md" "$tmp/canary.orig"
+for forged in "$(sha "$h/proj/AGENTS.md")" 0000000000000000000000000000000000000000000000000000000000000000; do
+  printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' "$forged" \
+    > "$h/proj/.codex/.agentic-os-manifest.json"
+  runp "$h" > "$tmp/o-fm" || { cat "$tmp/o-fm"; fail "flagless project run over forged markers failed"; }
+  cmp -s "$h/proj/AGENTS.md" "$tmp/canary.orig" || fail "a forged record let a flagless run rewrite repo-owned markers"
+  grep -q 'matches no block AgenticOS has shipped' "$tmp/o-fm" || fail "no hands-off warning for foreign markers"
+  printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' "$forged" \
+    > "$h/proj/.codex/.agentic-os-manifest.json"
+  runp "$h" --uninstall > "$tmp/o-fmu" || { cat "$tmp/o-fmu"; fail "uninstall over forged markers failed"; }
+  [[ -f "$h/proj/AGENTS.md" ]] || fail "uninstall deleted a repo AGENTS.md on a forged created=true record"
+  [[ "$(grep -c REPO-OWNED-CANARY "$h/proj/AGENTS.md")" == 1 ]] || fail "the canary did not survive uninstall"
+  ! ls "$h/proj"/AGENTS.md.bak.* >/dev/null 2>&1 || fail "a forged record produced a backup write in the project"
+done
+ok "12C: a repo-committed record (real or zero sha) never rewrites or deletes repo-owned markers; the canary survives"
+
+# ── 18. A stale created=true is not carried into the user's own file ───────
+h="$(newhome stale-created)"
+runc "$h" --with-doctrine >/dev/null || fail "install (stale-created) failed"
+jq -e '.doctrine.created == true' "$h/.claude/.agentic-os-manifest.json" >/dev/null || fail "stale-created: setup"
+printf 'MY OWN RULES\n' > "$h/.claude/CLAUDE.md"
+runc "$h" --with-doctrine >/dev/null || fail "re-add into the user's file failed"
+jq -e '.doctrine.created == false' "$h/.claude/.agentic-os-manifest.json" >/dev/null || fail "created=true carried into a file the user wrote"
+runc "$h" --uninstall >/dev/null || fail "uninstall (stale-created) failed"
+cmp -s "$h/.claude/CLAUDE.md" <(printf 'MY OWN RULES\n') || fail "uninstall left a stray separator in the user's file"
+h="$(newhome stale-created-empty)"
+runc "$h" --with-doctrine >/dev/null || fail "install (stale-created-empty) failed"
+: > "$h/.claude/CLAUDE.md"
+runc "$h" --with-doctrine >/dev/null || fail "re-add into an empty user file failed"
+runc "$h" --uninstall >/dev/null || fail "uninstall (stale-created-empty) failed"
+[[ -f "$h/.claude/CLAUDE.md" && ! -s "$h/.claude/CLAUDE.md" ]] || fail "uninstall deleted the user's (empty) CLAUDE.md on a stale created=true"
+ok "created is true only when the installer made the file; a re-add into the user's file records false"
+
+# ── 19. TOCTOU: a target swapped for a symlink mid-write is not written ────
+h="$(newhome toctou)"; mkdir -p "$h/.claude" "$h/elsewhere" "$h/bin"
+printf 'mine\n' > "$h/.claude/CLAUDE.md"; printf 'victim\n' > "$h/elsewhere/victim.md"
+realcat="$(command -v cat)"
+cat > "$h/bin/cat" <<EOF
+#!/bin/bash
+# Swap CLAUDE.md for a symlink right after the plan, while the new content is
+# being written to the temp file.
+if [[ "\${1:-}" == */doctrine.new && ! -L "$h/.claude/CLAUDE.md" ]]; then
+  mv "$h/.claude/CLAUDE.md" "$h/.claude/CLAUDE.md.moved"; ln -s "$h/elsewhere/victim.md" "$h/.claude/CLAUDE.md"
+fi
+exec "$realcat" "\$@"
+EOF
+chmod +x "$h/bin/cat"
+if HOME="$h" CLAUDE_DIR="$h/.claude" PATH="$h/bin:$PATH" timeout 300 bash "$rel/install.sh" --with-doctrine > "$tmp/o-toctou" 2>&1; then
+  fail "install wrote through a target swapped for a symlink mid-run"
+fi
+grep -q 'changed during the install' "$tmp/o-toctou" || { tail -5 "$tmp/o-toctou"; fail "no TOCTOU error"; }
+[[ -L "$h/.claude/CLAUDE.md" ]] || fail "the swapped-in symlink was replaced"
+[[ "$(cat "$h/elsewhere/victim.md")" == "victim" ]] || fail "the symlink target was written"
+ok "the target is re-checked right before mv: a symlink swapped in mid-run is refused, nothing written through it"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"

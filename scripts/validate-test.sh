@@ -190,6 +190,17 @@ rm -f "$c4o/scripts/build-consumer-doctrine.sh"
 printf '<!-- agentic-os:doctrine:end -->\n' >> "$c4o/assets/consumer/doctrine.md"
 assert_trips "case 4o consumer-doctrine (block marker inside doctrine)" "$c4o" consumer-doctrine
 
+# ── Case 4p: consumer-doctrine — known-block list lacks the current block ─────
+c4p="$(make_copy)"
+grep '^#' "$c4p/assets/consumer/doctrine-block-shas.txt" > "$c4p/kb.tmp" && mv "$c4p/kb.tmp" "$c4p/assets/consumer/doctrine-block-shas.txt"
+assert_trips "case 4p consumer-doctrine (known-block list missing current sha)" "$c4p" consumer-doctrine
+
+# ── Case 4q: consumer-doctrine — builder and installer markers disagree ───────
+c4q="$(make_copy)"
+sed "s#^END_MARKER='<!-- agentic-os:doctrine:end -->'#END_MARKER='<!-- agentic-os:doctrine:END -->'#" \
+  "$c4q/scripts/build-consumer-doctrine.sh" > "$c4q/b.tmp" && mv "$c4q/b.tmp" "$c4q/scripts/build-consumer-doctrine.sh"
+assert_trips "case 4q consumer-doctrine (builder marker drift)" "$c4q" consumer-doctrine
+
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"
 mkdir -p "$c5/.claude/memory"
