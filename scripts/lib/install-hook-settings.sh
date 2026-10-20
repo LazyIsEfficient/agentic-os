@@ -2,6 +2,12 @@
 # install-hook-settings.sh — merge consumer hook registration into global config,
 # and remove it again on uninstall. Sourced by install.sh (not executed directly).
 
+# Interface version. install.sh refuses to run against a library older than it
+# expects (e.g. a new install.sh over an older release payload). Bump when a
+# function install.sh calls is added or changes meaning.
+# shellcheck disable=SC2034  # read by install.sh
+AGENTIC_OS_HOOK_LIB_API=2
+
 _validate_install_dest() {
   local dest="$1"
   if [[ ! "$dest" =~ ^[/.a-zA-Z0-9._\ -]+$ ]]; then
@@ -97,27 +103,13 @@ _CODEX_HOOKS_JQ='
   end
 '
 
-# $3 = "check": only verify an existing hooks.json would merge (writes nothing).
 merge_codex_hook_settings() {
-  local repo_root="$1" dest="$2" mode="${3:-}"
+  local repo_root="$1" dest="$2"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/codex-hooks.json"
   local dest_file="$dest/hooks.json"
   [[ -f "$src" ]] || return 0
   _refuse_link "$dest_file" || return 1
-  if [[ "$mode" == "check" ]]; then
-    if [[ ! -f "$dest_file" ]] || ! command -v jq &>/dev/null; then return 0; fi
-    local probe
-    probe="$(mktemp)"
-    if ! jq --arg mode merge --argjson incoming "$(_codex_hooks_json_for_dest "$src" "$dest/hooks")" \
-        "$_CODEX_HOOKS_JQ" "$dest_file" > "$probe" 2>/dev/null; then
-      rm -f "$probe"
-      echo "Error: $dest_file cannot be merged (is it valid JSON?) — fix it first. Nothing was changed." >&2
-      return 1
-    fi
-    rm -f "$probe"
-    return 0
-  fi
   mkdir -p "$dest"
 
   if ! command -v jq &>/dev/null; then
@@ -248,30 +240,13 @@ _CLAUDE_HOOKS_JQ='
     end
 '
 
-# $3 = space-separated retired hook basenames (optional). $4 = "check": only
-# verify an existing settings.json would merge (writes and creates nothing).
+# $3 = space-separated retired hook basenames (optional).
 merge_claude_hook_settings() {
-  local repo_root="$1" dest="$2" retired="${3:-}" mode="${4:-}"
+  local repo_root="$1" dest="$2" retired="${3:-}"
   _validate_install_dest "$dest"
   local src="$repo_root/assets/consumer/claude-settings.json"
   [[ -f "$src" ]] || return 0
   _refuse_link "$dest/settings.json" || return 1
-  if [[ "$mode" == "check" ]]; then
-    if [[ ! -f "$dest/settings.json" ]] || ! command -v jq &>/dev/null; then return 0; fi
-    local cdest probe
-    cdest="$(cd "$dest" && pwd -P)"
-    probe="$(mktemp)"
-    if ! jq --arg mode merge --argjson incoming "$(_claude_hooks_json_for_dest "$src" "$cdest/hooks")" \
-        --slurpfile tpl "$src" --argjson retired "$(_retired_hooks_json "$retired")" \
-        --arg canon "$cdest/hooks" --arg given "${dest%/}/hooks" \
-        "$_CLAUDE_HOOKS_JQ" "$cdest/settings.json" > "$probe" 2>/dev/null; then
-      rm -f "$probe"
-      echo "Error: $cdest/settings.json cannot be merged (needs valid JSON with an object \"hooks\") — fix it first. Nothing was changed." >&2
-      return 1
-    fi
-    rm -f "$probe"
-    return 0
-  fi
 
   # Canonicalise DEST (trailing slashes, `..`, symlinks) so `CLAUDE_DIR=~/.claude/`
   # and `~/.claude` produce identical commands and never double-register.

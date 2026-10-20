@@ -9,7 +9,7 @@
 # is updated, instead of being kept forever as "modified locally".
 #
 # Deterministic: same tags in, same bytes out. Run at every release, before
-# tagging (RELEASING.md step 1); scripts/release.sh refuses to build while the
+# tagging (RELEASING.md step 0); scripts/release.sh refuses to build while the
 # committed file is stale.
 #
 # Usage:

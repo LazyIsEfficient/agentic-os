@@ -153,9 +153,13 @@ $Stage = Join-Path $Work "stage"
 $Stamp = "$(Get-Date -Format "yyyyMMddHHmmss").$PID"
 $Pfx   = if ($DryRun) { "[dry-run] " } else { "" }
 $script:Warnings = 0
+$script:Kept = 0
+$script:Unsafe = 0
+$script:UnsafeRels = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
 
 function Note([string]$Msg) { Write-Host "  $Pfx$Msg" }
 function Warn([string]$Msg) { Write-Host "  ! $Pfx$Msg"; $script:Warnings++ }
+function Kept([string]$Msg) { Warn $Msg; $script:Kept++ }
 
 # ── Manifest ───────────────────────────────────────────────────────────────────
 
@@ -216,6 +220,20 @@ function Test-SafeRel([string]$Rel) {
 function Skip-Unsafe([string]$Rel) {
   $shown = $Rel -replace "`r", '\r' -replace "`n", '\n'
   Warn "skip $shown — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
+  $script:Unsafe++
+  [void]$script:UnsafeRels.Add($Rel)
+}
+
+# A shipped top-level dir that is itself a symlink/junction (stow-style
+# dotfiles) would turn every file in it into an unsafe-path skip. Refuse it
+# once, up front (same rule as install.sh refuse_linked_dirs).
+function Assert-NoLinkedDirs {
+  foreach ($d in $ShippedPrefixes) {
+    $p = Join-Path $Root $d
+    if (Test-ReparsePoint $p) {
+      throw "Error: $p is a symlink. AgenticOS never writes or deletes through a symlink, so it cannot manage that directory. Replace it with a real directory (copy the link target's contents into it), then re-run. Nothing was changed."
+    }
+  }
 }
 
 # rel -> sha for every file under $Dir (paths use '/').
@@ -483,6 +501,7 @@ if ($Uninstall) {
   # Unregister hooks BEFORE deleting files: if the settings rewrite fails, the
   # hook scripts it still points at are left in place.
   Write-Host ""
+  Assert-NoLinkedDirs
   Write-Host "Hook registration: $(Join-Path $Root 'settings.json')"
   $script:DerivedRetired = @((Read-Manifest $Root).Keys | Where-Object { $_ -cmatch '^hooks/[A-Za-z0-9._-]+\.sh$' } | ForEach-Object { $_.Substring(6) })
   if (Test-Path -LiteralPath $Root) { Update-ClaudeHookSettings "uninstall" }
@@ -502,7 +521,7 @@ if ($Uninstall) {
         if (-not $DryRun) { Remove-Item -LiteralPath $target -Force }
         $dirs += (Get-RelDir $rel); $removed++
       } else {
-        Warn "keep $rel — modified locally"; $kept++
+        Kept "keep $rel — modified locally"; $kept++
       }
     }
     Remove-EmptyDirs $Root $dirs
@@ -513,7 +532,7 @@ if ($Uninstall) {
   Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
   if ($TmpDir -and (Test-Path $TmpDir)) { Remove-Item $TmpDir -Recurse -Force }
   Write-Host ""
-  Write-Host "${Pfx}Uninstall complete: $($script:Warnings) file(s) kept with a warning. Hook backups (*.bak.*) and files you created were not touched."
+  Write-Host "${Pfx}Uninstall complete: $($script:Kept) modified file(s) kept, $($script:Unsafe) unsafe path(s) skipped. Hook backups (*.bak.*) and files you created were not touched."
   exit 0
 }
 
@@ -567,7 +586,9 @@ Install-Dir "hooks"
 foreach ($item in Get-ChildItem -LiteralPath $Stage -Recurse -Force) {
   if ($item.Name -cnotmatch '^[A-Za-z0-9._@+-]+$') { throw "Error: release contains a path outside [A-Za-z0-9._@+-] — refusing to install: $($item.FullName)" }
 }
-# Fail fast, before anything is copied: an unmergeable settings.json throws here.
+# Fail fast, before anything is copied: a symlinked shipped dir or an
+# unmergeable settings.json throws here.
+Assert-NoLinkedDirs
 Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
@@ -592,7 +613,7 @@ foreach ($rel in (Get-SortedKeys $all)) {
     else {
       # Stays tracked, so uninstall and -PruneLegacy still see it as modified.
       $manifest[$rel] = $osha
-      Warn "keep $rel — no longer shipped, but modified locally"
+      Kept "keep $rel — no longer shipped, but modified locally"
     }
     continue
   }
@@ -608,7 +629,7 @@ foreach ($rel in (Get-SortedKeys $all)) {
   } elseif ($rel.StartsWith("hooks/")) {
     # Shipped hooks are security-relevant: always take the release copy.
     $bak = "$rel.bak.$Stamp"; $n = 1
-    while (Test-Path -LiteralPath (Join-Rel $Root $bak)) { $bak = "$rel.bak.$Stamp.$n"; $n++ }
+    while ((Test-Path -LiteralPath (Join-Rel $Root $bak)) -or (Test-ReparsePoint (Join-Rel $Root $bak))) { $bak = "$rel.bak.$Stamp.$n"; $n++ }
     if (-not $DryRun) { Copy-Item -LiteralPath $target -Destination (Join-Rel $Root $bak) }
     Copy-Placed $from $target
     Warn "refresh hook $rel — it differed from the release copy; yours is saved as $bak"
@@ -616,9 +637,9 @@ foreach ($rel in (Get-SortedKeys $all)) {
   } elseif ($Force) {
     Copy-Placed $from $target; Note "overwrite $rel (-Force)"; $updated++
   } elseif ($null -eq $osha) {
-    Warn "keep $rel — differs from the release copy and predates the manifest (-Force overwrites)"; $legacyKept++
+    Kept "keep $rel — differs from the release copy and predates the manifest (-Force overwrites)"; $legacyKept++
   } else {
-    Warn "keep $rel — modified locally (-Force overwrites)"
+    Kept "keep $rel — modified locally (-Force overwrites)"
   }
 }
 
@@ -639,6 +660,22 @@ foreach ($t in $Tombstones) {
   } else {
     Warn "retired skill directory skills/$t is still installed (predates the manifest) — re-run with -PruneLegacy to remove it"
   }
+}
+
+# Every shipped hook must be on disk as a regular file at the release SHA
+# before it is registered; otherwise settings.json would run whatever is there.
+# A dry run fails on hooks it would have had to skip. On any miss: register
+# nothing, write no manifest, exit non-zero (same as install.sh verify_hooks).
+$badHooks = @(foreach ($rel in (Get-SortedKeys $new)) {
+  if (-not $rel.StartsWith("hooks/")) { continue }
+  $t = Join-Rel $Root $rel
+  if ($DryRun) { if ($script:UnsafeRels.Contains($rel)) { $rel } }
+  elseif (-not (Test-Path -LiteralPath $t -PathType Leaf) -or (Test-ReparsePoint $t) -or ((Get-Sha $t) -ne $new[$rel])) { $rel }
+})
+if ($badHooks.Count -gt 0) {
+  foreach ($h in $badHooks) { Write-Host "  X hook $h is not installed at the release version" }
+  Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
+  throw "Error: not every AgenticOS hook could be installed at the release version, so no hooks were registered and the manifest was not updated. Fix the paths reported above, then re-run."
 }
 
 Update-ClaudeHookSettings "merge"
@@ -666,5 +703,6 @@ if ($TmpDir -and (Test-Path $TmpDir)) {
 Write-Host ""
 Write-Host "${Pfx}Done. Restart Claude Code to load the new skills, agents, commands, and hooks."
 Write-Host ""
-if ($script:Warnings -gt 0) { Write-Host "$($script:Warnings) warning(s) above. Files you modified were kept; -Force overwrites them." }
+if ($script:Kept -gt 0) { Write-Host "$($script:Kept) file(s) you modified were kept; -Force overwrites them." }
+if ($script:Unsafe -gt 0) { Write-Host "$($script:Unsafe) path(s) were skipped as unsafe and left untouched (see the 'skip' lines above)." }
 Write-Host "To update later, re-run this script. To remove AgenticOS, re-run it with -Uninstall."

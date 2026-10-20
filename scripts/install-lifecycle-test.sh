@@ -353,13 +353,47 @@ printf 'my own hook\n' > "$outside/hook.sh"
 rm "$d5/hooks/block-bad-bash.sh"
 ln -s "$outside/hook.sh" "$d5/hooks/block-bad-bash.sh"
 before="$(snap "$outside")"
-runat "$d5" --force > "$tmp/out9b" || { cat "$tmp/out9b"; fail "--force with symlinks failed"; }
+settings_before="$(sha "$d5/settings.json")"
+manifest_before="$(sha "$d5/.agentic-os-manifest.json")"
+# A shipped hook that cannot be placed at the release SHA must not be
+# registered: the run fails, settings.json and the manifest stay as they were.
+if runat "$d5" --force > "$tmp/out9b"; then fail "--force succeeded though a shipped hook could not be placed"; fi
 [[ "$(snap "$outside")" == "$before" ]] || fail "update/--force wrote through a symlink outside the root"
 grep -q 'skip skills/autoresearch/SKILL.md — unsafe path' "$tmp/out9b" || fail "symlinked skill dir not reported"
 grep -q 'skip hooks/block-bad-bash.sh — unsafe path' "$tmp/out9b" || fail "symlinked hook file not reported"
+grep -q 'hook hooks/block-bad-bash.sh is not installed at the release version' "$tmp/out9b" || fail "unplaced hook not named"
+[[ "$(sha "$d5/settings.json")" == "$settings_before" ]] || fail "hooks registered although a shipped hook was not installed"
+[[ "$(sha "$d5/.agentic-os-manifest.json")" == "$manifest_before" ]] || fail "manifest rewritten after a failed hook install"
+if runat "$d5" --dry-run > "$tmp/out9d"; then fail "dry run succeeded though a shipped hook would be skipped"; fi
+grep -q 'hook hooks/block-bad-bash.sh would be skipped' "$tmp/out9d" || fail "dry run did not name the hook it would skip"
 runat "$d5" --uninstall > "$tmp/out9c" || { cat "$tmp/out9c"; fail "uninstall with symlinks failed"; }
 [[ "$(snap "$outside")" == "$before" ]] || fail "uninstall removed files through a symlink"
 ok "update, --force and uninstall never write or delete through a symlink"
+
+# ── 9b. A symlinked shipped top-level dir (stow-style) fails once, loudly ─
+d12="$tmp/stowed/.claude"
+runat "$d12" >/dev/null || fail "install for stow case failed"
+mv "$d12/hooks" "$outside/stowed-hooks"
+ln -s "$outside/stowed-hooks" "$d12/hooks"
+before="$(snap "$d12")"; before_out="$(snap "$outside/stowed-hooks")"
+for mode in "" --dry-run --uninstall; do
+  # shellcheck disable=SC2086  # $mode is empty or one flag
+  if runat "$d12" $mode > "$tmp/out12"; then fail "run ${mode:-install} succeeded with a symlinked hooks/"; fi
+  grep -q "Error: $d12/hooks is a symlink" "$tmp/out12" || fail "${mode:-install}: no single error naming hooks/"
+  if grep -q 'unsafe path' "$tmp/out12"; then fail "${mode:-install}: per-file skips instead of one error"; fi
+  [[ "$(snap "$d12")" == "$before" && "$(snap "$outside/stowed-hooks")" == "$before_out" ]] || fail "${mode:-install} changed files despite the error"
+done
+ok "a symlinked shipped dir is refused once, up front, for install, dry run and uninstall"
+
+# Only unsafe skips (no edits): the summary must not claim files were kept.
+d13="$tmp/summary/.claude"
+runat "$d13" >/dev/null || fail "install for summary case failed"
+mv "$d13/skills/autoresearch" "$outside/autoresearch-13"
+ln -s "$outside/autoresearch-13" "$d13/skills/autoresearch"
+runat "$d13" > "$tmp/out13s" || { cat "$tmp/out13s"; fail "install with a symlinked skill dir failed"; }
+grep -q 'path(s) were skipped as unsafe' "$tmp/out13s" || fail "summary does not report unsafe skips"
+if grep -q 'you modified were kept' "$tmp/out13s"; then fail "summary claims modified files were kept for unsafe skips"; fi
+ok "the closing summary reports unsafe skips, not kept edits"
 
 # ── 10. Without jq: retired hooks are kept, uninstall fails closed ──────────
 nojq="$tmp/nojq-bin"
@@ -470,7 +504,32 @@ else
   echo "SKIP  upgrade from v3.0.1 (tag not available; git fetch --tags)"
 fi
 
-# ── 15. Argument guards ──────────────────────────────────────────────────────
+# ── 15. A new installer refuses an older release's library payload ─────────
+if git -C "$REPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
+  pay="$tmp/old-payload"
+  mkdir -p "$pay"
+  git -C "$REPO" archive v3.0.1 .claude assets/consumer scripts/validate.sh \
+    scripts/lib/install-hook-settings.sh docs/awareness-harness-activation.md | tar -x -C "$pay"
+  cp "$REPO/install.sh" "$pay/install.sh"
+  d14="$tmp/old-payload-home/.claude"
+  mkdir -p "$d14"
+  printf '{"permissions":{"allow":["Edit(foo)"]}}\n' > "$d14/settings.json"
+  before="$(snap "$d14")"
+  for mode in "" --dry-run --uninstall --codex; do
+    # shellcheck disable=SC2086  # $mode is empty or one flag
+    if HOME="$home" CLAUDE_DIR="$d14" CODEX_HOME="$d14/codex" CODEX_SKILLS_DIR="$d14/agents-skills" \
+        bash "$pay/install.sh" $mode > "$tmp/out15" 2>&1; then
+      fail "new install.sh ran ${mode:-install} over the v3.0.1 library"
+    fi
+    grep -q 'install-hook-settings.sh is older than this installer' "$tmp/out15" || fail "${mode:-install}: no clear library-mismatch error: $(tail -2 "$tmp/out15")"
+    [[ "$(snap "$d14")" == "$before" ]] || fail "${mode:-install} over the v3.0.1 library wrote to the destination"
+  done
+  ok "a new install.sh over the v3.0.1 payload fails closed for install, dry run, uninstall and codex"
+else
+  echo "SKIP  new installer over the v3.0.1 payload (tag not available; git fetch --tags)"
+fi
+
+# ── 16. Argument guards ──────────────────────────────────────────────────────
 if run --uninstall --force >/dev/null; then fail "--uninstall --force should be rejected"; fi
 ok "--uninstall rejects --force"
 

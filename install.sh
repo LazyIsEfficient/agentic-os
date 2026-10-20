@@ -225,6 +225,24 @@ fi
 # shellcheck source=scripts/lib/install-hook-settings.sh
 source "$REPO_ROOT/scripts/lib/install-hook-settings.sh"
 
+# The hook library comes from the payload, this script from wherever it was
+# fetched. A mismatched pair (e.g. this install.sh over an older pinned
+# tarball) would silently run the old library's behaviour (a dry run that
+# writes, unregister functions that do not exist), so refuse it before
+# anything is written.
+REQUIRED_LIB_API=2
+lib_api="${AGENTIC_OS_HOOK_LIB_API:-0}"
+for fn in merge_claude_hook_settings unregister_claude_hook_settings \
+          merge_codex_hook_settings unregister_codex_hook_settings; do
+  declare -F "$fn" >/dev/null || lib_api=0
+done
+if [[ ! "$lib_api" =~ ^[0-9]+$ || "$lib_api" -lt "$REQUIRED_LIB_API" ]]; then
+  echo "Error: $REPO_ROOT/scripts/lib/install-hook-settings.sh is older than this installer" >&2
+  echo "  (hook-library API ${AGENTIC_OS_HOOK_LIB_API:-none}, need $REQUIRED_LIB_API)." >&2
+  echo "  Use the install.sh from the same release as the payload (the pinned one-liner URL), or install from a local clone. Nothing was changed." >&2
+  exit 1
+fi
+
 # Retired skill slugs: the validator's TOMBSTONES list is the single source.
 TOMBSTONES="$(sed -n 's/^TOMBSTONES="\(.*\)"$/\1/p' "$REPO_ROOT/scripts/validate.sh")"
 
@@ -238,9 +256,12 @@ STAMP="$(date +%Y%m%d%H%M%S).$$"
 P=""
 [[ "$DRY_RUN" == "true" ]] && P="[dry-run] "
 N_WARN=0
+N_KEPT=0
+N_UNSAFE=0
 
 note() { printf '  %s%s\n' "$P" "$*"; }
 warn() { printf '  ⚠ %s%s\n' "$P" "$*"; N_WARN=$((N_WARN + 1)); }
+kept() { warn "$@"; N_KEPT=$((N_KEPT + 1)); }
 
 # ── Manifest ──────────────────────────────────────────────────────────────────
 
@@ -384,7 +405,69 @@ place() {
   mv -f "$tmpf" "$2"
 }
 
-unsafe() { warn "skip $(printf '%q' "$1") — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"; }
+unsafe() {
+  warn "skip $(printf '%q' "$1") — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
+  N_UNSAFE=$((N_UNSAFE + 1))
+  printf '%s\n' "$1" >> "$WORK/unsafe.lst"
+}
+
+# A shipped top-level dir that is itself a symlink (stow-style dotfiles) would
+# turn every file in it into an unsafe-path skip. Refuse it once, up front.
+refuse_linked_dirs() {
+  local root="$1" d
+  shift
+  for d in "$@"; do
+    if [[ -L "$root/$d" ]]; then
+      echo "Error: $root/$d is a symlink. AgenticOS never writes or deletes through a symlink, so it cannot manage that directory." >&2
+      echo "  Replace it with a real directory (copy the link target's contents into it), then re-run. Nothing was changed." >&2
+      exit 1
+    fi
+  done
+}
+
+# Prove an existing settings file will merge before anything is copied (dry
+# run included), without trusting the library to honour a dry-run flag: run
+# the real merge against a scratch copy.
+preflight_hook_settings() {
+  local kind="$1" dir="$2" name="$3" scratch="$WORK/preflight-$1"
+  if [[ -L "$dir/$name" ]]; then
+    echo "Error: $dir/$name is a symlink — AgenticOS will not rewrite it. Merge the hooks by hand, or replace it with a regular file. Nothing was changed." >&2
+    exit 1
+  fi
+  [[ -f "$dir/$name" ]] || return 0
+  mkdir -p "$scratch"
+  cp "$dir/$name" "$scratch/$name"
+  local ok=true
+  if [[ "$kind" == "claude" ]]; then
+    merge_claude_hook_settings "$REPO_ROOT" "$scratch" "$RETIRED_HOOKS" >/dev/null 2>"$scratch/err" || ok=false
+  else
+    merge_codex_hook_settings "$REPO_ROOT" "$scratch" >/dev/null 2>"$scratch/err" || ok=false
+  fi
+  if [[ "$ok" != "true" ]]; then
+    echo "Error: $dir/$name cannot be merged (it must be valid JSON with an object \"hooks\") — fix it first. Nothing was changed." >&2
+    exit 1
+  fi
+}
+
+# Every shipped hook must be on disk as a regular file at the release SHA
+# before it is registered; otherwise settings.json would run whatever is
+# there. A dry run fails on hooks it would have had to skip. Exits non-zero
+# (registering nothing, writing no manifest) on any miss.
+verify_hooks() {
+  local stage="$1" root="$2" rel bad=0
+  while IFS= read -r rel; do
+    if [[ "$DRY_RUN" == "true" ]]; then
+      if [[ -f "$WORK/unsafe.lst" ]] && grep -qxF -- "$rel" "$WORK/unsafe.lst"; then bad=1; echo "  ✗ hook $rel would be skipped" >&2; fi
+    elif [[ ! -f "$root/$rel" || -L "$root/$rel" ]] || [[ "$(sha256_of "$root/$rel")" != "$(sha256_of "$stage/$rel")" ]]; then
+      bad=1
+      echo "  ✗ hook $rel is not installed at the release version" >&2
+    fi
+  done < <(cd "$stage" && find hooks -type f | LC_ALL=C sort)
+  if [[ "$bad" -ne 0 ]]; then
+    echo "Error: not every AgenticOS hook could be installed at the release version, so no hooks were registered and the manifest was not updated. Fix the paths reported above, then re-run." >&2
+    exit 1
+  fi
+}
 
 # ── Sync one install root against its staged release tree ───────────────────
 #
@@ -450,13 +533,13 @@ sync_place() {
         # Without jq the merge cannot unregister it; never delete a hook that
         # may still be registered. Stays tracked so a later run prunes it.
         printf '%s\t%s\n' "$rel" "$osha" >> "$w/manifest.tsv"
-        warn "keep retired hook $rel — jq is required to unregister it first"
+        kept "keep retired hook $rel — jq is required to unregister it first"
       elif unmodified "$w/known.tsv" "$rel" "$csha" "$osha"; then
         printf '%s\0%s\0' "$rel" "no longer shipped" >> "$w/remove.lst"
       else
         # Stays tracked, so uninstall and --prune-legacy still see it as modified.
         printf '%s\t%s\n' "$rel" "$osha" >> "$w/manifest.tsv"
-        warn "keep $rel — no longer shipped, but modified locally"
+        kept "keep $rel — no longer shipped, but modified locally"
       fi
       continue
     fi
@@ -489,10 +572,10 @@ sync_place() {
       note "overwrite $rel (--force)"
       updated=$((updated + 1))
     elif [[ "$osha" == "-" ]]; then
-      warn "keep $rel — differs from the release copy and predates the manifest (--force overwrites)"
+      kept "keep $rel — differs from the release copy and predates the manifest (--force overwrites)"
       legacy_kept=$((legacy_kept + 1))
     else
-      warn "keep $rel — modified locally (--force overwrites)"
+      kept "keep $rel — modified locally (--force overwrites)"
     fi
   done < "$w/plan.tsv"
 
@@ -618,7 +701,7 @@ uninstall_root() {
       dirname "$rel" >> "$w/dirs.lst"
       removed=$((removed + 1))
     else
-      warn "keep $rel — modified locally"
+      kept "keep $rel — modified locally"
       kept=$((kept + 1))
     fi
   done < "$w/plan.tsv"
@@ -714,12 +797,14 @@ if [[ "$UNINSTALL" == "true" ]]; then
   # Unregister hooks BEFORE deleting files: if the settings rewrite fails, the
   # hook scripts it still points at are left in place.
   if [[ "$PLATFORM" == "claude" ]]; then
+    refuse_linked_dirs "$DEST" skills agents commands hooks
     echo ""
     echo "Hook registration: ${DEST%/}/settings.json"
     unregister_claude_hook_settings "$REPO_ROOT" "$DEST" \
       "$RETIRED_HOOKS $(manifest_hook_names "$DEST/$MANIFEST_NAME")" "$DRY_RUN"
     uninstall_root claude "$DEST" "Claude Code" "$CLAUDE_ALLOW" "skills/"
   else
+    refuse_linked_dirs "$CODEX_CONFIG_DIR" agents hooks
     echo ""
     echo "Hook registration: $CODEX_CONFIG_DIR/hooks.json"
     unregister_codex_hook_settings "$CODEX_CONFIG_DIR" "$DRY_RUN"
@@ -727,7 +812,7 @@ if [[ "$UNINSTALL" == "true" ]]; then
     uninstall_root codex-config "$CODEX_CONFIG_DIR" "Codex agents + hooks" "$CODEX_CONFIG_ALLOW" "-"
   fi
   echo ""
-  echo "${P}Uninstall complete: $N_WARN file(s) kept with a warning. Hook backups (*.bak.*) and files you created were not touched."
+  echo "${P}Uninstall complete: $N_KEPT modified file(s) kept, $N_UNSAFE unsafe path(s) skipped. Hook backups (*.bak.*) and files you created were not touched."
   exit 0
 fi
 
@@ -747,11 +832,12 @@ if [[ "$PLATFORM" == "claude" ]]; then
   # Workflows: NOTHING ships. The only workflow is maintainer-only.
   install_dir "hooks"
 
-  # Fail fast, before anything is copied: a settings.json the merge would
-  # reject aborts here (dry run included) with the destination untouched.
-  merge_claude_hook_settings "$REPO_ROOT" "$DEST" "$RETIRED_HOOKS" check
+  # Fail fast, before anything is copied (dry run included).
+  refuse_linked_dirs "$DEST" skills agents commands hooks
+  preflight_hook_settings claude "$DEST" settings.json
   CLAUDE_ARGS=(claude "$STAGE" "$DEST" "hooks/" "skills/" claude "skills, agents, commands, hooks" "$CLAUDE_ALLOW")
   sync_place "${CLAUDE_ARGS[@]}"
+  verify_hooks "$STAGE" "$DEST"
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into ${DEST%/}/settings.json"
   else
@@ -776,11 +862,13 @@ else
     cp "$SRC/hooks/$hook" "$STAGE/config/hooks/$hook"
   done
 
-  merge_codex_hook_settings "$REPO_ROOT" "$CODEX_CONFIG_DIR" check
+  refuse_linked_dirs "$CODEX_CONFIG_DIR" agents hooks
+  preflight_hook_settings codex "$CODEX_CONFIG_DIR" hooks.json
   SKILLS_ARGS=(codex-skills "$STAGE/skills" "$CODEX_SKILLS_DEST" "" "" codex "skills" "*")
   CONFIG_ARGS=(codex-config "$STAGE/config" "$CODEX_CONFIG_DIR" "hooks/" "-" codex "agents (Codex TOML) + hooks" "$CODEX_CONFIG_ALLOW")
   sync_place "${SKILLS_ARGS[@]}"
   sync_place "${CONFIG_ARGS[@]}"
+  verify_hooks "$STAGE/config" "$CODEX_CONFIG_DIR"
   if [[ "$DRY_RUN" == "true" ]]; then
     note "merge AgenticOS hook registration into $CODEX_CONFIG_DIR/hooks.json"
   else
@@ -798,7 +886,10 @@ else
 fi
 
 echo ""
-if [[ "$N_WARN" -gt 0 ]]; then
-  echo "$N_WARN warning(s) above. Files you modified were kept; --force overwrites them."
+if [[ "$N_KEPT" -gt 0 ]]; then
+  echo "$N_KEPT file(s) you modified were kept; --force overwrites them."
+fi
+if [[ "$N_UNSAFE" -gt 0 ]]; then
+  echo "$N_UNSAFE path(s) were skipped as unsafe and left untouched (see the 'skip' lines above)."
 fi
 echo "To update later, re-run this script. To remove AgenticOS, re-run it with --uninstall."

@@ -138,7 +138,7 @@ cd agentic-os
 ./install.sh
 ```
 
-Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/commands/`, and `~/.claude/hooks/`. To update, re-run the installer; to remove AgenticOS, run it with `--uninstall`. See [Updating and uninstalling](#updating-and-uninstalling).
+Files are copied to `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/commands/`, and `~/.claude/hooks/`. To update, re-run the installer. See [Updating and uninstalling](#updating-and-uninstalling) for the manifest-based update and uninstall, which arrive with the next release.
 
 #### Windows (PowerShell)
 
@@ -228,6 +228,8 @@ CODEX_HOME=/path/to/.codex CODEX_SKILLS_DIR=/path/to/.agents/skills ./install.sh
 ```
 
 ### Updating and uninstalling
+
+> **Available after the next release.** The pinned one-liner above installs `v3.0.1`, whose installer has none of this: it ignores unknown flags, so `curl … | bash -s -- --uninstall` or `--dry-run` against it runs a **real install**. Until the next release is tagged, use these flags only from a local clone (`./install.sh --uninstall`, `./install.sh --dry-run`).
 
 Each install writes `.agentic-os-manifest.json` in its destination. The manifest lists every installed file and its SHA-256, and the installer uses it on the next run:
 
