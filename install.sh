@@ -20,6 +20,16 @@
 #                   agentic-os/doctrine.md) or, for Codex, AGENTS.md (inlined).
 #                   Opt-in. Later runs without the flag keep it current
 #                   while the block is still there; deleting the block opts out.
+#   --with-marketing  Also install the marketing/growth pack
+#   --with-games      Also install the games pack
+#   --without-marketing / --without-games
+#                   Remove that pack (unmodified files; edited ones are kept)
+#
+# Packs: a default install ships only the core engineering / security / quality
+# library. assets/packs/<pack>.txt lists each opt-in pack's skills and agents.
+# Once installed, a pack stays installed on later runs (the manifest records
+# it) until --without-<pack>. An install made before packs existed keeps the
+# packs whose files it has.
 #
 # Lifecycle: each install root gets a manifest (.agentic-os-manifest.json) of
 # every file installed and its SHA-256. Re-running updates files you have not
@@ -64,12 +74,21 @@ DRY_RUN=false
 PRUNE_LEGACY=false
 UNINSTALL=false
 WITH_DOCTRINE=false
+# Opt-in packs, one assets/packs/<pack>.txt each (validate.sh ship-manifest
+# checks this list against those files). Keep in sync with $Packs in install.ps1.
+PACKS="games marketing"
+WITH_PACKS=""
+WITHOUT_PACKS=""
 PLATFORM="claude"
 CODEX_SCOPE="user"
 
+# True when word $1 is in space-separated list $2.
+has_word() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+
 usage() {
   printf '%s\n' \
-    'Usage: ./install.sh [--claude|--codex] [--project] [--force] [--prune-legacy] [--with-doctrine] [--dry-run]' \
+    'Usage: ./install.sh [--claude|--codex] [--project] [--force] [--prune-legacy] [--with-doctrine]' \
+    '                    [--with-<pack>|--without-<pack>]... [--dry-run]' \
     '       ./install.sh [--claude|--codex] [--project] --uninstall [--dry-run]' \
     '' \
     '  --codex         Install Codex-compatible skills, agents, and hooks' \
@@ -79,6 +98,10 @@ usage() {
     '  --uninstall     Remove AgenticOS-owned files and hook registrations' \
     '  --dry-run       Print what would change; change nothing' \
     '  --with-doctrine Also add the AgenticOS doctrine block to CLAUDE.md (Codex: AGENTS.md)' \
+    '  --with-marketing, --with-games' \
+    '                  Also install that opt-in pack (kept on later runs)' \
+    '  --without-marketing, --without-games' \
+    '                  Remove that pack: unmodified files go, edited ones are kept' \
     '  --claude        Install for Claude Code (default)'
 }
 
@@ -89,6 +112,14 @@ for arg in "$@"; do
     --prune-legacy) PRUNE_LEGACY=true ;;
     --uninstall) UNINSTALL=true ;;
     --with-doctrine) WITH_DOCTRINE=true ;;
+    --with-*|--without-*)
+      if [[ "$arg" == --without-* ]]; then pack="${arg#--without-}"; else pack="${arg#--with-}"; fi
+      if [[ ! "$pack" =~ ^[a-z0-9-]+$ ]] || ! has_word "$pack" "$PACKS"; then
+        echo "Error: unknown option: $arg (packs: $PACKS)" >&2
+        exit 1
+      fi
+      if [[ "$arg" == --without-* ]]; then WITHOUT_PACKS="$WITHOUT_PACKS $pack"; else WITH_PACKS="$WITH_PACKS $pack"; fi
+      ;;
     --codex) PLATFORM="codex" ;;
     --claude) PLATFORM="claude" ;;
     --project) CODEX_SCOPE="project" ;;
@@ -115,6 +146,16 @@ if [[ "$UNINSTALL" == "true" && "$WITH_DOCTRINE" == "true" ]]; then
   echo "Error: --with-doctrine does not apply to --uninstall (uninstall always removes the doctrine block)." >&2
   exit 1
 fi
+if [[ "$UNINSTALL" == "true" && -n "$WITH_PACKS$WITHOUT_PACKS" ]]; then
+  echo "Error: --with-<pack> and --without-<pack> do not apply to --uninstall (uninstall removes every AgenticOS file, pack files included)." >&2
+  exit 1
+fi
+for pack in $PACKS; do
+  if has_word "$pack" "$WITH_PACKS" && has_word "$pack" "$WITHOUT_PACKS"; then
+    echo "Error: --with-$pack and --without-$pack contradict each other; give one of them." >&2
+    exit 1
+  fi
+done
 
 if [[ "$PLATFORM" == "claude" ]]; then
   DEST="${CLAUDE_DIR:-$HOME/.claude}"
@@ -394,6 +435,10 @@ write_manifest() {
   {
     printf '{\n  "schema": 1,\n  "name": "agentic-os",\n  "version": "%s",\n' "$VERSION"
     printf '  "source": "%s",\n  "platform": "%s",\n' "$SOURCE_KIND" "$platform"
+    # Every run records the packs it installed (see pack_plan); [] = core only.
+    local pj="" pk
+    for pk in $PACKS_ON; do pj="$pj${pj:+, }\"$pk\""; done
+    printf '  "packs": [%s],\n' "$pj"
     # Project scope: the record would never be read (DOC_PROJECT), so none is written.
     if [[ -n "$DOC_CREATED" && "$root" == "$DOC_MF_ROOT" && "$DOC_PROJECT" != true ]]; then
       printf '  "doctrine": {"created": %s, "block_sha256": "%s"},\n' "$DOC_CREATED" "$DOC_BLOCK_SHA"
@@ -1211,6 +1256,140 @@ uninstall_root() {
   echo "  $P$removed removed, $kept kept (modified)"
 }
 
+# ── Opt-in packs (--with-<pack>) ─────────────────────────────────────────────
+#
+# assets/packs/<pack>.txt lists one pack's skills and agents; everything else
+# is core. pack_plan decides, before anything is staged or written, which packs
+# this run installs. A pack is installed when
+#   - its --with-<pack> flag is given, or
+#   - a previous manifest of this run's roots lists it under "packs", or
+#   - no manifest of these roots has a "packs" key (an install made before
+#     packs existed) and one tracks any of the pack's files, or a root with no
+#     manifest at all (a pre-manifest release) holds one of its items;
+# --without-<pack> overrides all three. An unselected pack is simply not
+# staged, so its files go through sync_place's normal prune: unmodified ones
+# are removed, edited ones kept with a warning. Every run records the result
+# as the manifest's "packs" array.
+PACK_ENTRY_RE='^(skills/[a-z0-9-]+|agents/[a-z0-9-]+[.]md)$'
+PACKS_ON=""
+
+# Validated entries of pack $1 into file $2 (validate.sh checks them too; the
+# installer re-checks because it deletes staged paths by them).
+load_pack() {
+  local f="$REPO_ROOT/assets/packs/$1.txt" line
+  if [[ ! -f "$f" || -L "$f" ]]; then
+    echo "Error: $f is missing (or a symlink): this payload predates opt-in packs or is incomplete. Use the install.sh from the same release as the payload (the pinned one-liner URL), or install from a local clone. Nothing was changed." >&2
+    exit 1
+  fi
+  : > "$2"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+    if [[ ! "$line" =~ $PACK_ENTRY_RE ]]; then
+      echo "Error: $f lists '$line', which is not skills/<name> or agents/<name>.md. Nothing was changed." >&2
+      exit 1
+    fi
+    printf '%s\n' "$line" >> "$2"
+  done < "$f"
+}
+
+# Path pack entry $2 takes under a root of kind $1: claude (skills/<n>/,
+# agents/<n>.md), codex-skills (<n>/) or codex-config (agents/<n>.toml).
+# A trailing / marks a skill dir. Prints nothing when the root has no such path.
+pack_path() {
+  case "$1:$2" in
+    claude:skills/*) printf '%s/\n' "$2" ;;
+    claude:agents/*) printf '%s\n' "$2" ;;
+    codex-skills:skills/*) printf '%s/\n' "${2#skills/}" ;;
+    codex-config:agents/*) printf 'agents/%s.toml\n' "$(basename "$2" .md)" ;;
+  esac
+}
+
+# True when root $2 (kind $1) holds pack list $3: its manifest tracks a file of
+# it, or, with no manifest, one of its items exists there.
+pack_present() {
+  local kind="$1" root="$2" list="$3" mf="$2/$MANIFEST_NAME" e p
+  if [[ -f "$mf" && ! -L "$mf" ]]; then read_manifest "$mf" | cut -f1 > "$WORK/pack.paths"; fi
+  while IFS= read -r e; do
+    p="$(pack_path "$kind" "$e")"
+    [[ -n "$p" ]] || continue
+    if [[ -f "$mf" || -L "$mf" ]]; then
+      [[ ! -L "$mf" ]] || continue
+      if LC_ALL=C awk -v p="$p" '$0 == p || (substr(p, length(p)) == "/" && index($0, p) == 1) { f = 1; exit } END { exit !f }' "$WORK/pack.paths"; then
+        return 0
+      fi
+    elif [[ -e "$root/${p%/}" || -L "$root/${p%/}" ]]; then
+      return 0
+    fi
+  done < "$list"
+  return 1
+}
+
+# Pack names in manifest $1's "packs" array, one per line. Fails when the
+# manifest is absent or has no "packs" key (written before packs existed).
+read_packs_record() {
+  local line
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  line="$(LC_ALL=C grep -m 1 -E '^  "packs": \[[^]]*\],$' "$1")" || return 1
+  line="${line#*\[}"
+  { printf '%s\n' "$line" | LC_ALL=C grep -oE '"[a-z0-9-]+"' | tr -d '"'; } || true
+}
+
+# $@: "<kind>:<root>" for each install root of this run.
+pack_plan() {
+  local r kind root names has_key=false recorded="" p why
+  for r in "$@"; do
+    if names="$(read_packs_record "${r#*:}/$MANIFEST_NAME")"; then
+      has_key=true
+      recorded="$recorded $(printf '%s\n' "$names" | tr '\n' ' ')"
+    fi
+  done
+  : > "$WORK/packs.off"
+  echo ""
+  echo "${P}Opt-in packs:"
+  for p in $PACKS; do
+    load_pack "$p" "$WORK/pack.$p"
+    why=""
+    if has_word "$p" "$WITHOUT_PACKS"; then
+      why=""
+    elif has_word "$p" "$WITH_PACKS"; then
+      why=flag
+    elif has_word "$p" "$recorded"; then
+      why=recorded
+    elif [[ "$has_key" == false ]]; then
+      for r in "$@"; do
+        kind="${r%%:*}"; root="${r#*:}"
+        if pack_present "$kind" "$root" "$WORK/pack.$p"; then why=legacy; break; fi
+      done
+    fi
+    case "$why" in
+      flag) note "$p: installed (--with-$p)" ;;
+      recorded) note "$p: kept, as recorded in the install manifest; re-run with --without-$p to remove it" ;;
+      legacy) note "$p: kept, because this install predates opt-in packs and has its files; re-run with --without-$p to remove it" ;;
+      *)
+        cat "$WORK/pack.$p" >> "$WORK/packs.off"
+        if has_word "$p" "$WITHOUT_PACKS"; then
+          note "$p: not installed (--without-$p); unmodified files from it are removed, edited ones kept"
+        else
+          note "$p: not installed (add it with --with-$p)"
+        fi ;;
+    esac
+    [[ -z "$why" ]] || PACKS_ON="$PACKS_ON${PACKS_ON:+ }$p"
+  done
+}
+
+# Drop the items of every unselected pack from the staged skills dir $1 and
+# agents dir $2 ("" = none staged). Entries are PACK_ENTRY_RE-checked.
+unstage_packs() {
+  local e
+  while IFS= read -r e; do
+    case "$e" in
+      skills/*) rm -rf "${1:?}/${e#skills/}" ;;
+      agents/*) if [[ -n "$2" ]]; then rm -f "$2/${e#agents/}"; fi ;;
+    esac
+  done < "$WORK/packs.off"
+}
+
 # ── Stage the release ─────────────────────────────────────────────────────────
 
 STAGE="$WORK/stage"
@@ -1243,6 +1422,7 @@ install_codex_agents() {
   mkdir -p "$dest_dir"
 
   while IFS= read -r -d '' src; do
+    if grep -qxF -- "agents/${src##*/}" "$WORK/packs.off"; then continue; fi   # unselected pack
     name="$(awk '/^name:/{sub(/^name:[[:space:]]*/, ""); print; exit}' "$src")"
     description="$(awk '/^description:/{sub(/^description:[[:space:]]*/, ""); print; exit}' "$src")"
     tools="$(awk '/^tools:/{sub(/^tools:[[:space:]]*/, ""); print; exit}' "$src")"
@@ -1352,11 +1532,13 @@ fi
 # ── Install / update ──────────────────────────────────────────────────────────
 
 if [[ "$PLATFORM" == "claude" ]]; then
+  pack_plan "claude:$DEST"
   echo ""
   echo "${P}Installing Claude Code surfaces to $DEST"
 
   install_dir "skills"
   install_dir "agents"
+  unstage_packs "$STAGE/skills" "$STAGE/agents"
   # Commands: ship-tagged allowlist ONLY — list each file that installs into a
   # consumer's global namespace. The author-facing scaffolds plus /state (the
   # awareness-harness writer command — its skill + hooks ship alongside) are the
@@ -1396,12 +1578,14 @@ if [[ "$PLATFORM" == "claude" ]]; then
     echo "${P}The AgenticOS doctrine is imported from ${DOC_TARGET}; it is kept current while the block is there, until --uninstall."
   fi
 else
+  pack_plan "codex-skills:$CODEX_SKILLS_DEST" "codex-config:$CODEX_CONFIG_DIR"
   echo ""
   echo "${P}Installing Codex skills to $CODEX_SKILLS_DEST"
   echo "${P}Installing Codex config surfaces to $CODEX_CONFIG_DIR"
 
   mkdir -p "$STAGE/skills" "$STAGE/config/hooks"
   cp -R "$SRC/skills/." "$STAGE/skills/"
+  unstage_packs "$STAGE/skills" ""
   install_codex_agents "$STAGE/config/agents"
   for hook in session-state-inject.sh session-state-checkpoint.sh; do
     cp "$SRC/hooks/$hook" "$STAGE/config/hooks/$hook"

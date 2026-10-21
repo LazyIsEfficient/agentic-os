@@ -56,4 +56,4 @@ If systems are locked and the team wants numbers tuned, **stop** and route to [g
 - [game-balancer](../game-balancer/SKILL.md) — tunes the numbers in the system specs
 - [iap-manager](../iap-manager/SKILL.md) — catalogs the SKUs the design implies
 - [godot-engineer](../godot-engineer/SKILL.md) — builds the design in Godot 4 + C#
-- [content-ops](../content-ops/SKILL.md) — expert-panel scoring of the design doc before committing to build
+- content-ops (marketing pack) — expert-panel scoring of the design doc before committing to build

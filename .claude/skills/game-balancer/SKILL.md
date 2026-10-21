@@ -93,5 +93,5 @@ If the systems themselves are wrong (no amount of tuning will fix them), stop an
 - [game-systems-designer](../game-systems-designer/SKILL.md) — produces the system specs this skill numbers; receives back balance tables
 - [iap-manager](../iap-manager/SKILL.md) — needs currency velocities and grind-time targets to size store SKUs and bundles
 - [godot-engineer](../godot-engineer/SKILL.md) — implements tunable parameters as data, not magic numbers; ships the telemetry that validates the model post-launch
-- [growth-engine](../growth-engine/SKILL.md) — runs A/B tests on balance variants once the game is live
-- [content-ops](../content-ops/SKILL.md) — expert-panel scoring of the balance plan before live launch
+- growth-engine (marketing pack) — runs A/B tests on balance variants once the game is live
+- content-ops (marketing pack) — expert-panel scoring of the balance plan before live launch

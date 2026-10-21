@@ -16,7 +16,17 @@
 #                 agentic-os\doctrine.md. Opt-in. Later runs without the flag
 #                 keep it current while the block is still there; deleting the
 #                 block opts out.
+#   -WithMarketing / -WithGames
+#                 Also install that opt-in pack (kept on later runs)
+#   -WithoutMarketing / -WithoutGames
+#                 Remove that pack: unmodified files go, edited ones are kept
 #   -Dest         Override the install destination (default: $env:USERPROFILE\.claude)
+#
+# Packs (same rules as install.sh): a default install ships only the core
+# library. assets\packs\<pack>.txt lists each opt-in pack's skills and agents.
+# Once installed, a pack stays installed on later runs (the manifest records
+# it) until -Without<Pack>. An install made before packs existed keeps the
+# packs whose files it has.
 #
 # Lifecycle (same rules as install.sh): $Dest\.agentic-os-manifest.json records
 # every installed file and its SHA-256. Re-running updates files you have not
@@ -36,6 +46,10 @@ param(
   [switch]$Uninstall,
   [switch]$DryRun,
   [switch]$WithDoctrine,
+  [switch]$WithMarketing,
+  [switch]$WithGames,
+  [switch]$WithoutMarketing,
+  [switch]$WithoutGames,
   [string]$Dest = "$env:USERPROFILE\.claude"
 )
 
@@ -49,6 +63,24 @@ if ($Uninstall -and ($Force -or $PruneLegacy)) {
 }
 if ($Uninstall -and $WithDoctrine) {
   throw "Error: -WithDoctrine does not apply to -Uninstall (uninstall always removes the doctrine block)."
+}
+
+# Opt-in packs, one assets\packs\<pack>.txt each (validate.sh ship-manifest
+# checks this list against those files). Keep in sync with PACKS in install.sh.
+$Packs = @('games', 'marketing')
+$PackSwitch = @{ 'games' = 'Games'; 'marketing' = 'Marketing' }
+$WithPacks = @(); $WithoutPacks = @()
+if ($WithGames) { $WithPacks += 'games' }
+if ($WithMarketing) { $WithPacks += 'marketing' }
+if ($WithoutGames) { $WithoutPacks += 'games' }
+if ($WithoutMarketing) { $WithoutPacks += 'marketing' }
+if ($Uninstall -and ($WithPacks.Count + $WithoutPacks.Count) -gt 0) {
+  throw "Error: -With<Pack> and -Without<Pack> do not apply to -Uninstall (uninstall removes every AgenticOS file, pack files included)."
+}
+foreach ($p in $Packs) {
+  if (($WithPacks -ccontains $p) -and ($WithoutPacks -ccontains $p)) {
+    throw "Error: -With$($PackSwitch[$p]) and -Without$($PackSwitch[$p]) contradict each other; give one of them."
+  }
 }
 
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
@@ -289,6 +321,9 @@ function Write-Manifest([string]$RootDir, $Entries) {
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.Append("{`n  `"schema`": 1,`n  `"name`": `"agentic-os`",`n  `"version`": `"$Version`",`n")
   [void]$sb.Append("  `"source`": `"$SourceKind`",`n  `"platform`": `"claude`",`n")
+  # Every run records the packs it installed (see Set-PackPlan); [] = core only.
+  $pj = (@($script:PacksOn) | ForEach-Object { "`"$_`"" }) -join ', '
+  [void]$sb.Append("  `"packs`": [$pj],`n")
   if ($script:DocCreated) {
     [void]$sb.Append("  `"doctrine`": {`"created`": $($script:DocCreated), `"block_sha256`": `"$($script:DocBlockSha)`"},`n")
   }
@@ -797,6 +832,96 @@ if ($Uninstall) {
   exit 0
 }
 
+# ── Opt-in packs (-With<Pack>) ─────────────────────────────────────────────────
+# Same rules as install.sh pack_plan. A pack is installed when its -With<Pack>
+# switch is given, or the previous manifest lists it under "packs", or the
+# manifest has no "packs" key (an install made before packs existed) and
+# tracks any of its files, or there is no manifest at all (a pre-manifest
+# release) and one of its items is on disk. -Without<Pack> overrides all
+# three. An unselected pack is simply not staged, so its files go through the
+# normal prune below: unmodified ones are removed, edited ones kept.
+
+$PackEntryRe = '^(skills/[a-z0-9-]+|agents/[a-z0-9-]+[.]md)$'
+$script:PacksOn = @()
+$script:PacksOff = @()   # entries of every unselected pack
+
+# Validated entries of pack $Pack (validate.sh checks them too; the installer
+# re-checks because it deletes staged paths by them).
+function Read-PackList([string]$Pack) {
+  $f = Join-Path (Join-Path (Join-Path $RepoRoot "assets") "packs") "$Pack.txt"
+  if ((Test-ReparsePoint $f) -or -not (Test-Path -LiteralPath $f -PathType Leaf)) {
+    throw "Error: $f is missing (or a symlink): this payload predates opt-in packs or is incomplete. Use the install.ps1 from the same release as the payload (the pinned one-liner URL), or install from a local clone. Nothing was changed."
+  }
+  $out = @()
+  foreach ($line in Get-Content -LiteralPath $f) {
+    $l = $line.TrimEnd("`r")
+    if ($l -match '^\s*(#|$)') { continue }
+    if ($l -cnotmatch $PackEntryRe) { throw "Error: $f lists '$l', which is not skills/<name> or agents/<name>.md. Nothing was changed." }
+    $out += $l
+  }
+  return ,$out
+}
+
+# Pack names in the previous manifest's "packs" array; $null when there is no
+# manifest or it has no "packs" key (written before packs existed).
+function Read-PacksRecord {
+  $mf = Join-Path $Root $ManifestName
+  if ((Test-ReparsePoint $mf) -or -not (Test-Path -LiteralPath $mf -PathType Leaf)) { return $null }
+  $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
+  $prop = $json.PSObject.Properties['packs']
+  if (-not $prop) { return $null }
+  return ,@(@($prop.Value) | Where-Object { ($_ -is [string]) -and ($_ -cmatch '^[a-z0-9-]+$') })
+}
+
+# True when $Root holds one of pack list $Entries: the manifest tracks a file of
+# it, or, with no manifest, one of its items exists there.
+function Test-PackPresent($Entries) {
+  $mf = Join-Path $Root $ManifestName
+  $mfExists = (Test-Path -LiteralPath $mf) -or (Test-ReparsePoint $mf)
+  $paths = @()
+  if ($mfExists) {
+    if (Test-ReparsePoint $mf) { return $false }   # the sync below refuses it
+    $paths = @((Read-Manifest $Root).Keys)
+  }
+  foreach ($e in $Entries) {
+    if ($mfExists) {
+      if ($e.StartsWith('skills/')) {
+        if (@($paths | Where-Object { $_.StartsWith("$e/", [StringComparison]::Ordinal) }).Count -gt 0) { return $true }
+      } elseif ($paths -ccontains $e) { return $true }
+    } else {
+      $t = Join-Rel $Root $e
+      if ((Test-Path -LiteralPath $t) -or (Test-ReparsePoint $t)) { return $true }
+    }
+  }
+  return $false
+}
+
+function Set-PackPlan {
+  $rec = Read-PacksRecord
+  Write-Host ""
+  Write-Host "${Pfx}Opt-in packs:"
+  foreach ($p in $Packs) {
+    $entries = Read-PackList $p
+    $sw = $PackSwitch[$p]
+    $why = ''
+    if ($WithoutPacks -ccontains $p) { $why = '' }
+    elseif ($WithPacks -ccontains $p) { $why = 'flag' }
+    elseif (($null -ne $rec) -and ($rec -ccontains $p)) { $why = 'recorded' }
+    elseif (($null -eq $rec) -and (Test-PackPresent $entries)) { $why = 'legacy' }
+    switch ($why) {
+      'flag' { Note "${p}: installed (-With$sw)" }
+      'recorded' { Note "${p}: kept, as recorded in the install manifest; re-run with -Without$sw to remove it" }
+      'legacy' { Note "${p}: kept, because this install predates opt-in packs and has its files; re-run with -Without$sw to remove it" }
+      default {
+        $script:PacksOff += $entries
+        if ($WithoutPacks -ccontains $p) { Note "${p}: not installed (-Without$sw); unmodified files from it are removed, edited ones kept" }
+        else { Note "${p}: not installed (add it with -With$sw)" }
+      }
+    }
+    if ($why) { $script:PacksOn += $p }
+  }
+}
+
 # ── Stage the release ──────────────────────────────────────────────────────────
 
 function Install-Dir {
@@ -823,11 +948,16 @@ function Install-Files {
   }
 }
 
+Set-PackPlan
 Write-Host ""
 Write-Host "${Pfx}Installing to $Root"
 
 Install-Dir "skills"
 Install-Dir "agents"
+foreach ($e in $script:PacksOff) {
+  $t = Join-Rel $Stage $e
+  if (Test-Path -LiteralPath $t) { Remove-Item -LiteralPath $t -Recurse -Force }
+}
 # Commands: ship-tagged allowlist ONLY — list each file that installs into a
 # consumer's global namespace. The author-facing scaffolds plus /state (the
 # awareness-harness writer command — its skill + hooks ship alongside) are the

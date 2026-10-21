@@ -60,5 +60,5 @@ For high-stakes reviews, run a second independent model over the same inventory 
 
 - [code-review-and-quality](../code-review-and-quality/SKILL.md) — the same adversarial discipline applied to source code rather than claims
 - [skill-library-review](../skill-library-review/SKILL.md) — audits of skill/agent definitions
-- [content-ops](../content-ops/SKILL.md) — quality scoring of prose; this skill judges truth, not quality
+- content-ops (marketing pack) — quality scoring of prose; this skill judges truth, not quality
 - [findings-ledger](../findings-ledger/SKILL.md) — where Tier 2 (unevidenced) findings go instead of blocking language

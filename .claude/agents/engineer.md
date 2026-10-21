@@ -42,7 +42,7 @@ Every `Agent`/`Task` call passes an explicit specialist `subagent_type` — neve
 ## Delegate to other agents
 
 - [data-model-documenter](data-model-documenter.md) — **mandatory session close** (see above); not optional
-- [web3-engineer](web3-engineer.md), [godot-engineer](godot-engineer.md) — specialized stacks
+- [web3-engineer](web3-engineer.md), godot-engineer (games pack) — specialized stacks
 - [devops-engineer](devops-engineer.md) — Kubernetes/Helm/Pulumi/IaC and cluster platform work
 - [rust-engineer](rust-engineer.md) — Rust implementation, Cargo workspaces, async Rust
 - [prompt-shaper](../skills/prompt-shaper/SKILL.md) — when the task itself is still vague

@@ -46,6 +46,11 @@ make_copy() {
     mkdir -p "$dst/assets"
     cp -R "$REPO_ROOT/assets/consumer" "$dst/assets/consumer"
   fi
+  # backs invariant 15 (packs) and the ship-manifest pack-list check
+  if [[ -d "$REPO_ROOT/assets/packs" ]]; then
+    mkdir -p "$dst/assets"
+    cp -R "$REPO_ROOT/assets/packs" "$dst/assets/packs"
+  fi
   cp "$REPO_ROOT/install.sh" "$dst/install.sh"
   cp "$REPO_ROOT/install.ps1" "$dst/install.ps1"
   # backs invariant 14 (install-pins): README carries the release pin too
@@ -325,7 +330,8 @@ cat > "$c14/.claude/settings.json" <<'JSON'
 JSON
 # This case isolates hook command shape. Its deliberately minimal dev settings
 # are not meant to satisfy the separate consumer-registration parity invariant.
-rm -rf "$c14/assets"
+# (assets/packs stays: the ship-manifest pack-list check needs it.)
+rm -rf "$c14/assets/consumer"
 run_validate "$c14"
 if [[ "$VRC" -eq 0 ]]; then
   report "case 14 hook-safety (valid vendored command stays clean)" pass
@@ -728,6 +734,60 @@ pin_case "case 59g install-pins (retired-hook lists disagree)" install.sh \
   's/^RETIRED_HOOKS=""/RETIRED_HOOKS="old-hook.sh"/' 'RetiredHooks'
 pin_case "case 59h install-pins (non-tag VERSION)" install.sh \
   's/^VERSION="v[0-9.]+"/VERSION="main"/' 'not a vX.Y.Z release tag'
+
+# ── Cases 60-61: packs (#278) — opt-in pack lists and cross-pack links ────────
+pack_case() {  # $1 label, $2 pack file, $3 line to append, $4 needle
+  local c; c="$(make_copy)"
+  printf '%s\n' "$3" >> "$c/assets/packs/$2"
+  assert_fails_on "$1" "$c" packs "$4"
+}
+pack_case "case 60a packs (entry does not exist)" games.txt skills/no-such-skill ".claude/skills/no-such-skill does not exist"
+pack_case "case 60b packs (agent entry does not exist)" games.txt agents/no-such-agent.md ".claude/agents/no-such-agent.md does not exist"
+pack_case "case 60c packs (item in two packs)" games.txt skills/autoresearch "skills/autoresearch is already in the"
+pack_case "case 60d packs (entry is not skills/ or agents/)" games.txt commands/state.md "'commands/state.md' is not skills/<name> or agents/<name>.md"
+pack_case "case 60e packs (hooks entry rejected)" marketing.txt hooks/block-bad-bash.sh "'hooks/block-bad-bash.sh' is not skills/<name>"
+pack_case "case 60f packs (agent entry without .md rejected)" marketing.txt agents/marketer "'agents/marketer' is not skills/<name>"
+pack_case "case 60g packs (trailing comment rejected)" marketing.txt "skills/seo-ops # dup" "is not skills/<name>"
+c60h="$(make_copy)"; printf 'skills/prompt-shaper\n' > "$c60h/assets/packs/Bad_Name.txt"
+assert_fails_on "case 60h packs (pack file name not kebab-case)" "$c60h" packs "Bad_Name.txt — not a <pack>.txt pack list"
+
+link_case() {  # $1 label, $2 .claude-relative file, $3 link target, $4 needle
+  local c; c="$(make_copy)"
+  printf '\n- [probe](%s) - probe\n' "$3" >> "$c/.claude/$2"
+  assert_fails_on "$1" "$c" packs "$4"
+}
+link_case "case 61a packs (core skill links into a pack)" skills/prompt-shaper/SKILL.md ../content-ops/SKILL.md \
+  "prompt-shaper/SKILL.md — relative link '../content-ops/SKILL.md' reaches the marketing pack from core"
+link_case "case 61b packs (core agent links to a pack agent)" agents/engineer.md marketer.md \
+  "engineer.md — relative link 'marketer.md' reaches the marketing pack from core"
+link_case "case 61c packs (core links into a pack's references/)" skills/security-engineering/SKILL.md ../godot-engineer/references/../SKILL.md \
+  "reaches the games pack from core"
+link_case "case 61d packs (games pack links into marketing)" skills/game-balancer/SKILL.md ../seo-ops/SKILL.md \
+  "game-balancer/SKILL.md — relative link '../seo-ops/SKILL.md' reaches the marketing pack from games pack"
+link_case "case 61e packs (marketing agent links into games)" agents/marketer.md ../skills/iap-manager/SKILL.md \
+  "reaches the games pack from marketing pack"
+link_case "case 61f packs (core links to a pack dir, no extension)" skills/prompt-shaper/SKILL.md ../seo-ops/ \
+  "relative link '../seo-ops/' reaches the marketing pack"
+# Links inside one pack, and core links from a pack, stay clean.
+run_validate "$clean"
+assert_not_flagged "case 61g packs (link within one pack stays clean)" packs "game-balancer/SKILL.md — relative link '../game-systems-designer/SKILL.md'"
+assert_not_flagged "case 61h packs (pack links to core stay clean)" packs "phaser-engineer.md — relative link 'engineer.md'"
+
+# Ship-manifest: each installer's pack list must equal assets/packs/.
+ship_pack_case() {  # $1 label, $2 file, $3 sed expr, $4 needle
+  local c; c="$(make_copy)"
+  sed -E "$3" "$c/$2" > "$c/$2.tmp" && mv "$c/$2.tmp" "$c/$2"
+  assert_fails_on "$1" "$c" ship-manifest "$4"
+}
+ship_pack_case "case 61i ship-manifest (install.sh PACKS drops a pack)" install.sh 's/^PACKS="games marketing"/PACKS="games"/' \
+  'PACKS (games) != pack files in assets/packs/ (games marketing)'
+ship_pack_case "case 61j ship-manifest (install.sh has no PACKS list)" install.sh 's/^PACKS="games marketing"/PACKZ="games marketing"/' \
+  'no PACKS="..." list'
+ship_pack_case "case 61k ship-manifest (install.ps1 \$Packs drops a pack)" install.ps1 "s/^\\\$Packs = @\('games', 'marketing'\)/\$Packs = @('marketing')/" \
+  '$Packs (marketing) != pack files in assets/packs/ (games marketing)'
+c61l="$(make_copy)"; printf '# extra pack the installers do not know\nskills/prompt-shaper\n' > "$c61l/assets/packs/extra.txt"
+assert_fails_on "case 61l ship-manifest (pack file the installer does not name)" "$c61l" ship-manifest \
+  'PACKS (games marketing) != pack files in assets/packs/ (extra games marketing)'
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

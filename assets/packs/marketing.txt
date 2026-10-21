@@ -1,0 +1,14 @@
+# Marketing / growth pack: opt in with `install.sh --with-marketing`
+# (install.ps1 -WithMarketing). Not part of a default install.
+# One entry per line: skills/<name> or agents/<name>.md. validate.sh (packs)
+# checks every entry exists and is in exactly one pack.
+skills/autoresearch
+skills/content-ops
+skills/content-pipeline
+skills/conversion-ops
+skills/growth-engine
+skills/marketing-shaper
+skills/outbound-engine
+skills/revenue-intelligence
+skills/seo-ops
+agents/marketer.md
