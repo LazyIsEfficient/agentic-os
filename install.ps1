@@ -845,6 +845,7 @@ if ($Uninstall) {
 $PackEntryRe = '^(skills/[a-z0-9-]+|agents/[a-z0-9-]+[.]md)$'
 $script:PacksOn = @()
 $script:PacksOff = @()   # entries of every unselected pack
+$script:PackAdopt = @{}   # rel -> sha of pre-manifest files of a -Without pack
 
 # Validated entries of pack $Pack (validate.sh checks them too; the installer
 # re-checks because it deletes staged paths by them).
@@ -893,6 +894,17 @@ function Get-PackEvidence($Entries) {
     }
     return ''
   }
+  $first = @(Get-PackShippedFiles $Entries -First)
+  if ($first.Count -gt 0) { return "disk:$($first[0].Rel)" }
+  return ''
+}
+
+# A {Rel, Sha} object for each file of pack list $Entries under $Root that is an
+# AgenticOS copy (same rules as install.sh pack_shipped_files): a regular file
+# reached through no link whose sha is that path's copy in an earlier release
+# or in this release's source. -First stops at the first.
+function Get-PackShippedFiles($Entries, [switch]$First) {
+  $found = @()
   foreach ($e in $Entries) {
     $p = $Root; $linked = $false
     foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
@@ -919,11 +931,12 @@ function Get-PackEvidence($Entries) {
       $sha = Get-Sha $f.FullName
       $srcf = Join-Rel $Src $rel
       if ($script:KnownHashes.Contains("$rel`t$sha") -or ((Test-Path -LiteralPath $srcf -PathType Leaf) -and -not (Test-ReparsePoint $srcf) -and (Get-Sha $srcf) -eq $sha)) {
-        return "disk:$rel"
+        $found += [pscustomobject]@{ Rel = $rel; Sha = $sha }
+        if ($First) { return $found }
       }
     }
   }
-  return ''
+  return $found
 }
 
 function Set-PackPlan {
@@ -948,7 +961,16 @@ function Set-PackPlan {
       'ondisk' { Note "${p}: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. $evRel); re-run with -Without$sw to remove it" }
       default {
         $script:PacksOff += $entries
-        if ($WithoutPacks -ccontains $p) { Note "${p}: not installed (-Without$sw); unmodified files from it are removed, edited ones kept" }
+        if ($WithoutPacks -ccontains $p) {
+          Note "${p}: not installed (-Without$sw); unmodified files from it are removed, edited ones kept"
+          # No manifest (a pre-manifest install): hand the pack's AgenticOS
+          # copies to the sync below as if an old manifest tracked them, so the
+          # normal "no longer shipped" prune removes them (install.sh pack_adopt).
+          $mf = Join-Path $Root $ManifestName
+          if (-not (Test-Path -LiteralPath $mf) -and -not (Test-ReparsePoint $mf)) {
+            foreach ($hit in @(Get-PackShippedFiles $entries)) { $script:PackAdopt[$hit.Rel] = $hit.Sha }
+          }
+        }
         else { Note "${p}: not installed (add it with -With$sw)" }
       }
     }
@@ -1022,6 +1044,7 @@ if ($Doctrine) { Assert-NoLinkedDirs @('agentic-os') }
 Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
+foreach ($k in $script:PackAdopt.Keys) { if (-not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] } }
 $all = @{}
 foreach ($k in $new.Keys) { $all[$k] = 1 }
 foreach ($k in $old.Keys) { $all[$k] = 1 }
