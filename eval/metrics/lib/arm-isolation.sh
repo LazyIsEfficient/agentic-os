@@ -124,9 +124,16 @@ iso_install_library() {
 }
 
 # iso_on_manifest <src>: relative paths install.sh copies into the config dir.
+# A default install is core only: the items of the opt-in packs listed in
+# assets/packs/*.txt are not copied (the list goes through ENVIRON: BSD awk
+# rejects a newline in a -v value).
 iso_on_manifest() {
-  local src="$1" rel
-  ( cd "$src/.claude" && find skills agents hooks ! -type d -print )
+  local src="$1" rel packs=""
+  if [ -d "$src/assets/packs" ]; then packs="$(cat "$src"/assets/packs/*.txt)" || return 1; fi
+  ( cd "$src/.claude" && find skills agents hooks ! -type d -print ) \
+    | ISO_PACKS="$packs" awk '
+        BEGIN { n = split(ENVIRON["ISO_PACKS"], L, "\n"); for (i = 1; i <= n; i++) if (L[i] !~ /^[[:space:]]*(#|$)/) p[L[i]] = 1 }
+        { k = $0; if (k ~ /^skills\//) { split(k, a, "/"); k = "skills/" a[2] } if (!(k in p)) print }'
   for rel in $ISO_SHIPPED_COMMANDS; do echo "$rel"; done
 }
 
