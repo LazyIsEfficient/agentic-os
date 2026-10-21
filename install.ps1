@@ -536,6 +536,8 @@ $DocBlockLf = "$DocBegin`n@$DoctrineRel`n$DocEnd`n"
 $script:DocMode = 'off'
 $script:DocWhy = ''
 $script:DocCreated = $null
+$script:DocWritten = $null   # sha of what Install-DoctrineBlock wrote (rollback guard)
+$script:DocPre = $null       # the target's bytes before that write ($null: it did not exist)
 $script:DocBlockSha = $null
 
 function Get-TextSha([string]$Text) {
@@ -650,7 +652,8 @@ function Set-DoctrinePlan($Record) {
     if ($state -eq 'malformed') { throw "Error: $DocTarget $why. Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
     # An edited block of a recorded install is refreshed (after a .bak).
     # With no record, even a shipped block may be quoted text: never adopt it.
-    if (($state -eq 'foreign' -or $state -eq 'block') -and -not $Record) { throw "Error: $DocTarget has AgenticOS doctrine markers, but no install record says AgenticOS wrote them (they may be an example, e.g. in a code fence). Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
+    if ($state -eq 'foreign' -and -not $Record) { throw "Error: $DocTarget has an AgenticOS-format doctrine block that is not a block AgenticOS shipped, and no install record. Remove the $DocBegin ... $DocEnd lines by hand, then re-run. Nothing was changed." }
+    if ($state -eq 'block' -and -not $Record) { throw "Error: $DocTarget holds a shipped AgenticOS doctrine block, but no install record says AgenticOS wrote it (it may be quoted, e.g. in a code fence). Remove the $DocBegin ... $DocEnd lines by hand, then re-run. Nothing was changed." }
     $script:DocMode = 'write'
   } elseif ($Uninstall) {
     # Unsafe with no record: nothing says AgenticOS wrote there, so 'off'.
@@ -680,7 +683,7 @@ function Install-DoctrineBlock($Record) {
   if (-not (Test-Path -LiteralPath $DocTarget)) {
     $script:DocCreated = 'true'
     Note "create $DocTarget with the AgenticOS doctrine block"
-    if (-not $DryRun) { Write-BesideBytes $DocTarget $DocBlockLf }
+    if (-not $DryRun) { $script:DocPre = $null; $script:DocWritten = Get-TextSha $DocBlockLf; Write-BesideBytes $DocTarget $DocBlockLf }
     return
   }
   $text = Read-Latin1 $DocTarget
@@ -706,7 +709,7 @@ function Install-DoctrineBlock($Record) {
       Warn "refresh the doctrine block in $DocTarget — it differed from what AgenticOS wrote; the whole file is saved as $bak"
     }
   }
-  if (-not $DryRun) { Write-BesideBytes $DocTarget $new }
+  if (-not $DryRun) { $script:DocPre = $text; $script:DocWritten = Get-TextSha $new; Write-BesideBytes $DocTarget $new }
 }
 
 function Remove-DoctrineBlock($Record) {
@@ -969,7 +972,19 @@ foreach ($r in $removals) {
   $dirs += (Get-RelDir $r[0])
 }
 Remove-EmptyDirs $Root $dirs
-if (-not $DryRun) { Write-Manifest $Root $manifest }
+# A failed manifest write would leave the doctrine block with no record (a
+# re-run would refuse it, uninstall would leave it): put the target back.
+if (-not $DryRun) {
+  try { Write-Manifest $Root $manifest }
+  catch {
+    if ($script:DocWritten -and (Test-Path -LiteralPath $DocTarget -PathType Leaf) -and -not (Test-ReparsePoint $DocTarget) -and
+        (Get-TextSha (Read-Latin1 $DocTarget)) -eq $script:DocWritten) {
+      if ($null -eq $script:DocPre) { Remove-Item -LiteralPath $DocTarget -Force } else { Write-BesideBytes $DocTarget $script:DocPre }
+      Write-Host "The install stopped before recording the doctrine block, so $DocTarget was restored to how it was before this run."
+    }
+    throw
+  }
+}
 Write-Host "  OK ${Pfx}skills, agents, commands, hooks -> $Root ($added added, $updated updated, $same unchanged)"
 if ($legacyKept -gt 0) {
   Write-Host "    $legacyKept file(s) predate the manifest and differ from this release; kept. Re-run with -Force to take the release copies."

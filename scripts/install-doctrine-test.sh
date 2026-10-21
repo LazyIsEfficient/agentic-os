@@ -101,7 +101,7 @@ elif git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
       for step in install reinstall uninstall; do
         local extra=(); [[ "$step" == uninstall ]] && extra=(--uninstall)
         HOME="$h" CLAUDE_DIR="$h/.claude" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" \
-          timeout 300 bash "$r/install.sh" "$@" ${extra[@]+"${extra[@]}"} 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" >> "$tmp/parity-$v.out" \
+          timeout 300 "$IB" "$r/install.sh" "$@" ${extra[@]+"${extra[@]}"} 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" >> "$tmp/parity-$v.out" \
           || fail "$label: $v $step failed"
         snap "$h" >> "$tmp/parity-$v.out"
       done
@@ -417,7 +417,7 @@ h="$(newhome fenced)"; mkdir -p "$h/.claude"
 printf '# notes\n```\n%s\nmy example text\n%s\n```\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
 snap "$h" > "$tmp/s-fenced"
 if runc "$h" --with-doctrine > "$tmp/o-fenced"; then fail "foreign markers accepted"; fi
-grep -q 'but no install record says AgenticOS wrote them' "$tmp/o-fenced" || { cat "$tmp/o-fenced"; fail "no foreign-marker error"; }
+grep -q 'is not a block AgenticOS shipped, and no install record' "$tmp/o-fenced" || { cat "$tmp/o-fenced"; fail "no foreign-marker error"; }
 snap "$h" | cmp -s - "$tmp/s-fenced" || fail "files changed although the foreign markers were refused"
 cp "$h/.claude/CLAUDE.md" "$tmp/fenced.orig"
 runc "$h" --uninstall > "$tmp/o-fencedu" || fail "uninstall over foreign markers failed"
@@ -547,7 +547,7 @@ printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"
   "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
 snap "$h" > "$tmp/s-prec"
 if runp "$h" --with-doctrine > "$tmp/o-prec"; then fail "project: a committed record let --with-doctrine refresh foreign markers"; fi
-grep -q 'but no install record AgenticOS can trust' "$tmp/o-prec" || { cat "$tmp/o-prec"; fail "project: no foreign-marker refusal"; }
+grep -q 'and no install record AgenticOS can trust' "$tmp/o-prec" || { cat "$tmp/o-prec"; fail "project: no foreign-marker refusal"; }
 snap "$h" | cmp -s - "$tmp/s-prec" || fail "project: files changed although foreign markers were refused"
 h="$(newhome proj-created)"; mkdir -p "$h/proj"
 runp "$h" --with-doctrine >/dev/null || fail "project install (proj-created) failed"
@@ -597,9 +597,50 @@ h="$(newhome adopt)"; mkdir -p "$h/.claude"
 printf '# notes\n```\n%s\n@agentic-os/doctrine.md\n%s\n```\nmine\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
 snap "$h" > "$tmp/s-adopt"
 if runc "$h" --with-doctrine > "$tmp/o-adopt"; then fail "--with-doctrine adopted a quoted shipped block with no record"; fi
-grep -q 'but no install record says AgenticOS wrote them' "$tmp/o-adopt" || { cat "$tmp/o-adopt"; fail "no refusal for a recordless shipped block"; }
+grep -q 'holds a shipped AgenticOS doctrine block, but no install record says AgenticOS wrote it' "$tmp/o-adopt" || { cat "$tmp/o-adopt"; fail "no refusal for a recordless shipped block"; }
 snap "$h" | cmp -s - "$tmp/s-adopt" || fail "files changed although the recordless block was refused"
 ok "--with-doctrine with no record refuses even a byte-exact shipped block (it may be quoted)"
+
+# ── 26. Project scope: --with-doctrine upgrades an older shipped block ──────
+h="$(newhome proj-upgrade)"; mkdir -p "$h/proj"
+printf '%s\nolder doctrine\n%s\n' "$BEGIN" "$END" > "$tmp/older.blk"
+rel4="$tmp/rel4"; cp -R "$rel" "$rel4"; sha "$tmp/older.blk" >> "$rel4/assets/consumer/doctrine-block-shas.txt"
+{ cat "$tmp/older.blk"; printf '\n# team notes\n'; } > "$h/proj/AGENTS.md"; cp "$h/proj/AGENTS.md" "$tmp/pu.orig"
+run4() { HOME="$h" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" timeout 300 "$IB" "$rel4/install.sh" --codex --project "$@" 2>&1; }
+run4 > "$tmp/o-pu0" || { cat "$tmp/o-pu0"; fail "flagless project run (older block) failed"; }
+cmp -s "$h/proj/AGENTS.md" "$tmp/pu.orig" || fail "a flagless project run changed the older block"
+run4 --with-doctrine > "$tmp/o-pu" || { cat "$tmp/o-pu"; fail "project --with-doctrine could not upgrade an older shipped block"; }
+grep -q 'updated the AgenticOS doctrine block' "$tmp/o-pu" || fail "no 'updated the doctrine block' line"
+cmp -s "$h/proj/AGENTS.md" <(codex_block; printf '\n# team notes\n') || fail "project upgrade did not install the current block in place"
+pbak="$(ls "$h/proj"/AGENTS.md.bak.* 2>/dev/null | head -n 1 || true)"
+[[ -n "$pbak" ]] && cmp -s "$pbak" "$tmp/pu.orig" || fail "project upgrade did not save the whole file first"
+h="$(newhome proj-foreign2)"; mkdir -p "$h/proj"
+printf '%s\nnot a shipped block\n%s\n' "$BEGIN" "$END" > "$h/proj/AGENTS.md"; snap "$h" > "$tmp/s-pf2"
+if run4 --with-doctrine > "$tmp/o-pf2"; then fail "project --with-doctrine replaced a non-shipped block"; fi
+grep -q 'AgenticOS-format doctrine block that is not a block AgenticOS shipped' "$tmp/o-pf2" || { cat "$tmp/o-pf2"; fail "imprecise refusal for a non-shipped block"; }
+snap "$h" | cmp -s - "$tmp/s-pf2" || fail "files changed although the non-shipped block was refused"
+ok "project scope: --with-doctrine upgrades an older shipped block after a .bak; flagless leaves it; a non-shipped block is refused precisely"
+
+# ── 27. A crash before the record lands rolls the doctrine edit back ───────
+mkdir -p "$tmp/shim"
+cat > "$tmp/shim/mktemp" <<EOF
+#!/bin/bash
+# Fail only the manifest temp file (disk full / kill between edit and record).
+case "\$*" in *.agentic-os-manifest.*) echo "mktemp: simulated failure" >&2; exit 1 ;; esac
+exec "$(command -v mktemp)" "\$@"
+EOF
+chmod +x "$tmp/shim/mktemp"
+runshim() { local h="$1"; shift; HOME="$h" CLAUDE_DIR="$h/.claude" PATH="$tmp/shim:$PATH" timeout 300 "$IB" "$rel/install.sh" "$@" 2>&1; }
+h="$(newhome crash)"; mkdir -p "$h/.claude"; printf 'my own rules\n' > "$h/.claude/CLAUDE.md"; cp "$h/.claude/CLAUDE.md" "$tmp/crash.orig"
+if runshim "$h" --with-doctrine > "$tmp/o-crash"; then fail "the shimmed manifest failure did not fail the install"; fi
+grep -q 'restored to how it was before this run' "$tmp/o-crash" || { tail -5 "$tmp/o-crash"; fail "no rollback message"; }
+cmp -s "$h/.claude/CLAUDE.md" "$tmp/crash.orig" || fail "a crash before the record left the doctrine edit in CLAUDE.md"
+runc "$h" --with-doctrine > "$tmp/o-crash2" || { cat "$tmp/o-crash2"; fail "re-run after the rolled-back crash failed"; }
+cmp -s "$h/.claude/CLAUDE.md" <(claude_block; printf '\nmy own rules\n') || fail "re-run after the crash did not finish the install"
+h="$(newhome crash-fresh)"
+if runshim "$h" --with-doctrine > "$tmp/o-crash3"; then fail "the shimmed manifest failure did not fail a fresh install"; fi
+[[ ! -e "$h/.claude/CLAUDE.md" ]] || fail "a crash before the record left a CLAUDE.md the installer had created"
+ok "a failure between the doctrine edit and its record restores the target (or removes a file it created); a re-run then succeeds"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"

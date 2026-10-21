@@ -184,6 +184,8 @@ TMP=""
 WORK=""
 PREFLIGHT_DIRS=""
 cleanup() {
+  # Defined further down; an early exit happens before it exists.
+  if declare -F doc_rollback >/dev/null; then doc_rollback; fi
   if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
   local d
@@ -379,6 +381,7 @@ write_manifest() {
   } > "$tmpf"
   chmod 644 "$tmpf"
   mv -f "$tmpf" "$out"
+  if [[ "$root" == "$DOC_MF_ROOT" ]]; then DOC_ROLLBACK=""; fi
 }
 
 # ── Path safety ───────────────────────────────────────────────────────────────
@@ -583,6 +586,8 @@ DOC_END="<!-- agentic-os:doctrine:end -->"
 DOC_TARGET=""     # CLAUDE.md / AGENTS.md the block lives in
 DOC_MF_ROOT=""    # install root whose manifest records the block
 DOC_MODE=off
+DOC_UPGRADE=false # project scope + flag: replace an older shipped block (after a .bak)
+DOC_ROLLBACK=""   # set while a doctrine edit is on disk but its record is not
 DOC_WHY=""        # handsoff / refusal reason
 DOC_CREATED=""    # "true"/"false" once recorded for the new manifest; empty = no record
 DOC_BLOCK_SHA=""
@@ -686,16 +691,22 @@ doctrine_plan() {
         exit 1 ;;
       foreign|block)
         # The user asked for the doctrine. With a record, an edited block is
-        # refreshed (after a .bak) and a shipped one kept current. With no
-        # record, even a shipped block may be text the user quoted, so it is
-        # not adopted. Project scope never has a record (see DOC_PROJECT); an
-        # existing current block there is simply left as it is.
+        # refreshed (after a .bak) and a shipped one kept current.
         if [[ -z "$DOC_OLD_SHA" ]]; then
-          if [[ "$state" == block && "$DOC_PROJECT" == true && "$cur" == "$DOC_BLOCK_SHA" ]]; then
-            DOC_MODE=current
+          if [[ "$state" == foreign ]]; then
+            echo "Error: $f has an AgenticOS-format doctrine block that is not a block AgenticOS shipped, and no install record$DOC_NOREC_WHY. Remove the $DOC_BEGIN ... $DOC_END lines by hand, then re-run. Nothing was changed." >&2
+            exit 1
+          fi
+          # Project scope never has a record (see DOC_PROJECT), so the flag is
+          # the consent: the current block is left as it is, and an older
+          # shipped block is upgraded after a whole-file .bak.
+          if [[ "$DOC_PROJECT" == true ]]; then
+            if [[ "$cur" == "$DOC_BLOCK_SHA" ]]; then DOC_MODE=current; else DOC_MODE=write; DOC_UPGRADE=true; fi
             return 0
           fi
-          echo "Error: $f has AgenticOS doctrine markers, but no install record$DOC_NOREC_WHY says AgenticOS wrote them (they may be an example, e.g. in a code fence). Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
+          # User scope with no record: even a shipped block may be text the
+          # user quoted (e.g. in a code fence), so it is not adopted.
+          echo "Error: $f holds a shipped AgenticOS doctrine block, but no install record says AgenticOS wrote it (it may be quoted, e.g. in a code fence). Remove the $DOC_BEGIN ... $DOC_END lines by hand, then re-run. Nothing was changed." >&2
           exit 1
         fi ;;
     esac
@@ -786,7 +797,7 @@ doctrine_apply() {
     DOC_CREATED=true; DOC_CRLF=0
     [[ "$DOC_PROJECT" != true ]] || DOC_CREATED=false
     note "create $f with the AgenticOS doctrine block"
-    [[ "$DRY_RUN" == "true" ]] || doc_write "$WORK/doctrine.lf" "$f"
+    [[ "$DRY_RUN" == "true" ]] || { doc_arm_rollback "$f" "$WORK/doctrine.lf"; doc_write "$WORK/doctrine.lf" "$f"; }
     return 0
   fi
   doc_scan "$f"
@@ -812,14 +823,45 @@ doctrine_apply() {
     cur="$(doc_cur_sha "$f")"
     # (BSD head rejects -n 0.)
     { if [[ "$DOC_B" -gt 1 ]]; then head -n "$((DOC_B - 1))" "$f"; fi; cat "$blk"; tail -n "+$((DOC_E + 1))" "$f"; } > "$new"
-    if doc_known_block "$cur"; then
+    if [[ "$DOC_UPGRADE" == true ]]; then
+      bak="$(doc_backup "$f")"
+      note "updated the AgenticOS doctrine block in $f to this release's (an older shipped block); the whole file is saved as $bak"
+    elif doc_known_block "$cur"; then
       note "update the AgenticOS doctrine block in $f"
     else
       bak="$(doc_backup "$f")"
       warn "refresh the doctrine block in $f — it differed from what AgenticOS wrote; the whole file is saved as $bak"
     fi
   fi
-  [[ "$DRY_RUN" == "true" ]] || doc_write "$new" "$f"
+  [[ "$DRY_RUN" == "true" ]] || { doc_arm_rollback "$f" "$new"; doc_write "$new" "$f"; }
+}
+
+# Rollback for a crash between the doctrine edit and the manifest that records
+# it (disk full, kill, Ctrl-C): without the record, a re-run would refuse the
+# block and uninstall would leave it. Rolling back (rather than recording
+# first) keeps one manifest writer and leaves nothing half-done: the target is
+# exactly as before and a re-run starts over. $WORK/doctrine.pre holds the
+# original bytes ("absent" marks a file that did not exist).
+doc_arm_rollback() {
+  if [[ -e "$1" ]]; then cp -p "$1" "$WORK/doctrine.pre"; else : > "$WORK/doctrine.pre.absent"; fi
+  DOC_ROLLBACK="$(sha256_of "$2")"
+}
+
+# Called from the EXIT trap. Undo the edit only if the record never landed
+# and the target still holds exactly what the installer wrote.
+doc_rollback() {
+  local f="$DOC_TARGET"
+  [[ -n "$DOC_ROLLBACK" && -n "$f" && -n "$WORK" ]] || return 0
+  if [[ -L "$f" || ! -f "$f" || "$(sha256_of "$f")" != "$DOC_ROLLBACK" ]]; then
+    echo "Warning: the install stopped before recording the doctrine block in $f, which has changed since; left as it is." >&2
+    return 0
+  fi
+  if [[ -e "$WORK/doctrine.pre.absent" ]]; then
+    rm -f "$f"
+  else
+    doc_write "$WORK/doctrine.pre" "$f"
+  fi
+  echo "The install stopped before recording the doctrine block, so $f was restored to how it was before this run." >&2
 }
 
 # Uninstall: remove the block. Deletes the file only when the installer
@@ -1218,14 +1260,15 @@ else
 fi
 doc_rec="$(read_doctrine_record "$DOC_MF_ROOT/$MANIFEST_NAME")"
 if [[ -n "$doc_rec" ]]; then DOC_OLD_CREATED="${doc_rec%% *}"; DOC_OLD_SHA="${doc_rec#* }"; fi
-# Project scope: the repository can commit the manifest, so "created" is never
-# trusted there (uninstall strips the block and leaves AGENTS.md).
 DOC_PROJECT=false
 DOC_NOREC_WHY=""
 if [[ "$PLATFORM" == "codex" && "$CODEX_SCOPE" == "project" ]]; then
   # The repository can commit .codex/.agentic-os-manifest.json, so its record
   # authorises nothing: treat it as absent. Uninstall then never edits
-  # AGENTS.md, a flagless run does nothing, and the flag acts as a first install.
+  # AGENTS.md, a flagless run does nothing, and the flag acts as a first
+  # install (plus upgrading an older shipped block, see doctrine_plan). The
+  # record is still written (created: false) but never read here; it costs
+  # one manifest line and keeps the manifest format the same in every scope.
   DOC_PROJECT=true; DOC_OLD_SHA=""; DOC_OLD_CREATED=false
   DOC_NOREC_WHY=" AgenticOS can trust (in --codex --project the manifest is repository content)"
 fi
