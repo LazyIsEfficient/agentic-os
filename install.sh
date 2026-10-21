@@ -183,27 +183,41 @@ fi
 TMP=""
 WORK=""
 PREFLIGHT_DIRS=""
+INFLIGHT=""   # temp file beside a target while place()/doc_write() fill it
+# Messages from cleanup must not depend on a live reader (`install.sh | tee`
+# with tee gone): a failed write is ignored.
+# (fd 1 -> stderr first, then fd 2 -> /dev/null for the write-error message itself.)
+say_err() { printf '%s\n' "$*" >&2 2>/dev/null || true; }
 cleanup() {
-  # doc_rollback is defined further down; an early exit happens before it
-  # exists. It runs in a subshell with errexit off and signals ignored, so
-  # nothing in it (a failed write, doc_recheck's exit, a second Ctrl-C) can
-  # stop the temp-dir cleanup below.
+  # Ignore signals first, so a second Ctrl-C, the TERM `timeout` forwards, or
+  # a dead output pipe cannot cut the rollback or the temp cleanup short.
+  trap '' INT TERM HUP PIPE
+  if [[ -n "$INFLIGHT" ]]; then rm -f "$INFLIGHT"; INFLIGHT=""; fi
+  # doc_rollback is defined further down (an early exit happens before it
+  # exists). The `||` keeps errexit from ending cleanup inside it.
   if declare -F doc_rollback >/dev/null; then
-    trap '' INT TERM HUP
-    ( set +e; doc_rollback ) || echo "Warning: could not restore ${DOC_TARGET:-the doctrine target}; delete the lines between the AgenticOS doctrine markers by hand." >&2
+    doc_rollback || say_err "Warning: could not restore ${DOC_TARGET:-the doctrine target}; delete the lines between the AgenticOS doctrine markers by hand."
   fi
   if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
   local d
   for d in $PREFLIGHT_DIRS; do rm -rf "$d"; done
 }
+# A signal runs cleanup, then re-raises itself with the default action, so a
+# caller sees death by signal (a Ctrl-C stops the calling script or loop too).
+# Trapping makes bash act only once the running foreground command (curl, cp)
+# returns; that delay is accepted.
+on_sig() {
+  trap '' INT TERM HUP PIPE
+  cleanup
+  trap - EXIT "$1"
+  kill -s "$1" $$
+}
 trap cleanup EXIT
-# A signal exits through cleanup with later signals already ignored, so a
-# second Ctrl-C, or the TERM that timeout forwards, cannot cut the doctrine
-# rollback or the temp-dir cleanup short.
-trap "trap '' INT TERM HUP; exit 130" INT
-trap "trap '' INT TERM HUP; exit 143" TERM
-trap "trap '' INT TERM HUP; exit 129" HUP
+trap 'on_sig INT' INT
+trap 'on_sig TERM' TERM
+trap 'on_sig HUP' HUP
+trap 'on_sig PIPE' PIPE
 
 if command -v shasum &>/dev/null; then
   SHA_CMD=(shasum -a 256)
@@ -479,12 +493,13 @@ unmodified() {
 # write never goes through an existing hard link or symlink at the target.
 place() {
   [[ "$DRY_RUN" == "true" ]] && return 0
-  local dir tmpf
+  local dir
   dir="$(dirname "$2")"
   mkdir -p "$dir"
-  tmpf="$(mktemp "$dir/.agentic-os.XXXXXX")"
-  cp -p "$1" "$tmpf"
-  mv -f "$tmpf" "$2"
+  INFLIGHT="$(mktemp "$dir/.agentic-os.XXXXXX")"   # cleanup removes it if we stop here
+  cp -p "$1" "$INFLIGHT"
+  mv -f "$INFLIGHT" "$2"
+  INFLIGHT=""
 }
 
 unsafe() {
@@ -747,7 +762,6 @@ doctrine_plan() {
   return 0
 }
 
-# Fail closed if the target turned into a link or another file since the plan.
 # Returns non-zero (callers exit) if the target turned into a link or
 # another file since the plan.
 doc_recheck() {
@@ -762,16 +776,17 @@ doc_recheck() {
 # Replace $2 with the bytes of $1 via a temp file beside it, keeping $2's mode
 # (a new file gets 0644).
 doc_write() {
-  local new="$1" f="$2" dir tmpf
+  local new="$1" f="$2" dir
   dir="$(dirname "$f")"
   mkdir -p "$dir" || return 1
   doc_recheck "$f" || return 1
-  tmpf="$(mktemp "$dir/.agentic-os.XXXXXX")" || return 1
-  if { if [[ -f "$f" ]]; then cp -p "$f" "$tmpf"; else chmod 644 "$tmpf"; fi; } \
-     && cat "$new" > "$tmpf" && doc_recheck "$f" && mv -f "$tmpf" "$f"; then
+  INFLIGHT="$(mktemp "$dir/.agentic-os.XXXXXX")" || { INFLIGHT=""; return 1; }   # cleanup removes it on a signal
+  if { if [[ -f "$f" ]]; then cp -p "$f" "$INFLIGHT"; else chmod 644 "$INFLIGHT"; fi; } \
+     && cat "$new" > "$INFLIGHT" && doc_recheck "$f" && mv -f "$INFLIGHT" "$f"; then
+    INFLIGHT=""
     return 0
   fi
-  rm -f "$tmpf"   # never leave the temp file beside the target
+  rm -f "$INFLIGHT"; INFLIGHT=""   # never leave the temp file beside the target
   return 1
 }
 
@@ -867,7 +882,7 @@ doc_arm_rollback() {
   if [[ -e "$1" ]]; then
     cp -p "$1" "$WORK/doctrine.pre"; DOC_ROLLBACK_PRE="$(sha256_of "$1")"
   else
-    : > "$WORK/doctrine.pre.absent"; DOC_ROLLBACK_PRE=absent
+    DOC_ROLLBACK_PRE=absent
   fi
   DOC_ROLLBACK="$(sha256_of "$2")"
 }
@@ -881,8 +896,9 @@ doc_rollback() {
   # The edit never landed (e.g. its mv failed): nothing to undo.
   if [[ "$DOC_ROLLBACK_PRE" == absent && ! -e "$f" && ! -L "$f" ]]; then return 0; fi
   if [[ "$DOC_ROLLBACK_PRE" != absent && -f "$f" && ! -L "$f" && "$(sha256_of "$f")" == "$DOC_ROLLBACK_PRE" ]]; then return 0; fi
+  # (-links +1 only picks the message: doc_write would refuse a hard link too.)
   if [[ -L "$f" || ! -f "$f" || -n "$(find "$f" -links +1 -print)" || "$(sha256_of "$f")" != "$DOC_ROLLBACK" ]]; then
-    echo "Warning: the install stopped before recording the doctrine block in $f, which has changed since (or is now a link); left as it is." >&2
+    say_err "Warning: the install stopped before recording the doctrine block in $f, which has changed since (or is now a link); left as it is."
     return 0
   fi
   if [[ "$DOC_ROLLBACK_PRE" == absent ]]; then
@@ -890,7 +906,7 @@ doc_rollback() {
   else
     doc_write "$WORK/doctrine.pre" "$f" || return 1
   fi
-  echo "The install stopped before recording the doctrine block, so $f was restored to how it was before this run." >&2
+  say_err "The install stopped before recording the doctrine block, so $f was restored to how it was before this run."
 }
 
 # Uninstall: remove the block. Deletes the file only when the installer
