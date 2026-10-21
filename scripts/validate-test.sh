@@ -33,6 +33,8 @@ make_copy() {
   cp "$VALIDATE" "$dst/scripts/validate.sh"
   # backs invariant 4(e): whole-file CLAUDE.md drift detection via --check
   cp "$SCRIPT_DIR/build-claude-md.sh" "$dst/scripts/build-claude-md.sh"
+  # backs invariant 4b(d): consumer doctrine drift detection via --check
+  cp "$SCRIPT_DIR/build-consumer-doctrine.sh" "$dst/scripts/build-consumer-doctrine.sh"
   cp -R "$REPO_ROOT/.claude" "$dst/.claude"
   # memory/ is gitignored; drop any local copy so the baseline matches CI/tarball
   rm -rf "$dst/.claude/memory"
@@ -150,6 +152,92 @@ assert_trips "case 4i claude-flat-sync (rules @-import reintroduced)" "$c4i" cla
 c4j="$(make_copy)"
 awk 'NR==1{print "# Hand-edited title"; next} {print}' "$c4j/CLAUDE.md" > "$c4j/CLAUDE.md.tmp" && mv "$c4j/CLAUDE.md.tmp" "$c4j/CLAUDE.md"
 assert_trips "case 4j claude-flat-sync (preamble drift outside blocks)" "$c4j" claude-flat-sync
+
+# ── Case 4k: consumer-doctrine — doctrine hand-edited (builder --check) ───────
+c4k="$(make_copy)"
+printf '\nHand-added consumer rule.\n' >> "$c4k/assets/consumer/doctrine.md"
+assert_trips "case 4k consumer-doctrine (hand edit)" "$c4k" consumer-doctrine
+
+# ── Case 4l: consumer-doctrine — a curated source line changed under a rewrite ─
+c4l="$(make_copy)"
+sed 's#^- \*\*TIER 0 — deterministic\.\*\* `scripts/validate.sh`, linters#- **TIER 0 — deterministic.** `scripts/validate.sh` and linters#' \
+  "$c4l/.claude/rules/review-tiers.md" > "$c4l/rt.tmp" && mv "$c4l/rt.tmp" "$c4l/.claude/rules/review-tiers.md"
+assert_trips "case 4l consumer-doctrine (rewrite no longer matches)" "$c4l" consumer-doctrine
+# Regenerating must also refuse, so uncurated text can never be written.
+if bout="$(bash "$c4l/scripts/build-consumer-doctrine.sh" 2>&1)"; then
+  report "case 4l' builder refuses an unmatched rewrite" fail "builder exited 0: $bout"
+elif grep -q 'matched 0 lines' <<<"$bout"; then
+  report "case 4l' builder refuses an unmatched rewrite" pass
+else
+  report "case 4l' builder refuses an unmatched rewrite" fail "wrong error: $bout"
+fi
+
+# ── Case 4m: consumer-doctrine — marker cites a missing rule (tarball path) ────
+# No builder in the release tarball: the self-contained marker check must trip.
+c4m="$(make_copy)"
+rm -f "$c4m/scripts/build-consumer-doctrine.sh"
+printf '<!-- source: .claude/rules/gone.md -->\n' >> "$c4m/assets/consumer/doctrine.md"
+assert_trips "case 4m consumer-doctrine (marker cites missing rule, no builder)" "$c4m" consumer-doctrine
+
+# ── Case 4n: consumer-doctrine — install.sh ships it but the file is missing ───
+c4n="$(make_copy)"
+rm -f "$c4n/scripts/build-consumer-doctrine.sh" "$c4n/assets/consumer/doctrine.md"
+assert_trips "case 4n consumer-doctrine (doctrine missing)" "$c4n" consumer-doctrine
+
+# ── Case 4o: consumer-doctrine — installer block markers inside the doctrine ───
+c4o="$(make_copy)"
+rm -f "$c4o/scripts/build-consumer-doctrine.sh"
+printf '<!-- agentic-os:doctrine:end -->\n' >> "$c4o/assets/consumer/doctrine.md"
+assert_trips "case 4o consumer-doctrine (block marker inside doctrine)" "$c4o" consumer-doctrine
+
+# ── Case 4p: consumer-doctrine — known-block list lacks the current block ─────
+c4p="$(make_copy)"
+grep '^#' "$c4p/assets/consumer/doctrine-block-shas.txt" > "$c4p/kb.tmp" && mv "$c4p/kb.tmp" "$c4p/assets/consumer/doctrine-block-shas.txt"
+assert_trips "case 4p consumer-doctrine (known-block list missing current sha)" "$c4p" consumer-doctrine
+
+# ── Case 4q: consumer-doctrine — builder and installer markers disagree ───────
+c4q="$(make_copy)"
+sed "s#^END_MARKER='<!-- agentic-os:doctrine:end -->'#END_MARKER='<!-- agentic-os:doctrine:END -->'#" \
+  "$c4q/scripts/build-consumer-doctrine.sh" > "$c4q/b.tmp" && mv "$c4q/b.tmp" "$c4q/scripts/build-consumer-doctrine.sh"
+run_validate "$c4q"
+if [[ "$VRC" -ne 0 ]] && grep -q 'END_MARKER marker is not' <<<"$VOUT"; then
+  report "case 4q consumer-doctrine (builder marker drift)" pass
+else
+  report "case 4q consumer-doctrine (builder marker drift)" fail "exit=$VRC, no 'END_MARKER marker is not'; output:\n$VOUT"
+fi
+
+# ── Case 4r: consumer-doctrine — install.sh DOC_END drifts from the builder ──
+c4r="$(make_copy)"
+sed 's#^DOC_END="<!-- agentic-os:doctrine:end -->"#DOC_END="<!-- agentic-os:doctrine:END -->"#' \
+  "$c4r/install.sh" > "$c4r/i.tmp" && mv "$c4r/i.tmp" "$c4r/install.sh"
+run_validate "$c4r"
+if [[ "$VRC" -ne 0 ]] && grep -q 'DOC_END marker is not' <<<"$VOUT"; then
+  report "case 4r consumer-doctrine (install.sh marker drift)" pass
+else
+  report "case 4r consumer-doctrine (install.sh marker drift)" fail "exit=$VRC, no 'DOC_END marker is not'; output:\n$VOUT"
+fi
+
+# ── Case 4s/4t: consumer-doctrine — marker only inside a longer line ─────────
+# The marker checks match whole lines (grep -x): a commented-out copy of the
+# right line must not satisfy them while the live assignment is wrong.
+c4s="$(make_copy)"
+sed 's|^DOC_END="<!-- agentic-os:doctrine:end -->"|# DOC_END="<!-- agentic-os:doctrine:end -->"\
+DOC_END="<!-- not-the-marker -->"|' "$c4s/install.sh" > "$c4s/i.tmp" && mv "$c4s/i.tmp" "$c4s/install.sh"
+run_validate "$c4s"
+if [[ "$VRC" -ne 0 ]] && grep -q 'DOC_END marker is not' <<<"$VOUT"; then
+  report "case 4s consumer-doctrine (install.sh marker only in a comment)" pass
+else
+  report "case 4s consumer-doctrine (install.sh marker only in a comment)" fail "exit=$VRC, no 'DOC_END marker is not'; output:\n$VOUT"
+fi
+c4t="$(make_copy)"
+sed "s|^END_MARKER='<!-- agentic-os:doctrine:end -->'|# END_MARKER='<!-- agentic-os:doctrine:end -->'\\
+END_MARKER='<!-- not-the-marker -->'|" "$c4t/scripts/build-consumer-doctrine.sh" > "$c4t/b.tmp" && mv "$c4t/b.tmp" "$c4t/scripts/build-consumer-doctrine.sh"
+run_validate "$c4t"
+if [[ "$VRC" -ne 0 ]] && grep -q 'END_MARKER marker is not' <<<"$VOUT"; then
+  report "case 4t consumer-doctrine (builder marker only in a comment)" pass
+else
+  report "case 4t consumer-doctrine (builder marker only in a comment)" fail "exit=$VRC, no 'END_MARKER marker is not'; output:\n$VOUT"
+fi
 
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"

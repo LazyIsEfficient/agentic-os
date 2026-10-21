@@ -53,3 +53,4 @@ jobs:
       - run: bash scripts/extract-data-model-test.sh
       - run: bash scripts/implementation-close-test.sh
       - run: bash scripts/check-pr-ship-gates-test.sh
+      - run: bash scripts/install-doctrine-test.sh
