@@ -730,7 +730,7 @@ doctrine_plan() {
           # the consent: the current block is left as it is, and an older
           # shipped block is upgraded after a whole-file .bak.
           if [[ "$DOC_PROJECT" == true ]]; then
-            if [[ "$cur" == "$DOC_BLOCK_SHA" ]]; then DOC_MODE=current; else DOC_MODE=write; DOC_UPGRADE=true; fi
+            if [[ "$cur" == "$DOC_BLOCK_SHA" ]]; then DOC_MODE=current; else DOC_MODE="write"; DOC_UPGRADE=true; fi
             return 0
           fi
           # User scope with no record: even a shipped block may be text the
@@ -739,7 +739,7 @@ doctrine_plan() {
           exit 1
         fi ;;
     esac
-    DOC_MODE=write
+    DOC_MODE="write"
   elif [[ "$UNINSTALL" == "true" ]]; then
     case "$state" in
       # Unsafe with no record: nothing says AgenticOS ever wrote there, so a
@@ -749,13 +749,13 @@ doctrine_plan() {
       # A shipped block with no install record may be the user quoting it
       # (e.g. in a code fence): only a record makes it ours to remove.
       block)
-        if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE=write
+        if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE="write"
         else DOC_MODE=handsoff; DOC_WHY="holds an AgenticOS doctrine block, but no install record$DOC_NOREC_WHY says AgenticOS put it there (it may be quoted text)"; fi ;;
     esac
   else
     case "$state" in
       unsafe|malformed|foreign) DOC_MODE=handsoff; DOC_WHY="$why" ;;
-      block) DOC_MODE=write ;;
+      block) DOC_MODE="write" ;;
       none|absent) DOC_MODE=optout ;;
     esac
   fi
