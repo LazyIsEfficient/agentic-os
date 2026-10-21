@@ -142,7 +142,7 @@ elif git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
     done
     a="$(sha "$tmp/parity-old.out")"; b="$(sha "$tmp/parity-new.out")"
     if [[ "$a" != "$b" ]]; then diff "$tmp/parity-old.out" "$tmp/parity-new.out" | head -20 >&2; fail "$label: no-flag run differs from $BASE_REV"; fi
-    ok "no flag, $label: output and every file byte-identical to $BASE_REV (install, re-run, uninstall; every pack selected, pack lines and the manifest packs key aside)"
+    ok "no --with-doctrine, $label: with every --with-<pack>, output and every file byte-identical to $BASE_REV (install, re-run, uninstall; the pack lines and the manifest packs key aside)"
   }
   parity "Claude"
   parity "Codex global" --codex

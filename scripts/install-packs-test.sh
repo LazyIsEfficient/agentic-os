@@ -17,6 +17,9 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_REV="3dd4570"   # #298, the last install.sh before opt-in packs
+# The git repo that holds BASE_REV (and the v3.0.1 tag). The /bin/bash 3
+# re-run executes from a snapshot without .git, so it is handed the real repo.
+GITREPO="${PACKS_TEST_GIT_REPO:-$REPO}"
 
 if ! command -v jq &>/dev/null; then
   echo "install-packs-test: SKIP (jq not installed)" >&2
@@ -188,10 +191,10 @@ grep -q 'my seo tweak' "$edited" || fail "plain run after --without lost the edi
 ok "--without-marketing removes unmodified pack files, keeps an edited one (still tracked) and user files; the opt-out sticks"
 
 # ── 4. Upgrade from a pre-#278 install keeps both packs ──────────────────────
-if git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
+if git -C "$GITREPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
   relold="$tmp/rel-old"
   cp -R "$rel" "$relold"
-  git -C "$REPO" show "$BASE_REV:install.sh" > "$relold/install.sh"
+  git -C "$GITREPO" show "$BASE_REV:install.sh" > "$relold/install.sh"
   # The payload as BASE_REV shipped it: no pack lists, and no install.ps1 newer
   # than its install.sh (validate.sh checks both installers' pack lists).
   rm -rf "$relold/assets/packs" "$relold/install.ps1"
@@ -219,7 +222,7 @@ if git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
         [[ "$(grep -c "re-run with --without-$pk to remove it" "$tmp/o-up$run")" == 1 ]] || fail "$kind upgrade run $run: no single --without-$pk hint"
       done
     done
-    grep -q 'marketing: kept, because this install predates opt-in packs' "$tmp/o-up1" || fail "$kind upgrade: legacy reason not given"
+    grep -q 'marketing: kept, because the install manifest (written before packs existed) tracks its files' "$tmp/o-up1" || fail "$kind upgrade: legacy reason not given"
     grep -q 'marketing: kept, as recorded in the install manifest' "$tmp/o-up2" || fail "$kind second run: recorded reason not given"
     # Only the manifests may differ from the base install.
     diff <(grep -v 'agentic-os-manifest.json$' "$tmp/s-up0") <(snap "$h" | grep -v 'agentic-os-manifest.json$') >/dev/null \
@@ -259,7 +262,55 @@ runc "$h" > "$tmp/o-pre" || { cat "$tmp/o-pre"; fail "pre-manifest adoption fail
 pack_is "$h/.claude" marketing in claude; pack_is "$h/.claude" games in claude
 [[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '["games","marketing"]' ]] || fail "pre-manifest adoption: packs is $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
 jq -e '[.files[].path] | index(["agents/marketer.md"]) != null' "$h/.claude/.agentic-os-manifest.json" >/dev/null || fail "pre-manifest pack files not adopted into the manifest"
+grep -q 'marketing: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. ' "$tmp/o-pre" || fail "pre-manifest: evidence not named"
 ok "pre-manifest install with pack files on disk keeps and adopts both packs"
+
+# Only AgenticOS copies count as evidence: the user's own skill that shares a
+# pack skill's name, an empty pack dir, or a dangling symlink pull in nothing.
+h="$(newhome own-skill)"
+mkdir -p "$h/.claude/skills/autoresearch" "$h/.claude/skills/seo-ops" "$h/.claude/agents"
+printf 'my own autoresearch notes\n' > "$h/.claude/skills/autoresearch/SKILL.md"
+cp "$rel/.claude/skills/growth-engine/SKILL.md" "$h/outside-growth.md"
+ln -s "$h/outside-growth.md" "$h/.claude/agents/marketer.md"
+ln -s "$h/nowhere" "$h/.claude/skills/growth-engine"
+cp "$h/.claude/skills/autoresearch/SKILL.md" "$tmp/own.orig"
+runc "$h" > "$tmp/o-own" || { cat "$tmp/o-own"; fail "install over a user's same-named skill failed"; }
+[[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '[]' ]] || fail "user's own skill pulled in a pack: $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
+grep -q '  marketing: not installed (add it with --with-marketing)' "$tmp/o-own" || fail "own-skill: marketing not reported as not installed"
+cmp -s "$h/.claude/skills/autoresearch/SKILL.md" "$tmp/own.orig" || fail "the user's own skill file was changed"
+[[ ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/seo-ops/SKILL.md" ]] || fail "own-skill: marketing files installed"
+[[ -L "$h/.claude/agents/marketer.md" && -L "$h/.claude/skills/growth-engine" ]] || fail "own-skill: symlinks touched"
+untracked "$h/.claude/.agentic-os-manifest.json" marketing
+ok "no manifest: a user's own same-named skill, an empty pack dir and symlinks (even to a shipped copy) give core only and stay untouched"
+
+# A v3.0.1-shaped install: pack files that byte-match an earlier release (not
+# this one) keep the pack, and are updated to this release's copy.
+h="$(newhome v301-shaped)"
+relv="$tmp/rel-v301"
+cp -R "$rel" "$relv"
+mkdir -p "$h/.claude/skills/seo-ops"
+printf '\n<!-- an older AgenticOS release -->\n' | cat "$rel/.claude/skills/seo-ops/SKILL.md" - > "$h/.claude/skills/seo-ops/SKILL.md"
+printf '%s  %s\n' "$("${SHA[@]}" "$h/.claude/skills/seo-ops/SKILL.md" | awk '{print $1}')" skills/seo-ops/SKILL.md >> "$relv/assets/release-hashes.txt"
+envh "$h" timeout 300 "$IB" "$relv/install.sh" > "$tmp/o-v301" 2>&1 || { cat "$tmp/o-v301"; fail "v3.0.1-shaped adoption failed"; }
+grep -q 'marketing: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. skills/seo-ops/SKILL.md)' "$tmp/o-v301" || { grep -A3 Opt-in "$tmp/o-v301"; fail "v3.0.1-shaped: marketing not kept by its release file"; }
+pack_is "$h/.claude" marketing in claude; pack_is "$h/.claude" games out claude
+cmp -s "$h/.claude/skills/seo-ops/SKILL.md" "$rel/.claude/skills/seo-ops/SKILL.md" || fail "v3.0.1-shaped: earlier-release copy not updated"
+ok "no manifest: a pack file matching an earlier release's hash keeps that pack (only), and is updated"
+
+if git -C "$GITREPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
+  old="$tmp/v3.0.1"; mkdir -p "$old"
+  git -C "$GITREPO" archive v3.0.1 | tar -x -C "$old"
+  h="$(newhome real-v301)"
+  envh "$h" timeout 300 "$IB" "$old/install.sh" > "$tmp/o-r301a" 2>&1 || { tail -5 "$tmp/o-r301a"; fail "v3.0.1 install failed"; }
+  [[ ! -e "$h/.claude/.agentic-os-manifest.json" ]] || fail "v3.0.1 wrote a manifest (test assumption broken)"
+  runc "$h" > "$tmp/o-r301b" || { tail -5 "$tmp/o-r301b"; fail "upgrade from a real v3.0.1 install failed"; }
+  [[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '["games","marketing"]' ]] || fail "real v3.0.1 upgrade: packs is $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
+  pack_is "$h/.claude" marketing in claude; pack_is "$h/.claude" games in claude
+  ok "upgrade from a real v3.0.1 install (no manifest) keeps both packs"
+else
+  echo "SKIP  real v3.0.1 upgrade: tag not available (git fetch --tags)"
+  SKIPPED=$((SKIPPED + 1))
+fi
 
 # ── 5. Codex user scope ──────────────────────────────────────────────────────
 h="$(newhome codex)"
@@ -293,9 +344,50 @@ pack_is "$h" marketing in project; pack_is "$h" games out project
 runp "$h" > "$tmp/o-p2" || fail "project plain re-run failed"
 pack_is "$h" marketing in project
 [[ "$(mf_packs "$h/proj/.codex/.agentic-os-manifest.json")" == '["marketing"]' ]] || fail "project manifest packs wrong"
+grep -q 'marketing: kept, because AgenticOS copies of its files are installed in this project' "$tmp/o-p2" || fail "project: evidence for keeping marketing not named"
 runp "$h" --without-marketing > "$tmp/o-p3" || fail "project --without-marketing failed"
 pack_is "$h" marketing out project
-ok "codex --project: --with-marketing installs into the project, sticky, --without-marketing removes it"
+ok "codex --project: --with-marketing installs into the project, kept by its installed files, --without-marketing removes it"
+
+h="$(newhome project-games)"
+runp "$h" --with-games >/dev/null || fail "project --with-games failed"
+rm -f "$h/proj/.codex/.agentic-os-manifest.json" "$h/proj/.agents/skills/.agentic-os-manifest.json"
+runp "$h" > "$tmp/o-pg" || { cat "$tmp/o-pg"; fail "project flagless run after --with-games failed"; }
+pack_is "$h" games in project; pack_is "$h" marketing out project
+grep -q 'games: kept, because AgenticOS copies of its files are installed in this project' "$tmp/o-pg" || fail "project games not kept by its files"
+ok "codex --project: a real --with-games install is kept by a flagless run (even with its manifests gone)"
+
+# Repository content decides nothing in project scope: a committed record, a
+# legacy manifest tracking pack files, an empty pack dir or a dangling symlink
+# all give core only on a flagless run.
+forge() {  # $1 home, $2 shape
+  local h="$1"
+  mkdir -p "$h/proj/.codex/agents" "$h/proj/.agents/skills"
+  case "$2" in
+    record)
+      printf '{\n  "schema": 1,\n  "name": "agentic-os",\n  "version": "v3.0.1",\n  "source": "release",\n  "platform": "codex",\n  "packs": ["games", "marketing"],\n  "files": [\n  ]\n}\n' \
+        | tee "$h/proj/.codex/.agentic-os-manifest.json" > "$h/proj/.agents/skills/.agentic-os-manifest.json" ;;
+    tracked)
+      printf '{\n  "schema": 1,\n  "files": [\n    {"path": "agents/marketer.toml", "sha256": "%s"}\n  ]\n}\n' "$(printf '%064d' 0)" > "$h/proj/.codex/.agentic-os-manifest.json"
+      printf '{\n  "schema": 1,\n  "files": [\n    {"path": "game-balancer/SKILL.md", "sha256": "%s"}\n  ]\n}\n' "$(printf '%064d' 0)" > "$h/proj/.agents/skills/.agentic-os-manifest.json" ;;
+    emptydir) mkdir -p "$h/proj/.agents/skills/seo-ops" "$h/proj/.agents/skills/game-balancer" ;;
+    symlink)
+      ln -s "$h/nowhere.toml" "$h/proj/.codex/agents/marketer.toml"
+      ln -s "$rel/.claude/skills/iap-manager" "$h/proj/.agents/skills/iap-manager" ;;
+  esac
+}
+for shape in record tracked emptydir symlink; do
+  h="$(newhome "forge-$shape")"
+  forge "$h" "$shape"
+  runp "$h" > "$tmp/o-forge" || { cat "$tmp/o-forge"; fail "project $shape: flagless run failed"; }
+  grep -q '  games: not installed (add it with --with-games)' "$tmp/o-forge" || { grep -A3 Opt-in "$tmp/o-forge"; fail "project $shape: games selected by repository content"; }
+  grep -q '  marketing: not installed (add it with --with-marketing)' "$tmp/o-forge" || { grep -A3 Opt-in "$tmp/o-forge"; fail "project $shape: marketing selected by repository content"; }
+  for m in "$h/proj/.codex/.agentic-os-manifest.json" "$h/proj/.agents/skills/.agentic-os-manifest.json"; do
+    [[ "$(mf_packs "$m")" == '[]' ]] || fail "project $shape: $m packs is $(mf_packs "$m")"
+  done
+  [[ ! -e "$h/proj/.agents/skills/content-ops" && ! -e "$h/proj/.codex/agents/godot-engineer.toml" ]] || fail "project $shape: pack files installed"
+done
+ok "codex --project: a committed packs record, a tracked-files manifest, empty pack dirs and symlinks select no pack"
 
 # ── 7. Dry run changes nothing and reports the decisions ─────────────────────
 h="$(newhome dry)"
@@ -352,7 +444,8 @@ ok "a payload with a missing pack list is refused and nothing is written"
 
 # ── 10. /bin/bash 3 ──────────────────────────────────────────────────────────
 if [[ -z "${PACKS_TEST_BASH3_REEXEC:-}" && -x /bin/bash ]] && /bin/bash -c '[[ ${BASH_VERSINFO[0]} -eq 3 ]]'; then
-  PACKS_TEST_BASH3_REEXEC=1 PACKS_TEST_INSTALL_BASH=/bin/bash timeout 2400 /bin/bash "$SRCREPO/scripts/install-packs-test.sh" \
+  PACKS_TEST_BASH3_REEXEC=1 PACKS_TEST_INSTALL_BASH=/bin/bash PACKS_TEST_GIT_REPO="$GITREPO" \
+    timeout 2400 /bin/bash "$SRCREPO/scripts/install-packs-test.sh" \
     > "$tmp/b32.harness" 2>&1 || { tail -15 "$tmp/b32.harness"; fail "the harness fails when run under /bin/bash 3"; }
   ok "/bin/bash 3: the whole harness passes ($(tail -1 "$tmp/b32.harness"))"
 elif [[ -z "${PACKS_TEST_BASH3_REEXEC:-}" ]]; then

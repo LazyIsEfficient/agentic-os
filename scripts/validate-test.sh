@@ -768,6 +768,22 @@ link_case "case 61e packs (marketing agent links into games)" agents/marketer.md
   "reaches the games pack from marketing pack"
 link_case "case 61f packs (core links to a pack dir, no extension)" skills/prompt-shaper/SKILL.md ../seo-ops/ \
   "relative link '../seo-ops/' reaches the marketing pack"
+# Reference-style definitions resolve like inline links.
+refdef_case() {  # $1 label, $2 .claude-relative file, $3 definition line, $4 needle
+  local c; c="$(make_copy)"
+  printf '\n%s\n' "$3" >> "$c/.claude/$2"
+  assert_fails_on "$1" "$c" packs "$4"
+}
+refdef_case "case 61m packs (core reference-style definition into a pack)" skills/prompt-shaper/SKILL.md '[r]: ../seo-ops/SKILL.md' \
+  "prompt-shaper/SKILL.md — relative link '../seo-ops/SKILL.md' reaches the marketing pack from core"
+refdef_case "case 61n packs (indented, angle-bracketed, titled definition)" agents/engineer.md '  [g]: <godot-engineer.md> "Godot"' \
+  "engineer.md — relative link 'godot-engineer.md' reaches the games pack from core"
+refdef_case "case 61o packs (games pack reference-style definition into marketing)" skills/iap-manager/SKILL.md '[x]: ../growth-engine/SKILL.md#a' \
+  "iap-manager/SKILL.md — relative link '../growth-engine/SKILL.md' reaches the marketing pack from games pack"
+c61p="$(make_copy)"; printf '\n[ok]: ../game-balancer/SKILL.md\n[web]: https://example.com/seo-ops/SKILL.md\n' >> "$c61p/.claude/skills/iap-manager/SKILL.md"
+run_validate "$c61p"
+assert_not_flagged "case 61p packs (in-pack and URL reference definitions stay clean)" packs "iap-manager/SKILL.md"
+
 # Links inside one pack, and core links from a pack, stay clean.
 run_validate "$clean"
 assert_not_flagged "case 61g packs (link within one pack stays clean)" packs "game-balancer/SKILL.md — relative link '../game-systems-designer/SKILL.md'"

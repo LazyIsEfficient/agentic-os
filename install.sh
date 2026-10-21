@@ -29,7 +29,7 @@
 # library. assets/packs/<pack>.txt lists each opt-in pack's skills and agents.
 # Once installed, a pack stays installed on later runs (the manifest records
 # it) until --without-<pack>. An install made before packs existed keeps the
-# packs whose files it has.
+# packs whose AgenticOS files it has.
 #
 # Lifecycle: each install root gets a manifest (.agentic-os-manifest.json) of
 # every file installed and its SHA-256. Re-running updates files you have not
@@ -1265,8 +1265,10 @@ uninstall_root() {
 #   - a previous manifest of this run's roots lists it under "packs", or
 #   - no manifest of these roots has a "packs" key (an install made before
 #     packs existed) and one tracks any of the pack's files, or a root with no
-#     manifest at all (a pre-manifest release) holds one of its items;
-# --without-<pack> overrides all three. An unselected pack is simply not
+#     manifest at all (a pre-manifest release) holds an AgenticOS copy of one
+#     of its files (pack_shipped_file: hash-matched, never through a link);
+# --without-<pack> overrides all three. In --codex --project only the flag and
+# the hash-matched files count (see pack_plan). An unselected pack is simply not
 # staged, so its files go through sync_place's normal prune: unmodified ones
 # are removed, edited ones kept with a warning. Every run records the result
 # as the manifest's "packs" array.
@@ -1305,22 +1307,55 @@ pack_path() {
   esac
 }
 
-# True when root $2 (kind $1) holds pack list $3: its manifest tracks a file of
-# it, or, with no manifest, one of its items exists there.
-pack_present() {
+# True when the manifest of root $2 (kind $1) tracks a file of pack list $3.
+pack_tracked() {
   local kind="$1" root="$2" list="$3" mf="$2/$MANIFEST_NAME" e p
-  if [[ -f "$mf" && ! -L "$mf" ]]; then read_manifest "$mf" | cut -f1 > "$WORK/pack.paths"; fi
+  [[ -f "$mf" && ! -L "$mf" ]] || return 1
+  read_manifest "$mf" | cut -f1 > "$WORK/pack.paths"
   while IFS= read -r e; do
     p="$(pack_path "$kind" "$e")"
     [[ -n "$p" ]] || continue
-    if [[ -f "$mf" || -L "$mf" ]]; then
-      [[ ! -L "$mf" ]] || continue
-      if LC_ALL=C awk -v p="$p" '$0 == p || (substr(p, length(p)) == "/" && index($0, p) == 1) { f = 1; exit } END { exit !f }' "$WORK/pack.paths"; then
-        return 0
-      fi
-    elif [[ -e "$root/${p%/}" || -L "$root/${p%/}" ]]; then
+    if LC_ALL=C awk -v p="$p" '$0 == p || (substr(p, length(p)) == "/" && index($0, p) == 1) { f = 1; exit } END { exit !f }' "$WORK/pack.paths"; then
       return 0
     fi
+  done < "$list"
+  return 1
+}
+
+# Print the root-relative path of the first file of pack list $3 under root $2
+# (kind $1) that is an AgenticOS copy: a regular file, reached through no
+# symlink, whose sha is that path's copy in an earlier release
+# (assets/release-hashes.txt) or in this release's source. Fails when there is
+# none, so an empty dir, a symlink, or the user's own skill of the same name
+# counts for nothing. A Codex config root never counts: its agent TOML is
+# generated, and every pack has skills under the skills root.
+pack_shipped_file() {
+  local kind="$1" root="$2" list="$3" e p c q rest f rel srel sha linked
+  case "$kind" in
+    claude) load_known "skills/" "$WORK/pack.known" ;;
+    codex-skills) load_known "" "$WORK/pack.known" ;;
+    *) return 1 ;;
+  esac
+  while IFS= read -r e; do
+    p="$(pack_path "$kind" "$e")"; p="${p%/}"
+    [[ -n "$p" ]] || continue
+    q="$root"; rest="$p"; linked=false
+    while [[ -n "$rest" ]]; do
+      c="${rest%%/*}"; q="$q/$c"
+      if [[ -L "$q" ]]; then linked=true; fi
+      if [[ "$rest" == */* ]]; then rest="${rest#*/}"; else rest=""; fi
+    done
+    [[ "$linked" == false && -e "$root/$p" ]] || continue
+    while IFS= read -r -d '' f; do
+      rel="${f#"$root"/}"
+      srel="$rel"; [[ "$kind" == codex-skills ]] && srel="skills/$rel"
+      sha="$(sha256_of "$f")"
+      if grep -qxF -- "$rel"$'\t'"$sha" "$WORK/pack.known" \
+         || { [[ -f "$SRC/$srel" && ! -L "$SRC/$srel" ]] && [[ "$(sha256_of "$SRC/$srel")" == "$sha" ]]; }; then
+        printf '%s\n' "$rel"
+        return 0
+      fi
+    done < <(find "$root/$p" -type f -print0)
   done < "$list"
   return 1
 }
@@ -1337,19 +1372,27 @@ read_packs_record() {
 
 # $@: "<kind>:<root>" for each install root of this run.
 pack_plan() {
-  local r kind root names has_key=false recorded="" p why
-  for r in "$@"; do
-    if names="$(read_packs_record "${r#*:}/$MANIFEST_NAME")"; then
-      has_key=true
-      recorded="$recorded $(printf '%s\n' "$names" | tr '\n' ' ')"
-    fi
-  done
+  local r kind root mf names has_key=false recorded="" p why ev proj=false
+  # Project scope: .codex/ and .agents/ are repository content, so neither the
+  # manifest's "packs" record nor the files it tracks is evidence of anything
+  # (the doctrine record is distrusted the same way, DOC_PROJECT). There a pack
+  # is selected only by --with-<pack> or by AgenticOS copies of its files on
+  # disk (pack_shipped_file). The record is still written.
+  if [[ "$PLATFORM" == codex && "$CODEX_SCOPE" == project ]]; then proj=true; fi
+  if [[ "$proj" == false ]]; then
+    for r in "$@"; do
+      if names="$(read_packs_record "${r#*:}/$MANIFEST_NAME")"; then
+        has_key=true
+        recorded="$recorded $(printf '%s\n' "$names" | tr '\n' ' ')"
+      fi
+    done
+  fi
   : > "$WORK/packs.off"
   echo ""
   echo "${P}Opt-in packs:"
   for p in $PACKS; do
     load_pack "$p" "$WORK/pack.$p"
-    why=""
+    why=""; ev=""
     if has_word "$p" "$WITHOUT_PACKS"; then
       why=""
     elif has_word "$p" "$WITH_PACKS"; then
@@ -1358,14 +1401,25 @@ pack_plan() {
       why=recorded
     elif [[ "$has_key" == false ]]; then
       for r in "$@"; do
-        kind="${r%%:*}"; root="${r#*:}"
-        if pack_present "$kind" "$root" "$WORK/pack.$p"; then why=legacy; break; fi
+        kind="${r%%:*}"; root="${r#*:}"; mf="$root/$MANIFEST_NAME"
+        if [[ "$proj" == false && ( -f "$mf" || -L "$mf" ) ]]; then
+          # A manifest from before packs existed: the files it tracks.
+          if pack_tracked "$kind" "$root" "$WORK/pack.$p"; then why=tracked; break; fi
+        elif ev="$(pack_shipped_file "$kind" "$root" "$WORK/pack.$p")"; then
+          why=ondisk; break
+        fi
       done
     fi
     case "$why" in
       flag) note "$p: installed (--with-$p)" ;;
       recorded) note "$p: kept, as recorded in the install manifest; re-run with --without-$p to remove it" ;;
-      legacy) note "$p: kept, because this install predates opt-in packs and has its files; re-run with --without-$p to remove it" ;;
+      tracked) note "$p: kept, because the install manifest (written before packs existed) tracks its files; re-run with --without-$p to remove it" ;;
+      ondisk)
+        if [[ "$proj" == true ]]; then
+          note "$p: kept, because AgenticOS copies of its files are installed in this project (e.g. $ev; the project's manifest is repository content and is not trusted); re-run with --without-$p to remove it"
+        else
+          note "$p: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. $ev); re-run with --without-$p to remove it"
+        fi ;;
       *)
         cat "$WORK/pack.$p" >> "$WORK/packs.off"
         if has_word "$p" "$WITHOUT_PACKS"; then

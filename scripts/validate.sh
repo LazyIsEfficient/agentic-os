@@ -1215,7 +1215,10 @@ check_packs() {
   # failed scan fails the check (pipefail carries awk's status; grep's "no
   # match in some file" is not a failure).
   local hits
-  if ! hits="$( { printf '%s\0' "${files[@]}" | xargs -0 grep -oHE '\]\([^)]+\)' || true; } \
+  # Inline links `](target)` and reference-style definitions `[ref]: target`
+  # (both resolve the same way, and either would dangle).
+  if ! hits="$( { printf '%s\0' "${files[@]}" | xargs -0 grep -oHE '\]\([^)]+\)' || true
+                  printf '%s\0' "${files[@]}" | xargs -0 grep -HE '^[[:space:]]{0,3}\[[^]]+\]:[[:space:]]*[^[:space:]]' || true; } \
     | PACK_MAP="$PACK_MAP" awk -v claude="$CLAUDE" '
       function norm(path,   parts, n, i, top, stack, out) {
         n = split(path, parts, "/"); top = 0
@@ -1240,9 +1243,15 @@ check_packs() {
         cl = norm(claude) "/"
       }
       {
-        # grep -H line: <file>:](<target>[ "title"])
-        k = index($0, ":]("); f = substr($0, 1, k - 1); t = substr($0, k + 3)
-        sub(/\)$/, "", t); sub(/[ \t].*$/, "", t); sub(/#.*/, "", t)
+        # grep -H line: <file>:](<target>[ "title"]) or <file>:[ref]: <target> ["title"]
+        k = index($0, ":]("); r2 = index($0, ":")
+        if (k && k == r2) {
+          f = substr($0, 1, k - 1); t = substr($0, k + 3); sub(/\)$/, "", t)
+        } else {
+          f = substr($0, 1, r2 - 1); t = substr($0, r2 + 1)
+          sub(/^[ \t]*\[[^]]+\]:[ \t]*/, "", t); sub(/^</, "", t); sub(/>.*$/, "", t)
+        }
+        sub(/[ \t].*$/, "", t); sub(/#.*/, "", t)
         if (t == "" || t ~ /:\/\// || t ~ /^mailto:/ || t ~ /^\//) next
         dir = f; sub(/\/[^\/]*$/, "", dir)
         r = norm(dir "/" t); fn = norm(f)

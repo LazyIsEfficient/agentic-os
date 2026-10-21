@@ -28,7 +28,7 @@
 
 set -uo pipefail
 
-SPECIALISTS="Set subagent_type to a specialist instead: Explore for read-only search, Plan for read-only design, engineer or a stack engineer (rust-engineer, godot-engineer, phaser-engineer, web3-engineer, devops-engineer) for implementation, code-reviewer / security-reviewer / library-reviewer for review."
+SPECIALISTS="Set subagent_type to a specialist instead: Explore for read-only search, Plan for read-only design, engineer or a stack engineer (rust-engineer, web3-engineer, devops-engineer; godot-engineer and phaser-engineer with the games pack, install.sh --with-games) for implementation, code-reviewer / security-reviewer / library-reviewer for review."
 
 # $1 must be JSON-string-safe (no double quotes or backslashes): it is only
 # ever a literal from this file, so this path needs no jq.

@@ -26,7 +26,7 @@
 # library. assets\packs\<pack>.txt lists each opt-in pack's skills and agents.
 # Once installed, a pack stays installed on later runs (the manifest records
 # it) until -Without<Pack>. An install made before packs existed keeps the
-# packs whose files it has.
+# packs whose AgenticOS files it has.
 #
 # Lifecycle (same rules as install.sh): $Dest\.agentic-os-manifest.json records
 # every installed file and its SHA-256. Re-running updates files you have not
@@ -837,7 +837,8 @@ if ($Uninstall) {
 # switch is given, or the previous manifest lists it under "packs", or the
 # manifest has no "packs" key (an install made before packs existed) and
 # tracks any of its files, or there is no manifest at all (a pre-manifest
-# release) and one of its items is on disk. -Without<Pack> overrides all
+# release) and an AgenticOS copy (hash-matched) of one of its files is on
+# disk. -Without<Pack> overrides all
 # three. An unselected pack is simply not staged, so its files go through the
 # normal prune below: unmodified ones are removed, edited ones kept.
 
@@ -873,27 +874,42 @@ function Read-PacksRecord {
   return ,@(@($prop.Value) | Where-Object { ($_ -is [string]) -and ($_ -cmatch '^[a-z0-9-]+$') })
 }
 
-# True when $Root holds one of pack list $Entries: the manifest tracks a file of
-# it, or, with no manifest, one of its items exists there.
-function Test-PackPresent($Entries) {
+# Why $Root holds pack list $Entries (same rules as install.sh pack_tracked /
+# pack_shipped_file): 'tracked' when a manifest written before packs existed
+# tracks one of its files; with no manifest, "disk:<rel>" for the first file
+# that is an AgenticOS copy (a regular file reached through no link whose sha
+# is that path's copy in an earlier release or in this release's source), so
+# an empty dir, a link, or the user's own skill of the same name counts for
+# nothing. '' when none.
+function Get-PackEvidence($Entries) {
   $mf = Join-Path $Root $ManifestName
-  $mfExists = (Test-Path -LiteralPath $mf) -or (Test-ReparsePoint $mf)
-  $paths = @()
-  if ($mfExists) {
-    if (Test-ReparsePoint $mf) { return $false }   # the sync below refuses it
+  if (Test-ReparsePoint $mf) { return '' }   # the sync below refuses it
+  if (Test-Path -LiteralPath $mf) {
     $paths = @((Read-Manifest $Root).Keys)
+    foreach ($e in $Entries) {
+      if ($e.StartsWith('skills/')) {
+        if (@($paths | Where-Object { $_.StartsWith("$e/", [StringComparison]::Ordinal) }).Count -gt 0) { return 'tracked' }
+      } elseif ($paths -ccontains $e) { return 'tracked' }
+    }
+    return ''
   }
   foreach ($e in $Entries) {
-    if ($mfExists) {
-      if ($e.StartsWith('skills/')) {
-        if (@($paths | Where-Object { $_.StartsWith("$e/", [StringComparison]::Ordinal) }).Count -gt 0) { return $true }
-      } elseif ($paths -ccontains $e) { return $true }
-    } else {
-      $t = Join-Rel $Root $e
-      if ((Test-Path -LiteralPath $t) -or (Test-ReparsePoint $t)) { return $true }
+    $p = $Root; $linked = $false
+    foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
+    if ($linked -or -not (Test-Path -LiteralPath $p)) { continue }
+    $files = if (Test-Path -LiteralPath $p -PathType Container) { @(Get-ChildItem -LiteralPath $p -Recurse -File -Force) } else { @(Get-Item -LiteralPath $p -Force) }
+    $rootFull = (Convert-Path -LiteralPath $Root).TrimEnd('\', '/')
+    foreach ($f in $files) {
+      if (Test-ReparsePoint $f.FullName) { continue }
+      $rel = $f.FullName.Substring($rootFull.Length + 1) -replace '\\', '/'
+      $sha = Get-Sha $f.FullName
+      $srcf = Join-Rel $Src $rel
+      if ($script:KnownHashes.Contains("$rel`t$sha") -or ((Test-Path -LiteralPath $srcf -PathType Leaf) -and -not (Test-ReparsePoint $srcf) -and (Get-Sha $srcf) -eq $sha)) {
+        return "disk:$rel"
+      }
     }
   }
-  return $false
+  return ''
 }
 
 function Set-PackPlan {
@@ -907,11 +923,15 @@ function Set-PackPlan {
     if ($WithoutPacks -ccontains $p) { $why = '' }
     elseif ($WithPacks -ccontains $p) { $why = 'flag' }
     elseif (($null -ne $rec) -and ($rec -ccontains $p)) { $why = 'recorded' }
-    elseif (($null -eq $rec) -and (Test-PackPresent $entries)) { $why = 'legacy' }
+    elseif ($null -eq $rec) {
+      $ev = Get-PackEvidence $entries
+      if ($ev -ceq 'tracked') { $why = 'tracked' } elseif ($ev) { $why = 'ondisk'; $evRel = $ev.Substring(5) }
+    }
     switch ($why) {
       'flag' { Note "${p}: installed (-With$sw)" }
       'recorded' { Note "${p}: kept, as recorded in the install manifest; re-run with -Without$sw to remove it" }
-      'legacy' { Note "${p}: kept, because this install predates opt-in packs and has its files; re-run with -Without$sw to remove it" }
+      'tracked' { Note "${p}: kept, because the install manifest (written before packs existed) tracks its files; re-run with -Without$sw to remove it" }
+      'ondisk' { Note "${p}: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. $evRel); re-run with -Without$sw to remove it" }
       default {
         $script:PacksOff += $entries
         if ($WithoutPacks -ccontains $p) { Note "${p}: not installed (-Without$sw); unmodified files from it are removed, edited ones kept" }
