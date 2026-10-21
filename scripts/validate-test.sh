@@ -199,7 +199,23 @@ assert_trips "case 4p consumer-doctrine (known-block list missing current sha)" 
 c4q="$(make_copy)"
 sed "s#^END_MARKER='<!-- agentic-os:doctrine:end -->'#END_MARKER='<!-- agentic-os:doctrine:END -->'#" \
   "$c4q/scripts/build-consumer-doctrine.sh" > "$c4q/b.tmp" && mv "$c4q/b.tmp" "$c4q/scripts/build-consumer-doctrine.sh"
-assert_trips "case 4q consumer-doctrine (builder marker drift)" "$c4q" consumer-doctrine
+run_validate "$c4q"
+if [[ "$VRC" -ne 0 ]] && grep -q 'END_MARKER marker is not' <<<"$VOUT"; then
+  report "case 4q consumer-doctrine (builder marker drift)" pass
+else
+  report "case 4q consumer-doctrine (builder marker drift)" fail "exit=$VRC, no 'END_MARKER marker is not'; output:\n$VOUT"
+fi
+
+# ── Case 4r: consumer-doctrine — install.sh DOC_END drifts from the builder ──
+c4r="$(make_copy)"
+sed 's#^DOC_END="<!-- agentic-os:doctrine:end -->"#DOC_END="<!-- agentic-os:doctrine:END -->"#' \
+  "$c4r/install.sh" > "$c4r/i.tmp" && mv "$c4r/i.tmp" "$c4r/install.sh"
+run_validate "$c4r"
+if [[ "$VRC" -ne 0 ]] && grep -q 'DOC_END marker is not' <<<"$VOUT"; then
+  report "case 4r consumer-doctrine (install.sh marker drift)" pass
+else
+  report "case 4r consumer-doctrine (install.sh marker drift)" fail "exit=$VRC, no 'DOC_END marker is not'; output:\n$VOUT"
+fi
 
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"

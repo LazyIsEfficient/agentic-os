@@ -654,7 +654,9 @@ function Set-DoctrinePlan($Record) {
   } elseif ($Uninstall) {
     # Unsafe with no record: nothing says AgenticOS wrote there, so 'off'.
     if (($state -eq 'unsafe' -and $Record) -or $state -eq 'malformed' -or $state -eq 'foreign') { $script:DocMode = 'handsoff'; $script:DocWhy = $why }
-    elseif ($state -eq 'block') { $script:DocMode = 'write' }
+    # A shipped block with no record may be quoted text: only a record makes it ours.
+    elseif ($state -eq 'block' -and $Record) { $script:DocMode = 'write' }
+    elseif ($state -eq 'block') { $script:DocMode = 'handsoff'; $script:DocWhy = 'holds an AgenticOS doctrine block, but no install record says AgenticOS put it there (it may be quoted text)' }
   } else {
     if ($state -eq 'unsafe' -or $state -eq 'malformed' -or $state -eq 'foreign') { $script:DocMode = 'handsoff'; $script:DocWhy = $why }
     elseif ($state -eq 'block') { $script:DocMode = 'write' }
@@ -709,8 +711,13 @@ function Install-DoctrineBlock($Record) {
 function Remove-DoctrineBlock($Record) {
   if ($script:DocMode -eq 'handsoff') { Write-DocHandsOff; return }
   if ($script:DocMode -ne 'write') { return }
-  # DocMode 'write' here means the block is the one AgenticOS ships.
+  # Re-check right before writing: the block may have changed since the plan.
   $d = Get-DocLines (Read-Latin1 $DocTarget)
+  if ($d.NB -ne 1 -or $d.NE -ne 1 -or $d.B -ge $d.E -or (Get-CurBlockSha $d) -ne $script:DocBlockSha) {
+    $script:DocWhy = 'changed during the uninstall and no longer holds a block AgenticOS shipped'
+    Write-DocHandsOff
+    return
+  }
   $created = [bool]($Record -and $Record.created)
   $rest = Join-Lines $d.Lines ($d.E + 1) ($d.Lines.Count - 1)
   if ($d.B -eq 0) {

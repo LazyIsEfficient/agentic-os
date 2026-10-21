@@ -492,6 +492,69 @@ grep -q 'changed during the install' "$tmp/o-toctou" || { tail -5 "$tmp/o-toctou
 [[ "$(cat "$h/elsewhere/victim.md")" == "victim" ]] || fail "the symlink target was written"
 ok "the target is re-checked right before mv: a symlink swapped in mid-run is refused, nothing written through it"
 
+# ── 20. A block edited mid-uninstall is left alone (round 4) ────────────────
+h="$(newhome toctou-rm)"; mkdir -p "$h/.claude" "$h/bin"; cf="$h/.claude/CLAUDE.md"
+printf 'mine\n' > "$cf"
+runc "$h" --with-doctrine >/dev/null || fail "install (toctou-rm) failed"
+realjq="$(command -v jq)"
+cat > "$h/bin/jq" <<EOF
+#!/bin/bash
+# Fires on the first jq call, i.e. hook unregistration, after doctrine_plan.
+if [[ ! -e "$h/fired" ]]; then
+  : > "$h/fired"
+  awk '{ print } /agentic-os:doctrine:begin/ { print "MY HAND EDIT" }' "$cf" > "$h/edited"; cat "$h/edited" > "$cf"
+fi
+exec "$realjq" "\$@"
+EOF
+chmod +x "$h/bin/jq"
+HOME="$h" CLAUDE_DIR="$h/.claude" PATH="$h/bin:$PATH" timeout 300 bash "$rel/install.sh" --uninstall > "$tmp/o-trm" 2>&1 \
+  || { tail -5 "$tmp/o-trm"; fail "uninstall (toctou-rm) failed"; }
+[[ -e "$h/fired" ]] || fail "toctou-rm: the jq wrapper never ran"
+grep -q 'changed during the uninstall' "$tmp/o-trm" || { grep -i doctrine "$tmp/o-trm"; fail "no warning for a block edited mid-uninstall"; }
+grep -q 'MY HAND EDIT' "$cf" || fail "uninstall removed a block edited after the plan"
+ok "a block edited between the plan and the write is left alone (with a warning), not removed"
+
+# ── 21. A shipped block quoted with no record is not removed (round 4) ──────
+h="$(newhome quoted)"; mkdir -p "$h/.claude"
+printf '# notes\n```\n%s\n@agentic-os/doctrine.md\n%s\n```\nmine\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
+cp "$h/.claude/CLAUDE.md" "$tmp/quoted.orig"
+runc "$h" >/dev/null || fail "install (quoted) failed"
+runc "$h" --uninstall > "$tmp/o-quoted" || fail "uninstall (quoted) failed"
+cmp -s "$h/.claude/CLAUDE.md" "$tmp/quoted.orig" || fail "uninstall removed a shipped block the user quoted, with no record"
+grep -q 'no install record says AgenticOS put it there' "$tmp/o-quoted" || fail "no hands-off warning for a recordless block"
+ok "uninstall with no record leaves even a byte-exact shipped block alone (it may be quoted)"
+
+# ── 22. Project scope: a committed record authorises nothing (round 4) ──────
+h="$(newhome proj-rec)"; mkdir -p "$h/proj/.codex"
+printf '# repo\n%s\nREPO-OWNED CANARY TEXT\n%s\ntail\n' "$BEGIN" "$END" > "$h/proj/AGENTS.md"
+printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
+  "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
+snap "$h" > "$tmp/s-prec"
+if runp "$h" --with-doctrine > "$tmp/o-prec"; then fail "project: a committed record let --with-doctrine refresh foreign markers"; fi
+grep -q 'around text AgenticOS did not write' "$tmp/o-prec" || { cat "$tmp/o-prec"; fail "project: no foreign-marker refusal"; }
+snap "$h" | cmp -s - "$tmp/s-prec" || fail "project: files changed although foreign markers were refused"
+h="$(newhome proj-created)"; mkdir -p "$h/proj"
+runp "$h" --with-doctrine >/dev/null || fail "project install (proj-created) failed"
+[[ -f "$h/proj/AGENTS.md" ]] || fail "project install did not create AGENTS.md"
+rm -rf "$h/proj/.codex"; mkdir -p "$h/proj/.codex"
+printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
+  "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
+runp "$h" --uninstall > "$tmp/o-pcu" || { cat "$tmp/o-pcu"; fail "project uninstall (committed created) failed"; }
+[[ -f "$h/proj/AGENTS.md" ]] || fail "project uninstall deleted AGENTS.md on a committed created=true"
+! grep -q 'agentic-os:doctrine' "$h/proj/AGENTS.md" || fail "project uninstall left the shipped block"
+ok "project scope: a committed record neither unlocks foreign markers nor lets uninstall delete AGENTS.md"
+
+# ── 23. agentic-os/ allowlists only doctrine.md (round 4) ───────────────────
+h="$(newhome allowlist)"
+runc "$h" --with-doctrine >/dev/null || fail "install (allowlist) failed"
+printf 'not ours\n' > "$h/.claude/agentic-os/x.md"
+mf="$h/.claude/.agentic-os-manifest.json"
+awk -v s="$(sha "$h/.claude/agentic-os/x.md")" '{ print } /"files": \[/ { printf "    {\"path\": \"agentic-os/x.md\", \"sha256\": \"%s\"},\n", s }' "$mf" > "$tmp/mf" && cat "$tmp/mf" > "$mf"
+runc "$h" --uninstall > "$tmp/o-allow" || { cat "$tmp/o-allow"; fail "uninstall (allowlist) failed"; }
+grep -q 'skip agentic-os/x.md — unsafe path' "$tmp/o-allow" || { cat "$tmp/o-allow"; fail "a tampered agentic-os/x.md entry was not refused"; }
+[[ "$(cat "$h/.claude/agentic-os/x.md")" == "not ours" ]] || fail "uninstall removed agentic-os/x.md from a tampered manifest"
+ok "a tampered manifest cannot reach agentic-os/<anything but doctrine.md>"
+
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"
 else

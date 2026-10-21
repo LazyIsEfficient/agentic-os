@@ -687,7 +687,9 @@ doctrine_plan() {
       foreign)
         # The user asked for the doctrine: an edited block of an install they
         # recorded is refreshed (after a .bak); markers with no record are not.
-        if [[ -z "$DOC_OLD_SHA" ]]; then
+        # In --codex --project the manifest is repository content, so its
+        # record authorises nothing.
+        if [[ -z "$DOC_OLD_SHA" || "$DOC_PROJECT" == true ]]; then
           echo "Error: $f has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
           exit 1
         fi ;;
@@ -699,7 +701,11 @@ doctrine_plan() {
       # user who never used the flag sees no doctrine output at all (off).
       unsafe) if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE=handsoff; DOC_WHY="$why"; fi ;;
       malformed|foreign) DOC_MODE=handsoff; DOC_WHY="$why" ;;
-      block) DOC_MODE=write ;;
+      # A shipped block with no install record may be the user quoting it
+      # (e.g. in a code fence): only a record makes it ours to remove.
+      block)
+        if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE=write
+        else DOC_MODE=handsoff; DOC_WHY="holds an AgenticOS doctrine block, but no install record says AgenticOS put it there (it may be quoted text)"; fi ;;
     esac
   else
     case "$state" in
@@ -816,8 +822,14 @@ doctrine_remove() {
     write) ;;
     *) return 0 ;;
   esac
-  # DOC_MODE=write here means the block is one AgenticOS ships (doctrine_plan).
+  # Re-check right before writing: the block may have been edited since
+  # doctrine_plan (hooks were unregistered in between).
   doc_scan "$f"
+  if [[ "$DOC_NB" != 1 || "$DOC_NE" != 1 || "$DOC_B" -ge "$DOC_E" ]] || ! doc_known_block "$(doc_cur_sha "$f")"; then
+    DOC_WHY="changed during the uninstall and no longer holds a block AgenticOS shipped"
+    doc_handsoff_warning
+    return 0
+  fi
   tail -n "+$((DOC_E + 1))" "$f" > "$rest"
   if [[ "$DOC_B" == 1 && "$DOC_OLD_CREATED" != "true" ]]; then
     # Drop the one blank separator line the installer put after the block (a
@@ -1196,6 +1208,10 @@ else
 fi
 doc_rec="$(read_doctrine_record "$DOC_MF_ROOT/$MANIFEST_NAME")"
 if [[ -n "$doc_rec" ]]; then DOC_OLD_CREATED="${doc_rec%% *}"; DOC_OLD_SHA="${doc_rec#* }"; fi
+# Project scope: the repository can commit the manifest, so "created" is never
+# trusted there (uninstall strips the block and leaves AGENTS.md).
+DOC_PROJECT=false
+if [[ "$PLATFORM" == "codex" && "$CODEX_SCOPE" == "project" ]]; then DOC_PROJECT=true; DOC_OLD_CREATED=false; fi
 doctrine_plan
 # Stage (Claude) and record the doctrine while it is managed or left hands-off.
 DOCTRINE=false

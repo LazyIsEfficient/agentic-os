@@ -506,13 +506,13 @@ check_consumer_doctrine() {
   fi
   local builder="$ROOT/scripts/build-consumer-doctrine.sh" m
   # The builder hashes Codex blocks with the same markers the installers write.
-  for m in begin end; do
+  for m in BEGIN:begin END:end; do
     if [[ -f "$ROOT/install.sh" ]] && grep -q -- '--with-doctrine' "$ROOT/install.sh" \
-       && ! grep -qF "=\"<!-- agentic-os:doctrine:$m -->\"" "$ROOT/install.sh"; then
-      fail consumer-doctrine "$ROOT/install.sh" "DOC_$m marker is not <!-- agentic-os:doctrine:$m -->"
+       && ! grep -qxF "DOC_${m%%:*}=\"<!-- agentic-os:doctrine:${m#*:} -->\"" "$ROOT/install.sh"; then
+      fail consumer-doctrine "$ROOT/install.sh" "DOC_${m%%:*} marker is not <!-- agentic-os:doctrine:${m#*:} -->"
     fi
-    if [[ -f "$builder" ]] && ! grep -qF "='<!-- agentic-os:doctrine:$m -->'" "$builder"; then
-      fail consumer-doctrine "$builder" "$m marker is not <!-- agentic-os:doctrine:$m -->"
+    if [[ -f "$builder" ]] && ! grep -qxF "${m%%:*}_MARKER='<!-- agentic-os:doctrine:${m#*:} -->'" "$builder"; then
+      fail consumer-doctrine "$builder" "${m%%:*}_MARKER marker is not <!-- agentic-os:doctrine:${m#*:} -->"
     fi
   done
   if [[ -f "$builder" ]] && ! bash "$builder" --check >/dev/null 2>&1; then
