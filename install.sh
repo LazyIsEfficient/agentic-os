@@ -208,8 +208,7 @@ cleanup() {
 # Trapping makes bash act only once the running foreground command (curl, cp)
 # returns; that delay is accepted.
 on_sig() {
-  trap '' INT TERM HUP PIPE
-  cleanup
+  cleanup   # ignores further signals first thing
   trap - EXIT "$1"
   kill -s "$1" $$
 }
@@ -385,14 +384,13 @@ read_manifest() {
 # needs no escaping.
 write_manifest() {
   local root="$1" tsv="$2" platform="$3" out="$1/$MANIFEST_NAME"
-  local tmpf
   if [[ -L "$out" ]]; then
     echo "Error: $out is a symlink — refusing to write the manifest through it. Remove it and re-run." >&2
     exit 1
   fi
   # mktemp (O_EXCL, beside the target) so a planted link at a fixed .tmp name
   # can never redirect the write; mv then replaces the directory entry.
-  tmpf="$(mktemp "$root/.agentic-os-manifest.XXXXXX")"
+  INFLIGHT="$(mktemp "$root/.agentic-os-manifest.XXXXXX")"   # cleanup removes it if we stop here
   {
     printf '{\n  "schema": 1,\n  "name": "agentic-os",\n  "version": "%s",\n' "$VERSION"
     printf '  "source": "%s",\n  "platform": "%s",\n' "$SOURCE_KIND" "$platform"
@@ -406,9 +404,10 @@ write_manifest() {
       { printf "    {\"path\": \"%s\", \"sha256\": \"%s\"}", $1, $2 }
       END { if (NR) printf "\n" }' "$tsv"
     printf '  ]\n}\n'
-  } > "$tmpf"
-  chmod 644 "$tmpf"
-  mv -f "$tmpf" "$out"
+  } > "$INFLIGHT"
+  chmod 644 "$INFLIGHT"
+  mv -f "$INFLIGHT" "$out"
+  INFLIGHT=""
   if [[ "$root" == "$DOC_MF_ROOT" ]]; then DOC_ROLLBACK=""; fi
 }
 
@@ -781,7 +780,7 @@ doc_write() {
   dir="$(dirname "$f")"
   mkdir -p "$dir" || return 1
   doc_recheck "$f" || return 1
-  INFLIGHT="$(mktemp "$dir/.agentic-os.XXXXXX")" || { INFLIGHT=""; return 1; }   # cleanup removes it on a signal
+  INFLIGHT="$(mktemp "$dir/.agentic-os.XXXXXX")" || return 1   # cleanup removes it on a signal
   if { if [[ -f "$f" ]]; then cp -p "$f" "$INFLIGHT"; else chmod 644 "$INFLIGHT"; fi; } \
      && cat "$new" > "$INFLIGHT" && doc_recheck "$f" && mv -f "$INFLIGHT" "$f"; then
     INFLIGHT=""

@@ -661,6 +661,11 @@ ok "a failure between the doctrine edit and its record restores the target (or r
 #             -> cleanup still completes
 #   termplace SIGTERM while place() fills a skill file's temp file -> no
 #             .agentic-os.* temp file left anywhere
+#   cpfail-place  cp fails while place() fills a skill file's temp file, so
+#             errexit ends the run -> no temp file left (a `local` INFLIGHT in
+#             place() would hide it from the EXIT trap on bash 5.3)
+#   termmanifest  SIGTERM while write_manifest fills its temp file -> the
+#             doctrine edit is rolled back, no .agentic-os-manifest.* left
 # Every WORK dir the installer makes is logged (macOS mktemp -d ignores
 # TMPDIR) and must be gone afterwards: it holds doctrine.pre, a copy of the
 # user's file. No .agentic-os.* temp file may be left beside CLAUDE.md.
@@ -670,6 +675,8 @@ cat > "$tmp/shim2/mktemp" <<EOF
 #!/bin/bash
 case "\$*" in
   *.agentic-os-manifest.*)
+    # termmanifest needs the real manifest temp file (chmod is its trigger).
+    [[ "\${SHIM_MODE:-}" == termmanifest ]] && exec "$realmk" "\$@"
     : > "\$SHIM_H/manifest-failed"
     case "\${SHIM_MODE:-}" in
       edit) printf 'user edit mid-run\n' >> "\$SHIM_TGT" ;;
@@ -704,12 +711,21 @@ case "\$last" in "\$SHIM_H/.claude/.agentic-os."*)
     : > "\$SHIM_H/sent"; kill -TERM \$PPID
   fi ;;
   "\$SHIM_H/.claude/skills/"*/.agentic-os.*)
-    if [[ "\${SHIM_MODE:-}" == termplace && ! -e "\$SHIM_H/sent" ]]; then : > "\$SHIM_H/sent"; kill -TERM \$PPID; fi ;;
+    if [[ "\${SHIM_MODE:-}" == termplace && ! -e "\$SHIM_H/sent" ]]; then : > "\$SHIM_H/sent"; kill -TERM \$PPID; fi
+    if [[ "\${SHIM_MODE:-}" == cpfail-place ]]; then echo "cp: No space left on device" >&2; exit 1; fi ;;
 esac
 exec "$realcp" "\$@"
 EOF
-chmod +x "$tmp/shim2/mktemp" "$tmp/shim2/mv" "$tmp/shim2/cp"
-for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe rbfail-pipe termplace; do
+realchmod="$(command -v chmod)"
+cat > "$tmp/shim2/chmod" <<EOF
+#!/bin/bash
+case "\${@: -1}" in "\$SHIM_H/.claude/.agentic-os-manifest."*)
+  if [[ "\${SHIM_MODE:-}" == termmanifest && ! -e "\$SHIM_H/sent" ]]; then : > "\$SHIM_H/sent"; kill -TERM \$PPID; fi ;;
+esac
+exec "$realchmod" "\$@"
+EOF
+"$realchmod" +x "$tmp/shim2/mktemp" "$tmp/shim2/mv" "$tmp/shim2/cp" "$tmp/shim2/chmod"
+for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe rbfail-pipe termplace cpfail-place termmanifest; do
   h="$(newhome "rb-$mode")"; mkdir -p "$h/.claude" "$h/tmp"; t="$h/.claude/CLAUDE.md"
   if [[ "$mode" != mvfail-absent ]]; then printf 'my own rules\r\nsecond line\n' > "$t"; cp "$t" "$tmp/rb.orig"; fi
   rbenv=(SHIM_MODE="$mode" SHIM_TGT="$t" SHIM_H="$h" HOME="$h" CLAUDE_DIR="$h/.claude" TMPDIR="$h/tmp" PATH="$tmp/shim2:$PATH")
@@ -731,7 +747,8 @@ for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe
   while IFS= read -r wd; do
     [[ -n "$wd" && ! -e "$wd" ]] || fail "rollback $mode: WORK dir $wd (with the doctrine.pre copy of CLAUDE.md) was left behind"
   done < "$h/workdirs"
-  [[ -z "$(find "$h/.claude" -name '.agentic-os.*' -print)" ]] || fail "rollback $mode: an .agentic-os.* temp file was left behind: $(find "$h/.claude" -name '.agentic-os.*' -print | head -3)"
+  leftover="$(find "$h/.claude" -name '.agentic-os*' ! -name '.agentic-os-manifest.json' -print)"
+  [[ -z "$leftover" ]] || fail "rollback $mode: an .agentic-os* temp file was left behind: $(printf '%s\n' "$leftover" | head -3)"
   case "$mode" in
     edit)
       grep -q 'which has changed since (or is now a link); left as it is' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback edit: no 'changed since' warning"; }
@@ -748,12 +765,12 @@ for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe
     mvfail-absent)
       ! grep -qE 'changed since|could not restore' "$tmp/o-rb" || fail "rollback mvfail-absent: a warning although the file was never created"
       [[ ! -e "$t" ]] || fail "rollback mvfail-absent: CLAUDE.md exists although its write failed" ;;
-    term|rbterm|pipe)
+    term|rbterm|pipe|termmanifest)
       if [[ "$mode" != pipe ]]; then
         grep -q 'restored to how it was before this run' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback $mode: not restored after SIGTERM"; }
       fi
       cmp -s "$t" "$tmp/rb.orig" || fail "rollback $mode: CLAUDE.md is not the original" ;;
-    termwrite|termplace)
+    termwrite|termplace|cpfail-place)
       cmp -s "$t" "$tmp/rb.orig" || fail "rollback $mode: CLAUDE.md is not the original" ;;
     rbfail-pipe) : ;;   # the warning cannot be written; the checks above are the point
   esac
