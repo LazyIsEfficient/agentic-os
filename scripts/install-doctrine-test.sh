@@ -648,7 +648,8 @@ ok "a failure between the doctrine edit and its record restores the target (or r
 #   hardlink  the target gains a hard link -> warn, keep bytes
 #   rbfail    the rollback's own temp file fails -> warn "could not restore"
 #   mvfail    (mv shim) the doctrine write's mv fails -> no warning, original kept
-#   term      SIGTERM twice to the installer -> restored, cleanup completes
+#   term      SIGTERM to the installer and to timeout (which forwards another)
+#             -> restored, cleanup completes
 # Every WORK dir the installer makes is logged (macOS mktemp -d ignores
 # TMPDIR) and must be gone afterwards: it holds doctrine.pre, a copy of the
 # user's file.
@@ -662,7 +663,8 @@ case "\$*" in
       edit) printf 'user edit mid-run\n' >> "\$SHIM_TGT" ;;
       hardlink) ln "\$SHIM_TGT" "\$SHIM_H/hl" ;;
       rbfail) : > "\$SHIM_H/manifest-failed" ;;
-      term) kill -TERM \$PPID; kill -TERM \$PPID; /bin/sleep 1 ;;
+      # TERM the installer and its parent (timeout), which forwards a second TERM.
+      term) echo \$PPID > "\$SHIM_H/installer.pid"; gp=\$(ps -o ppid= -p \$PPID | tr -d " "); kill -TERM \$PPID \$gp; /bin/sleep 1 ;;
     esac
     echo "mktemp: simulated failure" >&2; exit 1 ;;
   */.agentic-os.*)
@@ -688,6 +690,9 @@ for mode in edit hardlink rbfail mvfail term; do
        timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1; then
     fail "rollback $mode: the install did not fail"
   fi
+  if [[ -s "$h/installer.pid" ]]; then   # timeout died first; wait for the installer itself
+    for _ in $(seq 1 300); do kill -0 "$(cat "$h/installer.pid")" 2>/dev/null || break; sleep 0.2; done
+  fi
   [[ -s "$h/workdirs" ]] || fail "rollback $mode: the mktemp shim logged no WORK dir"
   while IFS= read -r wd; do
     [[ -n "$wd" && ! -e "$wd" ]] || fail "rollback $mode: WORK dir $wd (with the doctrine.pre copy of CLAUDE.md) was left behind"
@@ -711,7 +716,7 @@ for mode in edit hardlink rbfail mvfail term; do
       cmp -s "$t" "$tmp/rb.orig" || fail "rollback term: CLAUDE.md is not the original" ;;
   esac
 done
-ok "rollback: a mid-window edit or hard link is kept with a warning, a failed restore warns, a failed write is silent, SIGTERM (twice) restores; WORK and the target dir are always cleaned"
+ok "rollback: a mid-window edit or hard link is kept with a warning, a failed restore warns, a failed write is silent, SIGTERM (with timeout forwarding a second) restores; WORK and the target dir are always cleaned"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"
