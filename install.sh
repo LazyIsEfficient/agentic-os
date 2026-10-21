@@ -184,8 +184,14 @@ TMP=""
 WORK=""
 PREFLIGHT_DIRS=""
 cleanup() {
-  # Defined further down; an early exit happens before it exists.
-  if declare -F doc_rollback >/dev/null; then doc_rollback; fi
+  # doc_rollback is defined further down; an early exit happens before it
+  # exists. It runs in a subshell with errexit off and signals ignored, so
+  # nothing in it (a failed write, doc_recheck's exit, a second Ctrl-C) can
+  # stop the temp-dir cleanup below.
+  if declare -F doc_rollback >/dev/null; then
+    trap '' INT TERM HUP
+    ( set +e; doc_rollback ) || echo "Warning: could not restore ${DOC_TARGET:-the doctrine target}; delete the lines between the AgenticOS doctrine markers by hand." >&2
+  fi
   if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
   local d
@@ -369,7 +375,8 @@ write_manifest() {
   {
     printf '{\n  "schema": 1,\n  "name": "agentic-os",\n  "version": "%s",\n' "$VERSION"
     printf '  "source": "%s",\n  "platform": "%s",\n' "$SOURCE_KIND" "$platform"
-    if [[ -n "$DOC_CREATED" && "$root" == "$DOC_MF_ROOT" ]]; then
+    # Project scope: the record would never be read (DOC_PROJECT), so none is written.
+    if [[ -n "$DOC_CREATED" && "$root" == "$DOC_MF_ROOT" && "$DOC_PROJECT" != true ]]; then
       printf '  "doctrine": {"created": %s, "block_sha256": "%s"},\n' "$DOC_CREATED" "$DOC_BLOCK_SHA"
     fi
     printf '  "files": [\n'
@@ -587,7 +594,8 @@ DOC_TARGET=""     # CLAUDE.md / AGENTS.md the block lives in
 DOC_MF_ROOT=""    # install root whose manifest records the block
 DOC_MODE=off
 DOC_UPGRADE=false # project scope + flag: replace an older shipped block (after a .bak)
-DOC_ROLLBACK=""   # set while a doctrine edit is on disk but its record is not
+DOC_ROLLBACK=""   # sha of the doctrine edit while it is on disk but its record is not
+DOC_ROLLBACK_PRE="" # sha of the target before that edit ("absent": it did not exist)
 DOC_WHY=""        # handsoff / refusal reason
 DOC_CREATED=""    # "true"/"false" once recorded for the new manifest; empty = no record
 DOC_BLOCK_SHA=""
@@ -734,12 +742,14 @@ doctrine_plan() {
 }
 
 # Fail closed if the target turned into a link or another file since the plan.
+# Returns non-zero (callers exit) if the target turned into a link or
+# another file since the plan.
 doc_recheck() {
   local why
   why="$(doc_unsafe_reason "$1")"
   if [[ -n "$why" ]]; then
     echo "Error: $1 $why (it changed during the install) — not written. Re-run to finish." >&2
-    exit 1
+    return 1
   fi
 }
 
@@ -748,13 +758,15 @@ doc_recheck() {
 doc_write() {
   local new="$1" f="$2" dir tmpf
   dir="$(dirname "$f")"
-  mkdir -p "$dir"
-  doc_recheck "$f"
-  tmpf="$(mktemp "$dir/.agentic-os.XXXXXX")"
-  if [[ -f "$f" ]]; then cp -p "$f" "$tmpf"; else chmod 644 "$tmpf"; fi
-  cat "$new" > "$tmpf"
-  doc_recheck "$f"
-  mv -f "$tmpf" "$f"
+  mkdir -p "$dir" || return 1
+  doc_recheck "$f" || return 1
+  tmpf="$(mktemp "$dir/.agentic-os.XXXXXX")" || return 1
+  if { if [[ -f "$f" ]]; then cp -p "$f" "$tmpf"; else chmod 644 "$tmpf"; fi; } \
+     && cat "$new" > "$tmpf" && doc_recheck "$f" && mv -f "$tmpf" "$f"; then
+    return 0
+  fi
+  rm -f "$tmpf"   # never leave the temp file beside the target
+  return 1
 }
 
 # Copy $1 to a fresh <file>.bak.<stamp>[.<n>] and print the backup's name.
@@ -795,9 +807,8 @@ doctrine_apply() {
   esac
   if [[ ! -e "$f" ]]; then
     DOC_CREATED=true; DOC_CRLF=0
-    [[ "$DOC_PROJECT" != true ]] || DOC_CREATED=false
     note "create $f with the AgenticOS doctrine block"
-    [[ "$DRY_RUN" == "true" ]] || { doc_arm_rollback "$f" "$WORK/doctrine.lf"; doc_write "$WORK/doctrine.lf" "$f"; }
+    if [[ "$DRY_RUN" != "true" ]]; then doc_arm_rollback "$f" "$WORK/doctrine.lf"; doc_write "$WORK/doctrine.lf" "$f" || exit 1; fi
     return 0
   fi
   doc_scan "$f"
@@ -825,7 +836,11 @@ doctrine_apply() {
     { if [[ "$DOC_B" -gt 1 ]]; then head -n "$((DOC_B - 1))" "$f"; fi; cat "$blk"; tail -n "+$((DOC_E + 1))" "$f"; } > "$new"
     if [[ "$DOC_UPGRADE" == true ]]; then
       bak="$(doc_backup "$f")"
-      note "updated the AgenticOS doctrine block in $f to this release's (an older shipped block); the whole file is saved as $bak"
+      if [[ "$DRY_RUN" == "true" ]]; then
+        note "update the AgenticOS doctrine block in $f to this release's (it holds an older shipped block); the whole file would first be saved as $bak"
+      else
+        note "update the AgenticOS doctrine block in $f to this release's (it held an older shipped block); the whole file was first saved as $bak"
+      fi
     elif doc_known_block "$cur"; then
       note "update the AgenticOS doctrine block in $f"
     else
@@ -833,7 +848,7 @@ doctrine_apply() {
       warn "refresh the doctrine block in $f — it differed from what AgenticOS wrote; the whole file is saved as $bak"
     fi
   fi
-  [[ "$DRY_RUN" == "true" ]] || { doc_arm_rollback "$f" "$new"; doc_write "$new" "$f"; }
+  if [[ "$DRY_RUN" != "true" ]]; then doc_arm_rollback "$f" "$new"; doc_write "$new" "$f" || exit 1; fi
 }
 
 # Rollback for a crash between the doctrine edit and the manifest that records
@@ -843,23 +858,31 @@ doctrine_apply() {
 # exactly as before and a re-run starts over. $WORK/doctrine.pre holds the
 # original bytes ("absent" marks a file that did not exist).
 doc_arm_rollback() {
-  if [[ -e "$1" ]]; then cp -p "$1" "$WORK/doctrine.pre"; else : > "$WORK/doctrine.pre.absent"; fi
+  if [[ -e "$1" ]]; then
+    cp -p "$1" "$WORK/doctrine.pre"; DOC_ROLLBACK_PRE="$(sha256_of "$1")"
+  else
+    : > "$WORK/doctrine.pre.absent"; DOC_ROLLBACK_PRE=absent
+  fi
   DOC_ROLLBACK="$(sha256_of "$2")"
 }
 
 # Called from the EXIT trap. Undo the edit only if the record never landed
 # and the target still holds exactly what the installer wrote.
+# Returns non-zero only when a restore was due but failed (cleanup warns).
 doc_rollback() {
   local f="$DOC_TARGET"
   [[ -n "$DOC_ROLLBACK" && -n "$f" && -n "$WORK" ]] || return 0
-  if [[ -L "$f" || ! -f "$f" || "$(sha256_of "$f")" != "$DOC_ROLLBACK" ]]; then
-    echo "Warning: the install stopped before recording the doctrine block in $f, which has changed since; left as it is." >&2
+  # The edit never landed (e.g. its mv failed): nothing to undo.
+  if [[ "$DOC_ROLLBACK_PRE" == absent && ! -e "$f" && ! -L "$f" ]]; then return 0; fi
+  if [[ "$DOC_ROLLBACK_PRE" != absent && -f "$f" && ! -L "$f" && "$(sha256_of "$f")" == "$DOC_ROLLBACK_PRE" ]]; then return 0; fi
+  if [[ -L "$f" || ! -f "$f" || -n "$(find "$f" -links +1 -print)" || "$(sha256_of "$f")" != "$DOC_ROLLBACK" ]]; then
+    echo "Warning: the install stopped before recording the doctrine block in $f, which has changed since (or is now a link); left as it is." >&2
     return 0
   fi
-  if [[ -e "$WORK/doctrine.pre.absent" ]]; then
-    rm -f "$f"
+  if [[ "$DOC_ROLLBACK_PRE" == absent ]]; then
+    rm -f "$f" || return 1
   else
-    doc_write "$WORK/doctrine.pre" "$f"
+    doc_write "$WORK/doctrine.pre" "$f" || return 1
   fi
   echo "The install stopped before recording the doctrine block, so $f was restored to how it was before this run." >&2
 }
@@ -896,10 +919,10 @@ doctrine_remove() {
   fi
   if [[ ! -s "$new" && "$DOC_OLD_CREATED" == "true" ]]; then
     note "remove $f (created by AgenticOS, now empty)"
-    if [[ "$DRY_RUN" != "true" ]]; then doc_recheck "$f"; rm -f "$f"; fi
+    if [[ "$DRY_RUN" != "true" ]]; then doc_recheck "$f" || exit 1; rm -f "$f"; fi
   else
     note "remove the AgenticOS doctrine block from $f"
-    [[ "$DRY_RUN" == "true" ]] || doc_write "$new" "$f"
+    [[ "$DRY_RUN" == "true" ]] || doc_write "$new" "$f" || exit 1
   fi
 }
 
@@ -1266,9 +1289,8 @@ if [[ "$PLATFORM" == "codex" && "$CODEX_SCOPE" == "project" ]]; then
   # The repository can commit .codex/.agentic-os-manifest.json, so its record
   # authorises nothing: treat it as absent. Uninstall then never edits
   # AGENTS.md, a flagless run does nothing, and the flag acts as a first
-  # install (plus upgrading an older shipped block, see doctrine_plan). The
-  # record is still written (created: false) but never read here; it costs
-  # one manifest line and keeps the manifest format the same in every scope.
+  # install (plus upgrading an older shipped block, see doctrine_plan). No
+  # doctrine record is written in project scope (write_manifest).
   DOC_PROJECT=true; DOC_OLD_SHA=""; DOC_OLD_CREATED=false
   DOC_NOREC_WHY=" AgenticOS can trust (in --codex --project the manifest is repository content)"
 fi

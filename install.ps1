@@ -961,28 +961,42 @@ if ($script:DocMode -eq 'write' -and -not $DryRun -and (-not (Test-Path -Literal
   throw "Error: $docFile could not be installed, so CLAUDE.md was not given an import of it; hook registration and the manifest update were withheld. Fix the path reported above, then re-run."
 }
 Update-ClaudeHookSettings "merge"
-Install-DoctrineBlock $DocRecord
+# From the doctrine edit until the manifest records it, any stop (a throw,
+# Ctrl-C) puts the target back, so a re-run never meets an unrecorded block.
+# The restore happens only if the target still holds exactly what was written.
+$manifestLanded = $false
+try {
+  Install-DoctrineBlock $DocRecord
 
-$dirs = @()
-foreach ($r in $removals) {
-  # Re-checked at the point of deletion.
-  if (-not (Test-SafeRel $r[0])) { Skip-Unsafe $r[0]; continue }
-  Note "remove $($r[0]) ($($r[1]))"
-  if (-not $DryRun) { Remove-Item -LiteralPath (Join-Rel $Root $r[0]) -Force }
-  $dirs += (Get-RelDir $r[0])
-}
-Remove-EmptyDirs $Root $dirs
-# A failed manifest write would leave the doctrine block with no record (a
-# re-run would refuse it, uninstall would leave it): put the target back.
-if (-not $DryRun) {
-  try { Write-Manifest $Root $manifest }
-  catch {
-    if ($script:DocWritten -and (Test-Path -LiteralPath $DocTarget -PathType Leaf) -and -not (Test-ReparsePoint $DocTarget) -and
-        (Get-TextSha (Read-Latin1 $DocTarget)) -eq $script:DocWritten) {
-      if ($null -eq $script:DocPre) { Remove-Item -LiteralPath $DocTarget -Force } else { Write-BesideBytes $DocTarget $script:DocPre }
-      Write-Host "The install stopped before recording the doctrine block, so $DocTarget was restored to how it was before this run."
+  $dirs = @()
+  foreach ($r in $removals) {
+    # Re-checked at the point of deletion.
+    if (-not (Test-SafeRel $r[0])) { Skip-Unsafe $r[0]; continue }
+    Note "remove $($r[0]) ($($r[1]))"
+    if (-not $DryRun) { Remove-Item -LiteralPath (Join-Rel $Root $r[0]) -Force }
+    $dirs += (Get-RelDir $r[0])
+  }
+  Remove-EmptyDirs $Root $dirs
+  if (-not $DryRun) { Write-Manifest $Root $manifest }
+  $manifestLanded = $true
+} finally {
+  if (-not $manifestLanded -and $script:DocWritten) {
+    try {
+      # The edit never landed (its write failed): nothing to undo.
+      $unchanged = if ($null -eq $script:DocPre) { -not (Test-Path -LiteralPath $DocTarget) -and -not (Test-ReparsePoint $DocTarget) }
+                   else { (Test-Path -LiteralPath $DocTarget -PathType Leaf) -and (Read-Latin1 $DocTarget) -ceq $script:DocPre }
+      if ($unchanged) { }
+      elseif ((Test-Path -LiteralPath $DocTarget -PathType Leaf) -and -not (Test-ReparsePoint $DocTarget) -and
+          (Get-Item -LiteralPath $DocTarget -Force).LinkType -ne 'HardLink' -and
+          (Get-TextSha (Read-Latin1 $DocTarget)) -eq $script:DocWritten) {
+        if ($null -eq $script:DocPre) { Remove-Item -LiteralPath $DocTarget -Force } else { Write-BesideBytes $DocTarget $script:DocPre }
+        Write-Host "The install stopped before recording the doctrine block, so $DocTarget was restored to how it was before this run."
+      } else {
+        Write-Host "Warning: the install stopped before recording the doctrine block in $DocTarget, which has changed since (or is now a link); left as it is."
+      }
+    } catch {
+      Write-Host "Warning: could not restore $DocTarget; delete the lines between the AgenticOS doctrine markers by hand."
     }
-    throw
   }
 }
 Write-Host "  OK ${Pfx}skills, agents, commands, hooks -> $Root ($added added, $updated updated, $same unchanged)"

@@ -276,7 +276,7 @@ h="$(newhome proj)"; mkdir -p "$h/proj"; printf 'project rules\n' > "$h/proj/AGE
 cp "$h/proj/AGENTS.md" "$tmp/p-orig"
 runp "$h" --with-doctrine > "$tmp/o-p" || { cat "$tmp/o-p"; fail "codex --project --with-doctrine failed"; }
 cmp -s "$h/proj/AGENTS.md" <(codex_block; printf '\n'; cat "$tmp/p-orig") || fail "project AGENTS.md wrong"
-jq -e '.doctrine.created == false' "$h/proj/.codex/.agentic-os-manifest.json" >/dev/null || fail "project manifest record missing"
+[[ -z "$(mf_doctrine "$h/proj/.codex/.agentic-os-manifest.json")" ]] || fail "project scope wrote a doctrine record (it is never read there)"
 [[ ! -e "$h/.codex/AGENTS.md" ]] || fail "project install wrote the global AGENTS.md"
 cp "$h/proj/AGENTS.md" "$tmp/p-installed"
 runp "$h" --with-doctrine > "$tmp/o-p2" || { cat "$tmp/o-p2"; fail "project re-run with the flag failed"; }
@@ -552,7 +552,7 @@ snap "$h" | cmp -s - "$tmp/s-prec" || fail "project: files changed although fore
 h="$(newhome proj-created)"; mkdir -p "$h/proj"
 runp "$h" --with-doctrine >/dev/null || fail "project install (proj-created) failed"
 [[ -f "$h/proj/AGENTS.md" ]] || fail "project install did not create AGENTS.md"
-jq -e ".doctrine.created == false" "$h/proj/.codex/.agentic-os-manifest.json" >/dev/null || fail "project scope recorded created=true"
+[[ -z "$(mf_doctrine "$h/proj/.codex/.agentic-os-manifest.json")" ]] || fail "project scope wrote a doctrine record"
 rm -rf "$h/proj/.codex"; mkdir -p "$h/proj/.codex"
 printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
   "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
@@ -610,7 +610,7 @@ run4() { HOME="$h" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" C
 run4 > "$tmp/o-pu0" || { cat "$tmp/o-pu0"; fail "flagless project run (older block) failed"; }
 cmp -s "$h/proj/AGENTS.md" "$tmp/pu.orig" || fail "a flagless project run changed the older block"
 run4 --with-doctrine > "$tmp/o-pu" || { cat "$tmp/o-pu"; fail "project --with-doctrine could not upgrade an older shipped block"; }
-grep -q 'updated the AgenticOS doctrine block' "$tmp/o-pu" || fail "no 'updated the doctrine block' line"
+grep -q "to this release's (it held an older shipped block); the whole file was first saved as" "$tmp/o-pu" || fail "no 'update the doctrine block' line"
 cmp -s "$h/proj/AGENTS.md" <(codex_block; printf '\n# team notes\n') || fail "project upgrade did not install the current block in place"
 pbak="$(ls "$h/proj"/AGENTS.md.bak.* 2>/dev/null | head -n 1 || true)"
 [[ -n "$pbak" ]] && cmp -s "$pbak" "$tmp/pu.orig" || fail "project upgrade did not save the whole file first"
@@ -641,6 +641,64 @@ h="$(newhome crash-fresh)"
 if runshim "$h" --with-doctrine > "$tmp/o-crash3"; then fail "the shimmed manifest failure did not fail a fresh install"; fi
 [[ ! -e "$h/.claude/CLAUDE.md" ]] || fail "a crash before the record left a CLAUDE.md the installer had created"
 ok "a failure between the doctrine edit and its record restores the target (or removes a file it created); a re-run then succeeds"
+
+# ── 28. The rollback itself never aborts cleanup (round 7) ─────────────────
+# Shim modes, at the moment the manifest temp file is requested:
+#   edit      the user edits the target  -> warn "changed since", keep bytes
+#   hardlink  the target gains a hard link -> warn, keep bytes
+#   rbfail    the rollback's own temp file fails -> warn "could not restore"
+#   mvfail    (mv shim) the doctrine write's mv fails -> no warning, original kept
+realmk="$(command -v mktemp)"; realmv="$(command -v mv)"
+mkdir -p "$tmp/shim2"
+cat > "$tmp/shim2/mktemp" <<EOF
+#!/bin/bash
+case "\$*" in
+  *.agentic-os-manifest.*)
+    case "\${SHIM_MODE:-}" in
+      edit) printf 'user edit mid-run\n' >> "\$SHIM_TGT" ;;
+      hardlink) ln "\$SHIM_TGT" "\$SHIM_H/hl" ;;
+      rbfail) : > "\$SHIM_H/manifest-failed" ;;
+    esac
+    echo "mktemp: simulated failure" >&2; exit 1 ;;
+  */.agentic-os.*)
+    if [[ "\${SHIM_MODE:-}" == rbfail && -e "\$SHIM_H/manifest-failed" ]]; then echo "mktemp: simulated failure" >&2; exit 1; fi ;;
+esac
+exec "$realmk" "\$@"
+EOF
+cat > "$tmp/shim2/mv" <<EOF
+#!/bin/bash
+last="\${@: -1}"
+if [[ "\${SHIM_MODE:-}" == mvfail && "\$last" == "\$SHIM_TGT" && ! -e "\$SHIM_H/mvfailed" ]]; then
+  : > "\$SHIM_H/mvfailed"; echo "mv: No space left on device" >&2; exit 1
+fi
+exec "$realmv" "\$@"
+EOF
+chmod +x "$tmp/shim2/mktemp" "$tmp/shim2/mv"
+for mode in edit hardlink rbfail mvfail; do
+  h="$(newhome "rb-$mode")"; mkdir -p "$h/.claude" "$h/tmp"; t="$h/.claude/CLAUDE.md"
+  printf 'my own rules\r\nsecond line\n' > "$t"; cp "$t" "$tmp/rb.orig"
+  if SHIM_MODE="$mode" SHIM_TGT="$t" SHIM_H="$h" HOME="$h" CLAUDE_DIR="$h/.claude" TMPDIR="$h/tmp" PATH="$tmp/shim2:$PATH" \
+       timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1; then
+    fail "rollback $mode: the install did not fail"
+  fi
+  [[ -z "$(ls -A "$h/tmp")" ]] || { ls -la "$h/tmp"; fail "rollback $mode: WORK (with the doctrine.pre copy of CLAUDE.md) leaked into TMPDIR"; }
+  [[ -z "$(ls -A "$h/.claude" | grep '^\.agentic-os\.' || true)" ]] || fail "rollback $mode: a temp file was left beside CLAUDE.md"
+  case "$mode" in
+    edit)
+      grep -q 'which has changed since (or is now a link); left as it is' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback edit: no 'changed since' warning"; }
+      cmp -s "$t" <(claude_block | LC_ALL=C awk '{ printf "%s\r\n", $0 }'; printf '\r\n'; cat "$tmp/rb.orig"; printf 'user edit mid-run\n') \
+        || fail "rollback edit: the user's mid-run bytes were not kept" ;;
+    hardlink)
+      grep -q 'which has changed since (or is now a link); left as it is' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback hardlink: no warning"; }
+      cmp -s "$t" "$h/hl" || fail "rollback hardlink: the hard-linked file was rewritten" ;;
+    rbfail)
+      grep -q 'could not restore' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback rbfail: no 'could not restore' warning"; } ;;
+    mvfail)
+      ! grep -q 'changed since' "$tmp/o-rb" || fail "rollback mvfail: a 'changed since' warning although the write never landed"
+      cmp -s "$t" "$tmp/rb.orig" || fail "rollback mvfail: CLAUDE.md is not the original" ;;
+  esac
+done
+ok "rollback: a mid-window edit or hard link is kept with a warning, a failed restore warns, a failed write is silent; TMPDIR and the target dir are always cleaned"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"
