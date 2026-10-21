@@ -1211,10 +1211,12 @@ check_packs() {
   [[ -d "$CLAUDE/agents" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/agents" -maxdepth 1 -name '*.md' -type f | sort)
   for f in $EXPECTED_CMDS; do [[ -f "$CLAUDE/commands/$f" ]] && files+=("$CLAUDE/commands/$f"); done
   [[ ${#files[@]} -eq 0 ]] && return 0
-  while IFS=$'\t' read -r src target tpack owner; do
-    fail packs "$src" "relative link '$target' reaches the $tpack pack from ${owner:-core}${owner:+ pack}; an install without that pack would have a dangling link — write the name as plain text"
-  done < <(printf '%s\0' "${files[@]}" | xargs -0 grep -oHE '\]\([^)]+\)' \
-    | awk -v claude="$CLAUDE" -v map="$PACK_MAP" '
+  # The map goes through ENVIRON: BSD awk rejects a newline in a -v value. A
+  # failed scan fails the check (pipefail carries awk's status; grep's "no
+  # match in some file" is not a failure).
+  local hits
+  if ! hits="$( { printf '%s\0' "${files[@]}" | xargs -0 grep -oHE '\]\([^)]+\)' || true; } \
+    | PACK_MAP="$PACK_MAP" awk -v claude="$CLAUDE" '
       function norm(path,   parts, n, i, top, stack, out) {
         n = split(path, parts, "/"); top = 0
         for (i = 1; i <= n; i++) {
@@ -1232,7 +1234,9 @@ check_packs() {
         return (item in pk) ? pk[item] : ""
       }
       BEGIN {
-        n = split(map, L, "\n"); for (i = 1; i <= n; i++) if (split(L[i], kv, " ") == 2) pk[kv[1]] = kv[2]
+        n = split(ENVIRON["PACK_MAP"], L, "\n"); np = 0
+        for (i = 1; i <= n; i++) if (split(L[i], kv, " ") == 2) { pk[kv[1]] = kv[2]; np++ }
+        if (!np) { print "pack map is empty" > "/dev/stderr"; exit 2 }
         cl = norm(claude) "/"
       }
       {
@@ -1246,7 +1250,14 @@ check_packs() {
         tp = packof(substr(r, length(cl) + 1))
         ow = packof(substr(fn, length(cl) + 1))
         if (tp != "" && tp != ow) print f "\t" t "\t" tp "\t" ow
-      }')
+      }')"; then
+    fail packs "$CLAUDE" "the link scan itself failed — cannot prove no core file links into a pack"
+    return 0
+  fi
+  while IFS=$'\t' read -r src target tpack owner; do
+    [[ -n "$src" ]] || continue
+    fail packs "$src" "relative link '$target' reaches the $tpack pack from ${owner:-core}${owner:+ pack}; an install without that pack would have a dangling link — write the name as plain text"
+  done <<< "$hits"
 }
 
 # ── Run all checks ─────────────────────────────────────────────────────────────
