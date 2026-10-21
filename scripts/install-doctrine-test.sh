@@ -717,8 +717,12 @@ for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe
     mkfifo "$h/fifo"; cat "$h/fifo" > "$tmp/o-rb" & echo $! > "$h/reader.pid"
     if env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$h/fifo" 2>&1; then fail "rollback $mode: the install did not fail"; fi
     wait 2>/dev/null || true
-  elif env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1; then
-    fail "rollback $mode: the install did not fail"
+  else
+    rbrc=0; env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1 || rbrc=$?
+    [[ "$rbrc" != 0 ]] || fail "rollback $mode: the install did not fail"
+    # Cleanup ignores signals, so a TERM during the restore neither stops it nor
+    # replaces the install's own failure status.
+    [[ "$mode" != rbterm || "$rbrc" == 1 ]] || fail "rollback rbterm: exit $rbrc, want 1 (a signal during cleanup must be ignored)"
   fi
   if [[ -s "$h/installer.pid" ]]; then   # timeout died first; wait for the installer itself
     for _ in $(seq 1 300); do kill -0 "$(cat "$h/installer.pid")" 2>/dev/null || break; sleep 0.2; done

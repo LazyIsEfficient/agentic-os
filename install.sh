@@ -217,7 +217,8 @@ trap cleanup EXIT
 trap 'on_sig INT' INT
 trap 'on_sig TERM' TERM
 trap 'on_sig HUP' HUP
-trap 'on_sig PIPE' PIPE
+# (No PIPE handler: bash already runs the EXIT trap before dying of SIGPIPE,
+# and cleanup ignores PIPE.)
 
 if command -v shasum &>/dev/null; then
   SHA_CMD=(shasum -a 256)
