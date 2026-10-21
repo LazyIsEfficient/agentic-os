@@ -649,7 +649,8 @@ function Set-DoctrinePlan($Record) {
     if ($state -eq 'unsafe') { throw "Error: $DocTarget $why — AgenticOS will not rewrite it. Replace it with a regular file, or install without -WithDoctrine. Nothing was changed." }
     if ($state -eq 'malformed') { throw "Error: $DocTarget $why. Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
     # An edited block of a recorded install is refreshed (after a .bak).
-    if ($state -eq 'foreign' -and -not $Record) { throw "Error: $DocTarget has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record. Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
+    # With no record, even a shipped block may be quoted text: never adopt it.
+    if (($state -eq 'foreign' -or $state -eq 'block') -and -not $Record) { throw "Error: $DocTarget has AgenticOS doctrine markers, but no install record says AgenticOS wrote them (they may be an example, e.g. in a code fence). Fix or remove the $DocBegin ... $DocEnd lines by hand. Nothing was changed." }
     $script:DocMode = 'write'
   } elseif ($Uninstall) {
     # Unsafe with no record: nothing says AgenticOS wrote there, so 'off'.
@@ -715,6 +716,7 @@ function Remove-DoctrineBlock($Record) {
   $d = Get-DocLines (Read-Latin1 $DocTarget)
   if ($d.NB -ne 1 -or $d.NE -ne 1 -or $d.B -ge $d.E -or (Get-CurBlockSha $d) -ne $script:DocBlockSha) {
     $script:DocWhy = 'changed during the uninstall and no longer holds a block AgenticOS shipped'
+    $script:DocMode = 'handsoff'   # so the uninstall loop keeps the doctrine file it may import
     Write-DocHandsOff
     return
   }

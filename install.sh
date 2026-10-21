@@ -684,13 +684,18 @@ doctrine_plan() {
       malformed)
         echo "Error: $f $why. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
         exit 1 ;;
-      foreign)
-        # The user asked for the doctrine: an edited block of an install they
-        # recorded is refreshed (after a .bak); markers with no record are not.
-        # In --codex --project the manifest is repository content, so its
-        # record authorises nothing.
-        if [[ -z "$DOC_OLD_SHA" || "$DOC_PROJECT" == true ]]; then
-          echo "Error: $f has AgenticOS doctrine markers around text AgenticOS did not write (e.g. an example in a code fence), and no install record. Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
+      foreign|block)
+        # The user asked for the doctrine. With a record, an edited block is
+        # refreshed (after a .bak) and a shipped one kept current. With no
+        # record, even a shipped block may be text the user quoted, so it is
+        # not adopted. Project scope never has a record (see DOC_PROJECT); an
+        # existing current block there is simply left as it is.
+        if [[ -z "$DOC_OLD_SHA" ]]; then
+          if [[ "$state" == block && "$DOC_PROJECT" == true && "$cur" == "$DOC_BLOCK_SHA" ]]; then
+            DOC_MODE=current
+            return 0
+          fi
+          echo "Error: $f has AgenticOS doctrine markers, but no install record$DOC_NOREC_WHY says AgenticOS wrote them (they may be an example, e.g. in a code fence). Fix or remove the $DOC_BEGIN ... $DOC_END lines by hand. Nothing was changed." >&2
           exit 1
         fi ;;
     esac
@@ -705,7 +710,7 @@ doctrine_plan() {
       # (e.g. in a code fence): only a record makes it ours to remove.
       block)
         if [[ -n "$DOC_OLD_SHA" ]]; then DOC_MODE=write
-        else DOC_MODE=handsoff; DOC_WHY="holds an AgenticOS doctrine block, but no install record says AgenticOS put it there (it may be quoted text)"; fi ;;
+        else DOC_MODE=handsoff; DOC_WHY="holds an AgenticOS doctrine block, but no install record$DOC_NOREC_WHY says AgenticOS put it there (it may be quoted text)"; fi ;;
     esac
   else
     case "$state" in
@@ -768,6 +773,9 @@ doctrine_apply() {
       # may still point at) until the user removes the block or uninstalls.
       DOC_CREATED="${DOC_OLD_CREATED:-false}"; DOC_BLOCK_SHA="$DOC_OLD_SHA"
       return 0 ;;
+    current)
+      note "$f already holds the current AgenticOS doctrine block; nothing to change (no install record is kept in --codex --project)"
+      return 0 ;;
     optout)
       note "no AgenticOS doctrine block in $f — treating that as an opt-out: the doctrine is no longer installed or kept current. Re-run with --with-doctrine to add it back."
       return 0 ;;
@@ -776,6 +784,7 @@ doctrine_apply() {
   esac
   if [[ ! -e "$f" ]]; then
     DOC_CREATED=true; DOC_CRLF=0
+    [[ "$DOC_PROJECT" != true ]] || DOC_CREATED=false
     note "create $f with the AgenticOS doctrine block"
     [[ "$DRY_RUN" == "true" ]] || doc_write "$WORK/doctrine.lf" "$f"
     return 0
@@ -827,6 +836,7 @@ doctrine_remove() {
   doc_scan "$f"
   if [[ "$DOC_NB" != 1 || "$DOC_NE" != 1 || "$DOC_B" -ge "$DOC_E" ]] || ! doc_known_block "$(doc_cur_sha "$f")"; then
     DOC_WHY="changed during the uninstall and no longer holds a block AgenticOS shipped"
+    DOC_MODE=handsoff   # so uninstall_root keeps the doctrine file it may import
     doc_handsoff_warning
     return 0
   fi
@@ -1211,7 +1221,14 @@ if [[ -n "$doc_rec" ]]; then DOC_OLD_CREATED="${doc_rec%% *}"; DOC_OLD_SHA="${do
 # Project scope: the repository can commit the manifest, so "created" is never
 # trusted there (uninstall strips the block and leaves AGENTS.md).
 DOC_PROJECT=false
-if [[ "$PLATFORM" == "codex" && "$CODEX_SCOPE" == "project" ]]; then DOC_PROJECT=true; DOC_OLD_CREATED=false; fi
+DOC_NOREC_WHY=""
+if [[ "$PLATFORM" == "codex" && "$CODEX_SCOPE" == "project" ]]; then
+  # The repository can commit .codex/.agentic-os-manifest.json, so its record
+  # authorises nothing: treat it as absent. Uninstall then never edits
+  # AGENTS.md, a flagless run does nothing, and the flag acts as a first install.
+  DOC_PROJECT=true; DOC_OLD_SHA=""; DOC_OLD_CREATED=false
+  DOC_NOREC_WHY=" AgenticOS can trust (in --codex --project the manifest is repository content)"
+fi
 doctrine_plan
 # Stage (Claude) and record the doctrine while it is managed or left hands-off.
 DOCTRINE=false

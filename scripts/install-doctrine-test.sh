@@ -72,15 +72,19 @@ codex_block() { printf '%s\n' "$BEGIN"; cat "$DOCTRINE"; printf '%s\n' "$END"; }
 
 # Each case gets its own HOME; every path the installer can reach is inside it.
 newhome() { local h="$tmp/h-$1"; mkdir -p "$h"; printf '%s' "$h"; }
-runc() { local h="$1"; shift; HOME="$h" CLAUDE_DIR="$h/.claude" timeout 300 bash "$rel/install.sh" "$@" 2>&1; }
+IB="${DOCTRINE_TEST_INSTALL_BASH:-bash}"
+runc() { local h="$1"; shift; HOME="$h" CLAUDE_DIR="$h/.claude" timeout 300 "$IB" "$rel/install.sh" "$@" 2>&1; }
 runx() { local h="$1"; shift; HOME="$h" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" \
-  timeout 300 bash "$rel/install.sh" --codex "$@" 2>&1; }
+  timeout 300 "$IB" "$rel/install.sh" --codex "$@" 2>&1; }
 runp() { local h="$1"; shift; HOME="$h" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" \
-  timeout 300 bash "$rel/install.sh" --codex --project "$@" 2>&1; }
+  timeout 300 "$IB" "$rel/install.sh" --codex --project "$@" 2>&1; }
 mf_doctrine() { jq -c '.doctrine // empty' "$1"; }
 
 # ── 1. No flag: byte-identical to the pre-#271 installer ─────────────────────
-if git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
+if [[ -n "${DOCTRINE_TEST_BASH3_REEXEC:-}" ]]; then
+  echo "SKIP  no-flag parity (bash 3 re-exec: the outer bash 5 run covers it)"
+  SKIPPED=$((SKIPPED + 1))
+elif git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
   relold="$tmp/rel-old"
   cp -R "$rel" "$relold"
   git -C "$REPO" show "$BASE_REV:install.sh" > "$relold/install.sh"
@@ -97,7 +101,7 @@ if git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
       for step in install reinstall uninstall; do
         local extra=(); [[ "$step" == uninstall ]] && extra=(--uninstall)
         HOME="$h" CLAUDE_DIR="$h/.claude" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" \
-          timeout 300 bash "$r/install.sh" "$@" "${extra[@]}" 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" >> "$tmp/parity-$v.out" \
+          timeout 300 bash "$r/install.sh" "$@" ${extra[@]+"${extra[@]}"} 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" >> "$tmp/parity-$v.out" \
           || fail "$label: $v $step failed"
         snap "$h" >> "$tmp/parity-$v.out"
       done
@@ -274,9 +278,14 @@ runp "$h" --with-doctrine > "$tmp/o-p" || { cat "$tmp/o-p"; fail "codex --projec
 cmp -s "$h/proj/AGENTS.md" <(codex_block; printf '\n'; cat "$tmp/p-orig") || fail "project AGENTS.md wrong"
 jq -e '.doctrine.created == false' "$h/proj/.codex/.agentic-os-manifest.json" >/dev/null || fail "project manifest record missing"
 [[ ! -e "$h/.codex/AGENTS.md" ]] || fail "project install wrote the global AGENTS.md"
-runp "$h" --uninstall >/dev/null || fail "project uninstall failed"
-cmp -s "$h/proj/AGENTS.md" "$tmp/p-orig" || fail "project uninstall did not restore AGENTS.md"
-ok "Codex --project: doctrine in the project-root AGENTS.md, recorded in .codex, restored on uninstall"
+cp "$h/proj/AGENTS.md" "$tmp/p-installed"
+runp "$h" --with-doctrine > "$tmp/o-p2" || { cat "$tmp/o-p2"; fail "project re-run with the flag failed"; }
+cmp -s "$h/proj/AGENTS.md" "$tmp/p-installed" || fail "project re-run changed AGENTS.md"
+grep -q 'already holds the current AgenticOS doctrine block' "$tmp/o-p2" || fail "project re-run did not report the current block"
+runp "$h" --uninstall > "$tmp/o-pu" || fail "project uninstall failed"
+cmp -s "$h/proj/AGENTS.md" "$tmp/p-installed" || fail "project uninstall edited AGENTS.md (the repo manifest authorises nothing)"
+grep -q "delete the lines from '<!-- agentic-os:doctrine:begin -->'" "$tmp/o-pu" || fail "project uninstall did not say which lines to delete"
+ok "Codex --project: doctrine in the project-root AGENTS.md; re-run is a no-op; uninstall leaves it and names the lines to delete"
 
 h="$(newhome proj-sym)"; mkdir -p "$h/proj" "$h/.codex"
 printf 'global\n' > "$h/.codex/AGENTS.md"; ln -s "$h/.codex/AGENTS.md" "$h/proj/AGENTS.md"
@@ -336,6 +345,13 @@ if [[ -x /bin/bash ]] && /bin/bash -c '[[ "${BASH_VERSINFO[0]}" -lt 4 ]]'; then
   done
   cmp -s "$h/.claude/CLAUDE.md" "$tmp/b32.orig" || fail "bash 3 install + uninstall did not round-trip CLAUDE.md"
   ok "/bin/bash 3: every touched script parses, builder --check passes, install + uninstall round-trip"
+  if [[ -z "${DOCTRINE_TEST_BASH3_REEXEC:-}" ]]; then
+    # Run this whole harness (minus parity and this case) under /bin/bash 3,
+    # with every install also under /bin/bash 3.
+    DOCTRINE_TEST_BASH3_REEXEC=1 DOCTRINE_TEST_INSTALL_BASH=/bin/bash timeout 2400 /bin/bash "$SRCREPO/scripts/install-doctrine-test.sh" \
+      > "$tmp/b32.harness" 2>&1 || { tail -15 "$tmp/b32.harness"; fail "the harness fails when run under /bin/bash 3"; }
+    ok "/bin/bash 3: the whole harness passes ($(tail -1 "$tmp/b32.harness"))"
+  fi
 else
   echo "SKIP  /bin/bash 3 checks: /bin/bash is not bash 3"
   SKIPPED=$((SKIPPED + 1))
@@ -348,7 +364,7 @@ printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"
   "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
 runp "$h" > "$tmp/o-forged" || { cat "$tmp/o-forged"; fail "flagless project run (forged record) failed"; }
 [[ "$(cat "$h/proj/AGENTS.md")" == "# project agents notes" ]] || fail "a forged project record made a flagless run write AGENTS.md"
-grep -q 'treating that as an opt-out' "$tmp/o-forged" || fail "no opt-out note"
+! grep -qi 'doctrine' "$tmp/o-forged" || fail "a committed project record made a flagless run act on the doctrine"
 [[ -z "$(mf_doctrine "$h/proj/.codex/.agentic-os-manifest.json")" ]] || fail "forged doctrine record kept"
 ok "a repo-committed doctrine record never makes a flagless --project run write AGENTS.md"
 
@@ -401,12 +417,12 @@ h="$(newhome fenced)"; mkdir -p "$h/.claude"
 printf '# notes\n```\n%s\nmy example text\n%s\n```\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
 snap "$h" > "$tmp/s-fenced"
 if runc "$h" --with-doctrine > "$tmp/o-fenced"; then fail "foreign markers accepted"; fi
-grep -q 'around text AgenticOS did not write' "$tmp/o-fenced" || { cat "$tmp/o-fenced"; fail "no foreign-marker error"; }
+grep -q 'but no install record says AgenticOS wrote them' "$tmp/o-fenced" || { cat "$tmp/o-fenced"; fail "no foreign-marker error"; }
 snap "$h" | cmp -s - "$tmp/s-fenced" || fail "files changed although the foreign markers were refused"
 cp "$h/.claude/CLAUDE.md" "$tmp/fenced.orig"
 runc "$h" --uninstall > "$tmp/o-fencedu" || fail "uninstall over foreign markers failed"
 cmp -s "$h/.claude/CLAUDE.md" "$tmp/fenced.orig" || fail "uninstall removed the user's own marker example"
-ok "markers around text AgenticOS did not write are refused (install) and left alone (uninstall)"
+ok "markers with no install record are refused (install) and left alone (uninstall)"
 
 # ── 15. CRLF files (poc P2) ──────────────────────────────────────────────────
 h="$(newhome crlf)"; mkdir -p "$h/.claude"; printf '# mine\n' > "$h/.claude/CLAUDE.md"
@@ -443,7 +459,6 @@ for forged in "$(sha "$h/proj/AGENTS.md")" 0000000000000000000000000000000000000
     > "$h/proj/.codex/.agentic-os-manifest.json"
   runp "$h" > "$tmp/o-fm" || { cat "$tmp/o-fm"; fail "flagless project run over forged markers failed"; }
   cmp -s "$h/proj/AGENTS.md" "$tmp/canary.orig" || fail "a forged record let a flagless run rewrite repo-owned markers"
-  grep -q 'matches no block AgenticOS has shipped' "$tmp/o-fm" || fail "no hands-off warning for foreign markers"
   printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' "$forged" \
     > "$h/proj/.codex/.agentic-os-manifest.json"
   runp "$h" --uninstall > "$tmp/o-fmu" || { cat "$tmp/o-fmu"; fail "uninstall over forged markers failed"; }
@@ -512,6 +527,7 @@ HOME="$h" CLAUDE_DIR="$h/.claude" PATH="$h/bin:$PATH" timeout 300 bash "$rel/ins
 [[ -e "$h/fired" ]] || fail "toctou-rm: the jq wrapper never ran"
 grep -q 'changed during the uninstall' "$tmp/o-trm" || { grep -i doctrine "$tmp/o-trm"; fail "no warning for a block edited mid-uninstall"; }
 grep -q 'MY HAND EDIT' "$cf" || fail "uninstall removed a block edited after the plan"
+[[ -f "$h/.claude/agentic-os/doctrine.md" ]] || fail "the bail-out still removed agentic-os/doctrine.md (dangling import)"
 ok "a block edited between the plan and the write is left alone (with a warning), not removed"
 
 # ── 21. A shipped block quoted with no record is not removed (round 4) ──────
@@ -531,17 +547,18 @@ printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"
   "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
 snap "$h" > "$tmp/s-prec"
 if runp "$h" --with-doctrine > "$tmp/o-prec"; then fail "project: a committed record let --with-doctrine refresh foreign markers"; fi
-grep -q 'around text AgenticOS did not write' "$tmp/o-prec" || { cat "$tmp/o-prec"; fail "project: no foreign-marker refusal"; }
+grep -q 'but no install record AgenticOS can trust' "$tmp/o-prec" || { cat "$tmp/o-prec"; fail "project: no foreign-marker refusal"; }
 snap "$h" | cmp -s - "$tmp/s-prec" || fail "project: files changed although foreign markers were refused"
 h="$(newhome proj-created)"; mkdir -p "$h/proj"
 runp "$h" --with-doctrine >/dev/null || fail "project install (proj-created) failed"
 [[ -f "$h/proj/AGENTS.md" ]] || fail "project install did not create AGENTS.md"
+jq -e ".doctrine.created == false" "$h/proj/.codex/.agentic-os-manifest.json" >/dev/null || fail "project scope recorded created=true"
 rm -rf "$h/proj/.codex"; mkdir -p "$h/proj/.codex"
 printf '{\n  "schema": 1,\n  "doctrine": {"created": true, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
   "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
+cp "$h/proj/AGENTS.md" "$tmp/pc.before"
 runp "$h" --uninstall > "$tmp/o-pcu" || { cat "$tmp/o-pcu"; fail "project uninstall (committed created) failed"; }
-[[ -f "$h/proj/AGENTS.md" ]] || fail "project uninstall deleted AGENTS.md on a committed created=true"
-! grep -q 'agentic-os:doctrine' "$h/proj/AGENTS.md" || fail "project uninstall left the shipped block"
+cmp -s "$h/proj/AGENTS.md" "$tmp/pc.before" || fail "project uninstall deleted or edited AGENTS.md on a committed created=true"
 ok "project scope: a committed record neither unlocks foreign markers nor lets uninstall delete AGENTS.md"
 
 # ── 23. agentic-os/ allowlists only doctrine.md (round 4) ───────────────────
@@ -554,6 +571,35 @@ runc "$h" --uninstall > "$tmp/o-allow" || { cat "$tmp/o-allow"; fail "uninstall 
 grep -q 'skip agentic-os/x.md — unsafe path' "$tmp/o-allow" || { cat "$tmp/o-allow"; fail "a tampered agentic-os/x.md entry was not refused"; }
 [[ "$(cat "$h/.claude/agentic-os/x.md")" == "not ours" ]] || fail "uninstall removed agentic-os/x.md from a tampered manifest"
 ok "a tampered manifest cannot reach agentic-os/<anything but doctrine.md>"
+
+# ── 24. Project scope: a committed record never authorises a change (round 5)
+h="$(newhome proj-quoted)"; mkdir -p "$h/proj/.codex"
+{ printf '# Team notes\n```\n'; codex_block; printf '```\nTEAM CANARY\n'; } > "$h/proj/AGENTS.md"
+cp "$h/proj/AGENTS.md" "$tmp/pq.orig"
+printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' \
+  "0000000000000000000000000000000000000000000000000000000000000000" > "$h/proj/.codex/.agentic-os-manifest.json"
+runp "$h" --uninstall > "$tmp/o-pq" || { cat "$tmp/o-pq"; fail "project uninstall (quoted block) failed"; }
+cmp -s "$h/proj/AGENTS.md" "$tmp/pq.orig" || fail "a committed record let project uninstall strip a shipped block the repo quoted"
+h="$(newhome proj-oldblock)"; mkdir -p "$h/proj/.codex"
+printf '%s\nan older doctrine text\n%s\n' "$BEGIN" "$END" > "$h/proj/AGENTS.md"
+oldsha="$(sha "$h/proj/AGENTS.md")"
+rel3="$tmp/rel3"; cp -R "$rel" "$rel3"; printf '%s\n' "$oldsha" >> "$rel3/assets/consumer/doctrine-block-shas.txt"
+cp "$h/proj/AGENTS.md" "$tmp/po.orig"
+printf '{\n  "schema": 1,\n  "doctrine": {"created": false, "block_sha256": "%s"},\n  "files": [\n  ]\n}\n' "$oldsha" \
+  > "$h/proj/.codex/.agentic-os-manifest.json"
+HOME="$h" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" timeout 300 "$IB" "$rel3/install.sh" --codex --project \
+  > "$tmp/o-po" 2>&1 || { cat "$tmp/o-po"; fail "flagless project run (older shipped block) failed"; }
+cmp -s "$h/proj/AGENTS.md" "$tmp/po.orig" || fail "a committed record let a flagless project run refresh an older shipped block"
+ok "project scope: a committed record lets neither uninstall strip a quoted block nor a flagless run refresh an old one"
+
+# ── 25. --with-doctrine never adopts a quoted shipped block (round 5) ───────
+h="$(newhome adopt)"; mkdir -p "$h/.claude"
+printf '# notes\n```\n%s\n@agentic-os/doctrine.md\n%s\n```\nmine\n' "$BEGIN" "$END" > "$h/.claude/CLAUDE.md"
+snap "$h" > "$tmp/s-adopt"
+if runc "$h" --with-doctrine > "$tmp/o-adopt"; then fail "--with-doctrine adopted a quoted shipped block with no record"; fi
+grep -q 'but no install record says AgenticOS wrote them' "$tmp/o-adopt" || { cat "$tmp/o-adopt"; fail "no refusal for a recordless shipped block"; }
+snap "$h" | cmp -s - "$tmp/s-adopt" || fail "files changed although the recordless block was refused"
+ok "--with-doctrine with no record refuses even a byte-exact shipped block (it may be quoted)"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"

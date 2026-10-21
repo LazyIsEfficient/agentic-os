@@ -217,6 +217,28 @@ else
   report "case 4r consumer-doctrine (install.sh marker drift)" fail "exit=$VRC, no 'DOC_END marker is not'; output:\n$VOUT"
 fi
 
+# ── Case 4s/4t: consumer-doctrine — marker only inside a longer line ─────────
+# The marker checks match whole lines (grep -x): a commented-out copy of the
+# right line must not satisfy them while the live assignment is wrong.
+c4s="$(make_copy)"
+sed 's|^DOC_END="<!-- agentic-os:doctrine:end -->"|# DOC_END="<!-- agentic-os:doctrine:end -->"\
+DOC_END="<!-- not-the-marker -->"|' "$c4s/install.sh" > "$c4s/i.tmp" && mv "$c4s/i.tmp" "$c4s/install.sh"
+run_validate "$c4s"
+if [[ "$VRC" -ne 0 ]] && grep -q 'DOC_END marker is not' <<<"$VOUT"; then
+  report "case 4s consumer-doctrine (install.sh marker only in a comment)" pass
+else
+  report "case 4s consumer-doctrine (install.sh marker only in a comment)" fail "exit=$VRC, no 'DOC_END marker is not'; output:\n$VOUT"
+fi
+c4t="$(make_copy)"
+sed "s|^END_MARKER='<!-- agentic-os:doctrine:end -->'|# END_MARKER='<!-- agentic-os:doctrine:end -->'\\
+END_MARKER='<!-- not-the-marker -->'|" "$c4t/scripts/build-consumer-doctrine.sh" > "$c4t/b.tmp" && mv "$c4t/b.tmp" "$c4t/scripts/build-consumer-doctrine.sh"
+run_validate "$c4t"
+if [[ "$VRC" -ne 0 ]] && grep -q 'END_MARKER marker is not' <<<"$VOUT"; then
+  report "case 4t consumer-doctrine (builder marker only in a comment)" pass
+else
+  report "case 4t consumer-doctrine (builder marker only in a comment)" fail "exit=$VRC, no 'END_MARKER marker is not'; output:\n$VOUT"
+fi
+
 # ── Case 5: memory-length — write a 201-line MEMORY.md ─────────────────────────
 c5="$(make_copy)"
 mkdir -p "$c5/.claude/memory"
