@@ -648,6 +648,10 @@ ok "a failure between the doctrine edit and its record restores the target (or r
 #   hardlink  the target gains a hard link -> warn, keep bytes
 #   rbfail    the rollback's own temp file fails -> warn "could not restore"
 #   mvfail    (mv shim) the doctrine write's mv fails -> no warning, original kept
+#   term      SIGTERM twice to the installer -> restored, cleanup completes
+# Every WORK dir the installer makes is logged (macOS mktemp -d ignores
+# TMPDIR) and must be gone afterwards: it holds doctrine.pre, a copy of the
+# user's file.
 realmk="$(command -v mktemp)"; realmv="$(command -v mv)"
 mkdir -p "$tmp/shim2"
 cat > "$tmp/shim2/mktemp" <<EOF
@@ -658,12 +662,15 @@ case "\$*" in
       edit) printf 'user edit mid-run\n' >> "\$SHIM_TGT" ;;
       hardlink) ln "\$SHIM_TGT" "\$SHIM_H/hl" ;;
       rbfail) : > "\$SHIM_H/manifest-failed" ;;
+      term) kill -TERM \$PPID; kill -TERM \$PPID; /bin/sleep 1 ;;
     esac
     echo "mktemp: simulated failure" >&2; exit 1 ;;
   */.agentic-os.*)
     if [[ "\${SHIM_MODE:-}" == rbfail && -e "\$SHIM_H/manifest-failed" ]]; then echo "mktemp: simulated failure" >&2; exit 1; fi ;;
 esac
-exec "$realmk" "\$@"
+out="\$("$realmk" "\$@")"; rc=\$?
+if [[ "\${1:-}" == -d ]]; then printf '%s\n' "\$out" >> "\$SHIM_H/workdirs"; fi
+printf '%s\n' "\$out"; exit \$rc
 EOF
 cat > "$tmp/shim2/mv" <<EOF
 #!/bin/bash
@@ -674,14 +681,17 @@ fi
 exec "$realmv" "\$@"
 EOF
 chmod +x "$tmp/shim2/mktemp" "$tmp/shim2/mv"
-for mode in edit hardlink rbfail mvfail; do
+for mode in edit hardlink rbfail mvfail term; do
   h="$(newhome "rb-$mode")"; mkdir -p "$h/.claude" "$h/tmp"; t="$h/.claude/CLAUDE.md"
   printf 'my own rules\r\nsecond line\n' > "$t"; cp "$t" "$tmp/rb.orig"
   if SHIM_MODE="$mode" SHIM_TGT="$t" SHIM_H="$h" HOME="$h" CLAUDE_DIR="$h/.claude" TMPDIR="$h/tmp" PATH="$tmp/shim2:$PATH" \
        timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1; then
     fail "rollback $mode: the install did not fail"
   fi
-  [[ -z "$(ls -A "$h/tmp")" ]] || { ls -la "$h/tmp"; fail "rollback $mode: WORK (with the doctrine.pre copy of CLAUDE.md) leaked into TMPDIR"; }
+  [[ -s "$h/workdirs" ]] || fail "rollback $mode: the mktemp shim logged no WORK dir"
+  while IFS= read -r wd; do
+    [[ -n "$wd" && ! -e "$wd" ]] || fail "rollback $mode: WORK dir $wd (with the doctrine.pre copy of CLAUDE.md) was left behind"
+  done < "$h/workdirs"
   [[ -z "$(ls -A "$h/.claude" | grep '^\.agentic-os\.' || true)" ]] || fail "rollback $mode: a temp file was left beside CLAUDE.md"
   case "$mode" in
     edit)
@@ -696,9 +706,12 @@ for mode in edit hardlink rbfail mvfail; do
     mvfail)
       ! grep -q 'changed since' "$tmp/o-rb" || fail "rollback mvfail: a 'changed since' warning although the write never landed"
       cmp -s "$t" "$tmp/rb.orig" || fail "rollback mvfail: CLAUDE.md is not the original" ;;
+    term)
+      grep -q 'restored to how it was before this run' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback term: not restored after SIGTERM"; }
+      cmp -s "$t" "$tmp/rb.orig" || fail "rollback term: CLAUDE.md is not the original" ;;
   esac
 done
-ok "rollback: a mid-window edit or hard link is kept with a warning, a failed restore warns, a failed write is silent; TMPDIR and the target dir are always cleaned"
+ok "rollback: a mid-window edit or hard link is kept with a warning, a failed restore warns, a failed write is silent, SIGTERM (twice) restores; WORK and the target dir are always cleaned"
 
 if [[ "$SKIPPED" -gt 0 ]]; then
   echo "install-doctrine-test: OK ($P checks, $SKIPPED skipped)"

@@ -198,6 +198,12 @@ cleanup() {
   for d in $PREFLIGHT_DIRS; do rm -rf "$d"; done
 }
 trap cleanup EXIT
+# A signal exits through cleanup with later signals already ignored, so a
+# second Ctrl-C, or the TERM that timeout forwards, cannot cut the doctrine
+# rollback or the temp-dir cleanup short.
+trap "trap '' INT TERM HUP; exit 130" INT
+trap "trap '' INT TERM HUP; exit 143" TERM
+trap "trap '' INT TERM HUP; exit 129" HUP
 
 if command -v shasum &>/dev/null; then
   SHA_CMD=(shasum -a 256)
