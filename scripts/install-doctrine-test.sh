@@ -663,7 +663,7 @@ ok "a failure between the doctrine edit and its record restores the target (or r
 #             .agentic-os.* temp file left anywhere
 #   cpfail-place  cp fails while place() fills a skill file's temp file, so
 #             errexit ends the run -> no temp file left (a `local` INFLIGHT in
-#             place() would hide it from the EXIT trap on bash 5.3)
+#             place() would hide it from the EXIT trap on bash 5.2+; 5.1 and 3.2 still show it)
 #   termmanifest  SIGTERM while write_manifest fills its temp file -> the
 #             doctrine edit is rolled back, no .agentic-os-manifest.* left
 # Every WORK dir the installer makes is logged (macOS mktemp -d ignores
