@@ -297,6 +297,30 @@ pack_is "$h/.claude" marketing in claude; pack_is "$h/.claude" games out claude
 cmp -s "$h/.claude/skills/seo-ops/SKILL.md" "$rel/.claude/skills/seo-ops/SKILL.md" || fail "v3.0.1-shaped: earlier-release copy not updated"
 ok "no manifest: a pack file matching an earlier release's hash keeps that pack (only), and is updated"
 
+# A pack file that matches only this release's source (no earlier release has
+# it) counts too.
+h="$(newhome cur-src)"
+relc="$tmp/rel-cur"
+cp -R "$rel" "$relc"
+printf '\n<!-- only in this release -->\n' >> "$relc/.claude/skills/seo-ops/SKILL.md"
+mkdir -p "$h/.claude/skills/seo-ops"
+cp "$relc/.claude/skills/seo-ops/SKILL.md" "$h/.claude/skills/seo-ops/SKILL.md"
+envh "$h" timeout 300 "$IB" "$relc/install.sh" > "$tmp/o-cur" 2>&1 || { cat "$tmp/o-cur"; fail "current-source adoption failed"; }
+grep -q 'marketing: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. skills/seo-ops/SKILL.md)' "$tmp/o-cur" \
+  || { grep -A3 Opt-in "$tmp/o-cur"; fail "a pack file matching this release's source did not keep the pack"; }
+ok "no manifest: a pack file matching this release's source (and no earlier release) keeps the pack"
+
+# Evidence is never read through a link: a symlinked skills/ dir holding real
+# copies is not evidence (and the install is then refused as before).
+h="$(newhome linked-skills)"
+mkdir -p "$h/.claude" "$h/elsewhere"
+cp -R "$rel/.claude/skills" "$h/elsewhere/skills"
+ln -s "$h/elsewhere/skills" "$h/.claude/skills"
+if runc "$h" > "$tmp/o-lnk"; then fail "install accepted a symlinked skills/ dir"; fi
+! grep -q 'kept, because' "$tmp/o-lnk" || fail "a pack was kept on evidence read through a symlinked skills/ dir: $(grep -m1 'kept, because' "$tmp/o-lnk")"
+grep -q 'skills is a symlink' "$tmp/o-lnk" || fail "symlinked skills/ not refused"
+ok "no manifest: files behind a symlinked skills/ dir are not evidence"
+
 if git -C "$GITREPO" rev-parse -q --verify 'refs/tags/v3.0.1' >/dev/null; then
   old="$tmp/v3.0.1"; mkdir -p "$old"
   git -C "$GITREPO" archive v3.0.1 | tar -x -C "$old"
