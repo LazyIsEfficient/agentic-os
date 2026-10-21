@@ -265,6 +265,36 @@ jq -e '[.files[].path] | index(["agents/marketer.md"]) != null' "$h/.claude/.age
 grep -q 'marketing: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. ' "$tmp/o-pre" || fail "pre-manifest: evidence not named"
 ok "pre-manifest install with pack files on disk keeps and adopts both packs"
 
+# --without on a pre-manifest install removes the pack's AgenticOS copies
+# through the normal prune; an edited file and a user file in the pack dir stay.
+h="$(newhome premanifest-without)"
+mkdir -p "$h/.claude"
+cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$h/.claude/"
+printf '\nmy seo edit\n' >> "$h/.claude/skills/seo-ops/SKILL.md"
+printf 'mine\n' > "$h/.claude/skills/autoresearch/my-notes.md"
+runc "$h" --without-marketing > "$tmp/o-prew" || { cat "$tmp/o-prew"; fail "pre-manifest --without-marketing failed"; }
+[[ ! -e "$h/.claude/agents/marketer.md" && ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/autoresearch/SKILL.md" ]] \
+  || fail "pre-manifest --without-marketing left AgenticOS copies on disk"
+grep -q '^  remove agents/marketer.md (no longer shipped)$' "$tmp/o-prew" || fail "pre-manifest removal not reported"
+grep -q 'my seo edit' "$h/.claude/skills/seo-ops/SKILL.md" || fail "pre-manifest --without deleted an edited pack file"
+grep -q 'mine' "$h/.claude/skills/autoresearch/my-notes.md" || fail "pre-manifest --without deleted a user file in a pack dir"
+untracked "$h/.claude/.agentic-os-manifest.json" marketing
+pack_is "$h/.claude" games in claude
+[[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '["games"]' ]] || fail "pre-manifest --without: packs is $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
+ok "pre-manifest --without-marketing removes its AgenticOS copies, keeps an edited file and a user file"
+
+h="$(newhome codex-premanifest-without)"
+runx "$h" --with-marketing >/dev/null || fail "codex install for the pre-manifest --without case failed"
+rm -f "$h/.agents/skills/.agentic-os-manifest.json" "$h/.codex/.agentic-os-manifest.json"
+printf '\nmine\n' >> "$h/.agents/skills/seo-ops/SKILL.md"
+printf 'mine\n' > "$h/.agents/skills/autoresearch/my-notes.md"
+runx "$h" --without-marketing > "$tmp/o-xprew" || { cat "$tmp/o-xprew"; fail "codex pre-manifest --without-marketing failed"; }
+[[ ! -e "$h/.agents/skills/content-ops" && ! -e "$h/.agents/skills/autoresearch/SKILL.md" ]] || fail "codex pre-manifest --without left skill copies"
+grep -q 'mine' "$h/.agents/skills/seo-ops/SKILL.md" && grep -q 'mine' "$h/.agents/skills/autoresearch/my-notes.md" || fail "codex pre-manifest --without deleted an edited or user file"
+[[ -f "$h/.codex/agents/marketer.toml" ]] || fail "codex: an unprovable agent TOML was deleted"
+grep -q "left in place: $h/.codex/agents/marketer.toml" "$tmp/o-xprew" || fail "codex: leftover pack agent TOML not named"
+ok "codex pre-manifest --without-marketing removes skill copies, keeps edited/user files, names the agent TOML it cannot prove"
+
 # Only AgenticOS copies count as evidence: the user's own skill that shares a
 # pack skill's name, an empty pack dir, or a dangling symlink pull in nothing.
 h="$(newhome own-skill)"

@@ -1,6 +1,6 @@
 ---
 name: game-design-shaper
-description: Game design pipeline — intake a game idea, design systems, balance numbers, and populate the IAP catalog (full game, prototype, jam, or live-game update). Use when the user wants to design or tune a game and needs anything from a brief to a systems + balance + catalog plan. Triggers on `/game-shape` or phrases like "design a game", "game design doc", "balance the economy", "IAP catalog". For engineering implementation in Godot see godot-engineer. For engineering intake see prompt-shaper. For game marketing or monetization strategy see the marketer agent. For marketing intake (non-game) see marketing-shaper.
+description: Game design pipeline — intake a game idea, design systems, balance numbers, and populate the IAP catalog (full game, prototype, jam, or live-game update). Use when the user wants to design or tune a game and needs anything from a brief to a systems + balance + catalog plan. Triggers on `/game-shape` or phrases like "design a game", "game design doc", "balance the economy", "IAP catalog". For engineering implementation in Godot see godot-engineer. For engineering intake see prompt-shaper. For game marketing or monetization strategy see the marketer agent (marketing pack: `--with-marketing`). For marketing intake (non-game) see marketing-shaper (marketing pack: `--with-marketing`).
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 

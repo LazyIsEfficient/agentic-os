@@ -1024,6 +1024,10 @@ sync_place() {
     exit 1
   fi
   read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"
+  # Pre-manifest files of a pack dropped with --without (see pack_adopt).
+  if [[ -s "$WORK/pack-adopt.$id" ]]; then
+    LC_ALL=C sort -u "$w/old.tsv" "$WORK/pack-adopt.$id" > "$w/old.adopt" && mv "$w/old.adopt" "$w/old.tsv"
+  fi
   cut -f1 "$w/old.tsv" > "$w/old.paths"
   load_known "$skillp" "$w/known.tsv"
   cut -f1 "$w/new.tsv" "$w/old.tsv" | LC_ALL=C sort -u | while IFS= read -r rel; do
@@ -1322,15 +1326,15 @@ pack_tracked() {
   return 1
 }
 
-# Print the root-relative path of the first file of pack list $3 under root $2
-# (kind $1) that is an AgenticOS copy: a regular file, reached through no
-# symlink, whose sha is that path's copy in an earlier release
-# (assets/release-hashes.txt) or in this release's source. Fails when there is
-# none, so an empty dir, a symlink, or the user's own skill of the same name
-# counts for nothing. A Codex config root never counts: its agent TOML is
+# "<rel>\t<sha>" for each file of pack list $3 under root $2 (kind $1) that is
+# an AgenticOS copy: a regular file, reached through no symlink, whose sha is
+# that path's copy in an earlier release (assets/release-hashes.txt) or in this
+# release's source. $4 = first: print only the first, and fail when there is
+# none. An empty dir, a symlink, or the user's own skill of the same name
+# counts for nothing. A Codex config root has none: its agent TOML is
 # generated, and every pack has skills under the skills root.
-pack_shipped_file() {
-  local kind="$1" root="$2" list="$3" e p c q rest f rel srel sha linked
+pack_shipped_files() {
+  local kind="$1" root="$2" list="$3" first="${4:-}" e p c q rest f rel srel sha linked
   case "$kind" in
     claude) load_known "skills/" "$WORK/pack.known" ;;
     codex-skills) load_known "" "$WORK/pack.known" ;;
@@ -1352,12 +1356,20 @@ pack_shipped_file() {
       sha="$(sha256_of "$f")"
       if grep -qxF -- "$rel"$'\t'"$sha" "$WORK/pack.known" \
          || { [[ -f "$SRC/$srel" && ! -L "$SRC/$srel" ]] && [[ "$(sha256_of "$SRC/$srel")" == "$sha" ]]; }; then
-        printf '%s\n' "$rel"
-        return 0
+        printf '%s\t%s\n' "$rel" "$sha"
+        if [[ -n "$first" ]]; then return 0; fi
       fi
     done < <(find "$root/$p" -type f -print0)
   done < "$list"
-  return 1
+  [[ -z "$first" ]]
+}
+
+# Root-relative path of the first AgenticOS copy of a file of pack list $3
+# under root $2 (kind $1); fails when there is none (see pack_shipped_files).
+pack_shipped_file() {
+  local l
+  l="$(pack_shipped_files "$1" "$2" "$3" first)" || return 1
+  printf '%s\n' "${l%%$'\t'*}"
 }
 
 # Pack names in manifest $1's "packs" array, one per line. Fails when the
@@ -1368,6 +1380,35 @@ read_packs_record() {
   line="$(LC_ALL=C grep -m 1 -E '^  "packs": \[[^]]*\],$' "$1")" || return 1
   line="${line#*\[}"
   { printf '%s\n' "$line" | LC_ALL=C grep -oE '"[a-z0-9-]+"' | tr -d '"'; } || true
+}
+
+# --without-<pack> on a root with no manifest (a pre-manifest install): no
+# manifest tracks the pack's files, so sync_place would never prune them. Its
+# AgenticOS copies (pack_shipped_files) are handed to sync_place as if an old
+# manifest tracked them at their current sha ($WORK/pack-adopt.<id>), so the
+# unchanged "no longer shipped" path removes them, re-checking each one at the
+# point of deletion; a file that matches no AgenticOS copy (an edit, or the
+# user's own) is never listed and stays. A Codex config root has no hashable
+# copies (its TOML is generated), so leftover pack agents there are named.
+#   $1 pack, rest: "<kind>:<root>" as for pack_plan.
+pack_adopt() {
+  local pk="$1" r kind root e n t
+  shift
+  for r in "$@"; do
+    kind="${r%%:*}"; root="${r#*:}"
+    [[ ! -e "$root/$MANIFEST_NAME" && ! -L "$root/$MANIFEST_NAME" ]] || continue
+    if [[ "$kind" == codex-config ]]; then
+      while IFS= read -r e; do
+        [[ "$e" == agents/* ]] || continue
+        n="${e#agents/}"; t="$root/agents/${n%.md}.toml"
+        if [[ -f "$t" && ! -L "$t" ]]; then
+          note "left in place: $t — no manifest says AgenticOS wrote it; delete it by hand if it is the $pk pack's agent"
+        fi
+      done < "$WORK/pack.$pk"
+      continue
+    fi
+    pack_shipped_files "$kind" "$root" "$WORK/pack.$pk" >> "$WORK/pack-adopt.$kind"
+  done
 }
 
 # $@: "<kind>:<root>" for each install root of this run.
@@ -1424,6 +1465,7 @@ pack_plan() {
         cat "$WORK/pack.$p" >> "$WORK/packs.off"
         if has_word "$p" "$WITHOUT_PACKS"; then
           note "$p: not installed (--without-$p); unmodified files from it are removed, edited ones kept"
+          pack_adopt "$p" "$@"
         else
           note "$p: not installed (add it with --with-$p)"
         fi ;;

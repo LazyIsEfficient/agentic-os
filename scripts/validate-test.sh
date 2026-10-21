@@ -768,6 +768,8 @@ link_case "case 61e packs (marketing agent links into games)" agents/marketer.md
   "reaches the games pack from marketing pack"
 link_case "case 61f packs (core links to a pack dir, no extension)" skills/prompt-shaper/SKILL.md ../seo-ops/ \
   "relative link '../seo-ops/' reaches the marketing pack"
+link_case "case 61q packs (angle-bracketed inline link)" skills/prompt-shaper/SKILL.md '<../seo-ops/SKILL.md>' \
+  "prompt-shaper/SKILL.md — relative link '../seo-ops/SKILL.md' reaches the marketing pack from core"
 # Reference-style definitions resolve like inline links.
 refdef_case() {  # $1 label, $2 .claude-relative file, $3 definition line, $4 needle
   local c; c="$(make_copy)"

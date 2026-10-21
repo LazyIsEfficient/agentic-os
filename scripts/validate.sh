@@ -1247,6 +1247,7 @@ check_packs() {
         k = index($0, ":]("); r2 = index($0, ":")
         if (k && k == r2) {
           f = substr($0, 1, k - 1); t = substr($0, k + 3); sub(/\)$/, "", t)
+          if (t ~ /^</) { sub(/^</, "", t); sub(/>.*$/, "", t) }
         } else {
           f = substr($0, 1, r2 - 1); t = substr($0, r2 + 1)
           sub(/^[ \t]*\[[^]]+\]:[ \t]*/, "", t); sub(/^</, "", t); sub(/>.*$/, "", t)

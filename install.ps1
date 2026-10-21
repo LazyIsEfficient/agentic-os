@@ -897,7 +897,21 @@ function Get-PackEvidence($Entries) {
     $p = $Root; $linked = $false
     foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
     if ($linked -or -not (Test-Path -LiteralPath $p)) { continue }
-    $files = if (Test-Path -LiteralPath $p -PathType Container) { @(Get-ChildItem -LiteralPath $p -Recurse -File -Force) } else { @(Get-Item -LiteralPath $p -Force) }
+    # Walk by hand: Get-ChildItem -Recurse follows junctions and directory
+    # symlinks in Windows PowerShell 5.1, so never enter a reparse-point dir.
+    $files = @()
+    if (Test-Path -LiteralPath $p -PathType Container) {
+      $dirs = New-Object System.Collections.Stack
+      $dirs.Push($p)
+      while ($dirs.Count -gt 0) {
+        foreach ($ch in @(Get-ChildItem -LiteralPath $dirs.Pop() -Force)) {
+          if (Test-ReparsePoint $ch.FullName) { continue }
+          if ($ch.PSIsContainer) { $dirs.Push($ch.FullName) } else { $files += $ch }
+        }
+      }
+    } else {
+      $files = @(Get-Item -LiteralPath $p -Force)
+    }
     $rootFull = (Convert-Path -LiteralPath $Root).TrimEnd('\', '/')
     foreach ($f in $files) {
       if (Test-ReparsePoint $f.FullName) { continue }
