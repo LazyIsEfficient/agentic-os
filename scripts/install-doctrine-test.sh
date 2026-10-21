@@ -657,6 +657,10 @@ ok "a failure between the doctrine edit and its record restores the target (or r
 #             kept, no temp file left beside CLAUDE.md
 #   pipe      the output reader dies in the window (install | tee, tee
 #             killed) -> restored, cleanup completes despite SIGPIPE
+#   rbfail-pipe  both: the restore fails and its warning cannot be written
+#             -> cleanup still completes
+#   termplace SIGTERM while place() fills a skill file's temp file -> no
+#             .agentic-os.* temp file left anywhere
 # Every WORK dir the installer makes is logged (macOS mktemp -d ignores
 # TMPDIR) and must be gone afterwards: it holds doctrine.pre, a copy of the
 # user's file. No .agentic-os.* temp file may be left beside CLAUDE.md.
@@ -672,11 +676,11 @@ case "\$*" in
       hardlink) ln "\$SHIM_TGT" "\$SHIM_H/hl" ;;
       # TERM the installer and its parent (timeout), which forwards a second TERM.
       term) echo \$PPID > "\$SHIM_H/installer.pid"; gp=\$(ps -o ppid= -p \$PPID | tr -d " "); kill -TERM \$PPID \$gp; /bin/sleep 1 ;;
-      pipe) kill "\$(cat "\$SHIM_H/reader.pid")"; /bin/sleep 0.5 ;;
     esac
+    if [[ "\${SHIM_MODE:-}" == *pipe* ]]; then kill "\$(cat "\$SHIM_H/reader.pid")"; /bin/sleep 0.5; fi
     echo "mktemp: simulated failure" >&2; exit 1 ;;
   */.agentic-os.*)
-    if [[ "\${SHIM_MODE:-}" == rbfail && -e "\$SHIM_H/manifest-failed" ]]; then echo "mktemp: simulated failure" >&2; exit 1; fi ;;
+    if [[ "\${SHIM_MODE:-}" == rbfail* && -e "\$SHIM_H/manifest-failed" ]]; then echo "mktemp: simulated failure" >&2; exit 1; fi ;;
 esac
 out="\$("$realmk" "\$@")"; rc=\$?
 if [[ "\${1:-}" == -d ]]; then printf '%s\n' "\$out" >> "\$SHIM_H/workdirs"; fi
@@ -699,17 +703,19 @@ case "\$last" in "\$SHIM_H/.claude/.agentic-os."*)
      || [[ "\${SHIM_MODE:-}" == rbterm && -e "\$SHIM_H/manifest-failed" && ! -e "\$SHIM_H/sent" ]]; then
     : > "\$SHIM_H/sent"; kill -TERM \$PPID
   fi ;;
+  "\$SHIM_H/.claude/skills/"*/.agentic-os.*)
+    if [[ "\${SHIM_MODE:-}" == termplace && ! -e "\$SHIM_H/sent" ]]; then : > "\$SHIM_H/sent"; kill -TERM \$PPID; fi ;;
 esac
 exec "$realcp" "\$@"
 EOF
 chmod +x "$tmp/shim2/mktemp" "$tmp/shim2/mv" "$tmp/shim2/cp"
-for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe; do
+for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe rbfail-pipe termplace; do
   h="$(newhome "rb-$mode")"; mkdir -p "$h/.claude" "$h/tmp"; t="$h/.claude/CLAUDE.md"
   if [[ "$mode" != mvfail-absent ]]; then printf 'my own rules\r\nsecond line\n' > "$t"; cp "$t" "$tmp/rb.orig"; fi
   rbenv=(SHIM_MODE="$mode" SHIM_TGT="$t" SHIM_H="$h" HOME="$h" CLAUDE_DIR="$h/.claude" TMPDIR="$h/tmp" PATH="$tmp/shim2:$PATH")
-  if [[ "$mode" == pipe ]]; then
+  if [[ "$mode" == *pipe ]]; then
     mkfifo "$h/fifo"; cat "$h/fifo" > "$tmp/o-rb" & echo $! > "$h/reader.pid"
-    if env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$h/fifo" 2>&1; then fail "rollback pipe: the install did not fail"; fi
+    if env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$h/fifo" 2>&1; then fail "rollback $mode: the install did not fail"; fi
     wait 2>/dev/null || true
   elif env "${rbenv[@]}" timeout 300 "$IB" "$rel/install.sh" --with-doctrine > "$tmp/o-rb" 2>&1; then
     fail "rollback $mode: the install did not fail"
@@ -721,7 +727,7 @@ for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe
   while IFS= read -r wd; do
     [[ -n "$wd" && ! -e "$wd" ]] || fail "rollback $mode: WORK dir $wd (with the doctrine.pre copy of CLAUDE.md) was left behind"
   done < "$h/workdirs"
-  [[ -z "$(ls -A "$h/.claude" | grep '^\.agentic-os\.' || true)" ]] || fail "rollback $mode: a temp file was left beside CLAUDE.md"
+  [[ -z "$(find "$h/.claude" -name '.agentic-os.*' -print)" ]] || fail "rollback $mode: an .agentic-os.* temp file was left behind: $(find "$h/.claude" -name '.agentic-os.*' -print | head -3)"
   case "$mode" in
     edit)
       grep -q 'which has changed since (or is now a link); left as it is' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback edit: no 'changed since' warning"; }
@@ -743,11 +749,12 @@ for mode in edit hardlink rbfail mvfail mvfail-absent term rbterm termwrite pipe
         grep -q 'restored to how it was before this run' "$tmp/o-rb" || { tail -5 "$tmp/o-rb"; fail "rollback $mode: not restored after SIGTERM"; }
       fi
       cmp -s "$t" "$tmp/rb.orig" || fail "rollback $mode: CLAUDE.md is not the original" ;;
-    termwrite)
-      cmp -s "$t" "$tmp/rb.orig" || fail "rollback termwrite: CLAUDE.md is not the original" ;;
+    termwrite|termplace)
+      cmp -s "$t" "$tmp/rb.orig" || fail "rollback $mode: CLAUDE.md is not the original" ;;
+    rbfail-pipe) : ;;   # the warning cannot be written; the checks above are the point
   esac
 done
-ok "rollback: edit/hard link kept with a warning, failed restore warns, failed write silent (file or no file), SIGTERM in the window, during the restore or during the write, and a dead output pipe all end with the original file and no temp files"
+ok "rollback: edit/hard link kept with a warning, failed restore warns, failed write silent (file or no file), SIGTERM in the window, during the restore or during either write, and a dead output pipe (even with a failed restore) all end with no temp files left"
 
 # ── 29. A signal still kills the installer (callers see it) (round 8) ──────
 if command -v python3 >/dev/null 2>&1; then
