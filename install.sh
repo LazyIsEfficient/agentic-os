@@ -426,16 +426,16 @@ read_manifest() {
 # newline could forge a whole row) never enters a row.
 REL_RE='^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$'
 SHA_RE='^[0-9a-f]{64}$'
-# True when each of $2.. is "-" or a 64-hex sha and $1 matches REL_RE. Rows are
-# read with IFS=$'\t', which collapses an empty field (tab is IFS whitespace),
-# so a row only counts when every field is re-checked after the read.
+# Each argument is "-" or a 64-hex sha. Rows are read with IFS=$'\t', which
+# collapses an empty field (tab is IFS whitespace), so every sha field is
+# re-checked after the read; paths are gated by safe_rel (which reports them).
+shas_ok() {
+  local f
+  for f in "$@"; do [[ "$f" == "-" || "$f" =~ $SHA_RE ]] || return 1; done
+}
+# shas_ok, plus $1 matches REL_RE (rows that did not come from a manifest).
 row_ok() {
-  local rel="$1" f
-  shift
-  [[ "$rel" =~ $REL_RE ]] || return 1
-  for f in "$@"; do
-    [[ "$f" == "-" || "$f" =~ $SHA_RE ]] || return 1
-  done
+  [[ "$1" =~ $REL_RE ]] || return 1; shift; shas_ok "$@"
 }
 
 # Release paths are restricted to [A-Za-z0-9._@+-] segments, so manifest JSON
@@ -1042,7 +1042,7 @@ sync_place() {
   fi
   read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"
   # Pre-manifest files of a pack dropped with --without (see pack_adopt).
-  # Every adopted row is re-validated here (exactly <rel>\t<64-hex sha>); a
+  # Every adopted row is re-validated here (exactly <rel>\t<64-hex sha>, rel in REL_RE); a
   # malformed one is never adopted.
   if [[ -s "$WORK/pack-adopt.$id" ]]; then
     : > "$w/adopt.ok"
@@ -1073,7 +1073,7 @@ sync_place() {
   : > "$w/manifest.tsv"
   : > "$w/remove.lst"
   while IFS=$'\t' read -r rel nsha osha csha extra; do
-    if [[ -n "$extra" ]] || ! row_ok "$rel" "$nsha" "$osha" "$csha"; then
+    if [[ -n "$extra" ]] || ! shas_ok "$nsha" "$osha" "$csha"; then
       warn "skip malformed plan row $(printf '%q' "$rel") — nothing written or removed for it"
       continue
     fi
@@ -1269,7 +1269,7 @@ uninstall_root() {
 
   : > "$w/dirs.lst"
   while IFS=$'\t' read -r rel osha csha extra; do
-    if [[ -n "$extra" ]] || ! row_ok "$rel" "$osha" "$csha"; then
+    if [[ -n "$extra" ]] || ! shas_ok "$osha" "$csha"; then
       warn "skip malformed plan row $(printf '%q' "$rel") — not removed"
       continue
     fi
