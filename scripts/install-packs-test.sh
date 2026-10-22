@@ -272,15 +272,14 @@ mkdir -p "$h/.claude"
 cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$h/.claude/"
 printf '\nmy seo edit\n' >> "$h/.claude/skills/seo-ops/SKILL.md"
 printf 'mine\n' > "$h/.claude/skills/autoresearch/my-notes.md"
-printf '\nmy marketer edit\n' >> "$h/.claude/agents/marketer.md"
 runc "$h" --without-marketing > "$tmp/o-prew" || { cat "$tmp/o-prew"; fail "pre-manifest --without-marketing failed"; }
-[[ ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/autoresearch/SKILL.md" ]] \
+[[ ! -e "$h/.claude/agents/marketer.md" && ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/autoresearch/SKILL.md" ]] \
   || fail "pre-manifest --without-marketing left AgenticOS copies on disk"
+grep -q '^  remove agents/marketer.md (no longer shipped)$' "$tmp/o-prew" || fail "pre-manifest agent removal not reported"
 grep -q '^  remove skills/content-ops/SKILL.md (no longer shipped)$' "$tmp/o-prew" || fail "pre-manifest removal not reported"
 grep -q 'my seo edit' "$h/.claude/skills/seo-ops/SKILL.md" || fail "pre-manifest --without deleted an edited pack file"
 grep -q 'mine' "$h/.claude/skills/autoresearch/my-notes.md" || fail "pre-manifest --without deleted a user file in a pack dir"
-grep -q 'my marketer edit' "$h/.claude/agents/marketer.md" || fail "pre-manifest --without deleted an edited pack agent"
-for f in skills/seo-ops/SKILL.md skills/autoresearch/my-notes.md agents/marketer.md; do
+for f in skills/seo-ops/SKILL.md skills/autoresearch/my-notes.md; do
   grep -q "⚠ keep $f — in the marketing pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place" "$tmp/o-prew" \
     || fail "pre-manifest --without did not name the file it left in place: $f"
 done
@@ -288,6 +287,35 @@ untracked "$h/.claude/.agentic-os-manifest.json" marketing
 pack_is "$h/.claude" games in claude
 [[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '["games"]' ]] || fail "pre-manifest --without: packs is $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
 ok "pre-manifest --without-marketing removes its AgenticOS copies, keeps an edited file and a user file"
+
+# An edited pack agent is kept and named; its unedited sibling is removed.
+h="$(newhome premanifest-without-agent)"
+mkdir -p "$h/.claude"
+cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$h/.claude/"
+printf '\nmy godot edit\n' >> "$h/.claude/agents/godot-engineer.md"
+runc "$h" --without-games > "$tmp/o-prewa" || { cat "$tmp/o-prewa"; fail "pre-manifest --without-games failed"; }
+grep -q 'my godot edit' "$h/.claude/agents/godot-engineer.md" || fail "pre-manifest --without deleted an edited pack agent"
+grep -q "⚠ keep agents/godot-engineer.md — in the games pack's dirs but not an AgenticOS release copy" "$tmp/o-prewa" || fail "edited pack agent not named"
+[[ ! -e "$h/.claude/agents/phaser-engineer.md" ]] && grep -q '^  remove agents/phaser-engineer.md (no longer shipped)$' "$tmp/o-prewa" \
+  || fail "unedited sibling pack agent not removed"
+ok "pre-manifest --without-games keeps and names an edited pack agent, removes the unedited one"
+
+# Symlinks in a deselected pack's paths are never followed or deleted, and
+# each one is named.
+h="$(newhome premanifest-without-links)"
+mkdir -p "$h/.claude/skills/content-ops" "$h/outside"
+cp -R "$rel/.claude/skills/seo-ops" "$h/outside/seo-ops"
+ln -s "$h/outside/seo-ops" "$h/.claude/skills/seo-ops"
+cp "$rel/.claude/skills/content-ops/SKILL.md" "$h/.claude/skills/content-ops/SKILL.md"
+cp "$rel/.claude/skills/content-ops/SKILL.md" "$h/outside/linked.md"
+ln -s "$h/outside/linked.md" "$h/.claude/skills/content-ops/extra.md"
+runc "$h" --without-marketing > "$tmp/o-links" || { cat "$tmp/o-links"; fail "pre-manifest --without with symlinks failed"; }
+grep -q 'skip skills/seo-ops — a symlink is on the way to it; symlink, left in place' "$tmp/o-links" || { grep -a skip "$tmp/o-links" || true; fail "symlinked pack skill dir not named"; }
+grep -q 'skip skills/content-ops/extra.md — symlink, left in place' "$tmp/o-links" || { grep -a skip "$tmp/o-links" || true; fail "symlinked file in a pack dir not named"; }
+[[ -L "$h/.claude/skills/seo-ops" && -L "$h/.claude/skills/content-ops/extra.md" ]] || fail "a symlink was removed"
+[[ -f "$h/outside/seo-ops/SKILL.md" && -f "$h/outside/linked.md" ]] || fail "a symlink target was touched"
+[[ ! -e "$h/.claude/skills/content-ops/SKILL.md" ]] || fail "the real AgenticOS copy beside the symlink was not removed"
+ok "pre-manifest --without names a symlinked pack dir and a symlinked file, follows and deletes neither"
 
 h="$(newhome codex-premanifest-without)"
 runx "$h" --with-marketing >/dev/null || fail "codex install for the pre-manifest --without case failed"
@@ -324,7 +352,7 @@ for jc in J1 J2; do
   printf 'p\n' > "$d/$name"
   runc "$h" --without-marketing > "$tmp/o-$jc" || { cat -v "$tmp/o-$jc"; fail "$jc: install failed"; }
   [[ -f "$victim" ]] || fail "$jc: a forged row deleted the user's agents/my-private.md"
-  grep -qF "skip \$'skills/seo-ops/x\\nagents/my-private.md\\t" "$tmp/o-$jc" || { cat -v "$tmp/o-$jc" | grep -a skip; fail "$jc: odd name not reported escaped"; }
+  grep -qF "skip \$'skills/seo-ops/x\\nagents/my-private.md\\t" "$tmp/o-$jc" || { cat -v "$tmp/o-$jc" | grep -a skip || true; fail "$jc: odd name not reported escaped"; }
   runc "$h" > "$tmp/o-$jc-2" || fail "$jc: second plain run failed"
   [[ -f "$victim" ]] || fail "$jc: the second plain run deleted the user's agents/my-private.md"
   ! jq -e '[.files[].path] | index(["agents/my-private.md"]) != null' "$h/.claude/.agentic-os-manifest.json" >/dev/null \
@@ -343,7 +371,7 @@ printf 'p\n' > "$h/.claude/skills/seo-ops/x"$'\n''  ⚠ keep skills-my-private.m
 runc "$h" --without-marketing > "$tmp/o-esc" || { cat -v "$tmp/o-esc"; fail "ESC case: install failed"; }
 ! LC_ALL=C grep -q $'\e' "$tmp/o-esc" || fail "a raw ESC byte reached the installer output"
 ! grep -q '^  ⚠ keep skills-my-private.md fake' "$tmp/o-esc" || fail "a file name faked a keep line"
-[[ "$(grep -c "skip \$'skills/seo-ops/" "$tmp/o-esc")" == 2 ]] || { cat -v "$tmp/o-esc" | grep -a skip; fail "ESC case: odd names not each reported once, escaped"; }
+[[ "$(grep -c "skip \$'skills/seo-ops/" "$tmp/o-esc")" == 2 ]] || { cat -v "$tmp/o-esc" | grep -a skip || true; fail "ESC case: odd names not each reported once, escaped"; }
 ok "control characters and newlines in pack-dir names are printed escaped (no terminal escapes, no faked lines)"
 
 # Only AgenticOS copies count as evidence: the user's own skill that shares a

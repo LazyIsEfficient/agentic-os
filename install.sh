@@ -1386,7 +1386,19 @@ pack_shipped_files() {
       if [[ -L "$q" ]]; then linked=true; fi
       if [[ "$rest" == */* ]]; then rest="${rest#*/}"; else rest=""; fi
     done
-    [[ "$linked" == false && -e "$root/$p" ]] || continue
+    if [[ "$linked" == true ]]; then
+      # Never followed or deleted; in "all" mode (a --without run) it is named.
+      if [[ "$first" == all ]]; then
+        warn "skip $(printf '%q' "$p") — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" >&2
+      fi
+      continue
+    fi
+    [[ -e "$root/$p" ]] || continue
+    if [[ "$first" == all ]]; then
+      while IFS= read -r -d '' f; do
+        warn "skip $(printf '%q' "${f#"$root"/}") — symlink, left in place (AgenticOS never follows or deletes a symlink)" >&2
+      done < <(find "$root/$p" -type l -print0)
+    fi
     while IFS= read -r -d '' f; do
       rel="${f#"$root"/}"
       if [[ ! "$rel" =~ $REL_RE ]]; then

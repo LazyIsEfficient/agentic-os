@@ -911,7 +911,12 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
   foreach ($e in $Entries) {
     $p = $Root; $linked = $false
     foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
-    if ($linked -or -not (Test-Path -LiteralPath $p)) { continue }
+    if ($linked) {
+      # Never followed or deleted; with -All (a -Without run) it is named.
+      if ($All) { Warn "skip $($e -replace '[\x00-\x1f\x7f]', '?') — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+      continue
+    }
+    if (-not (Test-Path -LiteralPath $p)) { continue }
     # Walk by hand: Get-ChildItem -Recurse follows junctions and directory
     # symlinks in Windows PowerShell 5.1, so never enter a reparse-point dir.
     $files = @()
@@ -920,7 +925,10 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
       $dirs.Push($p)
       while ($dirs.Count -gt 0) {
         foreach ($ch in @(Get-ChildItem -LiteralPath $dirs.Pop() -Force)) {
-          if (Test-ReparsePoint $ch.FullName) { continue }
+          if (Test-ReparsePoint $ch.FullName) {
+            if ($All) { Warn "skip $($ch.FullName -replace '[\x00-\x1f\x7f]', '?') — symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+            continue
+          }
           if ($ch.PSIsContainer) { $dirs.Push($ch.FullName) } else { $files += $ch }
         }
       }
