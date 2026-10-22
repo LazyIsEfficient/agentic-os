@@ -433,9 +433,9 @@ shas_ok() {
   local f
   for f in "$@"; do [[ "$f" == "-" || "$f" =~ $SHA_RE ]] || return 1; done
 }
-# shas_ok, plus $1 matches REL_RE (rows that did not come from a manifest).
+# True when $1 matches REL_RE (rows that did not come from a manifest).
 row_ok() {
-  [[ "$1" =~ $REL_RE ]] || return 1; shift; shas_ok "$@"
+  [[ "$1" =~ $REL_RE ]]
 }
 
 # Release paths are restricted to [A-Za-z0-9._@+-] segments, so manifest JSON
@@ -497,7 +497,7 @@ set_root() {
 #     resolves (pwd -P) inside the canonical root.
 safe_rel() {
   local root="$1" rel="$2" allow="$3" first skill p c dir canon
-  [[ "$rel" =~ ^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$ ]] || return 1
+  [[ "$rel" =~ $REL_RE ]] || return 1
   case "/$rel/" in */./*|*/../*) return 1 ;; esac
   first="${rel%%/*}"
   skill=""
@@ -567,7 +567,7 @@ place() {
 unsafe() {
   warn "skip $(printf '%q' "$1") — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
   N_UNSAFE=$((N_UNSAFE + 1))
-  printf '%s\n' "$1" >> "$WORK/unsafe.lst"
+  if [[ "$1" =~ $REL_RE ]]; then printf '%s\n' "$1" >> "$WORK/unsafe.lst"; fi   # only names a hook path could equal: one per line, unforgeable
 }
 
 # A shipped top-level dir that is itself a symlink (stow-style dotfiles) would

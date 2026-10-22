@@ -575,6 +575,67 @@ if envh "$h" timeout 300 "$IB" "$rel_nopack/install.sh" > "$tmp/o-nopack" 2>&1; 
 snap "$h" | cmp -s - "$tmp/s-nopack" || fail "missing pack list: files changed"
 ok "a payload with a missing pack list is refused and nothing is written"
 
+# ── 9b. Row checks hit directly (round 5) ───────────────────────────────────
+# The REL_RE filter upstream means no real file name can reach these checks,
+# so each case runs a COPY of the installer with one line inserted after an
+# exact anchor (a test seam in the copy only) that plants a malformed row
+# straight into a work file. The victim is a canary in the case's HOME.
+seam_installer() {  # $1 payload dir to create, $2 exact anchor line, $3 line to insert after it
+  local out="$1"
+  [[ -n "$out" && "$out" == "$tmp"/seam-* ]] || fail "seam dir escaped the temp dir: '$out'"
+  rm -rf "$out"; cp -R "$rel" "$out"
+  awk -v a="$2" -v ins="$3" '{ print } $0 == a { print ins; n++ } END { exit n != 1 }' "$rel/install.sh" > "$out/install.sh" \
+    || fail "seam anchor not found exactly once: $2"
+}
+canary_home() {  # $1 name; prints the home, with ~/.claude/agents/my-private.md
+  local h; h="$(newhome "$1")"
+  mkdir -p "$h/.claude/agents"
+  printf 'user canary agent\n' > "$h/.claude/agents/my-private.md"
+  printf '%s' "$h"
+}
+
+# A: an adopt row with an extra field never reaches old.tsv.
+seam_installer "$tmp/seam-adopt" '  read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"' \
+  '  if [[ "$id" == claude ]]; then printf '"'"'agents/my-private.md\t%s\t-\n'"'"' "$(sha256_of "$root/agents/my-private".md)" >> "$WORK/pack-adopt.$id"; fi'
+h="$(canary_home seam-adopt)"
+envh "$h" timeout 300 "$IB" "$tmp/seam-adopt/install.sh" > "$tmp/o-seam-a" 2>&1 || { cat "$tmp/o-seam-a"; fail "seam A: install failed"; }
+[[ -f "$h/.claude/agents/my-private.md" ]] || fail "seam A: a malformed adopt row removed the canary"
+grep -q 'skip a malformed pack adoption row' "$tmp/o-seam-a" || fail "seam A: malformed adopt row not reported"
+ok "a malformed pack-adopt row (extra field) is refused at the adopt check, canary kept"
+
+# B: sync_place plan rows with an extra field, or a collapsed empty sha.
+seam_installer "$tmp/seam-plan" "  ' \"\$w/new.tsv\" \"\$w/old.tsv\" \"\$w/cur.tsv\" | LC_ALL=C sort > \"\$w/plan.tsv\"" \
+  '  if [[ "$id" == claude ]]; then v="$(sha256_of "$root/agents/my-private".md)"; printf '"'"'agents/my-private.md\t-\t%s\t%s\textra\nagents/my-private.md\t-\t\t%s\n'"'"' "$v" "$v" "$v" >> "$w/plan.tsv"; fi'
+h="$(canary_home seam-plan)"
+envh "$h" timeout 300 "$IB" "$tmp/seam-plan/install.sh" > "$tmp/o-seam-b" 2>&1 || { cat "$tmp/o-seam-b"; fail "seam B: install failed"; }
+[[ -f "$h/.claude/agents/my-private.md" ]] || fail "seam B: a malformed plan row removed the canary"
+[[ "$(grep -c 'skip malformed plan row agents/my-private.md' "$tmp/o-seam-b")" == 2 ]] || fail "seam B: malformed plan rows not each reported"
+! jq -e '[.files[].path] | index(["agents/my-private.md"]) != null' "$h/.claude/.agentic-os-manifest.json" >/dev/null || fail "seam B: canary adopted into the manifest"
+ok "malformed sync_place plan rows (extra field, collapsed empty sha) are refused, canary kept and untracked"
+
+# C: uninstall_root plan rows, same two shapes.
+seam_installer "$tmp/seam-uninst" "  ' \"\$w/old.tsv\" \"\$w/cur.tsv\" | LC_ALL=C sort > \"\$w/plan.tsv\"" \
+  '  if [[ "$id" == claude ]]; then v="$(sha256_of "$root/agents/my-private".md)"; printf '"'"'agents/my-private.md\t%s\t%s\textra\nagents/my-private.md\t\t%s\n'"'"' "$v" "$v" "$v" >> "$w/plan.tsv"; fi'
+h="$(canary_home seam-uninst)"
+runc "$h" >/dev/null || fail "seam C: install failed"
+envh "$h" timeout 300 "$IB" "$tmp/seam-uninst/install.sh" --uninstall > "$tmp/o-seam-c" 2>&1 || { cat "$tmp/o-seam-c"; fail "seam C: uninstall failed"; }
+[[ -f "$h/.claude/agents/my-private.md" ]] || fail "seam C: a malformed uninstall plan row removed the canary"
+[[ "$(grep -c 'skip malformed plan row agents/my-private.md' "$tmp/o-seam-c")" == 2 ]] || fail "seam C: malformed uninstall plan rows not each reported"
+ok "malformed uninstall plan rows (extra field, collapsed empty sha) are refused, canary kept"
+
+# D: a newline in a retired skill's file name cannot forge an unsafe.lst line
+# naming a shipped hook (PoC sec299r5: --dry-run then exited 1).
+h="$(newhome unsafe-lst)"
+runc "$h" >/dev/null || fail "unsafe.lst case: install failed"
+hk="$(cd "$rel/.claude" && find hooks -type f -name '*.sh' | LC_ALL=C sort | head -n 1)"
+[[ -n "$hk" ]] || fail "unsafe.lst case: no shipped hook found"
+mkdir -p "$h/.claude/skills/route/a"$'\n'"hooks"
+printf 'x\n' > "$h/.claude/skills/route/a"$'\n'"$hk"
+if ! runc "$h" --dry-run > "$tmp/o-ulst"; then grep -a 'would be skipped\|^Error' "$tmp/o-ulst" || true; fail "a forged unsafe.lst line failed the dry run"; fi
+! grep -q "hook $hk would be skipped" "$tmp/o-ulst" || fail "a forged unsafe.lst line named a shipped hook"
+grep -qF "skip \$'skills/route/a\\nhooks/" "$tmp/o-ulst" || { grep -a 'skip' "$tmp/o-ulst" || true; fail "the odd retired-skill name was not reported escaped"; }
+ok "a newline in a retired skill's file name cannot forge an unsafe-path entry for a shipped hook"
+
 # ── 10. /bin/bash 3 ──────────────────────────────────────────────────────────
 if [[ -z "${PACKS_TEST_BASH3_REEXEC:-}" && -x /bin/bash ]] && /bin/bash -c '[[ ${BASH_VERSINFO[0]} -eq 3 ]]'; then
   PACKS_TEST_BASH3_REEXEC=1 PACKS_TEST_INSTALL_BASH=/bin/bash PACKS_TEST_GIT_REPO="$GITREPO" \

@@ -266,7 +266,7 @@ function Test-SafeRel([string]$Rel) {
 }
 
 function Skip-Unsafe([string]$Rel) {
-  $shown = $Rel -replace "`r", '\r' -replace "`n", '\n'
+  $shown = $Rel -replace '[\x00-\x1f\x7f-\x9f]', '?'   # C0, DEL and C1 controls (e.g. U+009B CSI)
   Warn "skip $shown — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
   $script:Unsafe++
   [void]$script:UnsafeRels.Add($Rel)
@@ -913,7 +913,7 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
     foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
     if ($linked) {
       # Never followed or deleted; with -All (a -Without run) it is named.
-      if ($All) { Warn "skip $($e -replace '[\x00-\x1f\x7f]', '?') — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+      if ($All) { Warn "skip $($e -replace '[\x00-\x1f\x7f-\x9f]', '?') — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" }
       continue
     }
     if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -926,7 +926,7 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
       while ($dirs.Count -gt 0) {
         foreach ($ch in @(Get-ChildItem -LiteralPath $dirs.Pop() -Force)) {
           if (Test-ReparsePoint $ch.FullName) {
-            if ($All) { Warn "skip $($ch.FullName -replace '[\x00-\x1f\x7f]', '?') — symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+            if ($All) { Warn "skip $($ch.FullName.Substring((Convert-Path -LiteralPath $Root).TrimEnd('\', '/').Length + 1) -replace '\\', '/' -replace '[\x00-\x1f\x7f-\x9f]', '?') — symlink, left in place (AgenticOS never follows or deletes a symlink)" }
             continue
           }
           if ($ch.PSIsContainer) { $dirs.Push($ch.FullName) } else { $files += $ch }
@@ -942,7 +942,7 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
       # Same charset as Test-SafeRel; \A..\z because .NET `$` also matches
       # before a final newline. A name with a tab, CR or LF never becomes a key.
       if ($rel -cnotmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') {
-        Warn "skip $($rel -replace '[\x00-\x1f\x7f]', '?') — unusual characters in the name; not an AgenticOS file, not touched"
+        Warn "skip $($rel -replace '[\x00-\x1f\x7f-\x9f]', '?') — unusual characters in the name; not an AgenticOS file, not touched"
         continue
       }
       $sha = Get-Sha $f.FullName
@@ -1067,7 +1067,7 @@ Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
 foreach ($k in @($script:PackAdopt.Keys)) {
-  if (($k -cmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') -and ($script:PackAdopt[$k] -cmatch '\A[0-9a-f]{64}\z') -and -not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] }
+  if (($k -cmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') -and ($script:PackAdopt[$k] -cmatch '\A[0-9a-f]{64}\z')) { if (-not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] } } else { Warn "skip a malformed pack adoption entry $($k -replace '[\x00-\x1f\x7f-\x9f]', '?'); nothing adopted or removed for it" }
 }
 $all = @{}
 foreach ($k in $new.Keys) { $all[$k] = 1 }
