@@ -421,6 +421,23 @@ read_manifest() {
     }' "$1" | LC_ALL=C sort -u
 }
 
+# A root-relative path that may become a TSV work-file row: two or more
+# [A-Za-z0-9._@+-] components (safe_rel's charset). Anything else (a tab or
+# newline could forge a whole row) never enters a row.
+REL_RE='^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$'
+SHA_RE='^[0-9a-f]{64}$'
+# True when each of $2.. is "-" or a 64-hex sha and $1 matches REL_RE. Rows are
+# read with IFS=$'\t', which collapses an empty field (tab is IFS whitespace),
+# so a row only counts when every field is re-checked after the read.
+row_ok() {
+  local rel="$1" f
+  shift
+  [[ "$rel" =~ $REL_RE ]] || return 1
+  for f in "$@"; do
+    [[ "$f" == "-" || "$f" =~ $SHA_RE ]] || return 1
+  done
+}
+
 # Release paths are restricted to [A-Za-z0-9._@+-] segments, so manifest JSON
 # needs no escaping.
 write_manifest() {
@@ -1006,7 +1023,7 @@ doctrine_remove() {
 #   $8 shipped first-component allowlist (see safe_rel)
 sync_place() {
   local id="$1" stage="$2" root="$3" hookp="$4" skillp="$5" allow="$8"
-  local w="$WORK/$id" rel nsha osha csha bak n
+  local w="$WORK/$id" rel nsha osha csha bak n extra line a_rel a_sha
   local added=0 updated=0 same=0 legacy_kept=0
   mkdir -p "$w"
   set_root "$root"
@@ -1025,8 +1042,19 @@ sync_place() {
   fi
   read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"
   # Pre-manifest files of a pack dropped with --without (see pack_adopt).
+  # Every adopted row is re-validated here (exactly <rel>\t<64-hex sha>); a
+  # malformed one is never adopted.
   if [[ -s "$WORK/pack-adopt.$id" ]]; then
-    LC_ALL=C sort -u "$w/old.tsv" "$WORK/pack-adopt.$id" > "$w/old.adopt" && mv "$w/old.adopt" "$w/old.tsv"
+    : > "$w/adopt.ok"
+    while IFS= read -r line; do
+      a_rel="${line%%$'\t'*}"; a_sha="${line#*$'\t'}"
+      if [[ "$line" == *$'\t'* && "$a_sha" != *$'\t'* && "$a_sha" =~ $SHA_RE ]] && row_ok "$a_rel"; then
+        printf '%s\t%s\n' "$a_rel" "$a_sha" >> "$w/adopt.ok"
+      else
+        warn "skip a malformed pack adoption row $(printf '%q' "$line"); nothing adopted or removed for it"
+      fi
+    done < "$WORK/pack-adopt.$id"
+    LC_ALL=C sort -u "$w/old.tsv" "$w/adopt.ok" > "$w/old.adopt" && mv "$w/old.adopt" "$w/old.tsv"
   fi
   cut -f1 "$w/old.tsv" > "$w/old.paths"
   load_known "$skillp" "$w/known.tsv"
@@ -1044,7 +1072,11 @@ sync_place() {
 
   : > "$w/manifest.tsv"
   : > "$w/remove.lst"
-  while IFS=$'\t' read -r rel nsha osha csha; do
+  while IFS=$'\t' read -r rel nsha osha csha extra; do
+    if [[ -n "$extra" ]] || ! row_ok "$rel" "$nsha" "$osha" "$csha"; then
+      warn "skip malformed plan row $(printf '%q' "$rel") — nothing written or removed for it"
+      continue
+    fi
     if ! safe_rel "$root" "$rel" "$allow"; then
       unsafe "$rel"
       continue
@@ -1214,7 +1246,7 @@ manifest_hook_names() {
 #   $5 skills prefix (as for sync_place: "skills/", "", or "-")
 uninstall_root() {
   local id="$1" root="$2" label="$3" allow="$4" skillp="$5"
-  local w="$WORK/$id" mf="$2/$MANIFEST_NAME" rel osha csha removed=0 kept=0
+  local w="$WORK/$id" mf="$2/$MANIFEST_NAME" rel osha csha extra removed=0 kept=0
   mkdir -p "$w"
   set_root "$root"
   echo ""
@@ -1236,7 +1268,11 @@ uninstall_root() {
   ' "$w/old.tsv" "$w/cur.tsv" | LC_ALL=C sort > "$w/plan.tsv"
 
   : > "$w/dirs.lst"
-  while IFS=$'\t' read -r rel osha csha; do
+  while IFS=$'\t' read -r rel osha csha extra; do
+    if [[ -n "$extra" ]] || ! row_ok "$rel" "$osha" "$csha"; then
+      warn "skip malformed plan row $(printf '%q' "$rel") — not removed"
+      continue
+    fi
     if ! safe_rel "$root" "$rel" "$allow"; then
       unsafe "$rel"
     elif [[ "$csha" == "-" ]]; then
@@ -1353,6 +1389,11 @@ pack_shipped_files() {
     [[ "$linked" == false && -e "$root/$p" ]] || continue
     while IFS= read -r -d '' f; do
       rel="${f#"$root"/}"
+      if [[ ! "$rel" =~ $REL_RE ]]; then
+        # stderr: callers capture stdout as rows.
+        warn "skip $(printf '%q' "$rel") — unusual characters in the name; not an AgenticOS file, not touched" >&2
+        continue
+      fi
       srel="$rel"; [[ "$kind" == codex-skills ]] && srel="skills/$rel"
       sha="$(sha256_of "$f")"
       if grep -qxF -- "$rel"$'\t'"$sha" "$WORK/pack.known" \
@@ -1413,7 +1454,7 @@ pack_adopt() {
     pack_shipped_files "$kind" "$root" "$WORK/pack.$pk" all > "$WORK/pack-adopt.scan"
     LC_ALL=C awk -F'\t' '$2 != "-"' "$WORK/pack-adopt.scan" >> "$WORK/pack-adopt.$kind"
     while IFS=$'\t' read -r e n; do
-      [[ "$n" == "-" ]] || continue
+      [[ "$n" == "-" && "$e" =~ $REL_RE ]] || continue
       warn "keep $e — in the $pk pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place, remove it by hand if you no longer want it"
     done < "$WORK/pack-adopt.scan"
   done

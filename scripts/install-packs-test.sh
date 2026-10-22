@@ -306,6 +306,46 @@ done
 grep -q "left in place: $h/.codex/agents/marketer.toml" "$tmp/o-xprew" || fail "codex: leftover pack agent TOML not named"
 ok "codex pre-manifest --without-marketing removes skill copies, keeps edited/user files, names the agent TOML it cannot prove"
 
+# Names from the filesystem never become work-file rows (round 4, PoC
+# sec299r4): a newline in a dir name plus a tab in a file name could forge a
+# "<rel>\t<sha>" row and get a user file removed. J1 knows the victim's sha,
+# J2 needs none (an empty sha field collapses under IFS=$'\t'). Every odd name
+# is created inside the case's mktemp HOME only.
+for jc in J1 J2; do
+  h="$(newhome "forge-row-$jc")"
+  victim="$h/.claude/agents/my-private.md"
+  mkdir -p "$h/.claude/agents" "$h/.claude/skills/seo-ops"
+  printf 'user secret agent\n' > "$victim"
+  cp "$rel/.claude/skills/seo-ops/SKILL.md" "$h/.claude/skills/seo-ops/SKILL.md"
+  d="$h/.claude/skills/seo-ops/x"$'\n'"agents"
+  [[ -n "$h" && "$d" == "$h"/.claude/* ]] || fail "$jc: forge dir escaped the HOME"
+  mkdir -p "$d"
+  if [[ "$jc" == J1 ]]; then name="my-private.md"$'\t'"$("${SHA[@]}" "$victim" | awk '{print $1}')"; else name="my-private.md"$'\t'; fi
+  printf 'p\n' > "$d/$name"
+  runc "$h" --without-marketing > "$tmp/o-$jc" || { cat -v "$tmp/o-$jc"; fail "$jc: install failed"; }
+  [[ -f "$victim" ]] || fail "$jc: a forged row deleted the user's agents/my-private.md"
+  grep -qF "skip \$'skills/seo-ops/x\\nagents/my-private.md\\t" "$tmp/o-$jc" || { cat -v "$tmp/o-$jc" | grep -a skip; fail "$jc: odd name not reported escaped"; }
+  runc "$h" > "$tmp/o-$jc-2" || fail "$jc: second plain run failed"
+  [[ -f "$victim" ]] || fail "$jc: the second plain run deleted the user's agents/my-private.md"
+  ! jq -e '[.files[].path] | index(["agents/my-private.md"]) != null' "$h/.claude/.agentic-os-manifest.json" >/dev/null \
+    || fail "$jc: the manifest adopted the user's agents/my-private.md"
+  [[ -f "$d/$name" ]] || fail "$jc: the oddly named file itself was touched"
+done
+ok "a forged '<rel>\\t<sha>' row (newline dir + tab name, with or without the victim's sha) never adopts or removes a user file, on either run"
+
+# K: control characters in a name reach the output only escaped, so a name
+# can neither drive the terminal nor fake a 'keep' line.
+h="$(newhome forge-esc)"
+mkdir -p "$h/.claude/skills/seo-ops"
+cp "$rel/.claude/skills/seo-ops/SKILL.md" "$h/.claude/skills/seo-ops/SKILL.md"
+printf 'p\n' > "$h/.claude/skills/seo-ops/"$'\e[2K\e[1Agood'
+printf 'p\n' > "$h/.claude/skills/seo-ops/x"$'\n''  ⚠ keep skills-my-private.md fake'
+runc "$h" --without-marketing > "$tmp/o-esc" || { cat -v "$tmp/o-esc"; fail "ESC case: install failed"; }
+! LC_ALL=C grep -q $'\e' "$tmp/o-esc" || fail "a raw ESC byte reached the installer output"
+! grep -q '^  ⚠ keep skills-my-private.md fake' "$tmp/o-esc" || fail "a file name faked a keep line"
+[[ "$(grep -c "skip \$'skills/seo-ops/" "$tmp/o-esc")" == 2 ]] || { cat -v "$tmp/o-esc" | grep -a skip; fail "ESC case: odd names not each reported once, escaped"; }
+ok "control characters and newlines in pack-dir names are printed escaped (no terminal escapes, no faked lines)"
+
 # Only AgenticOS copies count as evidence: the user's own skill that shares a
 # pack skill's name, an empty pack dir, or a dangling symlink pull in nothing.
 h="$(newhome own-skill)"

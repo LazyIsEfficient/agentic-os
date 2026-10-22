@@ -243,7 +243,8 @@ function Write-Beside([string]$Target, [string]$Text) {
 # from $Root down to the file is a symlink/junction (reparse point), so nothing
 # is ever reached outside $Root or through a link.
 function Test-SafeRel([string]$Rel) {
-  if ($Rel -cnotmatch '^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$') { return $false }
+  # \A..\z: .NET `$` also matches before a final newline.
+  if ($Rel -cnotmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') { return $false }
   if ("/$Rel/" -match '/\.\.?/') { return $false }
   $parts = $Rel.Split('/')
   if ($ShippedPrefixes -cnotcontains $parts[0]) { return $false }
@@ -303,7 +304,7 @@ function Read-Manifest([string]$RootDir) {
   if (Test-ReparsePoint $mf) { throw "Error: $mf is a symlink — refusing to use it. Remove it and re-run." }; if (-not (Test-Path -LiteralPath $mf)) { return $map }
   $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
   foreach ($e in @($json.files)) {
-    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '^[0-9a-f]{64}$') -and ($e.path -cmatch '^[A-Za-z0-9._@+/-]+$')) {
+    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '\A[0-9a-f]{64}\z') -and ($e.path -cmatch '\A[A-Za-z0-9._@+/-]+\z')) {
       $map[$e.path] = $e.sha256
     }
   }
@@ -930,6 +931,12 @@ function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
     foreach ($f in $files) {
       if (Test-ReparsePoint $f.FullName) { continue }
       $rel = $f.FullName.Substring($rootFull.Length + 1) -replace '\\', '/'
+      # Same charset as Test-SafeRel; \A..\z because .NET `$` also matches
+      # before a final newline. A name with a tab, CR or LF never becomes a key.
+      if ($rel -cnotmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') {
+        Warn "skip $($rel -replace '[\x00-\x1f\x7f]', '?') — unusual characters in the name; not an AgenticOS file, not touched"
+        continue
+      }
       $sha = Get-Sha $f.FullName
       $srcf = Join-Rel $Src $rel
       if ($script:KnownHashes.Contains("$rel`t$sha") -or ((Test-Path -LiteralPath $srcf -PathType Leaf) -and -not (Test-ReparsePoint $srcf) -and (Get-Sha $srcf) -eq $sha)) {
@@ -1051,7 +1058,9 @@ if ($Doctrine) { Assert-NoLinkedDirs @('agentic-os') }
 Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
-foreach ($k in $script:PackAdopt.Keys) { if (-not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] } }
+foreach ($k in @($script:PackAdopt.Keys)) {
+  if (($k -cmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') -and ($script:PackAdopt[$k] -cmatch '\A[0-9a-f]{64}\z') -and -not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] }
+}
 $all = @{}
 foreach ($k in $new.Keys) { $all[$k] = 1 }
 foreach ($k in $old.Keys) { $all[$k] = 1 }
