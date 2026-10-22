@@ -16,11 +16,23 @@ mkdir -p "$home"
 HOME="$home" CODEX_HOME="$config" CODEX_SKILLS_DIR="$skills" \
   bash "$REPO/install.sh" --codex >/dev/null
 
-want_skills="$(find "$REPO/.claude/skills" -name SKILL.md -type f | wc -l | tr -d ' ')"
+# A default install is core only: opt-in pack items (assets/packs/*.txt) are not shipped.
+pack_items="$(grep -hvE '^[[:space:]]*(#|$)' "$REPO"/assets/packs/*.txt)"
+[[ -n "$pack_items" ]] || fail "no pack entries found in assets/packs/"
+is_pack() { printf '%s\n' "$pack_items" | grep -qxF -- "$1"; }
+want_skills=0
+for d in "$REPO/.claude/skills"/*/; do
+  d="${d%/}"
+  is_pack "skills/${d##*/}" && continue
+  want_skills=$((want_skills + $(find "$d" -name SKILL.md -type f | wc -l)))
+done
 got_skills="$(find "$skills" -name SKILL.md -type f | wc -l | tr -d ' ')"
 [[ "$got_skills" == "$want_skills" ]] || fail "skill count got=$got_skills want=$want_skills"
 
-want_agents="$(find "$REPO/.claude/agents" -maxdepth 1 -name '*.md' -type f | wc -l | tr -d ' ')"
+want_agents=0
+for f in "$REPO/.claude/agents"/*.md; do
+  is_pack "agents/${f##*/}" || want_agents=$((want_agents + 1))
+done
 got_agents="$(find "$config/agents" -maxdepth 1 -name '*.toml' -type f | wc -l | tr -d ' ')"
 [[ "$got_agents" == "$want_agents" ]] || fail "agent count got=$got_agents want=$want_agents"
 grep -q "^name = 'engineer'$" "$config/agents/engineer.toml" || fail "engineer TOML missing name"
@@ -68,7 +80,7 @@ if command -v jq &>/dev/null; then
   jq -e '.hooks.SessionStart | length == 1' "$config/hooks.json" >/dev/null || fail "Codex hook merge is not idempotent"
 fi
 
-marker="$skills/autoresearch/SKILL.md"
+marker="$skills/prompt-shaper/SKILL.md"
 printf '\nlocal-customization\n' >> "$marker"
 HOME="$home" CODEX_HOME="$config" CODEX_SKILLS_DIR="$skills" \
   bash "$REPO/install.sh" --codex >/dev/null
@@ -80,7 +92,7 @@ HOME="$home" CODEX_HOME="$config" CODEX_SKILLS_DIR="$skills" \
 project="$tmp/project with spaces"
 mkdir -p "$project"
 HOME="$home" CODEX_PROJECT_DIR="$project" bash "$REPO/install.sh" --codex --project >/dev/null
-[[ -f "$project/.agents/skills/autoresearch/SKILL.md" ]] || fail "project skill install missing"
+[[ -f "$project/.agents/skills/prompt-shaper/SKILL.md" ]] || fail "project skill install missing"
 [[ -f "$project/.codex/agents/engineer.toml" ]] || fail "project agent install missing"
 [[ -f "$project/.codex/hooks.json" ]] || fail "project hook registration missing"
 

@@ -1,0 +1,12 @@
+# Games pack: opt in with `install.sh --with-games` (install.ps1 -WithGames).
+# Not part of a default install.
+# One entry per line: skills/<name> or agents/<name>.md. validate.sh (packs)
+# checks every entry exists and is in exactly one pack.
+skills/game-balancer
+skills/game-systems-designer
+skills/godot-engineer
+skills/iap-manager
+skills/phaser-engineer
+agents/game-design-shaper.md
+agents/godot-engineer.md
+agents/phaser-engineer.md

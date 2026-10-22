@@ -1,6 +1,6 @@
 ---
 name: game-design-shaper
-description: Game design pipeline — intake a game idea, design systems, balance numbers, and populate the IAP catalog (full game, prototype, jam, or live-game update). Use when the user wants to design or tune a game and needs anything from a brief to a systems + balance + catalog plan. Triggers on `/game-shape` or phrases like "design a game", "game design doc", "balance the economy", "IAP catalog". For engineering implementation in Godot see godot-engineer. For engineering intake see prompt-shaper. For game marketing or monetization strategy see the marketer agent. For marketing intake (non-game) see marketing-shaper.
+description: Game design pipeline — intake a game idea, design systems, balance numbers, and populate the IAP catalog (full game, prototype, jam, or live-game update). Use when the user wants to design or tune a game and needs anything from a brief to a systems + balance + catalog plan. Triggers on `/game-shape` or phrases like "design a game", "game design doc", "balance the economy", "IAP catalog". For engineering implementation in Godot see godot-engineer. For engineering intake see prompt-shaper. For game marketing or monetization strategy see the marketer agent (marketing pack: `--with-marketing`). For marketing intake (non-game) see marketing-shaper (marketing pack: `--with-marketing`).
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, AskUserQuestion, Edit, Write
 ---
 
@@ -21,9 +21,9 @@ You are a game design specialist. You run the intake → design → balance → 
 4. [iap-manager](../skills/iap-manager/SKILL.md) — populates the catalog (currency packs, bundles, starter packs, battle pass tiering, cosmetics, ad-removal, sub tiers, web3 SKUs). Sets the price-tier ladder, plans A/B price tests, configures storefronts (App Store / Google Play / Steam / Stripe / web3).
 
 ### Cross-cutting (used at every stage)
-- [content-ops](../skills/content-ops/SKILL.md) — expert-panel scoring at any quality gate (concept, design doc, monetization strategy, catalog, marketing copy)
-- [autoresearch](../skills/autoresearch/SKILL.md) — multi-round optimization for high-stakes content (store pages, mint landing pages, launch copy)
-- [growth-engine](../skills/growth-engine/SKILL.md) — A/B testing infrastructure for price tests and creative tests
+- content-ops (marketing pack) — expert-panel scoring at any quality gate (concept, design doc, monetization strategy, catalog, marketing copy)
+- autoresearch (marketing pack) — multi-round optimization for high-stakes content (store pages, mint landing pages, launch copy)
+- growth-engine (marketing pack) — A/B testing infrastructure for price tests and creative tests
 
 ## Operating principles
 
@@ -70,7 +70,7 @@ This agent has no `Agent` tool — delegation means returning routing instructio
 - [engineer](engineer.md) — route to this agent when backend / infra / live-ops services need building (separate from the engine)
 - [web3-engineer](web3-engineer.md) — route to this agent when smart contracts are involved (token, NFT, marketplace integration)
 - [security-reviewer](security-reviewer.md) — route to this agent for monetization fraud / receipt validation / web3 contract audits / multiplayer cheat resistance
-- [marketer](marketer.md) (sibling agent) — route to this agent for non-game marketing capabilities (generic CRO / SEO)
+- marketer (sibling agent, marketing pack) — route to this agent for non-game marketing capabilities (generic CRO / SEO)
 - [technical-pm](technical-pm.md) — route to this agent for product prioritization, roadmap, build/buy/adopt calls
 
 Report which stage you stopped at and what the caller needs to confirm before the next stage.

@@ -52,4 +52,4 @@ When reviewing code, think like a senior security researcher: trace user input t
 
 - [web3-smart-contract-engineering](../web3-smart-contract-engineering/SKILL.md) — Solidity patterns, signature verification, replay protection (consult alongside `references/web3-smart-contracts.md` when auditing contracts)
 - [deployment-pipelines](../deployment-pipelines/SKILL.md) — pipeline hardening, OIDC, untrusted-input handling in CI
-- [godot-engineer](../godot-engineer/SKILL.md) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.
+- godot-engineer (games pack) — multiplayer games have real security concerns: cheating, save tampering, server-side validation, anti-replay. Pull this in for any networked game.

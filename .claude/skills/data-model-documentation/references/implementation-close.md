@@ -1,6 +1,6 @@
 # Implementation close — `G-data-document`
 
-Mandatory session-close contract for **implementation agents**: `engineer`, `rust-engineer`, `web3-engineer`, `godot-engineer`, `devops-engineer`, `phaser-engineer`.
+Mandatory session-close contract for **implementation agents**: `engineer`, `rust-engineer`, `web3-engineer`, `devops-engineer`, and with the games pack (`--with-games`) `godot-engineer` and `phaser-engineer`.
 
 Run this **before** reporting back to the orchestrator. The documenter's `DATA_MODEL.md` changes are then **committed** with the implementation (by you if your brief says to commit, otherwise by the orchestrator) before reviewers (`code-reviewer`, `security-reviewer`) run in gate Wave 1. Reviewer verdicts bind to that commit's HEAD, and the verifier runs on the committed diff.
 

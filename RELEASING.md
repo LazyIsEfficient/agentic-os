@@ -21,7 +21,8 @@ maintainer-only and is never shipped to consumers.
   `archive/refs/tags/*.tar.gz` is **not** guaranteed byte-stable, so we do not
   pin its digest.
 - **No self-referential hash.** The asset contains only the install *payload* —
-  `.claude/`, `assets/consumer/`, `docs/awareness-harness-activation.md`, and the
+  `.claude/`, `assets/consumer/`, `assets/packs/` (the opt-in pack lists),
+  `docs/awareness-harness-activation.md`, and the
   two scripts the installer runs (`scripts/validate.sh` and
   `scripts/lib/install-hook-settings.sh`). It excludes `install.sh` /
   `install.ps1` / `README.md`, which embed the digest — so embedding the digest

@@ -61,6 +61,7 @@ cp -R "$SRCREPO/.claude" "$rel/.claude"
 rm -rf "$rel/.claude/memory" "$rel/.claude/ledger" "$rel/.claude/worktrees" "$rel/.claude/reviews"
 cp -R "$SRCREPO/docs" "$rel/docs"
 cp -R "$SRCREPO/assets/consumer" "$rel/assets/consumer"
+cp -R "$SRCREPO/assets/packs" "$rel/assets/packs"
 cp "$SRCREPO/assets/release-hashes.txt" "$rel/assets/release-hashes.txt"
 DOCTRINE="$rel/assets/consumer/doctrine.md"
 [[ -s "$DOCTRINE" ]] || fail "assets/consumer/doctrine.md missing from the payload"
@@ -88,6 +89,37 @@ elif git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
   relold="$tmp/rel-old"
   cp -R "$rel" "$relold"
   git -C "$REPO" show "$BASE_REV:install.sh" > "$relold/install.sh"
+  # As BASE_REV shipped it: no pack lists, and no install.ps1 newer than its
+  # install.sh (validate.sh checks both installers' pack lists).
+  rm -rf "$relold/assets/packs" "$relold/install.ps1"
+  # Opt-in packs (#278) postdate BASE_REV, which ships every skill and agent:
+  # the new installer runs with every pack selected, and the pack-only
+  # differences (the "Opt-in packs:" lines, the manifest's "packs" key) are
+  # dropped before comparing. Everything else must still be byte-identical.
+  ALL_PACKS=()
+  for pf in "$rel"/assets/packs/*.txt; do ALL_PACKS+=("--with-$(basename "$pf" .txt)"); done
+  [[ ${#ALL_PACKS[@]} -gt 0 ]] || fail "parity: no assets/packs/*.txt in the payload"
+  drop_pack_lines() {
+    LC_ALL=C awk '
+      $0 == "Opt-in packs:" { skip = 1; held = 0; next }
+      skip && /^  [a-z0-9-]+: (installed|kept|not installed)/ { next }
+      { skip = 0 }
+      held { print ""; held = 0 }
+      $0 == "" { held = 1; next }
+      { print }
+      END { if (held) print "" }'
+  }
+  psnap() {  # snap, with each manifest hashed minus its "packs" line
+    local line f
+    snap "$1" | while IFS= read -r line; do
+      case "$line" in
+        *"  ./.agentic-os-manifest.json"|*"/.agentic-os-manifest.json")
+          f="$1/${line#*  ./}"
+          printf '%s  %s\n' "$(grep -v '^  "packs": \[' "$f" | "${SHA[@]}" | awk '{print $1}')" "${line#*  }" ;;
+        *) printf '%s\n' "$line" ;;
+      esac
+    done
+  }
   parity() {  # $1 label, rest: installer args (both runs share one HOME path)
     local label="$1"; shift
     local h="$tmp/parity" a b
@@ -100,15 +132,17 @@ elif git -C "$REPO" cat-file -e "$BASE_REV:install.sh" 2>/dev/null; then
       : > "$tmp/parity-$v.out"
       for step in install reinstall uninstall; do
         local extra=(); [[ "$step" == uninstall ]] && extra=(--uninstall)
+        [[ "$step" != uninstall && "$v" == new ]] && extra=("${ALL_PACKS[@]}")
         HOME="$h" CLAUDE_DIR="$h/.claude" CODEX_HOME="$h/.codex" CODEX_SKILLS_DIR="$h/.agents/skills" CODEX_PROJECT_DIR="$h/proj" \
-          timeout 300 "$IB" "$r/install.sh" "$@" ${extra[@]+"${extra[@]}"} 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" >> "$tmp/parity-$v.out" \
+          timeout 300 "$IB" "$r/install.sh" "$@" ${extra[@]+"${extra[@]}"} 2>&1 | sed "s#$r#REL#g; s/[0-9]\{14\}\.[0-9]*/STAMP/g" \
+          | drop_pack_lines >> "$tmp/parity-$v.out" \
           || fail "$label: $v $step failed"
-        snap "$h" >> "$tmp/parity-$v.out"
+        psnap "$h" >> "$tmp/parity-$v.out"
       done
     done
     a="$(sha "$tmp/parity-old.out")"; b="$(sha "$tmp/parity-new.out")"
     if [[ "$a" != "$b" ]]; then diff "$tmp/parity-old.out" "$tmp/parity-new.out" | head -20 >&2; fail "$label: no-flag run differs from $BASE_REV"; fi
-    ok "no flag, $label: output and every file byte-identical to $BASE_REV (install, re-run, uninstall)"
+    ok "no --with-doctrine, $label: with every --with-<pack>, output and every file byte-identical to $BASE_REV (install, re-run, uninstall; the pack lines and the manifest packs key aside)"
   }
   parity "Claude"
   parity "Codex global" --codex

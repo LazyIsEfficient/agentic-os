@@ -69,10 +69,11 @@ cp -R "$SRCREPO/.claude" "$rel/.claude"
 rm -rf "$rel/.claude/memory" "$rel/.claude/ledger" "$rel/.claude/worktrees"
 cp -R "$SRCREPO/docs" "$rel/docs"
 cp -R "$SRCREPO/assets/consumer" "$rel/assets/consumer"
+cp -R "$SRCREPO/assets/packs" "$rel/assets/packs"
 cp "$SRCREPO/assets/release-hashes.txt" "$rel/assets/release-hashes.txt"
 
-printf 'dropped in release B\n' > "$rel/.claude/skills/autoresearch/zz-dropped.txt"
-printf 'dropped in release B, edited locally\n' > "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt"
+printf 'dropped in release B\n' > "$rel/.claude/skills/prompt-shaper/zz-dropped.txt"
+printf 'dropped in release B, edited locally\n' > "$rel/.claude/skills/prompt-shaper/zz-dropped-edited.txt"
 # A skill release B retires (and tombstones), so --prune-legacy meets a tracked dir.
 mkdir -p "$rel/.claude/skills/zz-tomb"
 printf '%s\n' '---' 'name: zz-tomb' \
@@ -112,7 +113,11 @@ jq -e . "$mf" >/dev/null || fail "manifest is not valid JSON"
 want_ver="$(sed -nE 's/^VERSION="([^"]*)".*/\1/p' "$SRCREPO/install.sh")"
 jq -e --arg v "$want_ver" '.schema == 1 and .version == $v and .platform == "claude" and .source == "local-clone"' "$mf" >/dev/null \
   || fail "manifest header wrong: $(jq -c 'del(.files)' "$mf")"
-want_n="$( (cd "$rel/.claude" && find skills agents hooks -type f; ls commands/skill-new.md commands/agent-new.md commands/state.md) | wc -l | tr -d ' ')"
+# A default install is core only: opt-in pack items (assets/packs/*.txt) are not shipped.
+want_n="$( (cd "$rel/.claude" && find skills agents hooks -type f; ls commands/skill-new.md commands/agent-new.md commands/state.md) \
+  | awk 'NR == FNR { if ($0 !~ /^[[:space:]]*(#|$)/) p[$0] = 1; next }
+         { k = $0; if (k ~ /^skills\//) { split(k, a, "/"); k = "skills/" a[2] } if (!(k in p)) n++ }
+         END { print n + 0 }' <(cat "$rel"/assets/packs/*.txt) -)"
 [[ "$(jq '.files | length' "$mf")" == "$want_n" ]] || fail "manifest lists $(jq '.files | length' "$mf") files, release has $want_n"
 jq -e '.files | all(.path | test("^(skills|agents|hooks|commands)/"))' "$mf" >/dev/null || fail "manifest path outside install surfaces"
 eng_sha="$(jq -r '.files[] | select(.path == "agents/engineer.md") | .sha256' "$mf")"
@@ -125,7 +130,7 @@ jq -e '[.. | .command? | strings | select(endswith("/hooks/zz-retired.sh"))] | l
 ok "fresh install writes a valid manifest (version, paths, sha256)"
 
 # ── Local state: user edits, user-created files, consumer hooks ──────────────
-printf '\nmy local tweak\n' >> "$dest/skills/autoresearch/SKILL.md"
+printf '\nmy local tweak\n' >> "$dest/skills/prompt-shaper/SKILL.md"
 printf '\n# my hook tweak\n' >> "$dest/hooks/block-bad-bash.sh"
 user_hook_content="$(cat "$dest/hooks/block-bad-bash.sh")"
 mkdir -p "$dest/skills/my-own-skill"
@@ -138,7 +143,7 @@ jq '.hooks.Stop += [{"hooks":[{"type":"command","command":"bash /opt/consumer-st
     | .permissions = {"allow":["Edit(foo)"]}' "$dest/settings.json" > "$dest/settings.json.tmp"
 mv "$dest/settings.json.tmp" "$dest/settings.json"
 user_sums="$(sha "$dest/skills/my-own-skill/SKILL.md") $(sha "$dest/agents/my-agent.md") $(sha "$dest/hooks/my-hook.sh")"
-printf '\nedited\n' >> "$dest/skills/autoresearch/zz-dropped-edited.txt"
+printf '\nedited\n' >> "$dest/skills/prompt-shaper/zz-dropped-edited.txt"
 printf '\nedited\n' >> "$dest/skills/zz-tomb/SKILL.md"
 printf 'mine\n' > "$dest/skills/zz-tomb/extra.md"
 
@@ -158,7 +163,7 @@ touch "$dest/skills/security-and-hardening/x"$'\n'"CANARY2.md"
 
 # ── Release B ─────────────────────────────────────────────────────────────────
 printf '\n<!-- lifecycle-test: release B -->\n' >> "$rel/.claude/agents/engineer.md"
-rm "$rel/.claude/skills/autoresearch/zz-dropped.txt" "$rel/.claude/skills/autoresearch/zz-dropped-edited.txt" \
+rm "$rel/.claude/skills/prompt-shaper/zz-dropped.txt" "$rel/.claude/skills/prompt-shaper/zz-dropped-edited.txt" \
   "$rel/.claude/hooks/zz-retired.sh" "$rel/.claude/hooks/zz-retired2.sh"
 rm -r "$rel/.claude/skills/zz-tomb"
 for f in "$rel/assets/consumer/claude-settings.json" "$rel/.claude/settings.json"; do
@@ -185,8 +190,8 @@ cmp -s "$dest/agents/engineer.md" "$rel/.claude/agents/engineer.md" || fail "unm
 grep -q 'update agents/engineer.md' "$tmp/out2" || fail "update not reported"
 ok "update refreshes an unmodified file"
 
-grep -q 'my local tweak' "$dest/skills/autoresearch/SKILL.md" || fail "user-modified skill file overwritten without --force"
-grep -q 'keep skills/autoresearch/SKILL.md — modified locally' "$tmp/out2" || fail "no warning naming the kept skill file"
+grep -q 'my local tweak' "$dest/skills/prompt-shaper/SKILL.md" || fail "user-modified skill file overwritten without --force"
+grep -q 'keep skills/prompt-shaper/SKILL.md — modified locally' "$tmp/out2" || fail "no warning naming the kept skill file"
 ok "update keeps a user-modified skill file and warns"
 
 cmp -s "$dest/hooks/block-bad-bash.sh" "$rel/.claude/hooks/block-bad-bash.sh" || fail "modified hook not refreshed"
@@ -198,12 +203,12 @@ ok "update always refreshes a hook and backs up the user-modified copy"
 [[ "$(ls -l "$dest/hooks/my-hook.sh" | cut -c1-10)" == "-rw-------" ]] || fail "update changed the mode of a user's own hook file"
 ok "a user's own file in hooks/ keeps its mode (no blanket chmod +x)"
 
-[[ ! -e "$dest/skills/autoresearch/zz-dropped.txt" ]] || fail "file dropped from release not pruned"
-grep -q 'remove skills/autoresearch/zz-dropped.txt (no longer shipped)' "$tmp/out2" || fail "prune not reported"
-grep -q 'edited' "$dest/skills/autoresearch/zz-dropped-edited.txt" || fail "user-edited file dropped by the release was deleted"
-grep -q 'keep skills/autoresearch/zz-dropped-edited.txt — no longer shipped, but modified locally' "$tmp/out2" \
+[[ ! -e "$dest/skills/prompt-shaper/zz-dropped.txt" ]] || fail "file dropped from release not pruned"
+grep -q 'remove skills/prompt-shaper/zz-dropped.txt (no longer shipped)' "$tmp/out2" || fail "prune not reported"
+grep -q 'edited' "$dest/skills/prompt-shaper/zz-dropped-edited.txt" || fail "user-edited file dropped by the release was deleted"
+grep -q 'keep skills/prompt-shaper/zz-dropped-edited.txt — no longer shipped, but modified locally' "$tmp/out2" \
   || fail "kept dropped file not named"
-jq -e '[.files[].path] | index(["skills/autoresearch/zz-dropped-edited.txt"]) != null' "$mf" >/dev/null \
+jq -e '[.files[].path] | index(["skills/prompt-shaper/zz-dropped-edited.txt"]) != null' "$mf" >/dev/null \
   || fail "kept dropped file no longer tracked"
 ok "a dropped file the user edited is kept, named, and stays tracked"
 
@@ -214,7 +219,7 @@ grep -q "skip memory/MEMORY.md — unsafe path" "$tmp/out2" || fail "entry outsi
 jq -e '[.files[].path] | (index(["settings.json"]) == null) and (index(["CLAUDE.md"]) == null)' "$mf" >/dev/null \
   || fail "hostile entries re-recorded in the manifest"
 ok "manifest entries outside the shipped dirs (root files, ..) are never removed"
-jq -e '[.files[].path] | (index(["skills/autoresearch/zz-dropped.txt"]) == null) and (index(["hooks/zz-retired.sh"]) == null)' "$mf" >/dev/null \
+jq -e '[.files[].path] | (index(["skills/prompt-shaper/zz-dropped.txt"]) == null) and (index(["hooks/zz-retired.sh"]) == null)' "$mf" >/dev/null \
   || fail "pruned files still in manifest"
 ok "a file removed from the release is pruned"
 
@@ -261,8 +266,8 @@ ok "--prune-legacy removes only earlier-release copies; tracked edits and user f
 
 # ── 5. --force overwrites a user-modified file ───────────────────────────────
 run --force > "$tmp/out4" || { cat "$tmp/out4"; fail "--force failed"; }
-cmp -s "$dest/skills/autoresearch/SKILL.md" "$rel/.claude/skills/autoresearch/SKILL.md" || fail "--force did not overwrite"
-grep -q 'overwrite skills/autoresearch/SKILL.md (--force)' "$tmp/out4" || fail "--force overwrite not reported"
+cmp -s "$dest/skills/prompt-shaper/SKILL.md" "$rel/.claude/skills/prompt-shaper/SKILL.md" || fail "--force did not overwrite"
+grep -q 'overwrite skills/prompt-shaper/SKILL.md (--force)' "$tmp/out4" || fail "--force overwrite not reported"
 ok "--force overwrites a user-modified file"
 if grep -q 'skills/security-and-hardening still holds' "$tmp/out4"; then fail "keeps asking for --prune-legacy when only the user's files remain"; fi
 grep -q 'retired skill directory skills/security-and-hardening holds only files that are not AgenticOS release files' "$tmp/out4" \
@@ -270,7 +275,7 @@ grep -q 'retired skill directory skills/security-and-hardening holds only files 
 ok "after a prune, a retired dir holding only the user's files is not flagged again"
 
 # ── 6. Uninstall ─────────────────────────────────────────────────────────────
-printf '\nmodified again\n' >> "$dest/skills/autoresearch/SKILL.md"
+printf '\nmodified again\n' >> "$dest/skills/prompt-shaper/SKILL.md"
 before="$(snap "$dest")"
 run --uninstall --dry-run > "$tmp/out-udry" || { cat "$tmp/out-udry"; fail "uninstall --dry-run failed"; }
 [[ "$(snap "$dest")" == "$before" ]] || fail "uninstall --dry-run modified the destination"
@@ -287,8 +292,8 @@ for c in CANARY.md settings.json memory/MEMORY.md; do [[ -f "$dest/$c" ]] || fai
 grep -q "skip skills/../CANARY.md — unsafe path" "$tmp/out5" || fail "uninstall did not report the hostile .. entry"
 [[ ! -e "$mf" ]] || fail "manifest not removed"
 [[ ! -e "$dest/agents/engineer.md" && ! -e "$dest/hooks/block-bad-bash.sh" && ! -e "$dest/commands/state.md" ]] || fail "owned files not removed"
-grep -q 'modified again' "$dest/skills/autoresearch/SKILL.md" || fail "modified file removed by uninstall"
-grep -q 'keep skills/autoresearch/SKILL.md — modified locally' "$tmp/out5" || fail "uninstall did not name the kept file"
+grep -q 'modified again' "$dest/skills/prompt-shaper/SKILL.md" || fail "modified file removed by uninstall"
+grep -q 'keep skills/prompt-shaper/SKILL.md — modified locally' "$tmp/out5" || fail "uninstall did not name the kept file"
 grep -q '^  remove agents/engineer.md$' "$tmp/out5" || fail "uninstall did not list removed files"
 [[ "$(sha "$dest/skills/my-own-skill/SKILL.md") $(sha "$dest/agents/my-agent.md") $(sha "$dest/hooks/my-hook.sh")" == "$user_sums" ]] \
   || fail "uninstall touched user-created files"
@@ -315,11 +320,11 @@ dest3="$tmp/legacy/.claude"
 mkdir -p "$dest3"
 cp -R "$rel/.claude/skills" "$dest3/skills"
 cp -R "$rel/.claude/hooks" "$dest3/hooks"
-printf '\nlegacy edit\n' >> "$dest3/skills/autoresearch/SKILL.md"
+printf '\nlegacy edit\n' >> "$dest3/skills/prompt-shaper/SKILL.md"
 printf '\n# legacy hook edit\n' >> "$dest3/hooks/survey-before-act.sh"
 HOME="$home" CLAUDE_DIR="$dest3" bash "$rel/install.sh" > "$tmp/out6" 2>&1 || { cat "$tmp/out6"; fail "legacy adoption failed"; }
-grep -q 'legacy edit' "$dest3/skills/autoresearch/SKILL.md" || fail "legacy differing file overwritten"
-grep -q 'keep skills/autoresearch/SKILL.md — differs from the release copy and predates the manifest' "$tmp/out6" \
+grep -q 'legacy edit' "$dest3/skills/prompt-shaper/SKILL.md" || fail "legacy differing file overwritten"
+grep -q 'keep skills/prompt-shaper/SKILL.md — differs from the release copy and predates the manifest' "$tmp/out6" \
   || fail "legacy differing file not named"
 cmp -s "$dest3/hooks/survey-before-act.sh" "$rel/.claude/hooks/survey-before-act.sh" || fail "legacy hook not refreshed"
 [[ -f "$dest3/.agentic-os-manifest.json" ]] || fail "legacy install not adopted into a manifest"
@@ -334,7 +339,7 @@ for m in "$cx/.agentic-os-manifest.json" "$cs/.agentic-os-manifest.json"; do
 done
 jq -e '[.files[].path] | index(["agents/engineer.toml"]) != null and index(["hooks/session-state-inject.sh"]) != null' \
   "$cx/.agentic-os-manifest.json" >/dev/null || fail "codex config manifest incomplete"
-jq -e '[.files[].path] | index(["autoresearch/SKILL.md"]) != null' "$cs/.agentic-os-manifest.json" >/dev/null \
+jq -e '[.files[].path] | index(["prompt-shaper/SKILL.md"]) != null' "$cs/.agentic-os-manifest.json" >/dev/null \
   || fail "codex skills manifest not relative to the skills dir"
 jq '.hooks.Stop = [{"hooks":[{"type":"command","command":"bash /opt/user-stop.sh"}]}]' "$cx/hooks.json" > "$cx/hooks.json.tmp"
 mv "$cx/hooks.json.tmp" "$cx/hooks.json"
@@ -362,7 +367,7 @@ runx --uninstall > "$tmp/outx2" || { cat "$tmp/outx2"; fail "codex uninstall fai
 for e in route other-vendor-skill/SKILL.md memory/MEMORY.md; do
   [[ -f "$cs/$e" ]] || fail "codex uninstall followed a hostile manifest entry and deleted $e"
 done
-[[ ! -e "$cx/agents/engineer.toml" && ! -e "$cs/autoresearch/SKILL.md" ]] || fail "codex owned files not removed"
+[[ ! -e "$cx/agents/engineer.toml" && ! -e "$cs/prompt-shaper/SKILL.md" ]] || fail "codex owned files not removed"
 [[ -f "$cs/zz-user-note.md" ]] || fail "codex uninstall removed a user file"
 jq -e '.hooks == {"Stop":[{"hooks":[{"type":"command","command":"bash /opt/user-stop.sh"}]}]}' "$cx/hooks.json" >/dev/null \
   || fail "codex uninstall: wrong hooks.json $(jq -c . "$cx/hooks.json")"
@@ -383,9 +388,9 @@ d5="$tmp/symlinked/.claude"
 runat "$d5" > "$tmp/out9" || { cat "$tmp/out9"; fail "install for symlink case failed"; }
 outside="$tmp/outside"
 mkdir -p "$outside"
-mv "$d5/skills/autoresearch" "$outside/autoresearch"
-ln -s "$outside/autoresearch" "$d5/skills/autoresearch"
-printf '\nedited outside\n' >> "$outside/autoresearch/SKILL.md"
+mv "$d5/skills/prompt-shaper" "$outside/prompt-shaper"
+ln -s "$outside/prompt-shaper" "$d5/skills/prompt-shaper"
+printf '\nedited outside\n' >> "$outside/prompt-shaper/SKILL.md"
 printf 'my own hook\n' > "$outside/hook.sh"
 rm "$d5/hooks/block-bad-bash.sh"
 ln -s "$outside/hook.sh" "$d5/hooks/block-bad-bash.sh"
@@ -396,7 +401,7 @@ manifest_before="$(sha "$d5/.agentic-os-manifest.json")"
 # registered: the run fails, settings.json and the manifest stay as they were.
 if runat "$d5" --force > "$tmp/out9b"; then fail "--force succeeded though a shipped hook could not be placed"; fi
 [[ "$(snap "$outside")" == "$before" ]] || fail "update/--force wrote through a symlink outside the root"
-grep -q 'skip skills/autoresearch/SKILL.md — unsafe path' "$tmp/out9b" || fail "symlinked skill dir not reported"
+grep -q 'skip skills/prompt-shaper/SKILL.md — unsafe path' "$tmp/out9b" || fail "symlinked skill dir not reported"
 grep -q 'skip hooks/block-bad-bash.sh — unsafe path' "$tmp/out9b" || fail "symlinked hook file not reported"
 grep -q 'hook hooks/block-bad-bash.sh is not installed at the release version' "$tmp/out9b" || fail "unplaced hook not named"
 [[ "$(sha "$d5/settings.json")" == "$settings_before" ]] || fail "hooks registered although a shipped hook was not installed"
@@ -425,8 +430,8 @@ ok "a symlinked shipped dir is refused once, up front, for install, dry run and 
 # Only unsafe skips (no edits): the summary must not claim files were kept.
 d13="$tmp/summary/.claude"
 runat "$d13" >/dev/null || fail "install for summary case failed"
-mv "$d13/skills/autoresearch" "$outside/autoresearch-13"
-ln -s "$outside/autoresearch-13" "$d13/skills/autoresearch"
+mv "$d13/skills/prompt-shaper" "$outside/prompt-shaper-13"
+ln -s "$outside/prompt-shaper-13" "$d13/skills/prompt-shaper"
 runat "$d13" > "$tmp/out13s" || { cat "$tmp/out13s"; fail "install with a symlinked skill dir failed"; }
 grep -q 'path(s) were skipped as unsafe' "$tmp/out13s" || fail "summary does not report unsafe skips"
 if grep -q 'you modified were kept' "$tmp/out13s"; then fail "summary claims modified files were kept for unsafe skips"; fi
@@ -519,9 +524,9 @@ d10="$tmp/prior/.claude"
 mkdir -p "$d10"
 cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$rel/.claude/hooks" "$d10/"
 printf '\n<!-- an older AgenticOS release -->\n' >> "$d10/agents/engineer.md"
-printf '\n<!-- an older AgenticOS release -->\n' >> "$d10/skills/autoresearch/SKILL.md"
+printf '\n<!-- an older AgenticOS release -->\n' >> "$d10/skills/prompt-shaper/SKILL.md"
 printf '\nmy own edit\n' >> "$d10/agents/code-reviewer.md"
-for f in agents/engineer.md skills/autoresearch/SKILL.md; do
+for f in agents/engineer.md skills/prompt-shaper/SKILL.md; do
   printf '%s  %s\n' "$(sha "$d10/$f")" "$f" >> "$rel/assets/release-hashes.txt"
 done
 runat "$d10" > "$tmp/out14" || { cat "$tmp/out14"; fail "prior-release adoption failed"; }

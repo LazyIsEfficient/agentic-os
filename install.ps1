@@ -16,7 +16,17 @@
 #                 agentic-os\doctrine.md. Opt-in. Later runs without the flag
 #                 keep it current while the block is still there; deleting the
 #                 block opts out.
+#   -WithMarketing / -WithGames
+#                 Also install that opt-in pack (kept on later runs)
+#   -WithoutMarketing / -WithoutGames
+#                 Remove that pack: unmodified files go, edited ones are kept
 #   -Dest         Override the install destination (default: $env:USERPROFILE\.claude)
+#
+# Packs (same rules as install.sh): a default install ships only the core
+# library. assets\packs\<pack>.txt lists each opt-in pack's skills and agents.
+# Once installed, a pack stays installed on later runs (the manifest records
+# it) until -Without<Pack>. An install made before packs existed keeps the
+# packs whose AgenticOS files it has.
 #
 # Lifecycle (same rules as install.sh): $Dest\.agentic-os-manifest.json records
 # every installed file and its SHA-256. Re-running updates files you have not
@@ -36,6 +46,10 @@ param(
   [switch]$Uninstall,
   [switch]$DryRun,
   [switch]$WithDoctrine,
+  [switch]$WithMarketing,
+  [switch]$WithGames,
+  [switch]$WithoutMarketing,
+  [switch]$WithoutGames,
   [string]$Dest = "$env:USERPROFILE\.claude"
 )
 
@@ -49,6 +63,24 @@ if ($Uninstall -and ($Force -or $PruneLegacy)) {
 }
 if ($Uninstall -and $WithDoctrine) {
   throw "Error: -WithDoctrine does not apply to -Uninstall (uninstall always removes the doctrine block)."
+}
+
+# Opt-in packs, one assets\packs\<pack>.txt each (validate.sh ship-manifest
+# checks this list against those files). Keep in sync with PACKS in install.sh.
+$Packs = @('games', 'marketing')
+$PackSwitch = @{ 'games' = 'Games'; 'marketing' = 'Marketing' }
+$WithPacks = @(); $WithoutPacks = @()
+if ($WithGames) { $WithPacks += 'games' }
+if ($WithMarketing) { $WithPacks += 'marketing' }
+if ($WithoutGames) { $WithoutPacks += 'games' }
+if ($WithoutMarketing) { $WithoutPacks += 'marketing' }
+if ($Uninstall -and ($WithPacks.Count + $WithoutPacks.Count) -gt 0) {
+  throw "Error: -With<Pack> and -Without<Pack> do not apply to -Uninstall (uninstall removes every AgenticOS file, pack files included)."
+}
+foreach ($p in $Packs) {
+  if (($WithPacks -ccontains $p) -and ($WithoutPacks -ccontains $p)) {
+    throw "Error: -With$($PackSwitch[$p]) and -Without$($PackSwitch[$p]) contradict each other; give one of them."
+  }
 }
 
 $RepoOwner = if ($env:REPO_OWNER) { $env:REPO_OWNER } else { "LazyIsEfficient" }
@@ -211,7 +243,8 @@ function Write-Beside([string]$Target, [string]$Text) {
 # from $Root down to the file is a symlink/junction (reparse point), so nothing
 # is ever reached outside $Root or through a link.
 function Test-SafeRel([string]$Rel) {
-  if ($Rel -cnotmatch '^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$') { return $false }
+  # \A..\z: .NET `$` also matches before a final newline.
+  if ($Rel -cnotmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') { return $false }
   if ("/$Rel/" -match '/\.\.?/') { return $false }
   $parts = $Rel.Split('/')
   if ($ShippedPrefixes -cnotcontains $parts[0]) { return $false }
@@ -233,7 +266,7 @@ function Test-SafeRel([string]$Rel) {
 }
 
 function Skip-Unsafe([string]$Rel) {
-  $shown = $Rel -replace "`r", '\r' -replace "`n", '\n'
+  $shown = $Rel -replace '[\x00-\x1f\x7f-\x9f]', '?'   # C0, DEL and C1 controls (e.g. U+009B CSI)
   Warn "skip $shown — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
   $script:Unsafe++
   [void]$script:UnsafeRels.Add($Rel)
@@ -271,7 +304,7 @@ function Read-Manifest([string]$RootDir) {
   if (Test-ReparsePoint $mf) { throw "Error: $mf is a symlink — refusing to use it. Remove it and re-run." }; if (-not (Test-Path -LiteralPath $mf)) { return $map }
   $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
   foreach ($e in @($json.files)) {
-    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '^[0-9a-f]{64}$') -and ($e.path -cmatch '^[A-Za-z0-9._@+/-]+$')) {
+    if (($e.path -is [string]) -and ($e.sha256 -is [string]) -and ($e.sha256 -cmatch '\A[0-9a-f]{64}\z') -and ($e.path -cmatch '\A[A-Za-z0-9._@+/-]+\z')) {
       $map[$e.path] = $e.sha256
     }
   }
@@ -289,6 +322,9 @@ function Write-Manifest([string]$RootDir, $Entries) {
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.Append("{`n  `"schema`": 1,`n  `"name`": `"agentic-os`",`n  `"version`": `"$Version`",`n")
   [void]$sb.Append("  `"source`": `"$SourceKind`",`n  `"platform`": `"claude`",`n")
+  # Every run records the packs it installed (see Set-PackPlan); [] = core only.
+  $pj = (@($script:PacksOn) | ForEach-Object { "`"$_`"" }) -join ', '
+  [void]$sb.Append("  `"packs`": [$pj],`n")
   if ($script:DocCreated) {
     [void]$sb.Append("  `"doctrine`": {`"created`": $($script:DocCreated), `"block_sha256`": `"$($script:DocBlockSha)`"},`n")
   }
@@ -797,6 +833,173 @@ if ($Uninstall) {
   exit 0
 }
 
+# ── Opt-in packs (-With<Pack>) ─────────────────────────────────────────────────
+# Same rules as install.sh pack_plan. A pack is installed when its -With<Pack>
+# switch is given, or the previous manifest lists it under "packs", or the
+# manifest has no "packs" key (an install made before packs existed) and
+# tracks any of its files, or there is no manifest at all (a pre-manifest
+# release) and an AgenticOS copy (hash-matched) of one of its files is on
+# disk. -Without<Pack> overrides all
+# three. An unselected pack is simply not staged, so its files go through the
+# normal prune below: unmodified ones are removed, edited ones kept.
+
+$PackEntryRe = '^(skills/[a-z0-9-]+|agents/[a-z0-9-]+[.]md)$'
+$script:PacksOn = @()
+$script:PacksOff = @()   # entries of every unselected pack
+$script:PackAdopt = @{}   # rel -> sha of pre-manifest files of a -Without pack
+
+# Validated entries of pack $Pack (validate.sh checks them too; the installer
+# re-checks because it deletes staged paths by them).
+function Read-PackList([string]$Pack) {
+  $f = Join-Path (Join-Path (Join-Path $RepoRoot "assets") "packs") "$Pack.txt"
+  if ((Test-ReparsePoint $f) -or -not (Test-Path -LiteralPath $f -PathType Leaf)) {
+    throw "Error: $f is missing (or a symlink): this payload predates opt-in packs or is incomplete. Use the install.ps1 from the same release as the payload (the pinned one-liner URL), or install from a local clone. Nothing was changed."
+  }
+  $out = @()
+  foreach ($line in Get-Content -LiteralPath $f) {
+    $l = $line.TrimEnd("`r")
+    if ($l -match '^\s*(#|$)') { continue }
+    if ($l -cnotmatch $PackEntryRe) { throw "Error: $f lists '$l', which is not skills/<name> or agents/<name>.md. Nothing was changed." }
+    $out += $l
+  }
+  return ,$out
+}
+
+# Pack names in the previous manifest's "packs" array; $null when there is no
+# manifest or it has no "packs" key (written before packs existed).
+function Read-PacksRecord {
+  $mf = Join-Path $Root $ManifestName
+  if ((Test-ReparsePoint $mf) -or -not (Test-Path -LiteralPath $mf -PathType Leaf)) { return $null }
+  $json = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json
+  $prop = $json.PSObject.Properties['packs']
+  if (-not $prop) { return $null }
+  return ,@(@($prop.Value) | Where-Object { ($_ -is [string]) -and ($_ -cmatch '^[a-z0-9-]+$') })
+}
+
+# Why $Root holds pack list $Entries (same rules as install.sh pack_tracked /
+# pack_shipped_file): 'tracked' when a manifest written before packs existed
+# tracks one of its files; with no manifest, "disk:<rel>" for the first file
+# that is an AgenticOS copy (a regular file reached through no link whose sha
+# is that path's copy in an earlier release or in this release's source), so
+# an empty dir, a link, or the user's own skill of the same name counts for
+# nothing. '' when none.
+function Get-PackEvidence($Entries) {
+  $mf = Join-Path $Root $ManifestName
+  if (Test-ReparsePoint $mf) { return '' }   # the sync below refuses it
+  if (Test-Path -LiteralPath $mf) {
+    $paths = @((Read-Manifest $Root).Keys)
+    foreach ($e in $Entries) {
+      if ($e.StartsWith('skills/')) {
+        if (@($paths | Where-Object { $_.StartsWith("$e/", [StringComparison]::Ordinal) }).Count -gt 0) { return 'tracked' }
+      } elseif ($paths -ccontains $e) { return 'tracked' }
+    }
+    return ''
+  }
+  $first = @(Get-PackShippedFiles $Entries -First)
+  if ($first.Count -gt 0) { return "disk:$($first[0].Rel)" }
+  return ''
+}
+
+# A {Rel, Sha} object for each file of pack list $Entries under $Root that is an
+# AgenticOS copy (same rules as install.sh pack_shipped_files): a regular file
+# reached through no link whose sha is that path's copy in an earlier release
+# or in this release's source. -First stops at the first. -All also returns
+# every other regular file reached through no link, with Sha = $null (an
+# edit, or the user's own).
+function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
+  $found = @()
+  foreach ($e in $Entries) {
+    $p = $Root; $linked = $false
+    foreach ($c in $e.Split('/')) { $p = Join-Path $p $c; if (Test-ReparsePoint $p) { $linked = $true } }
+    if ($linked) {
+      # Never followed or deleted; with -All (a -Without run) it is named.
+      if ($All) { Warn "skip $($e -replace '[\x00-\x1f\x7f-\x9f]', '?') — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+      continue
+    }
+    if (-not (Test-Path -LiteralPath $p)) { continue }
+    # Walk by hand: Get-ChildItem -Recurse follows junctions and directory
+    # symlinks in Windows PowerShell 5.1, so never enter a reparse-point dir.
+    $files = @()
+    if (Test-Path -LiteralPath $p -PathType Container) {
+      $dirs = New-Object System.Collections.Stack
+      $dirs.Push($p)
+      while ($dirs.Count -gt 0) {
+        foreach ($ch in @(Get-ChildItem -LiteralPath $dirs.Pop() -Force)) {
+          if (Test-ReparsePoint $ch.FullName) {
+            if ($All) { Warn "skip $($ch.FullName.Substring((Convert-Path -LiteralPath $Root).TrimEnd('\', '/').Length + 1) -replace '\\', '/' -replace '[\x00-\x1f\x7f-\x9f]', '?') — symlink, left in place (AgenticOS never follows or deletes a symlink)" }
+            continue
+          }
+          if ($ch.PSIsContainer) { $dirs.Push($ch.FullName) } else { $files += $ch }
+        }
+      }
+    } else {
+      $files = @(Get-Item -LiteralPath $p -Force)
+    }
+    $rootFull = (Convert-Path -LiteralPath $Root).TrimEnd('\', '/')
+    foreach ($f in $files) {
+      if (Test-ReparsePoint $f.FullName) { continue }
+      $rel = $f.FullName.Substring($rootFull.Length + 1) -replace '\\', '/'
+      # Same charset as Test-SafeRel; \A..\z because .NET `$` also matches
+      # before a final newline. A name with a tab, CR or LF never becomes a key.
+      if ($rel -cnotmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') {
+        Warn "skip $($rel -replace '[\x00-\x1f\x7f-\x9f]', '?') — unusual characters in the name; not an AgenticOS file, not touched"
+        continue
+      }
+      $sha = Get-Sha $f.FullName
+      $srcf = Join-Rel $Src $rel
+      if ($script:KnownHashes.Contains("$rel`t$sha") -or ((Test-Path -LiteralPath $srcf -PathType Leaf) -and -not (Test-ReparsePoint $srcf) -and (Get-Sha $srcf) -eq $sha)) {
+        $found += [pscustomobject]@{ Rel = $rel; Sha = $sha }
+        if ($First) { return $found }
+      } elseif ($All) {
+        $found += [pscustomobject]@{ Rel = $rel; Sha = $null }
+      }
+    }
+  }
+  return $found
+}
+
+function Set-PackPlan {
+  $rec = Read-PacksRecord
+  Write-Host ""
+  Write-Host "${Pfx}Opt-in packs:"
+  foreach ($p in $Packs) {
+    $entries = Read-PackList $p
+    $sw = $PackSwitch[$p]
+    $why = ''
+    if ($WithoutPacks -ccontains $p) { $why = '' }
+    elseif ($WithPacks -ccontains $p) { $why = 'flag' }
+    elseif (($null -ne $rec) -and ($rec -ccontains $p)) { $why = 'recorded' }
+    elseif ($null -eq $rec) {
+      $ev = Get-PackEvidence $entries
+      if ($ev -ceq 'tracked') { $why = 'tracked' } elseif ($ev) { $why = 'ondisk'; $evRel = $ev.Substring(5) }
+    }
+    switch ($why) {
+      'flag' { Note "${p}: installed (-With$sw)" }
+      'recorded' { Note "${p}: kept, as recorded in the install manifest; re-run with -Without$sw to remove it" }
+      'tracked' { Note "${p}: kept, because the install manifest (written before packs existed) tracks its files; re-run with -Without$sw to remove it" }
+      'ondisk' { Note "${p}: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. $evRel); re-run with -Without$sw to remove it" }
+      default {
+        $script:PacksOff += $entries
+        if ($WithoutPacks -ccontains $p) {
+          Note "${p}: not installed (-Without$sw); unmodified files from it are removed, edited ones kept"
+          # No manifest (a pre-manifest install): hand the pack's AgenticOS
+          # copies to the sync below as if an old manifest tracked them, so the
+          # normal "no longer shipped" prune removes them (install.sh pack_adopt).
+          $mf = Join-Path $Root $ManifestName
+          if (-not (Test-Path -LiteralPath $mf) -and -not (Test-ReparsePoint $mf)) {
+            foreach ($hit in @(Get-PackShippedFiles $entries -All)) {
+              if ($null -ne $hit.Sha) { $script:PackAdopt[$hit.Rel] = $hit.Sha }
+              else { Warn "keep $($hit.Rel) — in the $p pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place, remove it by hand if you no longer want it" }
+            }
+          }
+        }
+        else { Note "${p}: not installed (add it with -With$sw)" }
+      }
+    }
+    if ($why) { $script:PacksOn += $p }
+  }
+}
+
 # ── Stage the release ──────────────────────────────────────────────────────────
 
 function Install-Dir {
@@ -823,11 +1026,16 @@ function Install-Files {
   }
 }
 
+Set-PackPlan
 Write-Host ""
 Write-Host "${Pfx}Installing to $Root"
 
 Install-Dir "skills"
 Install-Dir "agents"
+foreach ($e in $script:PacksOff) {
+  $t = Join-Rel $Stage $e
+  if (Test-Path -LiteralPath $t) { Remove-Item -LiteralPath $t -Recurse -Force }
+}
 # Commands: ship-tagged allowlist ONLY — list each file that installs into a
 # consumer's global namespace. The author-facing scaffolds plus /state (the
 # awareness-harness writer command — its skill + hooks ship alongside) are the
@@ -858,6 +1066,9 @@ if ($Doctrine) { Assert-NoLinkedDirs @('agentic-os') }
 Update-ClaudeHookSettings "check"
 $new = Get-TreeHashes $Stage
 $old = Read-Manifest $Root
+foreach ($k in @($script:PackAdopt.Keys)) {
+  if (($k -cmatch '\A[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+\z') -and ($script:PackAdopt[$k] -cmatch '\A[0-9a-f]{64}\z')) { if (-not $old.ContainsKey($k)) { $old[$k] = $script:PackAdopt[$k] } } else { Warn "skip a malformed pack adoption entry $($k -replace '[\x00-\x1f\x7f-\x9f]', '?'); nothing adopted or removed for it" }
+}
 $all = @{}
 foreach ($k in $new.Keys) { $all[$k] = 1 }
 foreach ($k in $old.Keys) { $all[$k] = 1 }

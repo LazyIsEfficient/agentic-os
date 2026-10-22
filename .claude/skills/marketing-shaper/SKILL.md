@@ -8,7 +8,7 @@ description: >-
   (campaign, content, optimization, research, or pipeline) that downstream
   marketing skills can act on. Do not use for work already well-defined — go
   straight to execution. For engineering task shaping see prompt-shaper; for
-  game-design intake see game-design-shaper.
+  game-design intake see game-design-shaper (games pack: `--with-games`).
 when_to_use: |
   Use when the user has a marketing goal but the brief is missing the load-bearing pieces — audience, channels, success metric, or timeline — and the work cannot start without them. The signal is an under-specified ask, not a keyword: if you cannot name the audience and the one number that defines success, shape it first.
 

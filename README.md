@@ -18,8 +18,8 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 
 | Piece | What it is | How you use it |
 |---|---|---|
-| **Skills** (38) | Step-by-step playbooks for a kind of work — code review, Rust engineering, SEO ops, game balancing, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
-| **Agents** (16) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, marketer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
+| **Skills** (24 core, plus 14 in [opt-in packs](#opt-in-packs---with-marketing---with-games)) | Step-by-step playbooks for a kind of work — code review, Rust engineering, security review, CI/CD pipelines, etc. | Ask the agent to use a skill by name, or configure your IDE so skills are checked before every task (see [Usage](#usage)). |
+| **Agents** (12 core, plus 4 in opt-in packs) | Role definitions with a mandate and tool allowlist — engineer, security-reviewer, code-reviewer, rust-engineer, etc. | Spawn explicitly ("use the code-reviewer agent") or let the orchestrator dispatch subagents for multi-step work. |
 | **Commands** (3 ship to consumers) | Slash shortcuts — scaffold new skills/agents, record session facts. | `/skill-new`, `/agent-new`, `/state`. |
 | **Hooks** | Small shell scripts that run on IDE events (session start, before shell, before compaction). | Installed and registered automatically; power the [awareness harness](#awareness-harness-experimental). Disable by editing your global hook config. |
 | **Operating rules** | Always-on doctrine for orchestration, memory, grounding, and review tiers. | Clone this repo into a project to use the flat `CLAUDE.md` (generated from `.claude/rules/` by `scripts/build-claude-md.sh`). Not copied by the global installer. |
@@ -30,7 +30,7 @@ The product is not "more agents for the sake of agents." It is a **harness** —
 
 ### Workflow domains
 
-Skills and agents are grouped by the work they cover. Invoke the one that matches your task; shaper skills (`prompt-shaper`, `marketing-shaper`, `game-design-shaper`) turn vague requests into scoped briefs first.
+Skills and agents are grouped by the work they cover. Invoke the one that matches your task; shapers (`prompt-shaper`, and in the packs `marketing-shaper` and `game-design-shaper`) turn vague requests into scoped briefs first. A default install ships the engineering, quality and security library; the game development and marketing domains are [opt-in packs](#opt-in-packs---with-marketing---with-games).
 
 **Software engineering**
 
@@ -50,14 +50,14 @@ Skills and agents are grouped by the work they cover. Invoke the one that matche
 - Adversarial review of formal claims — math, stats, benchmarks (`adversarial-claims-reviewer`)
 - API/persistence cataloging into `DATA_MODEL.md` (`data-model-documenter`, `data-model-documentation`) with adversarial verification (`data-model-verifier`)
 
-**Game development**
+**Game development** (opt-in games pack: `--with-games`)
 
 - Godot 4 + C# (`godot-engineer`)
 - Phaser 3 + TypeScript (`phaser-engineer`)
 - Systems design, economy balancing, IAP catalog design (`game-systems-designer`, `game-balancer`, `iap-manager`)
 - End-to-end game design pipeline (`game-design-shaper`)
 
-**Marketing, growth, and revenue**
+**Marketing, growth, and revenue** (opt-in marketing pack: `--with-marketing`)
 
 - Marketing intake and full-spectrum execution (`marketing-shaper`, `marketer`)
 - Content scoring with an expert panel (`content-ops`)
@@ -271,6 +271,30 @@ CODEX_PROJECT_DIR=/path/to/project ./install.sh --codex --project --with-doctrin
 - **Uninstall** (`--uninstall`, user scope) removes the block and, when the installer added it, the blank separator line after it. If the block is still where the installer put it, a file that existed before comes back byte-for-byte. A file the installer created is deleted if nothing else is left in it (a blank line you added there is kept). If you replaced that file with your own text and re-added the block, it counts as yours and is never deleted. An edited block is left in place with a warning, and so is the doctrine file it imports. Uninstall also leaves a block alone when no install record says AgenticOS put it there (you may be quoting it). You can move the block within the file, and it stays where you put it, but then uninstall removes only the block's own lines: a separator left at the top is yours to delete. The doctrine file is removed through the manifest.
 - **Project scope** (`--codex --project`): the manifest is repository content, so the installer never trusts its record. Nothing happens to the project's `AGENTS.md` without `--with-doctrine`: a run without the flag neither adds, refreshes nor upgrades the block. With the flag, a file with no block gets one (as in user scope). A file already holding this release's block is left as it is. A file holding an **older** shipped block is upgraded in place after the whole file is saved as `AGENTS.md.bak.<timestamp>`. Any other AgenticOS-format block is refused; remove it by hand. Uninstall never edits or deletes `AGENTS.md`: it warns and names the lines to delete by hand.
 
+### Opt-in packs (`--with-marketing`, `--with-games`)
+
+> **Available after the next release**, like the lifecycle flags above: the `v3.0.1` installer ignores unknown flags and installs everything. Use these flags only from a local clone until then.
+
+A default install ships only the core library: engineering, quality, security and review. The marketing/growth and game skills and agents are opt-in packs. They have nothing to do with the core goal (fewer security problems, less slop), and they would otherwise take up routing space in every session. Each pack is listed in [`assets/packs/`](assets/packs/):
+
+- **marketing** — `autoresearch`, `content-ops`, `content-pipeline`, `conversion-ops`, `growth-engine`, `marketing-shaper`, `outbound-engine`, `revenue-intelligence`, `seo-ops`, `marketer`
+- **games** — `game-balancer`, `game-systems-designer`, `godot-engineer`, `iap-manager`, `phaser-engineer`, `game-design-shaper`, `godot-engineer`, `phaser-engineer`
+
+```bash
+./install.sh --with-marketing                   # Claude Code
+./install.sh --codex --with-games               # Codex, user scope
+CODEX_PROJECT_DIR=/path/to/project ./install.sh --codex --project --with-marketing
+.\install.ps1 -WithMarketing -WithGames         # Windows (Claude Code)
+./install.sh --without-games                    # drop a pack
+```
+
+- **Sticky.** The manifest records the installed packs (`"packs"`). A later run without a flag keeps them, and prints one line per kept pack naming the `--without-<pack>` flag that removes it.
+- **Upgrades keep what you have.** An install made before packs existed (a manifest with no `"packs"` key, or a pre-manifest release such as `v3.0.1` with no manifest at all) keeps every pack whose files it has. With no manifest, only a file that byte-matches an AgenticOS release copy counts: your own skill that happens to share a pack skill's name does not pull the pack in. A fresh install is core only.
+- **`--codex --project`:** the project's `.codex/` manifest is repository content, so its `"packs"` record (and the files it tracks) is not trusted. A pack is kept there only if `--with-<pack>` is given or AgenticOS copies of its files (hash-matched, not through a symlink) are installed in the project. The record is still written.
+- **Removing a pack** (`--without-marketing`, `--without-games`; `-WithoutMarketing`, `-WithoutGames` on Windows) goes through the normal prune: files you have not changed are removed, files you changed are kept with a warning and stay in the manifest. `--without-<pack>` wins over the manifest record. On an install with no manifest (e.g. `v3.0.1`), the files that byte-match an AgenticOS release copy are removed the same way. Anything else in the pack dirs (your edits, your own files) stays untracked, and each file is named in a warning so you can delete it by hand. Symlinks there are never followed or deleted; each is named too. A Codex config root without a manifest cannot prove its pack agent TOML files are AgenticOS's: the installer names them, and you delete them by hand. Giving both `--with-<pack>` and `--without-<pack>` is an error.
+- **`--dry-run`** prints each pack decision and every file it would add or remove. **`--uninstall`** removes pack files like every other manifest file; the pack flags do not apply to it.
+- Core files never link to a pack file. A pack can mention another pack's skills by name, as plain text (`validate.sh` checks this).
+
 ---
 
 ## What gets installed
@@ -284,13 +308,13 @@ CODEX_PROJECT_DIR=/path/to/project ./install.sh --codex --project --with-doctrin
 | `~/.claude/commands/` | Slash commands — `/skill-new` and `/agent-new` scaffold a new conforming skill or agent; `/state` records a durable session fact via the awareness-harness writer |
 | `~/.claude/hooks/` | Hook scripts — registered globally in `~/.claude/settings.json` on install (awareness harness, `block-bad-bash`, `block-general-purpose`, `post-edit-scan`) — see [Awareness harness](#awareness-harness-experimental) |
 
-> **Ship vs. in-repo-only.** The installer copies the full `skills/`, `agents/`, and `hooks/` directories; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
+> **Ship vs. in-repo-only.** The installer copies the `skills/`, `agents/`, and `hooks/` directories, minus the items of any [opt-in pack](#opt-in-packs---with-marketing---with-games) you have not selected; only **commands** are file-allowlisted (`skill-new`, `agent-new`, `state`). Maintainer-only tooling that lives in this repo — the `audit-library` / `review-gate` / `triage-findings` / `eval-harness` commands and the `workflows/` (the sharded library audit) — is **not** installed, to avoid polluting your command namespace.
 
 ### Codex (`install.sh --codex`)
 
 | Surface | User scope | Project scope | Contents |
 |---|---|---|---|
-| Skills | `~/.agents/skills/` | `.agents/skills/` | The full skill library in Codex's native discovery locations |
+| Skills | `~/.agents/skills/` | `.agents/skills/` | The core skill library (plus any opt-in packs) in Codex's native discovery locations |
 | Agents | `~/.codex/agents/` | `.codex/agents/` | Generated TOML custom agents; read-only Claude roles receive `sandbox_mode = "read-only"` |
 | Hooks | `~/.codex/hooks.json` | `.codex/hooks.json` | Session-state injection and pre-compaction checkpointing; unrelated existing hooks are preserved |
 
@@ -368,35 +392,21 @@ opt-in rather than default.
 | Skill | Description |
 |---|---|
 | `adversarial-claims-reviewer` | Adversarially review formal/technical claims — math, stats, benchmarks, whitepapers |
-| `autoresearch` | Run Karpathy-style autoresearch optimization on any conversion content |
 | `browser-testing-with-devtools` | Test in real browsers via Chrome DevTools MCP |
 | `code-review-and-quality` | Multi-axis code review across correctness, design, security, performance |
 | `codebase-cost-estimator` | Estimate build/dev cost of a codebase by measured LOC and complexity |
 | `data-model-documentation` | Catalog APIs, persistence, and message shapes into `DATA_MODEL.md` |
 | `data-model-verification` | Adversarially verify DATA_MODEL.md property rows against Source files |
-| `content-ops` | Score content with an auto-assembled expert panel until it hits 90+ |
-| `content-pipeline` | Non-interactive content production — quote mining, clip discovery, repurposing, gating |
-| `conversion-ops` | AI-powered CRO — landing-page audits, survey segmentation, lead magnets |
 | `deployment-pipelines` | Author or review CI/CD pipelines and deployment workflows |
 | `findings-ledger` | Record and triage stochastic (Tier 2) review findings for recurrence |
-| `game-balancer` | Tune game economy curves, progression, drop tables, and balance |
-| `game-systems-designer` | Design game systems from a locked concept |
-| `godot-engineer` | Build games in Godot 4 with C# |
-| `growth-engine` | Autonomous growth experimentation with statistical analysis |
-| `iap-manager` | Design and operate the in-app purchase catalog |
 | `library-investigator` | Forensic, evidence-only library audit against RULESET.md |
-| `marketing-shaper` | Structure a vague marketing request into a scoped brief |
 | `memory-extraction` | Extract durable memories from a session into `.claude/memory/` at session close |
-| `outbound-engine` | Design and optimize cold outbound email campaigns on Instantly |
-| `phaser-engineer` | Build games in Phaser 3 with TypeScript |
 | `planning-and-task-breakdown` | Break work into ordered, parallel-dispatchable tasks |
 | `prompt-shaper` | Structure a vague engineering request into a task brief |
 | `release-manager` | Coordinate release preparation across a monorepo |
-| `revenue-intelligence` | AI-powered revenue intelligence and content-to-revenue attribution |
 | `rust-engineer` | Write, review, or architect Rust code |
 | `security` | Scan and redact PII and sensitive data |
 | `security-engineering` | Cross-stack security review covering all attack surfaces |
-| `seo-ops` | AI-powered SEO operations and keyword intelligence |
 | `session-state` | Maintain SESSION-STATE.md — durable within-session memory that survives compaction |
 | `skill-library-review` | Audit a library of skills, agents, commands, and workflows |
 | `telemetry` | Opt-in, local-first, privacy-respecting usage telemetry |
@@ -405,6 +415,30 @@ opt-in rather than default.
 | `typescript-testing-backend` | Write backend tests with Jest and Supertest |
 | `typescript-testing-frontend` | Write frontend tests with Jest and React Testing Library |
 | `web3-smart-contract-engineering` | Write and review Solidity smart contracts |
+
+Skills in the **marketing pack** (`--with-marketing`):
+
+| Skill | Description |
+|---|---|
+| `autoresearch` | Run Karpathy-style autoresearch optimization on any conversion content |
+| `content-ops` | Score content with an auto-assembled expert panel until it hits 90+ |
+| `content-pipeline` | Non-interactive content production — quote mining, clip discovery, repurposing, gating |
+| `conversion-ops` | AI-powered CRO — landing-page audits, survey segmentation, lead magnets |
+| `growth-engine` | Autonomous growth experimentation with statistical analysis |
+| `marketing-shaper` | Structure a vague marketing request into a scoped brief |
+| `outbound-engine` | Design and optimize cold outbound email campaigns on Instantly |
+| `revenue-intelligence` | AI-powered revenue intelligence and content-to-revenue attribution |
+| `seo-ops` | AI-powered SEO operations and keyword intelligence |
+
+Skills in the **games pack** (`--with-games`):
+
+| Skill | Description |
+|---|---|
+| `game-balancer` | Tune game economy curves, progression, drop tables, and balance |
+| `game-systems-designer` | Design game systems from a locked concept |
+| `godot-engineer` | Build games in Godot 4 with C# |
+| `iap-manager` | Design and operate the in-app purchase catalog |
+| `phaser-engineer` | Build games in Phaser 3 with TypeScript |
 
 ---
 
@@ -418,16 +452,26 @@ opt-in rather than default.
 | `data-model-verifier` | Read-only verification of DATA_MODEL.md property rows against Source files |
 | `devops-engineer` | Platform and DevOps engineering for Kubernetes, Helm, Pulumi IaC, and CI/CD mechanics |
 | `engineer` | Full-stack implementation across architecture and shipping |
-| `game-design-shaper` | Game design pipeline — intake → design → balance → catalog; marketing → marketer agent |
-| `godot-engineer` | Godot 4 + C# game development |
 | `library-investigator` | Read-only forensic library audit against RULESET.md — evidence-only counts, no verdict |
 | `library-reviewer` | Read-only audit of a skill and agent library |
-| `marketer` | Full-spectrum marketing, content, and sales execution |
-| `phaser-engineer` | Phaser 3 + TypeScript web game development |
 | `rust-engineer` | Principal-level Rust engineering — async services, APIs, workspaces |
 | `security-reviewer` | Read-only cross-stack security audit |
 | `technical-pm` | Product strategy, technical strategy, and engineering leadership |
 | `web3-engineer` | Solidity smart contract development on EVM chains |
+
+Agents in the **marketing pack** (`--with-marketing`):
+
+| Agent | Description |
+|---|---|
+| `marketer` | Full-spectrum marketing, content, and sales execution |
+
+Agents in the **games pack** (`--with-games`):
+
+| Agent | Description |
+|---|---|
+| `game-design-shaper` | Game design pipeline — intake → design → balance → catalog; marketing → marketer agent |
+| `godot-engineer` | Godot 4 + C# game development |
+| `phaser-engineer` | Phaser 3 + TypeScript web game development |
 
 ---
 
@@ -463,7 +507,7 @@ Slash commands in `.claude/commands/`. Only `agent-new`, `skill-new`, and `state
 └── workflows/            # multi-agent orchestration scripts
 ```
 
-> Installers copy full `skills/`, `agents/`, and `hooks/` directories (commands are file-allowlisted). `CLAUDE.md` and `rules/` are repo-local and never installed.
+> Installers copy the `skills/`, `agents/`, and `hooks/` directories, minus unselected [opt-in pack](#opt-in-packs---with-marketing---with-games) items listed in `assets/packs/` (commands are file-allowlisted). `CLAUDE.md` and `rules/` are repo-local and never installed.
 
 ---
 
@@ -475,7 +519,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for conventions
 
 ## Validating the library
 
-A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `CLAUDE.md` flat-sync with `.claude/rules/` (`claude-flat-sync`, rebuilt by `scripts/build-claude-md.sh`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), and that the install scripts ship exactly the expected directories and command allowlist.
+A deterministic, LLM-free validator checks structural invariants — frontmatter completeness, kebab-case names matching their file/dir, no dangling links or `@`-imports, `CLAUDE.md` flat-sync with `.claude/rules/` (`claude-flat-sync`, rebuilt by `scripts/build-claude-md.sh`), `MEMORY.md` length, review-tier wiring (and findings-ledger shape, if present), that the install scripts ship exactly the expected directories and command allowlist, and that the opt-in pack lists in `assets/packs/` are well-formed, match both installers, and are never the target of a relative link from core files or another pack (`packs`).
 
 Enable the pre-commit hook once per clone so the validator runs before every commit:
 

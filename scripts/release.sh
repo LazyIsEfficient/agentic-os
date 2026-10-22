@@ -66,8 +66,10 @@ fi
 # embed the digest — including them would make the hash self-referential).
 # assets/release-hashes.txt lets the installer recognise unmodified files from
 # earlier releases when it adopts a pre-manifest install; never ship it stale.
+# assets/packs/ holds the opt-in pack lists; the installer refuses a payload
+# without them.
 bash "$ROOT/scripts/gen-release-hashes.sh" --check --exclude "$VERSION"
-ARCHIVE_PATHS=(.claude assets/consumer assets/release-hashes.txt docs/awareness-harness-activation.md scripts/validate.sh scripts/lib/install-hook-settings.sh)
+ARCHIVE_PATHS=(.claude assets/consumer assets/packs assets/release-hashes.txt docs/awareness-harness-activation.md scripts/validate.sh scripts/lib/install-hook-settings.sh)
 git -C "$ROOT" archive --format=tar --prefix="$PREFIX" --mtime="$ARCHIVE_MTIME" \
     "$REF^{tree}" "${ARCHIVE_PATHS[@]}" | gzip -n > "$ROOT/$ASSET"
 

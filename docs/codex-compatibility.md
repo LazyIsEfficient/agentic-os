@@ -8,8 +8,8 @@ The Codex shell path currently targets macOS/Linux (or another Bash environment)
 
 | AgenticOS source | Codex destination | Status |
 |---|---|---|
-| `.claude/skills/*` | `~/.agents/skills/*` or `.agents/skills/*` | Installed directly; each skill retains Codex's required `name` and `description` fields plus AgenticOS routing metadata |
-| `.claude/agents/*.md` | `~/.codex/agents/*.toml` or `.codex/agents/*.toml` | Converted during install to `name`, `description`, `developer_instructions`, and a conservative sandbox mode |
+| `.claude/skills/*` | `~/.agents/skills/*` or `.agents/skills/*` | Installed directly; each skill retains Codex's required `name` and `description` fields plus AgenticOS routing metadata. Skills in an opt-in pack (`assets/packs/`) are installed only with `--with-<pack>` (see below) |
+| `.claude/agents/*.md` | `~/.codex/agents/*.toml` or `.codex/agents/*.toml` | Converted during install to `name`, `description`, `developer_instructions`, and a conservative sandbox mode. Pack agents follow their pack, as skills do |
 | SessionStart session-state hook | `~/.codex/hooks.json` or `.codex/hooks.json` | Installed; plain stdout is documented as additional Codex developer context |
 | PreCompact checkpoint hook | Same hook file | Installed; the event and matcher are supported by Codex |
 | `.claude/commands/*.md` | None | Not installed; [Codex custom prompts are deprecated in favor of skills](https://learn.chatgpt.com/docs/custom-prompts) |
@@ -30,3 +30,11 @@ Codex's documented skill locations are `.agents/skills` for repository scope and
 ## Distribution note
 
 OpenAI recommends plugins for distributing bundles of multiple skills. The shell installer remains useful for this repository because it also performs pinned-asset verification, converts role definitions, supports project-local installation, and merges hooks. A future Codex plugin could remove the conversion step and provide a marketplace-native install path.
+
+## Opt-in packs
+
+The `--with-marketing`, `--with-games`, `--without-marketing` and `--without-games` flags work the same for `--codex` (user scope) and `--codex --project` as for Claude Code. A default install is core only. Both Codex manifests (the skills root's and the config root's) record the installed packs in their `"packs"` array.
+
+- **User scope.** A later run keeps the recorded packs. An install made before packs existed keeps the packs whose files either manifest tracks (a pack skill under the skills root, or a pack agent's `agents/<name>.toml` under the config root). With no manifest at all, a pack counts only if one of its skill files under the skills root byte-matches an AgenticOS release copy; empty dirs, symlinks and your own same-named skills do not count.
+- **Project scope.** The manifests are repository content, so their `"packs"` record and the files they track are not trusted, just like the doctrine record. A pack is installed only with `--with-<pack>`, or when AgenticOS copies of its skill files (hash-matched, not through a symlink) are already installed in the project. The installer prints which file kept it.
+- `--without-<pack>` always wins. Where a manifest tracks the pack, it removes the pack's unmodified skill files and agent TOML files, and keeps edited ones with a warning. On a root with no manifest, it removes only the skill files that byte-match an AgenticOS copy, and names every other file in the pack's dirs (symlinks included, which it never follows or deletes) as left in place. In a config root with no manifest, it removes no pack agent TOML at all; it names each one for you to delete by hand.

@@ -569,6 +569,32 @@ check_ship_manifest() {
       | tr -d '"' | sort -u | tr '\n' ' ' | sed -E 's/ +$//')"
     compare_manifest "$ps" "$got_dirs" "$got_cmds"
   fi
+
+  # ---- opt-in packs ----
+  # install_dir "skills"/"agents" stage everything; each installer then drops
+  # the items of every pack not selected. A pack file the installer does not
+  # name would ship as core, and a name with no pack file would make the
+  # installer refuse to run: each installer's list must equal assets/packs/.
+  local want_packs="" f
+  if [[ -d "$ROOT/assets/packs" ]]; then
+    want_packs="$(for f in "$ROOT/assets/packs"/*.txt; do [[ -f "$f" ]] && basename "$f" .txt; done | sort | tr '\n' ' ' | sed -E 's/ +$//')"
+  fi
+  if [[ -f "$sh" ]]; then
+    local sh_packs; sh_packs="$(sed -nE 's/^PACKS="([^"]*)".*/\1/p' "$sh" | head -1 | tr ' ' '\n' | awk 'NF' | sort | tr '\n' ' ' | sed -E 's/ +$//')"
+    if [[ -n "$want_packs" ]] && ! grep -qE '^PACKS="' "$sh"; then
+      fail ship-manifest "$sh" "no PACKS=\"...\" list, so the packs in assets/packs/ ($want_packs) would ship as core"
+    elif [[ "$sh_packs" != "$want_packs" ]]; then
+      fail ship-manifest "$sh" "PACKS ($sh_packs) != pack files in assets/packs/ ($want_packs)"
+    fi
+  fi
+  if [[ -f "$ps" ]]; then
+    local ps_packs; ps_packs="$(sed -nE 's/^\$Packs[[:space:]]*=[[:space:]]*@\((.*)\).*/\1/p' "$ps" | head -1 | tr -d "\"' " | tr ',' '\n' | awk 'NF' | sort | tr '\n' ' ' | sed -E 's/ +$//')"
+    if [[ -n "$want_packs" ]] && ! grep -qE '^\$Packs[[:space:]]*=' "$ps"; then
+      fail ship-manifest "$ps" "no \$Packs = @(...) list, so the packs in assets/packs/ ($want_packs) would ship as core"
+    elif [[ "$ps_packs" != "$want_packs" ]]; then
+      fail ship-manifest "$ps" "\$Packs ($ps_packs) != pack files in assets/packs/ ($want_packs)"
+    fi
+  fi
 }
 
 # Exact whole-token membership. `grep -w` treats '.' as a word character, so it
@@ -1128,6 +1154,122 @@ check_install_pins() {
   fi
 }
 
+# ── Invariant 15: packs ────────────────────────────────────────────────────────
+# assets/packs/<pack>.txt lists the skills and agents of one opt-in install
+# pack (install.sh --with-<pack>); everything else under .claude/ is core. The
+# source files stay under .claude/, so every other invariant still sees them.
+#   (a) each line that is not blank or a whole-line `#` comment is
+#       `skills/<name>` or `agents/<name>.md`
+#   (b) and names an existing skill dir / agent file
+#   (c) no item is listed twice (in one pack or in two)
+#   (d) no relative markdown link from a core file into a pack item, or from
+#       one pack into another: an install without that pack would carry a
+#       dangling link (write the name as plain text). Links inside one pack
+#       are fine.
+# The installers' pack lists are checked against these files by ship-manifest.
+PACK_ENTRY_RE='^(skills/[a-z0-9]+(-[a-z0-9]+)*|agents/[a-z0-9]+(-[a-z0-9]+)*\.md)$'
+PACK_MAP=""   # "<item> <pack>" lines, filled by check_packs
+
+check_packs() {
+  local dir="$ROOT/assets/packs" f pack line n
+  [[ -d "$dir" ]] || return 0
+  for f in "$dir"/*; do
+    [[ -e "$f" ]] || continue
+    pack="$(basename "$f")"
+    if [[ ! "$pack" =~ ^[a-z0-9]+(-[a-z0-9]+)*\.txt$ || ! -f "$f" ]]; then
+      fail packs "$f" "not a <pack>.txt pack list (kebab-case name, regular file)"
+      continue
+    fi
+    pack="${pack%.txt}"
+    n=0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      n=$((n + 1))
+      line="${line%$'\r'}"
+      [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+      if [[ ! "$line" =~ $PACK_ENTRY_RE ]]; then
+        fail packs "$f" "line $n '$line' is not skills/<name> or agents/<name>.md"
+        continue
+      fi
+      if [[ "$line" == skills/* && ! -d "$CLAUDE/$line" ]] || [[ "$line" == agents/* && ! -f "$CLAUDE/$line" ]]; then
+        fail packs "$f" "line $n: .claude/$line does not exist"
+      fi
+      local other; other="$(printf '%s\n' "$PACK_MAP" | awk -v i="$line" '$1 == i { print $2; exit }')"
+      if [[ -n "$other" ]]; then
+        fail packs "$f" "line $n: $line is already in the $other pack (an item belongs to one pack)"
+        continue
+      fi
+      PACK_MAP="$PACK_MAP$line $pack"$'\n'
+    done < "$f"
+  done
+  [[ -n "$PACK_MAP" ]] || return 0
+
+  # One awk pass over every link: resolve it lexically against its file's dir
+  # (as normalize_path does) and compare the pack owning the file with the
+  # pack owning the target.
+  local files=() src target tpack owner
+  [[ -d "$CLAUDE/skills" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/skills" -name '*.md' -type f | sort)
+  [[ -d "$CLAUDE/agents" ]] && while IFS= read -r f; do files+=("$f"); done < <(find "$CLAUDE/agents" -maxdepth 1 -name '*.md' -type f | sort)
+  for f in $EXPECTED_CMDS; do [[ -f "$CLAUDE/commands/$f" ]] && files+=("$CLAUDE/commands/$f"); done
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  # The map goes through ENVIRON: BSD awk rejects a newline in a -v value. A
+  # failed scan fails the check (pipefail carries awk's status; grep's "no
+  # match in some file" is not a failure).
+  local hits
+  # Inline links `](target)` and reference-style definitions `[ref]: target`
+  # (both resolve the same way, and either would dangle).
+  if ! hits="$( { printf '%s\0' "${files[@]}" | xargs -0 grep -oHE '\]\([^)]+\)' || true
+                  printf '%s\0' "${files[@]}" | xargs -0 grep -HE '^[[:space:]]{0,3}\[[^]]+\]:[[:space:]]*[^[:space:]]' || true; } \
+    | PACK_MAP="$PACK_MAP" awk -v claude="$CLAUDE" '
+      function norm(path,   parts, n, i, top, stack, out) {
+        n = split(path, parts, "/"); top = 0
+        for (i = 1; i <= n; i++) {
+          if (parts[i] == "" || parts[i] == ".") continue
+          if (parts[i] == "..") { if (top > 0 && stack[top] != "..") top--; else stack[++top] = ".."; continue }
+          stack[++top] = parts[i]
+        }
+        out = ""; for (i = 1; i <= top; i++) out = out "/" stack[i]
+        return (path ~ /^\//) ? out : substr(out, 2)
+      }
+      function packof(rel,   a, item) {
+        if (rel ~ /^skills\//) { split(rel, a, "/"); item = "skills/" a[2] }
+        else if (rel ~ /^agents\/[^\/]+$/) item = rel
+        else return ""
+        return (item in pk) ? pk[item] : ""
+      }
+      BEGIN {
+        n = split(ENVIRON["PACK_MAP"], L, "\n"); np = 0
+        for (i = 1; i <= n; i++) if (split(L[i], kv, " ") == 2) { pk[kv[1]] = kv[2]; np++ }
+        if (!np) { print "pack map is empty" > "/dev/stderr"; exit 2 }
+        cl = norm(claude) "/"
+      }
+      {
+        # grep -H line: <file>:](<target>[ "title"]) or <file>:[ref]: <target> ["title"]
+        k = index($0, ":]("); r2 = index($0, ":")
+        if (k && k == r2) {
+          f = substr($0, 1, k - 1); t = substr($0, k + 3); sub(/\)$/, "", t)
+          if (t ~ /^</) { sub(/^</, "", t); sub(/>.*$/, "", t) }
+        } else {
+          f = substr($0, 1, r2 - 1); t = substr($0, r2 + 1)
+          sub(/^[ \t]*\[[^]]+\]:[ \t]*/, "", t); sub(/^</, "", t); sub(/>.*$/, "", t)
+        }
+        sub(/[ \t].*$/, "", t); sub(/#.*/, "", t)
+        if (t == "" || t ~ /:\/\// || t ~ /^mailto:/ || t ~ /^\//) next
+        dir = f; sub(/\/[^\/]*$/, "", dir)
+        r = norm(dir "/" t); fn = norm(f)
+        if (index(r, cl) != 1 || index(fn, cl) != 1) next
+        tp = packof(substr(r, length(cl) + 1))
+        ow = packof(substr(fn, length(cl) + 1))
+        if (tp != "" && tp != ow) print f "\t" t "\t" tp "\t" ow
+      }')"; then
+    fail packs "$CLAUDE" "the link scan itself failed — cannot prove no core file links into a pack"
+    return 0
+  fi
+  while IFS=$'\t' read -r src target tpack owner; do
+    [[ -n "$src" ]] || continue
+    fail packs "$src" "relative link '$target' reaches the $tpack pack from ${owner:-core}${owner:+ pack}; an install without that pack would have a dangling link — write the name as plain text"
+  done <<< "$hits"
+}
+
 # ── Run all checks ─────────────────────────────────────────────────────────────
 check_install_pins
 check_frontmatter_and_names
@@ -1146,6 +1288,7 @@ check_no_symlinks
 check_frontmatter_brackets
 check_workflow_agent_type
 check_no_general_purpose
+check_packs
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

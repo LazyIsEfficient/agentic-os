@@ -20,6 +20,16 @@
 #                   agentic-os/doctrine.md) or, for Codex, AGENTS.md (inlined).
 #                   Opt-in. Later runs without the flag keep it current
 #                   while the block is still there; deleting the block opts out.
+#   --with-marketing  Also install the marketing/growth pack
+#   --with-games      Also install the games pack
+#   --without-marketing / --without-games
+#                   Remove that pack (unmodified files; edited ones are kept)
+#
+# Packs: a default install ships only the core engineering / security / quality
+# library. assets/packs/<pack>.txt lists each opt-in pack's skills and agents.
+# Once installed, a pack stays installed on later runs (the manifest records
+# it) until --without-<pack>. An install made before packs existed keeps the
+# packs whose AgenticOS files it has.
 #
 # Lifecycle: each install root gets a manifest (.agentic-os-manifest.json) of
 # every file installed and its SHA-256. Re-running updates files you have not
@@ -64,12 +74,21 @@ DRY_RUN=false
 PRUNE_LEGACY=false
 UNINSTALL=false
 WITH_DOCTRINE=false
+# Opt-in packs, one assets/packs/<pack>.txt each (validate.sh ship-manifest
+# checks this list against those files). Keep in sync with $Packs in install.ps1.
+PACKS="games marketing"
+WITH_PACKS=""
+WITHOUT_PACKS=""
 PLATFORM="claude"
 CODEX_SCOPE="user"
 
+# True when word $1 is in space-separated list $2.
+has_word() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+
 usage() {
   printf '%s\n' \
-    'Usage: ./install.sh [--claude|--codex] [--project] [--force] [--prune-legacy] [--with-doctrine] [--dry-run]' \
+    'Usage: ./install.sh [--claude|--codex] [--project] [--force] [--prune-legacy] [--with-doctrine]' \
+    '                    [--with-<pack>|--without-<pack>]... [--dry-run]' \
     '       ./install.sh [--claude|--codex] [--project] --uninstall [--dry-run]' \
     '' \
     '  --codex         Install Codex-compatible skills, agents, and hooks' \
@@ -79,6 +98,10 @@ usage() {
     '  --uninstall     Remove AgenticOS-owned files and hook registrations' \
     '  --dry-run       Print what would change; change nothing' \
     '  --with-doctrine Also add the AgenticOS doctrine block to CLAUDE.md (Codex: AGENTS.md)' \
+    '  --with-marketing, --with-games' \
+    '                  Also install that opt-in pack (kept on later runs)' \
+    '  --without-marketing, --without-games' \
+    '                  Remove that pack: unmodified files go, edited ones are kept' \
     '  --claude        Install for Claude Code (default)'
 }
 
@@ -89,6 +112,14 @@ for arg in "$@"; do
     --prune-legacy) PRUNE_LEGACY=true ;;
     --uninstall) UNINSTALL=true ;;
     --with-doctrine) WITH_DOCTRINE=true ;;
+    --with-*|--without-*)
+      if [[ "$arg" == --without-* ]]; then pack="${arg#--without-}"; else pack="${arg#--with-}"; fi
+      if [[ ! "$pack" =~ ^[a-z0-9-]+$ ]] || ! has_word "$pack" "$PACKS"; then
+        echo "Error: unknown option: $arg (packs: $PACKS)" >&2
+        exit 1
+      fi
+      if [[ "$arg" == --without-* ]]; then WITHOUT_PACKS="$WITHOUT_PACKS $pack"; else WITH_PACKS="$WITH_PACKS $pack"; fi
+      ;;
     --codex) PLATFORM="codex" ;;
     --claude) PLATFORM="claude" ;;
     --project) CODEX_SCOPE="project" ;;
@@ -115,6 +146,16 @@ if [[ "$UNINSTALL" == "true" && "$WITH_DOCTRINE" == "true" ]]; then
   echo "Error: --with-doctrine does not apply to --uninstall (uninstall always removes the doctrine block)." >&2
   exit 1
 fi
+if [[ "$UNINSTALL" == "true" && -n "$WITH_PACKS$WITHOUT_PACKS" ]]; then
+  echo "Error: --with-<pack> and --without-<pack> do not apply to --uninstall (uninstall removes every AgenticOS file, pack files included)." >&2
+  exit 1
+fi
+for pack in $PACKS; do
+  if has_word "$pack" "$WITH_PACKS" && has_word "$pack" "$WITHOUT_PACKS"; then
+    echo "Error: --with-$pack and --without-$pack contradict each other; give one of them." >&2
+    exit 1
+  fi
+done
 
 if [[ "$PLATFORM" == "claude" ]]; then
   DEST="${CLAUDE_DIR:-$HOME/.claude}"
@@ -380,6 +421,23 @@ read_manifest() {
     }' "$1" | LC_ALL=C sort -u
 }
 
+# A root-relative path that may become a TSV work-file row: two or more
+# [A-Za-z0-9._@+-] components (safe_rel's charset). Anything else (a tab or
+# newline could forge a whole row) never enters a row.
+REL_RE='^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$'
+SHA_RE='^[0-9a-f]{64}$'
+# Each argument is "-" or a 64-hex sha. Rows are read with IFS=$'\t', which
+# collapses an empty field (tab is IFS whitespace), so every sha field is
+# re-checked after the read; paths are gated by safe_rel (which reports them).
+shas_ok() {
+  local f
+  for f in "$@"; do [[ "$f" == "-" || "$f" =~ $SHA_RE ]] || return 1; done
+}
+# True when $1 matches REL_RE (rows that did not come from a manifest).
+row_ok() {
+  [[ "$1" =~ $REL_RE ]]
+}
+
 # Release paths are restricted to [A-Za-z0-9._@+-] segments, so manifest JSON
 # needs no escaping.
 write_manifest() {
@@ -394,6 +452,10 @@ write_manifest() {
   {
     printf '{\n  "schema": 1,\n  "name": "agentic-os",\n  "version": "%s",\n' "$VERSION"
     printf '  "source": "%s",\n  "platform": "%s",\n' "$SOURCE_KIND" "$platform"
+    # Every run records the packs it installed (see pack_plan); [] = core only.
+    local pj="" pk
+    for pk in $PACKS_ON; do pj="$pj${pj:+, }\"$pk\""; done
+    printf '  "packs": [%s],\n' "$pj"
     # Project scope: the record would never be read (DOC_PROJECT), so none is written.
     if [[ -n "$DOC_CREATED" && "$root" == "$DOC_MF_ROOT" && "$DOC_PROJECT" != true ]]; then
       printf '  "doctrine": {"created": %s, "block_sha256": "%s"},\n' "$DOC_CREATED" "$DOC_BLOCK_SHA"
@@ -435,7 +497,7 @@ set_root() {
 #     resolves (pwd -P) inside the canonical root.
 safe_rel() {
   local root="$1" rel="$2" allow="$3" first skill p c dir canon
-  [[ "$rel" =~ ^[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)+$ ]] || return 1
+  [[ "$rel" =~ $REL_RE ]] || return 1
   case "/$rel/" in */./*|*/../*) return 1 ;; esac
   first="${rel%%/*}"
   skill=""
@@ -505,7 +567,7 @@ place() {
 unsafe() {
   warn "skip $(printf '%q' "$1") — unsafe path (outside the shipped dirs, unusual characters, or through a symlink); not touched"
   N_UNSAFE=$((N_UNSAFE + 1))
-  printf '%s\n' "$1" >> "$WORK/unsafe.lst"
+  if [[ "$1" =~ $REL_RE ]]; then printf '%s\n' "$1" >> "$WORK/unsafe.lst"; fi   # only names a hook path could equal: one per line, unforgeable
 }
 
 # A shipped top-level dir that is itself a symlink (stow-style dotfiles) would
@@ -961,7 +1023,7 @@ doctrine_remove() {
 #   $8 shipped first-component allowlist (see safe_rel)
 sync_place() {
   local id="$1" stage="$2" root="$3" hookp="$4" skillp="$5" allow="$8"
-  local w="$WORK/$id" rel nsha osha csha bak n
+  local w="$WORK/$id" rel nsha osha csha bak n extra line a_rel a_sha
   local added=0 updated=0 same=0 legacy_kept=0
   mkdir -p "$w"
   set_root "$root"
@@ -979,6 +1041,21 @@ sync_place() {
     exit 1
   fi
   read_manifest "$root/$MANIFEST_NAME" > "$w/old.tsv"
+  # Pre-manifest files of a pack dropped with --without (see pack_adopt).
+  # Every adopted row is re-validated here (exactly <rel>\t<64-hex sha>, rel in REL_RE); a
+  # malformed one is never adopted.
+  if [[ -s "$WORK/pack-adopt.$id" ]]; then
+    : > "$w/adopt.ok"
+    while IFS= read -r line; do
+      a_rel="${line%%$'\t'*}"; a_sha="${line#*$'\t'}"
+      if [[ "$line" == *$'\t'* && "$a_sha" != *$'\t'* && "$a_sha" =~ $SHA_RE ]] && row_ok "$a_rel"; then
+        printf '%s\t%s\n' "$a_rel" "$a_sha" >> "$w/adopt.ok"
+      else
+        warn "skip a malformed pack adoption row $(printf '%q' "$line"); nothing adopted or removed for it"
+      fi
+    done < "$WORK/pack-adopt.$id"
+    LC_ALL=C sort -u "$w/old.tsv" "$w/adopt.ok" > "$w/old.adopt" && mv "$w/old.adopt" "$w/old.tsv"
+  fi
   cut -f1 "$w/old.tsv" > "$w/old.paths"
   load_known "$skillp" "$w/known.tsv"
   cut -f1 "$w/new.tsv" "$w/old.tsv" | LC_ALL=C sort -u | while IFS= read -r rel; do
@@ -995,7 +1072,11 @@ sync_place() {
 
   : > "$w/manifest.tsv"
   : > "$w/remove.lst"
-  while IFS=$'\t' read -r rel nsha osha csha; do
+  while IFS=$'\t' read -r rel nsha osha csha extra; do
+    if [[ -n "$extra" ]] || ! shas_ok "$nsha" "$osha" "$csha"; then
+      warn "skip malformed plan row $(printf '%q' "$rel") — nothing written or removed for it"
+      continue
+    fi
     if ! safe_rel "$root" "$rel" "$allow"; then
       unsafe "$rel"
       continue
@@ -1165,7 +1246,7 @@ manifest_hook_names() {
 #   $5 skills prefix (as for sync_place: "skills/", "", or "-")
 uninstall_root() {
   local id="$1" root="$2" label="$3" allow="$4" skillp="$5"
-  local w="$WORK/$id" mf="$2/$MANIFEST_NAME" rel osha csha removed=0 kept=0
+  local w="$WORK/$id" mf="$2/$MANIFEST_NAME" rel osha csha extra removed=0 kept=0
   mkdir -p "$w"
   set_root "$root"
   echo ""
@@ -1187,7 +1268,11 @@ uninstall_root() {
   ' "$w/old.tsv" "$w/cur.tsv" | LC_ALL=C sort > "$w/plan.tsv"
 
   : > "$w/dirs.lst"
-  while IFS=$'\t' read -r rel osha csha; do
+  while IFS=$'\t' read -r rel osha csha extra; do
+    if [[ -n "$extra" ]] || ! shas_ok "$osha" "$csha"; then
+      warn "skip malformed plan row $(printf '%q' "$rel") — not removed"
+      continue
+    fi
     if ! safe_rel "$root" "$rel" "$allow"; then
       unsafe "$rel"
     elif [[ "$csha" == "-" ]]; then
@@ -1209,6 +1294,257 @@ uninstall_root() {
   note "remove $MANIFEST_NAME"
   [[ "$DRY_RUN" == "true" ]] || rm -f "$mf"
   echo "  $P$removed removed, $kept kept (modified)"
+}
+
+# ── Opt-in packs (--with-<pack>) ─────────────────────────────────────────────
+#
+# assets/packs/<pack>.txt lists one pack's skills and agents; everything else
+# is core. pack_plan decides, before anything is staged or written, which packs
+# this run installs. A pack is installed when
+#   - its --with-<pack> flag is given, or
+#   - a previous manifest of this run's roots lists it under "packs", or
+#   - no manifest of these roots has a "packs" key (an install made before
+#     packs existed) and one tracks any of the pack's files, or a root with no
+#     manifest at all (a pre-manifest release) holds an AgenticOS copy of one
+#     of its files (pack_shipped_file: hash-matched, never through a link);
+# --without-<pack> overrides all three. In --codex --project only the flag and
+# the hash-matched files count (see pack_plan). An unselected pack is simply not
+# staged, so its files go through sync_place's normal prune: unmodified ones
+# are removed, edited ones kept with a warning. Every run records the result
+# as the manifest's "packs" array.
+PACK_ENTRY_RE='^(skills/[a-z0-9-]+|agents/[a-z0-9-]+[.]md)$'
+PACKS_ON=""
+
+# Validated entries of pack $1 into file $2 (validate.sh checks them too; the
+# installer re-checks because it deletes staged paths by them).
+load_pack() {
+  local f="$REPO_ROOT/assets/packs/$1.txt" line
+  if [[ ! -f "$f" || -L "$f" ]]; then
+    echo "Error: $f is missing (or a symlink): this payload predates opt-in packs or is incomplete. Use the install.sh from the same release as the payload (the pinned one-liner URL), or install from a local clone. Nothing was changed." >&2
+    exit 1
+  fi
+  : > "$2"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+    if [[ ! "$line" =~ $PACK_ENTRY_RE ]]; then
+      echo "Error: $f lists '$line', which is not skills/<name> or agents/<name>.md. Nothing was changed." >&2
+      exit 1
+    fi
+    printf '%s\n' "$line" >> "$2"
+  done < "$f"
+}
+
+# Path pack entry $2 takes under a root of kind $1: claude (skills/<n>/,
+# agents/<n>.md), codex-skills (<n>/) or codex-config (agents/<n>.toml).
+# A trailing / marks a skill dir. Prints nothing when the root has no such path.
+pack_path() {
+  case "$1:$2" in
+    claude:skills/*) printf '%s/\n' "$2" ;;
+    claude:agents/*) printf '%s\n' "$2" ;;
+    codex-skills:skills/*) printf '%s/\n' "${2#skills/}" ;;
+    codex-config:agents/*) printf 'agents/%s.toml\n' "$(basename "$2" .md)" ;;
+  esac
+}
+
+# True when the manifest of root $2 (kind $1) tracks a file of pack list $3.
+pack_tracked() {
+  local kind="$1" root="$2" list="$3" mf="$2/$MANIFEST_NAME" e p
+  [[ -f "$mf" && ! -L "$mf" ]] || return 1
+  read_manifest "$mf" | cut -f1 > "$WORK/pack.paths"
+  while IFS= read -r e; do
+    p="$(pack_path "$kind" "$e")"
+    [[ -n "$p" ]] || continue
+    if LC_ALL=C awk -v p="$p" '$0 == p || (substr(p, length(p)) == "/" && index($0, p) == 1) { f = 1; exit } END { exit !f }' "$WORK/pack.paths"; then
+      return 0
+    fi
+  done < "$list"
+  return 1
+}
+
+# "<rel>\t<sha>" for each file of pack list $3 under root $2 (kind $1) that is
+# an AgenticOS copy: a regular file, reached through no symlink, whose sha is
+# that path's copy in an earlier release (assets/release-hashes.txt) or in this
+# release's source. $4 = first: print only the first, and fail when there is
+# none; $4 = all: also print "<rel>\t-" for every other regular file reached
+# through no symlink (an edit, or the user's own). An empty dir, a symlink, or the user's own skill of the same name
+# counts for nothing. A Codex config root has none: its agent TOML is
+# generated, and every pack has skills under the skills root.
+pack_shipped_files() {
+  local kind="$1" root="$2" list="$3" first="${4:-}" e p c q rest f rel srel sha linked
+  case "$kind" in
+    claude) load_known "skills/" "$WORK/pack.known" ;;
+    codex-skills) load_known "" "$WORK/pack.known" ;;
+    *) return 1 ;;
+  esac
+  while IFS= read -r e; do
+    p="$(pack_path "$kind" "$e")"; p="${p%/}"
+    [[ -n "$p" ]] || continue
+    q="$root"; rest="$p"; linked=false
+    while [[ -n "$rest" ]]; do
+      c="${rest%%/*}"; q="$q/$c"
+      if [[ -L "$q" ]]; then linked=true; fi
+      if [[ "$rest" == */* ]]; then rest="${rest#*/}"; else rest=""; fi
+    done
+    if [[ "$linked" == true ]]; then
+      # Never followed or deleted; in "all" mode (a --without run) it is named.
+      if [[ "$first" == all ]]; then
+        warn "skip $(printf '%q' "$p") — a symlink is on the way to it; symlink, left in place (AgenticOS never follows or deletes a symlink)" >&2
+      fi
+      continue
+    fi
+    [[ -e "$root/$p" ]] || continue
+    if [[ "$first" == all ]]; then
+      while IFS= read -r -d '' f; do
+        warn "skip $(printf '%q' "${f#"$root"/}") — symlink, left in place (AgenticOS never follows or deletes a symlink)" >&2
+      done < <(find "$root/$p" -type l -print0)
+    fi
+    while IFS= read -r -d '' f; do
+      rel="${f#"$root"/}"
+      if [[ ! "$rel" =~ $REL_RE ]]; then
+        # stderr: callers capture stdout as rows.
+        warn "skip $(printf '%q' "$rel") — unusual characters in the name; not an AgenticOS file, not touched" >&2
+        continue
+      fi
+      srel="$rel"; [[ "$kind" == codex-skills ]] && srel="skills/$rel"
+      sha="$(sha256_of "$f")"
+      if grep -qxF -- "$rel"$'\t'"$sha" "$WORK/pack.known" \
+         || { [[ -f "$SRC/$srel" && ! -L "$SRC/$srel" ]] && [[ "$(sha256_of "$SRC/$srel")" == "$sha" ]]; }; then
+        printf '%s\t%s\n' "$rel" "$sha"
+        if [[ "$first" == first ]]; then return 0; fi
+      elif [[ "$first" == all ]]; then
+        printf '%s\t-\n' "$rel"
+      fi
+    done < <(find "$root/$p" -type f -print0)
+  done < "$list"
+  [[ "$first" != first ]]
+}
+
+# Root-relative path of the first AgenticOS copy of a file of pack list $3
+# under root $2 (kind $1); fails when there is none (see pack_shipped_files).
+pack_shipped_file() {
+  local l
+  l="$(pack_shipped_files "$1" "$2" "$3" first)" || return 1
+  printf '%s\n' "${l%%$'\t'*}"
+}
+
+# Pack names in manifest $1's "packs" array, one per line. Fails when the
+# manifest is absent or has no "packs" key (written before packs existed).
+read_packs_record() {
+  local line
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  line="$(LC_ALL=C grep -m 1 -E '^  "packs": \[[^]]*\],$' "$1")" || return 1
+  line="${line#*\[}"
+  { printf '%s\n' "$line" | LC_ALL=C grep -oE '"[a-z0-9-]+"' | tr -d '"'; } || true
+}
+
+# --without-<pack> on a root with no manifest (a pre-manifest install): no
+# manifest tracks the pack's files, so sync_place would never prune them. Its
+# AgenticOS copies (pack_shipped_files) are handed to sync_place as if an old
+# manifest tracked them at their current sha ($WORK/pack-adopt.<id>), so the
+# unchanged "no longer shipped" path removes them, re-checking each one at the
+# point of deletion; a file that matches no AgenticOS copy (an edit, or the
+# user's own) is never listed: it stays, and is named. A Codex config root has no hashable
+# copies (its TOML is generated), so leftover pack agents there are named.
+#   $1 pack, rest: "<kind>:<root>" as for pack_plan.
+pack_adopt() {
+  local pk="$1" r kind root e n t
+  shift
+  for r in "$@"; do
+    kind="${r%%:*}"; root="${r#*:}"
+    [[ ! -e "$root/$MANIFEST_NAME" && ! -L "$root/$MANIFEST_NAME" ]] || continue
+    if [[ "$kind" == codex-config ]]; then
+      while IFS= read -r e; do
+        [[ "$e" == agents/* ]] || continue
+        n="${e#agents/}"; t="$root/agents/${n%.md}.toml"
+        if [[ -f "$t" && ! -L "$t" ]]; then
+          note "left in place: $t — no manifest says AgenticOS wrote it; delete it by hand if it is the $pk pack's agent"
+        fi
+      done < "$WORK/pack.$pk"
+      continue
+    fi
+    pack_shipped_files "$kind" "$root" "$WORK/pack.$pk" all > "$WORK/pack-adopt.scan"
+    LC_ALL=C awk -F'\t' '$2 != "-"' "$WORK/pack-adopt.scan" >> "$WORK/pack-adopt.$kind"
+    while IFS=$'\t' read -r e n; do
+      [[ "$n" == "-" && "$e" =~ $REL_RE ]] || continue
+      warn "keep $e — in the $pk pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place, remove it by hand if you no longer want it"
+    done < "$WORK/pack-adopt.scan"
+  done
+}
+
+# $@: "<kind>:<root>" for each install root of this run.
+pack_plan() {
+  local r kind root mf names has_key=false recorded="" p why ev proj=false
+  # Project scope: .codex/ and .agents/ are repository content, so neither the
+  # manifest's "packs" record nor the files it tracks is evidence of anything
+  # (the doctrine record is distrusted the same way, DOC_PROJECT). There a pack
+  # is selected only by --with-<pack> or by AgenticOS copies of its files on
+  # disk (pack_shipped_file). The record is still written.
+  if [[ "$PLATFORM" == codex && "$CODEX_SCOPE" == project ]]; then proj=true; fi
+  if [[ "$proj" == false ]]; then
+    for r in "$@"; do
+      if names="$(read_packs_record "${r#*:}/$MANIFEST_NAME")"; then
+        has_key=true
+        recorded="$recorded $(printf '%s\n' "$names" | tr '\n' ' ')"
+      fi
+    done
+  fi
+  : > "$WORK/packs.off"
+  echo ""
+  echo "${P}Opt-in packs:"
+  for p in $PACKS; do
+    load_pack "$p" "$WORK/pack.$p"
+    why=""; ev=""
+    if has_word "$p" "$WITHOUT_PACKS"; then
+      why=""
+    elif has_word "$p" "$WITH_PACKS"; then
+      why=flag
+    elif has_word "$p" "$recorded"; then
+      why=recorded
+    elif [[ "$has_key" == false ]]; then
+      for r in "$@"; do
+        kind="${r%%:*}"; root="${r#*:}"; mf="$root/$MANIFEST_NAME"
+        if [[ "$proj" == false && ( -f "$mf" || -L "$mf" ) ]]; then
+          # A manifest from before packs existed: the files it tracks.
+          if pack_tracked "$kind" "$root" "$WORK/pack.$p"; then why=tracked; break; fi
+        elif ev="$(pack_shipped_file "$kind" "$root" "$WORK/pack.$p")"; then
+          why=ondisk; break
+        fi
+      done
+    fi
+    case "$why" in
+      flag) note "$p: installed (--with-$p)" ;;
+      recorded) note "$p: kept, as recorded in the install manifest; re-run with --without-$p to remove it" ;;
+      tracked) note "$p: kept, because the install manifest (written before packs existed) tracks its files; re-run with --without-$p to remove it" ;;
+      ondisk)
+        if [[ "$proj" == true ]]; then
+          note "$p: kept, because AgenticOS copies of its files are installed in this project (e.g. $ev; the project's manifest is repository content and is not trusted); re-run with --without-$p to remove it"
+        else
+          note "$p: kept, because AgenticOS copies of its files are installed here with no manifest (e.g. $ev); re-run with --without-$p to remove it"
+        fi ;;
+      *)
+        cat "$WORK/pack.$p" >> "$WORK/packs.off"
+        if has_word "$p" "$WITHOUT_PACKS"; then
+          note "$p: not installed (--without-$p); unmodified files from it are removed, edited ones kept"
+          pack_adopt "$p" "$@"
+        else
+          note "$p: not installed (add it with --with-$p)"
+        fi ;;
+    esac
+    [[ -z "$why" ]] || PACKS_ON="$PACKS_ON${PACKS_ON:+ }$p"
+  done
+}
+
+# Drop the items of every unselected pack from the staged skills dir $1 and
+# agents dir $2 ("" = none staged). Entries are PACK_ENTRY_RE-checked.
+unstage_packs() {
+  local e
+  while IFS= read -r e; do
+    case "$e" in
+      skills/*) rm -rf "${1:?}/${e#skills/}" ;;
+      agents/*) if [[ -n "$2" ]]; then rm -f "$2/${e#agents/}"; fi ;;
+    esac
+  done < "$WORK/packs.off"
 }
 
 # ── Stage the release ─────────────────────────────────────────────────────────
@@ -1243,6 +1579,7 @@ install_codex_agents() {
   mkdir -p "$dest_dir"
 
   while IFS= read -r -d '' src; do
+    if grep -qxF -- "agents/${src##*/}" "$WORK/packs.off"; then continue; fi   # unselected pack
     name="$(awk '/^name:/{sub(/^name:[[:space:]]*/, ""); print; exit}' "$src")"
     description="$(awk '/^description:/{sub(/^description:[[:space:]]*/, ""); print; exit}' "$src")"
     tools="$(awk '/^tools:/{sub(/^tools:[[:space:]]*/, ""); print; exit}' "$src")"
@@ -1352,11 +1689,13 @@ fi
 # ── Install / update ──────────────────────────────────────────────────────────
 
 if [[ "$PLATFORM" == "claude" ]]; then
+  pack_plan "claude:$DEST"
   echo ""
   echo "${P}Installing Claude Code surfaces to $DEST"
 
   install_dir "skills"
   install_dir "agents"
+  unstage_packs "$STAGE/skills" "$STAGE/agents"
   # Commands: ship-tagged allowlist ONLY — list each file that installs into a
   # consumer's global namespace. The author-facing scaffolds plus /state (the
   # awareness-harness writer command — its skill + hooks ship alongside) are the
@@ -1396,12 +1735,14 @@ if [[ "$PLATFORM" == "claude" ]]; then
     echo "${P}The AgenticOS doctrine is imported from ${DOC_TARGET}; it is kept current while the block is there, until --uninstall."
   fi
 else
+  pack_plan "codex-skills:$CODEX_SKILLS_DEST" "codex-config:$CODEX_CONFIG_DIR"
   echo ""
   echo "${P}Installing Codex skills to $CODEX_SKILLS_DEST"
   echo "${P}Installing Codex config surfaces to $CODEX_CONFIG_DIR"
 
   mkdir -p "$STAGE/skills" "$STAGE/config/hooks"
   cp -R "$SRC/skills/." "$STAGE/skills/"
+  unstage_packs "$STAGE/skills" ""
   install_codex_agents "$STAGE/config/agents"
   for hook in session-state-inject.sh session-state-checkpoint.sh; do
     cp "$SRC/hooks/$hook" "$STAGE/config/hooks/$hook"

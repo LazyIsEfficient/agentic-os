@@ -90,7 +90,7 @@ If the question is *in-game economy rates*, route to [game-balancer](../game-bal
 - [game-balancer](../game-balancer/SKILL.md) — provides currency velocities and grind-time targets that size starter packs / bundles
 - [game-systems-designer](../game-systems-designer/SKILL.md) — the systems define what content is available to bundle
 - [godot-engineer](../godot-engineer/SKILL.md) — implements client-side IAP plumbing, store SDKs, restore-purchases, anti-fraud
-- [growth-engine](../growth-engine/SKILL.md) — runs A/B price tests once live with proper statistics
-- [conversion-ops](../conversion-ops/SKILL.md) — store-side funnel optimization (CRO patterns transfer)
-- [revenue-intelligence](../revenue-intelligence/SKILL.md) — closes the loop on which SKUs drive cohort revenue
+- growth-engine (marketing pack) — runs A/B price tests once live with proper statistics
+- conversion-ops (marketing pack) — store-side funnel optimization (CRO patterns transfer)
+- revenue-intelligence (marketing pack) — closes the loop on which SKUs drive cohort revenue
 - [security-engineering](../security-engineering/SKILL.md) — receipt validation, anti-fraud, restore-purchase abuse, web3 wallet security
