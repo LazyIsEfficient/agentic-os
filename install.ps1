@@ -902,8 +902,10 @@ function Get-PackEvidence($Entries) {
 # A {Rel, Sha} object for each file of pack list $Entries under $Root that is an
 # AgenticOS copy (same rules as install.sh pack_shipped_files): a regular file
 # reached through no link whose sha is that path's copy in an earlier release
-# or in this release's source. -First stops at the first.
-function Get-PackShippedFiles($Entries, [switch]$First) {
+# or in this release's source. -First stops at the first. -All also returns
+# every other regular file reached through no link, with Sha = $null (an
+# edit, or the user's own).
+function Get-PackShippedFiles($Entries, [switch]$First, [switch]$All) {
   $found = @()
   foreach ($e in $Entries) {
     $p = $Root; $linked = $false
@@ -933,6 +935,8 @@ function Get-PackShippedFiles($Entries, [switch]$First) {
       if ($script:KnownHashes.Contains("$rel`t$sha") -or ((Test-Path -LiteralPath $srcf -PathType Leaf) -and -not (Test-ReparsePoint $srcf) -and (Get-Sha $srcf) -eq $sha)) {
         $found += [pscustomobject]@{ Rel = $rel; Sha = $sha }
         if ($First) { return $found }
+      } elseif ($All) {
+        $found += [pscustomobject]@{ Rel = $rel; Sha = $null }
       }
     }
   }
@@ -968,7 +972,10 @@ function Set-PackPlan {
           # normal "no longer shipped" prune removes them (install.sh pack_adopt).
           $mf = Join-Path $Root $ManifestName
           if (-not (Test-Path -LiteralPath $mf) -and -not (Test-ReparsePoint $mf)) {
-            foreach ($hit in @(Get-PackShippedFiles $entries)) { $script:PackAdopt[$hit.Rel] = $hit.Sha }
+            foreach ($hit in @(Get-PackShippedFiles $entries -All)) {
+              if ($null -ne $hit.Sha) { $script:PackAdopt[$hit.Rel] = $hit.Sha }
+              else { Warn "keep $($hit.Rel) — in the $p pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place, remove it by hand if you no longer want it" }
+            }
           }
         }
         else { Note "${p}: not installed (add it with -With$sw)" }

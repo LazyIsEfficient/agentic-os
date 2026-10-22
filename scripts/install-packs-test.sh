@@ -272,12 +272,18 @@ mkdir -p "$h/.claude"
 cp -R "$rel/.claude/skills" "$rel/.claude/agents" "$h/.claude/"
 printf '\nmy seo edit\n' >> "$h/.claude/skills/seo-ops/SKILL.md"
 printf 'mine\n' > "$h/.claude/skills/autoresearch/my-notes.md"
+printf '\nmy marketer edit\n' >> "$h/.claude/agents/marketer.md"
 runc "$h" --without-marketing > "$tmp/o-prew" || { cat "$tmp/o-prew"; fail "pre-manifest --without-marketing failed"; }
-[[ ! -e "$h/.claude/agents/marketer.md" && ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/autoresearch/SKILL.md" ]] \
+[[ ! -e "$h/.claude/skills/content-ops" && ! -e "$h/.claude/skills/autoresearch/SKILL.md" ]] \
   || fail "pre-manifest --without-marketing left AgenticOS copies on disk"
-grep -q '^  remove agents/marketer.md (no longer shipped)$' "$tmp/o-prew" || fail "pre-manifest removal not reported"
+grep -q '^  remove skills/content-ops/SKILL.md (no longer shipped)$' "$tmp/o-prew" || fail "pre-manifest removal not reported"
 grep -q 'my seo edit' "$h/.claude/skills/seo-ops/SKILL.md" || fail "pre-manifest --without deleted an edited pack file"
 grep -q 'mine' "$h/.claude/skills/autoresearch/my-notes.md" || fail "pre-manifest --without deleted a user file in a pack dir"
+grep -q 'my marketer edit' "$h/.claude/agents/marketer.md" || fail "pre-manifest --without deleted an edited pack agent"
+for f in skills/seo-ops/SKILL.md skills/autoresearch/my-notes.md agents/marketer.md; do
+  grep -q "⚠ keep $f — in the marketing pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place" "$tmp/o-prew" \
+    || fail "pre-manifest --without did not name the file it left in place: $f"
+done
 untracked "$h/.claude/.agentic-os-manifest.json" marketing
 pack_is "$h/.claude" games in claude
 [[ "$(mf_packs "$h/.claude/.agentic-os-manifest.json")" == '["games"]' ]] || fail "pre-manifest --without: packs is $(mf_packs "$h/.claude/.agentic-os-manifest.json")"
@@ -291,6 +297,11 @@ printf 'mine\n' > "$h/.agents/skills/autoresearch/my-notes.md"
 runx "$h" --without-marketing > "$tmp/o-xprew" || { cat "$tmp/o-xprew"; fail "codex pre-manifest --without-marketing failed"; }
 [[ ! -e "$h/.agents/skills/content-ops" && ! -e "$h/.agents/skills/autoresearch/SKILL.md" ]] || fail "codex pre-manifest --without left skill copies"
 grep -q 'mine' "$h/.agents/skills/seo-ops/SKILL.md" && grep -q 'mine' "$h/.agents/skills/autoresearch/my-notes.md" || fail "codex pre-manifest --without deleted an edited or user file"
+grep -q '^  remove content-ops/SKILL.md (no longer shipped)$' "$tmp/o-xprew" || fail "codex pre-manifest removal not reported"
+for f in seo-ops/SKILL.md autoresearch/my-notes.md; do
+  grep -q "⚠ keep $f — in the marketing pack's dirs but not an AgenticOS release copy" "$tmp/o-xprew" \
+    || fail "codex pre-manifest --without did not name the file it left in place: $f"
+done
 [[ -f "$h/.codex/agents/marketer.toml" ]] || fail "codex: an unprovable agent TOML was deleted"
 grep -q "left in place: $h/.codex/agents/marketer.toml" "$tmp/o-xprew" || fail "codex: leftover pack agent TOML not named"
 ok "codex pre-manifest --without-marketing removes skill copies, keeps edited/user files, names the agent TOML it cannot prove"

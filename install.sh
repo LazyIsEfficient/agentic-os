@@ -1330,7 +1330,8 @@ pack_tracked() {
 # an AgenticOS copy: a regular file, reached through no symlink, whose sha is
 # that path's copy in an earlier release (assets/release-hashes.txt) or in this
 # release's source. $4 = first: print only the first, and fail when there is
-# none. An empty dir, a symlink, or the user's own skill of the same name
+# none; $4 = all: also print "<rel>\t-" for every other regular file reached
+# through no symlink (an edit, or the user's own). An empty dir, a symlink, or the user's own skill of the same name
 # counts for nothing. A Codex config root has none: its agent TOML is
 # generated, and every pack has skills under the skills root.
 pack_shipped_files() {
@@ -1357,11 +1358,13 @@ pack_shipped_files() {
       if grep -qxF -- "$rel"$'\t'"$sha" "$WORK/pack.known" \
          || { [[ -f "$SRC/$srel" && ! -L "$SRC/$srel" ]] && [[ "$(sha256_of "$SRC/$srel")" == "$sha" ]]; }; then
         printf '%s\t%s\n' "$rel" "$sha"
-        if [[ -n "$first" ]]; then return 0; fi
+        if [[ "$first" == first ]]; then return 0; fi
+      elif [[ "$first" == all ]]; then
+        printf '%s\t-\n' "$rel"
       fi
     done < <(find "$root/$p" -type f -print0)
   done < "$list"
-  [[ -z "$first" ]]
+  [[ "$first" != first ]]
 }
 
 # Root-relative path of the first AgenticOS copy of a file of pack list $3
@@ -1388,7 +1391,7 @@ read_packs_record() {
 # manifest tracked them at their current sha ($WORK/pack-adopt.<id>), so the
 # unchanged "no longer shipped" path removes them, re-checking each one at the
 # point of deletion; a file that matches no AgenticOS copy (an edit, or the
-# user's own) is never listed and stays. A Codex config root has no hashable
+# user's own) is never listed: it stays, and is named. A Codex config root has no hashable
 # copies (its TOML is generated), so leftover pack agents there are named.
 #   $1 pack, rest: "<kind>:<root>" as for pack_plan.
 pack_adopt() {
@@ -1407,7 +1410,12 @@ pack_adopt() {
       done < "$WORK/pack.$pk"
       continue
     fi
-    pack_shipped_files "$kind" "$root" "$WORK/pack.$pk" >> "$WORK/pack-adopt.$kind"
+    pack_shipped_files "$kind" "$root" "$WORK/pack.$pk" all > "$WORK/pack-adopt.scan"
+    LC_ALL=C awk -F'\t' '$2 != "-"' "$WORK/pack-adopt.scan" >> "$WORK/pack-adopt.$kind"
+    while IFS=$'\t' read -r e n; do
+      [[ "$n" == "-" ]] || continue
+      warn "keep $e — in the $pk pack's dirs but not an AgenticOS release copy (edited, or yours), and no manifest tracks it; left in place, remove it by hand if you no longer want it"
+    done < "$WORK/pack-adopt.scan"
   done
 }
 
