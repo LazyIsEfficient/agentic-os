@@ -424,11 +424,17 @@ docker_start_sample() {
   local k="$1" root="${S_ROOT[$1]}" vol="aos-$R8-$1" i ok=0
   docker volume create --label "aos-run=$RUN_ID" "$vol" >/dev/null || return 1
   if [ -n "$STUB_CLAUDE" ]; then mkdir -p "$root/.stub"; cp "$STUB_CLAUDE" "$root/.stub/claude"; chmod +x "$root/.stub/claude"; fi
-  # Populate as root (CHOWN only), then hand the tree to uid 1000.
-  ( cd "$root" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - . ) | docker run --rm -i --label "aos-run=$RUN_ID" --network none --user 0:0 \
+  # Stage the tree to a tar FILE first (not a pipe): a streamed extract can cut
+  # the producer with SIGPIPE and silently drop files. macOS tar otherwise
+  # injects AppleDouble ._* entries from xattrs; drop them. Then populate as
+  # root (CHOWN only) and hand the tree to uid 1000.
+  local tarf="$SCORES/$k.root.tar"
+  ( cd "$root" && COPYFILE_DISABLE=1 tar --no-xattrs --exclude '._*' -cf "$tarf" . ) || { echo "  tar of the $k root failed" >&2; return 1; }
+  docker run --rm -i --label "aos-run=$RUN_ID" --network none --user 0:0 \
       --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER --security-opt no-new-privileges \
       --mount "type=volume,src=$vol,dst=$root" "$IMAGE" \
-      sh -c 'tar -xf - -C "$1" --no-same-owner && chown -R 1000:1000 "$1"' sh "$root" || return 1
+      sh -c 'tar -xf - -C "$1" --no-same-owner && chown -R 1000:1000 "$1"' sh "$root" < "$tarf" || return 1
+  rm -f "$tarf"
   docker run -d --name "aos-proxy-$R8-$k" --label "aos-run=$RUN_ID" --network "$NET_INT" --network-alias aos-api-proxy \
       --user 1000:1000 "${DOCKER_HARDEN[@]}" --pids-limit 64 \
       -e ANTHROPIC_API_KEY -e PROXY_UPSTREAM="$PROXY_UPSTREAM" \
@@ -447,10 +453,15 @@ docker_start_sample() {
       --mount "type=volume,src=$vol,dst=$root" -w "$root/task" "$IMAGE" sleep infinity >/dev/null || return 1
   # Re-verify the installed library inside the container: the preflight ran on
   # the host root, and the volume copy must match it byte for byte.
-  docker exec -u 0:0 "aos-sample-$R8-$k" sh -c 'cd "$1" && find . ! -type d | LC_ALL=C sort | while IFS= read -r f; do sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; done' sh "$root/home/.claude" \
-    | awk '{print $1}' > "$SCORES/$k.cfghash-container" 2>/dev/null
-  ( cd "$root/home/.claude" && find . ! -type d | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f" 2>/dev/null || sha256sum "$f"; done | awk '{print $1}' ) > "$SCORES/$k.cfghash-host"
-  cmp -s "$SCORES/$k.cfghash-container" "$SCORES/$k.cfghash-host" || { echo "  in-container config hash != host ($k)" >&2; return 1; }
+  # Hash the config dir AS THE OWNER (uid 1000): the sample container has
+  # cap-drop ALL, so uid 0 cannot traverse the mktemp-mode-700 volume root.
+  docker exec -u 1000:1000 "aos-sample-$R8-$k" sh -c 'cd "$1" && find . ! -type d ! -name "._*" | LC_ALL=C sort | while IFS= read -r f; do sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; done' sh "$root/home/.claude" 2>"$SCORES/$k.cfghash.err" \
+    | awk '{print $1}' > "$SCORES/$k.cfghash-container"
+  ( cd "$root/home/.claude" && find . ! -type d ! -name "._*" | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f" 2>/dev/null || sha256sum "$f"; done | awk '{print $1}' ) > "$SCORES/$k.cfghash-host"
+  if ! cmp -s "$SCORES/$k.cfghash-container" "$SCORES/$k.cfghash-host"; then
+    echo "  in-container config hash != host ($k): host=$(wc -l < "$SCORES/$k.cfghash-host") cont=$(wc -l < "$SCORES/$k.cfghash-container") err=[$(head -c 300 "$SCORES/$k.cfghash.err" 2>/dev/null)]" >&2
+    return 1
+  fi
 }
 
 # docker_prompt <k> <claude args...>: one invocation in the sample container.
