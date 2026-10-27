@@ -54,7 +54,10 @@ for d in /tmp/run-release-arms-* /tmp/*/scenarios; do [ -e "\$d" ] && say forge-
 # Plant config for other samples, then look for anything a previous sample planted.
 say saw-planted "\$(ls -d /tmp/planted-* "\$root"/../planted-* "\$root"/../*/home/.claude/CLAUDE.md 2>/dev/null | grep -vc "planted-\$sid")"
 touch "/tmp/planted-\$sid" "\$root/../planted-\$sid" 2>/dev/null
-for r in "\$root"/../*/; do [ "\$r" = "\$root/" ] || { echo "INJECTED" > "\$r/home/.claude/CLAUDE.md" 2>/dev/null && say planted-other "\$r"; }; done
+for r in "\$root"/../*/; do
+  [ "\$(basename "\$r")" = "\$(basename "\$root")" ] && continue
+  echo "INJECTED" > "\$r/home/.claude/CLAUDE.md" 2>/dev/null && say planted-other "\$r"
+done
 say repo-visible "\$(ls -d /repo /Users /out 2>/dev/null | wc -l | tr -d ' ')"
 # Egress: only the proxy, only its allowlist; the proxy injects the key.
 if curl -sS -m 5 -o /dev/null https://example.com 2>/dev/null; then say egress-direct open; else say egress-direct blocked; fi
