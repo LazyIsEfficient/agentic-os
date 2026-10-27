@@ -27,11 +27,6 @@ ISO_AUTH_VARS="ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN"
 ISO_ENV_PASSTHROUGH="PATH LANG LC_ALL TERM USER LOGNAME SHELL"
 ISO_SYSTEM_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 ISO_MANAGED_DIRS="/Library/Application Support/ClaudeCode:/etc/claude-code"
-# Before the arm runs, the ON config dir holds exactly the install manifest
-# plus these paths (relative to the config dir). install.sh writes both;
-# Claude Code has not run yet, so it has created nothing.
-ISO_ON_ALLOWLIST="settings.json .agentic-os-manifest.json"
-ISO_SHIPPED_COMMANDS="commands/skill-new.md commands/agent-new.md commands/state.md"
 # Case-insensitive match for anything Claude Code loads as project config:
 # files, dirs and symlinks alike.
 ISO_CONFIG_FIND=( \( -iname .claude -o -iname CLAUDE.md -o -iname CLAUDE.local.md -o -iname AGENTS.md -o -iname .mcp.json \) )
@@ -103,7 +98,13 @@ iso_make_root() {
 # manifest and every task dir come from this export, so uncommitted changes
 # never reach an arm and the recorded repo_sha is exactly what ran.
 iso_export_src() {
-  git -C "$1" archive --format=tar HEAD | tar -xf - -C "$2"
+  iso_export_ref "$1" HEAD "$2"
+}
+
+# iso_export_ref <repo> <ref> <dir>: the committed tree of <ref> (a release
+# arm installs its own ref's library with its own ref's installer).
+iso_export_ref() {
+  git -C "$1" archive --format=tar "$2" | tar -xf - -C "$3"
 }
 
 # iso_export_task <src> <task_dir>: copy of the export with every
@@ -115,26 +116,59 @@ iso_export_task() {
   find "$task" -mindepth 1 "${ISO_CONFIG_FIND[@]}" -prune -exec rm -rf {} +
 }
 
-# iso_install_library <src> <root> <log>: the ON arm's library, installed by
-# the real installer from the HEAD export into the arm's temp config dir only.
+# iso_install_library <src> <root> <log> [install flag...]: the ON arm's
+# library, installed by the export's own installer into the arm's temp config
+# dir only. Extra flags (e.g. --with-games) follow --force.
 iso_install_library() {
-  local src="$1" root="$2" log="$3"
+  local src="$1" root="$2" log="$3"; shift 3
   env -i HOME="$root/home" CLAUDE_DIR="$root/home/.claude" TMPDIR="$root/tmp" \
-    PATH="$(iso_child_path)" bash "$src/install.sh" --force >"$log" 2>&1
+    PATH="$(iso_child_path)" bash "$src/install.sh" --force "$@" >"$log" 2>&1
 }
 
-# iso_on_manifest <src>: relative paths install.sh copies into the config dir.
-# A default install is core only: the items of the opt-in packs listed in
-# assets/packs/*.txt are not copied (the list goes through ENVIRON: BSD awk
-# rejects a newline in a -v value).
+# iso_shipped_commands <src>: commands/<file> paths the export's installer
+# copies, read from its `install_files "commands" ...` allowlist line (the
+# allowlist can differ per release). Fails when the line is not found, so a
+# changed installer fails the preflight instead of passing it.
+iso_shipped_commands() {
+  local line f
+  line="$(grep -E '^[[:space:]]*install_files "commands"' "$1/install.sh" | head -1)"
+  [ -n "$line" ] || return 1
+  for f in $(printf '%s\n' "$line" | sed 's/^[[:space:]]*install_files "commands"//' | tr -d '"'); do
+    echo "commands/$f"
+  done
+}
+
+# iso_on_allowlist <src>: non-library paths the export's installer writes into
+# the config dir. Every release writes settings.json; only installers with the
+# lifecycle manifest (#272, after v3.0.1) write .agentic-os-manifest.json.
+# Claude Code has not run yet, so it has created nothing.
+iso_on_allowlist() {
+  echo settings.json
+  if grep -qF '.agentic-os-manifest.json' "$1/install.sh"; then echo .agentic-os-manifest.json; fi
+}
+
+# iso_on_manifest <src> [enabled packs]: relative paths install.sh copies into
+# the config dir. A default install is core only: the items of the opt-in packs
+# listed in assets/packs/<pack>.txt are not copied unless <pack> is in the
+# space-separated enabled list (from --with-<pack>). An export without
+# assets/packs (v3.0.1 and earlier) ships everything. The list goes through
+# ENVIRON: BSD awk rejects a newline in a -v value.
 iso_on_manifest() {
-  local src="$1" rel packs=""
-  if [ -d "$src/assets/packs" ]; then packs="$(cat "$src"/assets/packs/*.txt)" || return 1; fi
+  local src="$1" enabled=" ${2:-} " packs="" f name cmds
+  if [ -d "$src/assets/packs" ]; then
+    for f in "$src"/assets/packs/*.txt; do
+      name="$(basename "$f" .txt)"
+      case "$enabled" in *" $name "*) continue ;; esac
+      packs="$packs$(cat "$f")
+" || return 1
+    done
+  fi
+  cmds="$(iso_shipped_commands "$src")" || return 1
   ( cd "$src/.claude" && find skills agents hooks ! -type d -print ) \
     | ISO_PACKS="$packs" awk '
         BEGIN { n = split(ENVIRON["ISO_PACKS"], L, "\n"); for (i = 1; i <= n; i++) if (L[i] !~ /^[[:space:]]*(#|$)/) p[L[i]] = 1 }
         { k = $0; if (k ~ /^skills\//) { split(k, a, "/"); k = "skills/" a[2] } if (!(k in p)) print }'
-  for rel in $ISO_SHIPPED_COMMANDS; do echo "$rel"; done
+  printf '%s\n' "$cmds"
 }
 
 # Library fingerprint for scanning dirs we do not own (managed policy dirs).
@@ -179,10 +213,11 @@ iso_check_on_settings() {
     || iso_fail "ON settings.json differs from what install.sh writes"
 }
 
-# iso_preflight <arm on|off> <root> <src>   (src = an iso_export_src dir)
+# iso_preflight <arm on|off> <root> <src> [enabled packs]
+# (src = an iso_export_src / iso_export_ref dir; packs as for iso_on_manifest)
 # Fills ISO_FAILS (empty = pass) and ISO_LISTING_SHA. Never runs claude.
 iso_preflight() {
-  local arm="$1" root="$2" src="$3"
+  local arm="$1" root="$2" src="$3" packs="${4:-}"
   local home="$root/home" cfg="$root/home/.claude" task="$root/task"
   local d rel extra hits
   ISO_FAILS=()
@@ -226,9 +261,12 @@ iso_preflight() {
     on)
       # Exact: the config dir's file set == manifest + allowlist, and every
       # manifest file is byte-identical to HEAD.
-      local expected actual changed=0
-      # shellcheck disable=SC2086  # allowlist is a space-separated literal
-      expected="$( { iso_on_manifest "$src"; printf '%s\n' $ISO_ON_ALLOWLIST; } | LC_ALL=C sort -u)"
+      local expected actual changed=0 manifest
+      if ! manifest="$(iso_on_manifest "$src" "$packs")"; then
+        iso_fail "cannot compute the install manifest of $src (installer command allowlist not found)"
+        manifest=""
+      fi
+      expected="$( { printf '%s\n' "$manifest"; iso_on_allowlist "$src"; } | sed '/^$/d' | LC_ALL=C sort -u)"
       actual="$( (cd "$cfg" && find . ! -type d -print) | sed 's|^\./||' | LC_ALL=C sort)"
       extra="$(LC_ALL=C comm -13 <(echo "$expected") <(echo "$actual") | iso_join)"
       [ -z "$extra" ] || iso_fail "ON config has files outside the install manifest: $extra"
@@ -237,7 +275,7 @@ iso_preflight() {
       while IFS= read -r rel; do
         [ -e "$cfg/$rel" ] || continue
         cmp -s "$src/.claude/$rel" "$cfg/$rel" || changed=$((changed + 1))
-      done < <(iso_on_manifest "$src")
+      done < <(printf '%s\n' "$manifest" | sed '/^$/d')
       [ "$changed" -eq 0 ] || iso_fail "ON manifest: $changed library file(s) differ from HEAD in $cfg"
       iso_check_on_settings "$src" "$cfg"
       ;;
