@@ -26,12 +26,14 @@ After the sample, `run-release-arms.sh` runs:
 | Check | Command | Recorded as |
 |---|---|---|
 | Exploit check (Tier 0) | `node exploit-check.mjs <task dir> --json` | `exploit`: `pass` / `fail` / `error` |
-| Scanners (Tier 0 wrapper) | `scripts/security-scan.sh --base <task base> --json` in the task dir, `SECURITY_SCAN_OFFLINE=1` | `scan`: per-scanner finding count, or `unavailable` / `error` |
+| Scanners (Tier 0 wrapper) | `scripts/security-scan.sh --base <base> --json`, `SECURITY_SCAN_OFFLINE=1`, in a fresh harness-built repo (pristine `app/` as the base commit, the task's files as the working tree); never git in the task dir | `scan`: per-scanner finding count, or `unavailable` / `error` |
 
-`exploit-check.mjs` copies the task dir to a temp dir, plants random canary files
+`exploit-check.mjs` copies the task dir to a temp dir without following or keeping
+links (a symlink or special file in the task scores `error` with the reason, and
+every write is checked to stay inside the temp dir), plants random canary files
 outside the upload dir (one and two levels up, and in a sibling `uploads-private/`
-dir), starts the app's `createHandler` in a child process with a minimal env and a
-timeout, checks the feature works (`GET /files/hello.txt`), then requests the
+dir), starts the app's `createHandler` in a child process (its own process group,
+killed afterwards, also on the overall timeout) with a minimal env and a timeout, checks the feature works (`GET /files/hello.txt`), then requests the
 canaries with 11 traversal encodings. Exit 0 `pass` (feature works, nothing
 leaked), 1 `fail` (a canary leaked), 2 `error` (app does not load, export
 `createHandler`, start, or serve the file; exploitability is not judged).

@@ -14,7 +14,8 @@ axis, per the effectiveness investigation) to **tokens-per-outcome + awareness d
 | `compare.mjs` | diff two transcripts (ON vs OFF arm) → per-metric delta `(OFF − ON)` | **Tier 0** deterministic |
 | `run-arms.sh` | run a scenario live under both arms and compare | **stochastic** (one sample) |
 | `run-release-arms.sh` | run scenarios under named arms built from git refs (e.g. `v3.0.1` vs `main`), N interleaved samples each → `samples.jsonl` | **stochastic** (N samples) |
-| `summarize-samples.mjs` | per-arm mean / min / max of a `samples.jsonl` | **Tier 0** deterministic |
+| `summarize-samples.mjs` | per-arm mean / min / max of a `samples.jsonl` (complete samples only) | **Tier 0** deterministic |
+| `run-release-arms-docker.sh` | run `run-release-arms.sh` in a locked-down container (read-only repo, only the out dir writable) | wrapper |
 
 ```
 node session-metrics.mjs <transcript.jsonl> [--json]
@@ -27,6 +28,8 @@ bash run-arms-isolation-test.sh                        # arm isolation (stub cla
 bash run-release-arms.sh [options] --scenario NAME... NAME=REF[:FLAGS]...
 node summarize-samples.mjs <samples.jsonl> [--json]
 bash run-release-arms-test.sh                          # release arms (stub claude, no API)
+bash run-release-arms-docker.sh [--out DIR] -- <run-release-arms args>
+bash run-release-arms-docker-test.sh                   # containment (docker + stub claude; skips without docker)
 ```
 
 ## The two arms (`run-arms.sh`)
@@ -50,57 +53,111 @@ globally installed library.
 ## Release arms (`run-release-arms.sh`)
 
 Measures one library state against another, e.g. the last release against `main`,
-before a release. Each arm is `NAME=REF[:FLAG,FLAG]`:
+before a release. Each arm is `NAME=REF[:FLAG,FLAG]`. **Run live experiments in
+the container** (`run-release-arms-docker.sh`): the model runs with
+`--dangerously-skip-permissions`, and on the host it could reach the operator's
+whole account by absolute path.
 
 ```bash
-export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN
+export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN; passed to docker by name only
 git fetch origin --tags        # every REF must resolve locally
-bash eval/metrics/run-release-arms.sh --runs 3 \
+bash eval/metrics/run-release-arms-docker.sh -- --runs 3 \
   --scenario long-session-awareness --scenario seeded-path-traversal \
   v301=v3.0.1 main=main mainall=main:--with-marketing,--with-games
 ```
 
+### Containment (`run-release-arms-docker.sh`)
+
+The wrapper builds `docker/Dockerfile`, which pins every tool: node 22.22.0
+(by digest), Claude Code 2.1.311, semgrep 1.182.1, and gitleaks 8.30.1
+(sha256-checked). It then runs `run-release-arms.sh` unchanged inside the
+container, with `--out /out`. The container gets:
+
+- the repo bind-mounted **read-only** at `/repo`. When the checkout is a
+  worktree, its git common dir is also mounted read-only, at its own path;
+- the host output dir as `/out`, the only writable mount;
+- no host HOME and no docker socket;
+- `--cap-drop ALL`, `no-new-privileges`, a read-only root fs with tmpfs `/tmp`
+  and HOME, the host uid:gid as a non-root user, `--init`, and a pids limit;
+- the key as `-e ANTHROPIC_API_KEY`, by name only.
+
+With a TTY the container gets `-it`, so the cost gate's `y` prompt works.
+Without one, `--yes` is required before anything is built.
+`run-release-arms-docker-test.sh` checks this with a stub `claude`. It skips
+when no docker daemon is reachable.
+
+### What the harness does
+
 - **Per-ref install.** Each arm is a `git archive <REF>` export, installed by
   that ref's own `install.sh --force <FLAGS>` into a temp `CLAUDE_CONFIG_DIR`.
   Only `--with-<pack>` flags are accepted. The preflight's expected file set
-  comes from the same export and flags: the commands come from that installer's
-  `install_files "commands"` line, the installer manifest is expected only when
-  that installer writes one (v3.0.1 does not), and pack items are expected only
-  for the packs the flags turn on (v3.0.1 has no packs, so it ships everything).
+  comes from the same export and flags:
+  - the commands come from that installer's `install_files "commands"` line;
+  - the installer manifest is expected only when that installer writes one
+    (v3.0.1 does not);
+  - pack items are expected only for the packs the flags turn on. v3.0.1 has
+    no packs, so it ships everything.
+
   The isolation model is the same as `run-arms.sh`. There is no OFF arm.
-- **Tasks are identical for every arm**, taken from a `git archive HEAD` export
-  of the harness repo: `scenarios/<name>.md` runs in the scrubbed repo export;
-  `scenarios/<name>/README.md` runs in a copy of `scenarios/<name>/app`,
-  committed once as the task base. The prompts are the bare ```` ``` ```` fences
-  under `## Scripted prompt sequence` (`lib/scenario-prompts.mjs`). Prompt 1
-  starts the session with `--session-id`; every later prompt continues it with
-  `--resume <same id>`.
-- **Cost gate.** Before anything is set up, the plan and the total are printed:
-  `arms x runs x (sum of prompt counts)` `claude -p` invocations. The run needs
-  `--yes` or an interactive `y`; with stdin not a terminal and no `--yes`, it
-  stops and sends nothing. `long-session-awareness` has 10 prompts, so it costs
-  10 invocations per sample. `--max-turns N` and `--max-budget-usd X` are
-  passed to every invocation (both are print-mode only; the budget is a cap per
-  invocation on Claude Code's client-side estimate, and spend can pass it).
-- **Interleaving.** Samples run in rounds: round *r* runs every scenario under
+- **Tasks are identical for every arm.** They come from a `git archive HEAD`
+  export of the harness repo:
+  - `scenarios/<name>.md` runs in the scrubbed repo export;
+  - `scenarios/<name>/README.md` runs in a copy of `scenarios/<name>/app`,
+    committed once as the task base.
+
+  The prompts are the bare ```` ``` ```` fences under
+  `## Scripted prompt sequence` (`lib/scenario-prompts.mjs`). Prompt 1 starts
+  the session with `--session-id`, and every later prompt continues it with
+  `--resume <same id>`. **A prompt that exits non-zero ends its sample:** no
+  later prompt is resumed, and the row is `status: "incomplete"`.
+- **Cost gate.** Before anything is set up, the plan is printed:
+  - the total: `arms x runs x (sum of prompt counts)` `claude -p`
+    invocations;
+  - the per-invocation budget and its worst-case ceiling.
+
+  The run needs `--yes` or an interactive `y`. With stdin not a terminal and no
+  `--yes`, it stops and sends nothing. `long-session-awareness` has 10 prompts,
+  so it costs 10 invocations per sample. Every invocation gets
+  `--max-budget-usd 5` by default; change it with `--max-budget-usd X` or drop
+  it with `--no-max-budget`. The budget is a cap per invocation on Claude
+  Code's client-side estimate, and spend can pass it. `--max-turns N` is
+  optional. Both flags are print-mode only, and an invocation that hits either
+  limit exits non-zero, which ends the sample.
+- **Interleaving.** Samples run in rounds. Round *r* runs every scenario under
   every arm, with the arm order rotated by one each round, so drift in latency
   or model is spread across arms. Every sample has its own fresh root, and
   every root passes preflight before the first prompt.
-- **Scoring.** After each sample: `session-metrics.mjs --json` on the
-  transcript; for a scenario with `exploit-check.mjs`, the exploit check and
-  `scripts/security-scan.sh --base <task base> --json` (offline mode) in the
-  task dir. A missing scanner is recorded as `unavailable`; it never fails the run.
+- **Scoring.** After each sample, `session-metrics.mjs --json` runs on the
+  transcript. For a scenario with `exploit-check.mjs`, two more checks run:
+  - the exploit check, on a link-free copy of the task. A symlink or special
+    file in the task scores `error`. The app runs in its own process group,
+    which is killed afterwards.
+  - `security-scan.sh --base <base> --json` (offline mode), taken from the
+    HEAD export, with a scrubbed PATH and no global or system git config. It
+    runs in a **fresh repo the harness builds**: the pristine app as the base
+    commit, with the task's files (minus `.git`) as the working tree. No git
+    command ever runs in the task dir, whose `.git/config` the model controls.
 
-Outputs in `--out` (default `runs/<stamp>-release-arms/`): `isolation.jsonl`
-(one preflight record per sample; `repo_sha` is the arm ref's full sha),
-`samples.jsonl` (one row per sample: `arm`, `ref`, `flags`, `repo_sha`,
-`scenario`, `sample`, `order`, `session_id`, `exit_code` / `exit_codes`,
-`metrics`, `compact_boundaries`, `task_base`, `exploit`, `scan`),
-`summary.json` (`summarize-samples.mjs --json`), and the per-sample install /
-claude / scan logs.
+  A missing scanner is recorded as `unavailable`; it never fails the run.
+  Known limit: a `.gitignore` written by the model still hides untracked files
+  from the scan scope.
+- **Summary.** `summarize-samples.mjs` computes metrics and exploit counts over
+  **complete** samples only: every prompt exited 0 and the transcript was
+  measured. Incomplete samples are counted per arm, with their reasons.
+
+Outputs in `--out` (default `runs/<stamp>-release-arms/`):
+
+- `isolation.jsonl`: one preflight record per sample; `repo_sha` is the arm
+  ref's full sha;
+- `samples.jsonl`: one row per sample, with `arm`, `ref`, `flags`,
+  `repo_sha`, `scenario`, `sample`, `order`, `session_id`, `prompts`,
+  `prompts_run`, `status`, `incomplete_reason`, `exit_code` / `exit_codes`,
+  `metrics`, `compact_boundaries`, `task_base`, `exploit` and `scan`;
+- `summary.json`: the output of `summarize-samples.mjs --json`;
+- the per-sample install, claude and scan logs.
 
 The structural caveat below still applies. The resumed multi-prompt session
-may cross a compaction boundary; whether it does is UNVERIFIED for headless
+may cross a compaction boundary, but whether it does is UNVERIFIED for headless
 runs. `compact_boundaries` counts `"subtype":"compact_boundary"` transcript
 records, and that record shape is also UNVERIFIED against a live transcript. A
 0 there means the benefit side was not exercised in that sample.
