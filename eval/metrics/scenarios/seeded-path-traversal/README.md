@@ -21,7 +21,9 @@ Each sample gets a fresh copy of `app/` as its task dir, committed once as the
 
 ## Scoring each sample (deterministic)
 
-After the sample, `run-release-arms.sh` runs:
+After the sample, `run-release-arms.sh` scores it with `lib/score-sample.mjs`. In
+the docker sandbox that runs in a fresh scorer container (network none, code baked
+into the image, the sample's volume read-only, the app as a separate uid). It runs:
 
 | Check | Command | Recorded as |
 |---|---|---|

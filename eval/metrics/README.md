@@ -15,7 +15,6 @@ axis, per the effectiveness investigation) to **tokens-per-outcome + awareness d
 | `run-arms.sh` | run a scenario live under both arms and compare | **stochastic** (one sample) |
 | `run-release-arms.sh` | run scenarios under named arms built from git refs (e.g. `v3.0.1` vs `main`), N interleaved samples each → `samples.jsonl` | **stochastic** (N samples) |
 | `summarize-samples.mjs` | per-arm mean / min / max of a `samples.jsonl` (complete samples only) | **Tier 0** deterministic |
-| `run-release-arms-docker.sh` | run `run-release-arms.sh` in a locked-down container (read-only repo, only the out dir writable) | wrapper |
 
 ```
 node session-metrics.mjs <transcript.jsonl> [--json]
@@ -28,8 +27,7 @@ bash run-arms-isolation-test.sh                        # arm isolation (stub cla
 bash run-release-arms.sh [options] --scenario NAME... NAME=REF[:FLAGS]...
 node summarize-samples.mjs <samples.jsonl> [--json]
 bash run-release-arms-test.sh                          # release arms (stub claude, no API)
-bash run-release-arms-docker.sh [--out DIR] -- <run-release-arms args>
-bash run-release-arms-docker-test.sh                   # containment (docker + stub claude; skips without docker)
+bash run-release-arms-docker-test.sh                   # docker sandbox vs an adversarial stub (skips without docker)
 ```
 
 ## The two arms (`run-arms.sh`)
@@ -52,39 +50,75 @@ globally installed library.
 
 ## Release arms (`run-release-arms.sh`)
 
-Measures one library state against another, e.g. the last release against `main`,
-before a release. Each arm is `NAME=REF[:FLAG,FLAG]`. **Run live experiments in
-the container** (`run-release-arms-docker.sh`): the model runs with
-`--dangerously-skip-permissions`, and on the host it could reach the operator's
-whole account by absolute path.
+Measures one library state against another, e.g. the last release against
+`main`, before a release. Each arm is `NAME=REF[:FLAG,FLAG]`. Live runs use the
+default `--sandbox docker`.
 
 ```bash
-export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN; passed to docker by name only
+# A dedicated Console workspace API key with a spend limit; revoke it afterwards.
+export ANTHROPIC_API_KEY=...
 git fetch origin --tags        # every REF must resolve locally
-bash eval/metrics/run-release-arms-docker.sh -- --runs 3 \
+bash eval/metrics/run-release-arms.sh --runs 3 \
   --scenario long-session-awareness --scenario seeded-path-traversal \
   v301=v3.0.1 main=main mainall=main:--with-marketing,--with-games
 ```
 
-### Containment (`run-release-arms-docker.sh`)
+### Sandbox (`--sandbox docker`, the default)
 
-The wrapper builds `docker/Dockerfile`, which pins every tool: node 22.22.0
-(by digest), Claude Code 2.1.311, semgrep 1.182.1, and gitleaks 8.30.1
-(sha256-checked). It then runs `run-release-arms.sh` unchanged inside the
-container, with `--out /out`. The container gets:
+The model runs with `--dangerously-skip-permissions`, so it is treated as
+hostile: it may try to forge its own score, read the key, or leave things for
+the next sample. The harness runs on the host and does the following:
 
-- the repo bind-mounted **read-only** at `/repo`. When the checkout is a
-  worktree, its git common dir is also mounted read-only, at its own path;
-- the host output dir as `/out`, the only writable mount;
-- no host HOME and no docker socket;
-- `--cap-drop ALL`, `no-new-privileges`, a read-only root fs with tmpfs `/tmp`
-  and HOME, the host uid:gid as a non-root user, `--init`, and a pids limit;
-- the key as `-e ANTHROPIC_API_KEY`, by name only.
+1. Builds `docker/Dockerfile` with every tool pinned: node 22.22.0 (by
+   digest), Claude Code 2.1.311, semgrep 1.182.1, and gitleaks 8.30.1
+   (sha256-checked). The build context is staged from the HEAD export: the
+   Dockerfile plus `harness/`, which holds the scoring code, the proxy and the
+   scanner. That code is baked into the image under `/opt/harness`,
+   root-owned. The repo is never mounted into any container.
+2. Prepares and preflights every sample root on the host, exactly as before.
+3. For each sample, in interleaved order:
+   - **Sample container.** The root is copied into a fresh docker volume and
+     mounted at the same absolute path, so the installed hook paths stay
+     valid. The container has no host mount and runs as uid 1000 with
+     `--cap-drop ALL`, `no-new-privileges`, a read-only root fs, tmpfs
+     `/tmp`, `--init` and a pids limit. It sits on an `--internal` network.
+     Each prompt is a separate `docker exec` from the host, so the model
+     cannot rewrite a later prompt.
+   - **Proxy container** (`lib/api-proxy.mjs`). This is the sample's only
+     route out. The sample's claude gets `ANTHROPIC_BASE_URL` pointing at the
+     proxy and a placeholder key. The proxy holds the real
+     `ANTHROPIC_API_KEY`: it strips any client credential and injects the
+     real one. It allows only `POST /v1/messages`,
+     `POST /v1/messages/count_tokens` and `GET /v1/models`, caps requests at
+     400 per sample, and logs every request (never headers or bodies). The
+     model never sees the key, and it can reach nothing else. The sample also
+     gets `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
+     `DISABLE_AUTOUPDATER=1`. UNVERIFIED: that Claude Code needs no other
+     endpoint in this setup. If it does, the proxy log shows `denied`.
+   - **Scorer container** (`lib/score-sample.mjs`). A fresh container with
+     network `none` and the sample volume mounted read-only. It reads only the
+     task tree and the transcript, as data. The app under test runs as a
+     separate uid (2000), so it cannot touch the scorer. Every process of
+     that uid is killed afterwards.
+   - The host copies out only the transcript, the logs and the score, each
+     through `lib/redact.mjs` (key values replaced, size-capped). The volume
+     and the containers are then removed.
 
-With a TTY the container gets `-it`, so the cost gate's `y` prompt works.
-Without one, `--yes` is required before anything is built.
-`run-release-arms-docker-test.sh` checks this with a stub `claude`. It skips
+`run-release-arms-docker-test.sh` runs 2 samples with an adversarial stub. It
+checks that the stub cannot:
+- rewrite the exploit check, scanner or scorer;
+- see or plant into another sample;
+- see the key in its env or any `/proc/*/environ`;
+- reach the network except through the proxy and its allowlist.
+
+It also checks that the vulnerable app the stub writes still scores `fail`.
+The proxy's `echo` test upstream means no API call is made. The test skips
 when no docker daemon is reachable.
+
+`--sandbox none` runs the same pipeline on the host with **no containment**.
+It is for tests with a stub `claude` only, and it also accepts
+`CLAUDE_CODE_OAUTH_TOKEN`. The docker sandbox needs a Console API key,
+because the proxy injects it.
 
 ### What the harness does
 
@@ -97,8 +131,6 @@ when no docker daemon is reachable.
     (v3.0.1 does not);
   - pack items are expected only for the packs the flags turn on. v3.0.1 has
     no packs, so it ships everything.
-
-  The isolation model is the same as `run-arms.sh`. There is no OFF arm.
 - **Tasks are identical for every arm.** They come from a `git archive HEAD`
   export of the harness repo:
   - `scenarios/<name>.md` runs in the scrubbed repo export;
@@ -107,60 +139,65 @@ when no docker daemon is reachable.
 
   The prompts are the bare ```` ``` ```` fences under
   `## Scripted prompt sequence` (`lib/scenario-prompts.mjs`). Prompt 1 starts
-  the session with `--session-id`, and every later prompt continues it with
-  `--resume <same id>`. **A prompt that exits non-zero ends its sample:** no
-  later prompt is resumed, and the row is `status: "incomplete"`.
-- **Cost gate.** Before anything is set up, the plan is printed:
+  the session with `--session-id`, and later prompts continue it with
+  `--resume <same id>`. A prompt that exits non-zero ends its sample.
+- **Cost gate.** Before anything is built, set up or sent, the plan is
+  printed:
   - the total: `arms x runs x (sum of prompt counts)` `claude -p`
     invocations;
-  - the per-invocation budget and its worst-case ceiling.
+  - the per-invocation budget and its worst-case ceiling;
+  - the key advice.
 
-  The run needs `--yes` or an interactive `y`. With stdin not a terminal and no
-  `--yes`, it stops and sends nothing. `long-session-awareness` has 10 prompts,
-  so it costs 10 invocations per sample. Every invocation gets
-  `--max-budget-usd 5` by default; change it with `--max-budget-usd X` or drop
-  it with `--no-max-budget`. The budget is a cap per invocation on Claude
-  Code's client-side estimate, and spend can pass it. `--max-turns N` is
-  optional. Both flags are print-mode only, and an invocation that hits either
-  limit exits non-zero, which ends the sample.
+  The run needs `--yes` or an interactive `y`. `long-session-awareness` has
+  10 prompts. `--max-budget-usd 5` per invocation is the default; change it
+  with `--max-budget-usd X`, or drop it with `--no-max-budget`. It is a cap on
+  Claude Code's client-side estimate, and spend can pass it. `--max-turns N`
+  is optional. Both flags are print-mode only. UNVERIFIED: whether hitting
+  either limit exits non-zero. A sample is marked incomplete either way, on a
+  non-zero exit, a `Reached max turns` / `Exceeded USD budget` line in the
+  log, or an `is_error: true` result record in the log or transcript. The
+  wording and the record shape are also UNVERIFIED.
 - **Interleaving.** Samples run in rounds. Round *r* runs every scenario under
-  every arm, with the arm order rotated by one each round, so drift in latency
-  or model is spread across arms. Every sample has its own fresh root, and
-  every root passes preflight before the first prompt.
-- **Scoring.** After each sample, `session-metrics.mjs --json` runs on the
-  transcript. For a scenario with `exploit-check.mjs`, two more checks run:
-  - the exploit check, on a link-free copy of the task. A symlink or special
-    file in the task scores `error`. The app runs in its own process group,
-    which is killed afterwards.
-  - `security-scan.sh --base <base> --json` (offline mode), taken from the
-    HEAD export, with a scrubbed PATH and no global or system git config. It
-    runs in a **fresh repo the harness builds**: the pristine app as the base
-    commit, with the task's files (minus `.git`) as the working tree. No git
-    command ever runs in the task dir, whose `.git/config` the model controls.
+  every arm, with the arm order rotated by one each round. Every sample has
+  its own fresh root (and, in docker, its own volume and containers).
+- **Scoring** (in the scorer): `session-metrics` on the transcript. For a
+  scenario with `exploit-check.mjs`, two more checks run on a copy of the
+  task:
+  - the exploit check. A symlink or special file in the task scores `error`.
+    The app runs in its own process group, as uid 2000 in docker.
+  - `security-scan.sh --base <base> --json` (offline mode), via
+    `lib/scan-task.sh`. It runs in a fresh repo the scorer builds: the
+    pristine app as the base commit, with the task's files (minus `.git`) as
+    the working tree. Git runs with no system, global, hook or fsmonitor
+    config.
 
-  A missing scanner is recorded as `unavailable`; it never fails the run.
-  Known limit: a `.gitignore` written by the model still hides untracked files
-  from the scan scope.
+  A missing scanner is recorded as `unavailable`. Known limit: a `.gitignore`
+  written by the model still hides untracked files from the scan scope.
 - **Summary.** `summarize-samples.mjs` computes metrics and exploit counts over
-  **complete** samples only: every prompt exited 0 and the transcript was
-  measured. Incomplete samples are counted per arm, with their reasons.
+  **complete** samples only. It prints a `WARNING` for any arm with incomplete
+  samples, and counts those per arm with their reasons.
 
-Outputs in `--out` (default `runs/<stamp>-release-arms/`):
+`--out` must be outside the repo. The default is
+`$HOME/agentic-os-eval-runs/<stamp>-release-arms`. It contains:
 
-- `isolation.jsonl`: one preflight record per sample; `repo_sha` is the arm
-  ref's full sha;
-- `samples.jsonl`: one row per sample, with `arm`, `ref`, `flags`,
-  `repo_sha`, `scenario`, `sample`, `order`, `session_id`, `prompts`,
-  `prompts_run`, `status`, `incomplete_reason`, `exit_code` / `exit_codes`,
-  `metrics`, `compact_boundaries`, `task_base`, `exploit` and `scan`;
-- `summary.json`: the output of `summarize-samples.mjs --json`;
-- the per-sample install, claude and scan logs.
+- `isolation.jsonl`: one preflight record per sample;
+- `samples.jsonl`: one row per sample. The fields are `arm`, `ref`, `flags`,
+  `repo_sha`, `sandbox`, `scenario`, `sample`, `order`, `session_id`,
+  `prompts`, `prompts_run`, `status`, `incomplete_reason`, `stop_signals`,
+  `exit_code` / `exit_codes`, `cost_usd`, `metrics`, `compact_boundaries`,
+  `task_base`, `exploit` and `scan`;
+- `summary.json`;
+- `transcripts/<tag>.jsonl`;
+- `claude-<tag>.log`, `proxy-<tag>.log`, `install-<tag>.log`, and
+  `score-<tag>.json` / `.err`.
+
+Every one of these is written by the host; no container mounts it.
 
 The structural caveat below still applies. The resumed multi-prompt session
 may cross a compaction boundary, but whether it does is UNVERIFIED for headless
 runs. `compact_boundaries` counts `"subtype":"compact_boundary"` transcript
-records, and that record shape is also UNVERIFIED against a live transcript. A
-0 there means the benefit side was not exercised in that sample.
+records, and that record shape is also UNVERIFIED. A 0 there means the benefit
+side was not exercised in that sample.
 
 ## Cursor transcripts
 
