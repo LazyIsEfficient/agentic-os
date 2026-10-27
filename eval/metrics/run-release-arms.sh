@@ -43,7 +43,9 @@
 #   --max-turns N       passed to every `claude -p` (print mode only; the
 #                       invocation exits non-zero when the limit is reached)
 #   --max-budget-usd X  passed to every `claude -p`: a per-invocation cap on
-#                       Claude Code's client-side cost estimate
+#                       Claude Code's client-side cost estimate (default 5;
+#                       spend can pass it). The cost gate prints the ceiling.
+#   --no-max-budget     pass no --max-budget-usd at all
 #   --yes               do not ask for confirmation
 #   --keep              keep the per-sample temp roots (they hold transcripts)
 #   --out DIR           output dir (default: runs/<stamp>-release-arms)
@@ -56,7 +58,8 @@ source "$DIR/lib/arm-isolation.sh"
 die() { echo "run-release-arms: $*" >&2; exit 1; }
 usage() { sed -n '/^# Usage:/,/^set -uo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
-KEEP=0; YES=0; RUNS=1; OUT=""; MAX_TURNS=""; MAX_BUDGET=""
+DEFAULT_MAX_BUDGET_USD=5
+KEEP=0; YES=0; RUNS=1; OUT=""; MAX_TURNS=""; MAX_BUDGET="$DEFAULT_MAX_BUDGET_USD"
 SCENARIOS=(); SPECS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -67,6 +70,7 @@ while [ $# -gt 0 ]; do
     --scenario) SCENARIOS+=("${2:?--scenario needs a name}"); shift 2 ;;
     --max-turns) MAX_TURNS="${2:?--max-turns needs a number}"; shift 2 ;;
     --max-budget-usd) MAX_BUDGET="${2:?--max-budget-usd needs an amount}"; shift 2 ;;
+    --no-max-budget) MAX_BUDGET=""; shift ;;
     -h|--help) usage ;;
     --) shift; while [ $# -gt 0 ]; do SPECS+=("$1"); shift; done ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
@@ -164,9 +168,18 @@ for j in "${!SCENARIOS[@]}"; do
   elif [ -f "$base/$s/README.md" ] && [ -d "$base/$s/app" ]; then
     kind=app; doc="$base/$s/README.md"
     if [ -f "$base/$s/exploit-check.mjs" ]; then
-      mkdir -p "$CHECKS_DIR/$s"
+      # Harness-private copies from HEAD: the check, the pristine app (the
+      # scan repo's base) and, once, the scanner itself.
+      mkdir -p "$CHECKS_DIR/$s/base"
       cp "$base/$s/exploit-check.mjs" "$CHECKS_DIR/$s/"
+      cp -R "$base/$s/app/." "$CHECKS_DIR/$s/base/"
       check="$CHECKS_DIR/$s/exploit-check.mjs"
+      if [ ! -d "$CHECKS_DIR/scanner" ]; then
+        mkdir -p "$CHECKS_DIR/scanner/scripts" "$CHECKS_DIR/scanner/.claude/skills/security"
+        cp "$TASK_SRC/scripts/security-scan.sh" "$CHECKS_DIR/scanner/scripts/" || die "HEAD has no scripts/security-scan.sh"
+        cp -R "$TASK_SRC/.claude/skills/security/scripts" "$CHECKS_DIR/scanner/.claude/skills/security/" \
+          || die "HEAD has no .claude/skills/security/scripts"
+      fi
     fi
   else
     die "scenario not found in HEAD: $s (scenarios/$s.md or scenarios/$s/README.md + app/)"
@@ -188,8 +201,13 @@ done
 for j in "${!SCN_NAME[@]}"; do
   echo "  scenario ${SCN_NAME[$j]}: ${SCN_N[$j]} prompt(s)${SCN_CHECK[$j]:+, exploit check + security-scan}"
 done
-echo "  runs per arm per scenario: $RUNS${MAX_TURNS:+   --max-turns $MAX_TURNS}${MAX_BUDGET:+   --max-budget-usd $MAX_BUDGET}"
+echo "  runs per arm per scenario: $RUNS${MAX_TURNS:+   --max-turns $MAX_TURNS}"
 echo "TOTAL: $TOTAL claude -p invocations ($NARMS arms x $RUNS runs x $TOTAL_PROMPTS prompts across ${#SCN_NAME[@]} scenario(s)), billed to $AUTH_VAR."
+if [ -n "$MAX_BUDGET" ]; then
+  echo "BUDGET: --max-budget-usd $MAX_BUDGET per invocation; ceiling if every invocation hit it: \$$(awk -v n="$TOTAL" -v b="$MAX_BUDGET" 'BEGIN { printf "%.2f", n * b }') (Claude Code's client-side estimate; spend can pass the cap)."
+else
+  echo "BUDGET: no per-invocation cap (--no-max-budget)."
+fi
 if [ "$YES" != 1 ]; then
   if [ -t 0 ]; then
     printf 'Proceed? [y/N] '
@@ -211,6 +229,40 @@ task_git() {
   local root="$1"; shift
   env -i HOME="$root/home" XDG_CONFIG_HOME="$root/home/.config" GIT_CONFIG_NOSYSTEM=1 \
     PATH="$GIT_DIR_PATH:$ISO_SYSTEM_PATH" git -C "$root/task" "$@"
+}
+
+# Scanners and the scan repo's git get a scrubbed PATH: the system dirs plus
+# the dirs of the tools the scan uses, resolved from the operator PATH.
+SCAN_PATH="$ISO_SYSTEM_PATH"
+for b in git jq node semgrep gitleaks osv-scanner; do
+  d="$(command -v "$b" 2>/dev/null)" || continue
+  d="$(dirname "$d")"
+  case ":$SCAN_PATH:" in *":$d:"*) ;; *) SCAN_PATH="$SCAN_PATH:$d" ;; esac
+done
+
+# scan_git <dir> <args...>: git in a harness-created repo, with no system,
+# global or hook/fsmonitor config.
+scan_git() {
+  local dir="$1"; shift
+  env -i HOME="$root/scan-home" PATH="$SCAN_PATH" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+    git -C "$dir" -c core.hooksPath=/dev/null -c core.fsmonitor= "$@"
+}
+
+# build_scan_repo <root> <pristine base dir>: never run git in the task dir,
+# whose .git/config the model controls. A fresh repo holds the pristine app as
+# its base commit, then the task's files (minus every .git; links copied as
+# links, never followed) as the working tree. Prints the base sha.
+build_scan_repo() {
+  local root="$1" pristine="$2" repo="$1/scan-repo"
+  [ -n "$root" ] || return 1
+  rm -rf "$repo"; mkdir -p "$repo" "$root/scan-home" || return 1
+  cp -R "$pristine/." "$repo/" || return 1
+  scan_git "$repo" init -q || return 1
+  scan_git "$repo" add -A || return 1
+  scan_git "$repo" -c user.name=eval -c user.email=eval@example.invalid commit -q -m "task base" || return 1
+  find "$repo" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} + || return 1
+  ( cd "$root/task" && tar -cf - --exclude=.git . ) | ( cd "$repo" && tar -xf - ) || return 1
+  scan_git "$repo" rev-parse HEAD
 }
 
 # ---- set up every sample, interleaved: run r, scenario j, arms rotated by r ----
@@ -275,7 +327,12 @@ for k in "${!S_ROOT[@]}"; do
     iso_exec "$root" "$AUTH_VAR" -- claude -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" >>"$log" 2>&1
     rc=$?
     codes="$codes${codes:+ }$rc"
-    [ "$rc" = 0 ] || echo "  (prompt $n exited $rc; see $log)"
+    # A failed prompt ends the sample: resuming past it would score a
+    # different conversation. The row records it as incomplete.
+    if [ "$rc" != 0 ]; then
+      echo "  (prompt $n of ${SCN_N[$j]} exited $rc; sample stopped, incomplete; see $log)"
+      break
+    fi
   done
 
   tx="$(ls "$root"/home/.claude/projects/*/"$sid".jsonl 2>/dev/null | head -1)"
@@ -294,12 +351,17 @@ for k in "${!S_ROOT[@]}"; do
       node "${SCN_CHECK[$j]}" "$root/task" --json > "$xjson" 2>"$OUT/exploit-$tag.err"
     xrc=$?
     sjson="$root/scan.json"
-    ( cd "$root/task" || exit 2
-      env -i PATH="$PATH" HOME="$root/scan-home" TMPDIR="$root/tmp" GIT_CONFIG_NOSYSTEM=1 \
-        XDG_CONFIG_HOME="$root/scan-home/.config" XDG_CACHE_HOME="$root/scan-home/.cache" \
-        SECURITY_SCAN_OFFLINE=1 bash "$REPO/scripts/security-scan.sh" --base "${S_BASE[$k]}" --json
-    ) > "$sjson" 2>"$OUT/scan-$tag.err"
-    src_rc=$?
+    if scan_base="$(build_scan_repo "$root" "$CHECKS_DIR/${SCN_NAME[$j]}/base" 2>"$OUT/scan-$tag.err")"; then
+      ( cd "$root/scan-repo" || exit 2
+        env -i PATH="$SCAN_PATH" HOME="$root/scan-home" TMPDIR="$root/tmp" \
+          GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+          XDG_CONFIG_HOME="$root/scan-home/.config" XDG_CACHE_HOME="$root/scan-home/.cache" \
+          SECURITY_SCAN_OFFLINE=1 bash "$CHECKS_DIR/scanner/scripts/security-scan.sh" --base "$scan_base" --json
+      ) > "$sjson" 2>>"$OUT/scan-$tag.err"
+      src_rc=$?
+    else
+      src_rc=2; : > "$sjson"
+    fi
     echo "  exploit: $(jq -r '.exploit // "error"' "$xjson" 2>/dev/null || echo error)  security-scan exit: $src_rc"
   fi
 

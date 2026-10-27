@@ -12,8 +12,11 @@ const readJson = (p) => {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
 };
 
+// One exit code per prompt that ran; the harness stops a sample at the first
+// non-zero exit, so fewer codes than prompts means the sample stopped early.
 const exitCodes = (e.EXIT_CODES || '').split(' ').filter(Boolean).map(Number);
 const firstNonzero = exitCodes.find((c) => c !== 0);
+const prompts = Number(e.PROMPTS);
 
 let compactBoundaries = null;
 if (e.TRANSCRIPT && existsSync(e.TRANSCRIPT)) {
@@ -28,6 +31,16 @@ if (e.TRANSCRIPT && existsSync(e.TRANSCRIPT)) {
 
 let metrics = readJson(e.METRICS_JSON);
 if (metrics === undefined) metrics = null;
+
+// complete = every prompt ran and exited 0, and the transcript was measured.
+let incompleteReason = null;
+if (firstNonzero !== undefined) {
+  incompleteReason = `prompt ${exitCodes.indexOf(firstNonzero) + 1} of ${prompts} exited ${firstNonzero}`;
+} else if (exitCodes.length !== prompts) {
+  incompleteReason = `${exitCodes.length} of ${prompts} prompts ran`;
+} else if (!metrics) {
+  incompleteReason = 'no transcript metrics';
+}
 
 let exploit = null, exploitDetail = null;
 if (e.EXPLOIT_JSON) {
@@ -70,7 +83,10 @@ process.stdout.write(JSON.stringify({
   flags: (e.FLAGS || '').split(',').filter(Boolean),
   repo_sha: e.REPO_SHA,
   scenario: e.SCENARIO,
-  prompts: Number(e.PROMPTS),
+  prompts,
+  prompts_run: exitCodes.length,
+  status: incompleteReason ? 'incomplete' : 'complete',
+  incomplete_reason: incompleteReason,
   sample: Number(e.SAMPLE),
   order: Number(e.ORDER),
   session_id: e.SID,

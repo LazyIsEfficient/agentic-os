@@ -58,14 +58,24 @@ for a in "\$@"; do
   prev="\$a"
 done
 mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
-cat "$DIR/fixtures/arm-on.jsonl" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
+# One distinct assistant turn per invocation (message ids differ), so turns
+# from every resumed prompt must be counted.
+n="\$(basename "\$d" | sed 's/^call-//')"
+printf '{"type":"assistant","message":{"id":"m-%s","usage":{"input_tokens":100,"output_tokens":10},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/f%s"}}]}}\n' "\$n" "\$n" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 [ "\$resumed" = yes ] && echo '{"type":"system","subtype":"compact_boundary"}' >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 if [ -f app.js ] && grep -q createHandler app.js; then
   if [ -f "\$CLAUDE_CONFIG_DIR/.agentic-os-manifest.json" ]; then cp "$FX/safe-app.js" app.js; else cp "$FX/vulnerable-app.js" app.js; fi
+  # Model-controlled repo config: must never run when the harness scores the task.
+  [ -d .git ] && printf '[core]\n\tfsmonitor = %s\n\thooksPath = %s\n' "$T/evil-hook.sh" "$T/evil-hooks" >> .git/config
 fi
+if [ -f "$T/fail-on-call" ] && [ "\$(cat "$T/fail-on-call")" = "\$n" ]; then echo "stub: injected failure" >&2; exit 1; fi
 echo "stub claude ok"
 STUB
 chmod +x "$T/bin/claude"
+mkdir -p "$T/evil-hooks"
+printf '#!/bin/sh\necho ran >> "%s"\n' "$T/fsmonitor-ran" > "$T/evil-hook.sh"
+chmod +x "$T/evil-hook.sh"
+for h in pre-commit post-commit post-checkout reference-transaction; do cp "$T/evil-hook.sh" "$T/evil-hooks/$h"; done
 
 # run_case <name> [args...]: isolated operator env + stub on PATH, stdin closed.
 run_case() {
@@ -105,6 +115,51 @@ check "exploit check: naive route -> fail (exit 1)" '[ "$(cat "$T/x-vulnerable.r
 check "exploit check: contained route -> pass (exit 0)" '[ "$(cat "$T/x-safe.rc")" = 0 ] && grep -q "\"exploit\":\"pass\"" "$T/x-safe.json"'
 check "exploit check leaves the task dir untouched" '[ -z "$(find "$T/x-vulnerable" -name "secret.txt" -o -name "outer.txt" -o -name uploads-private)" ]'
 
+# Planted symlinks must not redirect the check's writes (regression: cpSync
+# kept absolute links and writeFileSync/mkdirSync followed them).
+mkdir -p "$T/victimdir"
+echo "victim file" > "$T/victim.txt"; echo "victim dir file" > "$T/victimdir/hello.txt"
+VICTIMS_BEFORE="$(cat "$T/victim.txt" "$T/victimdir/hello.txt"; ls -A "$T/victimdir")"
+cp -R "$DIR/scenarios/seeded-path-traversal/app" "$T/x-links"
+cp "$FX/safe-app.js" "$T/x-links/app.js"
+rm -rf "$T/x-links/uploads"
+ln -s "$T/victim.txt" "$T/x-links/secret.txt"
+ln -s "$T/victimdir" "$T/x-links/uploads"
+node "$XC" "$T/x-links" --json > "$T/x-links.json"; echo $? > "$T/x-links.rc"
+check "exploit check: planted symlinks -> error (exit 2) with a reason" \
+  '[ "$(cat "$T/x-links.rc")" = 2 ] && grep -q "\"exploit\":\"error\"" "$T/x-links.json" && grep -q "symlink" "$T/x-links.json"'
+check "exploit check: symlink victims untouched" '[ "$(cat "$T/victim.txt" "$T/victimdir/hello.txt"; ls -A "$T/victimdir")" = "$VICTIMS_BEFORE" ]'
+
+# The app's process group dies with the check, on the normal path and on the
+# overall-timeout path (regression: only the direct child was killed).
+gc_app() { # gc_app <dir> <pidfile> <respond yes|no>
+  cp -R "$DIR/scenarios/seeded-path-traversal/app" "$1"
+  { printf "require('node:fs').writeFileSync(%s, String(require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], {stdio:'ignore'}).pid));\n" "'$2'"
+    if [ "$3" = yes ]; then cat "$FX/safe-app.js"; else echo "module.exports = { createHandler: () => () => {} };"; fi
+  } > "$1/app.js"
+}
+gone() { local i; for i in $(seq 1 30); do kill -0 "$1" 2>/dev/null || return 0; sleep 0.1; done; return 1; }
+gc_app "$T/x-gc" "$T/gc.pid" yes
+node "$XC" "$T/x-gc" --json > "$T/x-gc.json"; echo $? > "$T/x-gc.rc"
+check "exploit check: grandchild of the app is killed (normal path)" '[ "$(cat "$T/x-gc.rc")" = 0 ] && [ -s "$T/gc.pid" ] && gone "$(cat "$T/gc.pid")"'
+mkdir -p "$T/xc-tmp"
+gc_app "$T/x-gc2" "$T/gc2.pid" no
+TMPDIR="$T/xc-tmp" EXPLOIT_CHECK_TIMEOUT_MS=2000 node "$XC" "$T/x-gc2" --json > "$T/x-gc2.json"; echo $? > "$T/x-gc2.rc"
+check "exploit check: overall timeout -> error, grandchild killed, work dir removed" \
+  '[ "$(cat "$T/x-gc2.rc")" = 2 ] && grep -q timeout "$T/x-gc2.json" && [ -s "$T/gc2.pid" ] && gone "$(cat "$T/gc2.pid")" && [ -z "$(ls -A "$T/xc-tmp")" ]'
+
+# ---- 2b. summary counts only complete samples ---------------------------------
+printf '%s\n' \
+  '{"scenario":"s","arm":"a","ref":"r","repo_sha":"x","prompts":1,"exit_codes":[0],"exit_code":0,"metrics":{"turns":40,"tokens":{"output":1}}}' \
+  '{"scenario":"s","arm":"a","ref":"r","repo_sha":"x","prompts":1,"exit_codes":[1],"exit_code":1,"metrics":{"turns":4,"tokens":{"output":1}}}' \
+  '{"scenario":"s","arm":"a","ref":"r","repo_sha":"x","prompts":3,"exit_codes":[0],"exit_code":0,"metrics":{"turns":2,"tokens":{"output":1}}}' \
+  > "$T/mixed.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/mixed.jsonl" --json > "$T/mixed.json"
+check "summary: metrics over complete samples only (turns mean 40, n=1)" \
+  '[ "$(node -e "const g=require(process.argv[1]).groups[0];console.log(g.metrics.turns.mean+\",\"+g.metrics.turns.n+\",\"+g.complete)" "$T/mixed.json")" = "40,1,1" ]'
+check "summary: incomplete samples counted with reasons" \
+  '[ "$(node -e "const g=require(process.argv[1]).groups[0];console.log(JSON.stringify(g.incomplete))" "$T/mixed.json")" = "{\"count\":2,\"reasons\":{\"1 of 3 prompts ran\":1,\"prompt 1 of 1 exited 1\":1}}" ]'
+
 # ---- 3. per-ref manifest: preflight is exact for each ref and flag set --------
 SRC_HEAD="$T/src-head"; mkdir -p "$SRC_HEAD"; iso_export_ref "$REPO" HEAD "$SRC_HEAD"
 ROOT="$(TMPDIR="$T/arms-tmp" iso_make_root)"
@@ -134,6 +189,8 @@ check "no --yes -> non-zero exit" '[ "$(cat "$T/gate.rc")" != 0 ]'
 check "no --yes -> stub never called" '[ ! -d "$T/stub-log" ]'
 check "plan prints the total invocation count (arms x runs x prompts)" \
   'grep -qF "TOTAL: $((NA * 2 * 11)) claude -p invocations ($NA arms x 2 runs x 11 prompts" "$T/gate.stdout"'
+check "cost gate prints the default per-invocation budget and its ceiling" \
+  'grep -qF "BUDGET: --max-budget-usd 5 per invocation; ceiling if every invocation hit it: \$$((NA * 2 * 11 * 5)).00" "$T/gate.stdout"'
 check "no --yes -> temp base empty" '[ -z "$(ls -A "$T/arms-tmp")" ]'
 
 # ---- 5. bad specs fail before anything is set up -------------------------------
@@ -173,6 +230,9 @@ if [ "$HAVE_V301" = 1 ]; then
 fi
 check "every row has a scan record: gitleaks/semgrep are a count, unavailable, or error" \
   '[ "$(rows "$S" "l.every(r=>r.scan&&Number.isInteger(r.scan.exit)&&[r.scan.gitleaks,r.scan.semgrep].every(v=>Number.isInteger(v)||v===\"unavailable\"||v===\"error\"))")" = true ]'
+check "scoring never ran the task's model-written .git/config (fsmonitor / hooksPath)" \
+  '[ ! -e "$T/fsmonitor-ran" ] && grep -q fsmonitor "$(dirname "$(cat "$T/stub-log/call-0/home")")/task/.git/config"'
+check "default per-invocation budget reaches claude" '[ "$(grep -lx -- "--max-budget-usd" "$T"/stub-log/call-*/argv | wc -l | tr -d " ")" = $((NA * 2)) ]'
 check "isolation.jsonl: one pass record per sample" \
   '[ "$(rows "$T/out-main/isolation.jsonl" "l.length===$((NA * 2))&&l.every(r=>r.preflight===\"pass\")")" = true ]'
 
@@ -235,8 +295,21 @@ check "--max-turns and --max-budget-usd reach every invocation" \
 check "prompts are the scenario's own text" 'grep -q "^Survey eval/metrics/" "$T/stub-log/call-0/argv" && grep -q "^In BATCH-OPERATOR.md" "$T/stub-log/call-9/argv"'
 check "repo-local task is a scrubbed HEAD export" 'grep -qx "$(cat "$T/stub-log/call-0/home" | xargs dirname)/task" "$T/stub-log/call-0/cwd"'
 check "long-session row: 10 prompts, 10 exit codes, compaction counted, no exploit/scan" \
-  '[ "$(rows "$T/out-long/samples.jsonl" "const r=l[0];l.length===1&&r.prompts===10&&r.exit_codes.length===10&&r.compact_boundaries===9&&r.exploit===null&&r.scan===null&&r.task_base===null")" = true ]'
+  '[ "$(rows "$T/out-long/samples.jsonl" "const r=l[0];l.length===1&&r.prompts===10&&r.exit_codes.length===10&&r.compact_boundaries===9&&r.exploit===null&&r.scan===null&&r.task_base===null&&r.status===\"complete\"")" = true ]'
+check "turns from every resumed prompt are counted (10 distinct turns, 100 output tokens)" \
+  '[ "$(rows "$T/out-long/samples.jsonl" "l[0].metrics.turns+\",\"+l[0].metrics.tokens.output")" = "10,100" ]'
 check "default run removes every sample root and scratch dir" '[ -z "$(ls -A "$T/arms-tmp")" ]'
+
+# ---- 8b. a failed prompt stops the sample: no --resume past it -------------------
+echo 2 > "$T/fail-on-call"
+run_case stop --yes --no-max-budget --scenario long-session-awareness main=HEAD
+rm -f "$T/fail-on-call"
+check "failed prompt 3 -> exactly 3 invocations, none resumed after it" '[ "$(ncalls)" = 3 ]'
+check "--no-max-budget passes no budget flag" '! grep -qx -- "--max-budget-usd" "$T"/stub-log/call-*/argv'
+check "stopped sample row: incomplete, 3 of 10 prompts run, reason names the prompt" \
+  '[ "$(rows "$T/out-stop/samples.jsonl" "const r=l[0];[r.status,r.prompts_run,r.exit_code,r.incomplete_reason].join(\"|\")")" = "incomplete|3|1|prompt 3 of 10 exited 1" ]'
+check "stopped sample is excluded from summary metrics and counted as incomplete" \
+  '[ "$(node -e "const g=require(process.argv[1]).groups[0];console.log(g.complete+\",\"+g.metrics.turns.n+\",\"+g.incomplete.count)" "$T/out-stop/summary.json")" = "0,0,1" ]'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'
