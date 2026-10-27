@@ -13,6 +13,8 @@ axis, per the effectiveness investigation) to **tokens-per-outcome + awareness d
 | `session-metrics-cursor.mjs` | parse one **Cursor** transcript → turns + awareness signals (tokens N/A in export) | **Tier 0** deterministic |
 | `compare.mjs` | diff two transcripts (ON vs OFF arm) → per-metric delta `(OFF − ON)` | **Tier 0** deterministic |
 | `run-arms.sh` | run a scenario live under both arms and compare | **stochastic** (one sample) |
+| `run-release-arms.sh` | run scenarios under named arms built from git refs (e.g. `v3.0.1` vs `main`), N interleaved samples each → `samples.jsonl` | **stochastic** (N samples) |
+| `summarize-samples.mjs` | per-arm mean / min / max of a `samples.jsonl` | **Tier 0** deterministic |
 
 ```
 node session-metrics.mjs <transcript.jsonl> [--json]
@@ -22,6 +24,9 @@ export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN; arms have no login 
 bash run-arms.sh [--keep] [--out DIR] "<scenario prompt>"
 bash session-metrics-test.sh && bash compare-test.sh   # Claude + Cursor self-tests
 bash run-arms-isolation-test.sh                        # arm isolation (stub claude, no API)
+bash run-release-arms.sh [options] --scenario NAME... NAME=REF[:FLAGS]...
+node summarize-samples.mjs <samples.jsonl> [--json]
+bash run-release-arms-test.sh                          # release arms (stub claude, no API)
 ```
 
 ## The two arms (`run-arms.sh`)
@@ -41,6 +46,64 @@ reports how much *more* the OFF arm spent (positive Δ / `saved%` = the library 
 The interactive protocol in [AB-PROTOCOL.md](AB-PROTOCOL.md) still defines its arms
 with `--settings`. That compares hook sets only and is **not** isolated from a
 globally installed library.
+
+## Release arms (`run-release-arms.sh`)
+
+Measures one library state against another, e.g. the last release against `main`,
+before a release. Each arm is `NAME=REF[:FLAG,FLAG]`:
+
+```bash
+export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN
+git fetch origin --tags        # every REF must resolve locally
+bash eval/metrics/run-release-arms.sh --runs 3 \
+  --scenario long-session-awareness --scenario seeded-path-traversal \
+  v301=v3.0.1 main=main mainall=main:--with-marketing,--with-games
+```
+
+- **Per-ref install.** Each arm is a `git archive <REF>` export, installed by
+  that ref's own `install.sh --force <FLAGS>` into a temp `CLAUDE_CONFIG_DIR`.
+  Only `--with-<pack>` flags are accepted. The preflight's expected file set
+  comes from the same export and flags: the commands come from that installer's
+  `install_files "commands"` line, the installer manifest is expected only when
+  that installer writes one (v3.0.1 does not), and pack items are expected only
+  for the packs the flags turn on (v3.0.1 has no packs, so it ships everything).
+  The isolation model is the same as `run-arms.sh`. There is no OFF arm.
+- **Tasks are identical for every arm**, taken from a `git archive HEAD` export
+  of the harness repo: `scenarios/<name>.md` runs in the scrubbed repo export;
+  `scenarios/<name>/README.md` runs in a copy of `scenarios/<name>/app`,
+  committed once as the task base. The prompts are the bare ```` ``` ```` fences
+  under `## Scripted prompt sequence` (`lib/scenario-prompts.mjs`). Prompt 1
+  starts the session with `--session-id`; every later prompt continues it with
+  `--resume <same id>`.
+- **Cost gate.** Before anything is set up, the plan and the total are printed:
+  `arms x runs x (sum of prompt counts)` `claude -p` invocations. The run needs
+  `--yes` or an interactive `y`; with stdin not a terminal and no `--yes`, it
+  stops and sends nothing. `long-session-awareness` has 10 prompts, so it costs
+  10 invocations per sample. `--max-turns N` and `--max-budget-usd X` are
+  passed to every invocation (both are print-mode only; the budget is a cap per
+  invocation on Claude Code's client-side estimate, and spend can pass it).
+- **Interleaving.** Samples run in rounds: round *r* runs every scenario under
+  every arm, with the arm order rotated by one each round, so drift in latency
+  or model is spread across arms. Every sample has its own fresh root, and
+  every root passes preflight before the first prompt.
+- **Scoring.** After each sample: `session-metrics.mjs --json` on the
+  transcript; for a scenario with `exploit-check.mjs`, the exploit check and
+  `scripts/security-scan.sh --base <task base> --json` (offline mode) in the
+  task dir. A missing scanner is recorded as `unavailable`; it never fails the run.
+
+Outputs in `--out` (default `runs/<stamp>-release-arms/`): `isolation.jsonl`
+(one preflight record per sample; `repo_sha` is the arm ref's full sha),
+`samples.jsonl` (one row per sample: `arm`, `ref`, `flags`, `repo_sha`,
+`scenario`, `sample`, `order`, `session_id`, `exit_code` / `exit_codes`,
+`metrics`, `compact_boundaries`, `task_base`, `exploit`, `scan`),
+`summary.json` (`summarize-samples.mjs --json`), and the per-sample install /
+claude / scan logs.
+
+The structural caveat below still applies. The resumed multi-prompt session
+may cross a compaction boundary; whether it does is UNVERIFIED for headless
+runs. `compact_boundaries` counts `"subtype":"compact_boundary"` transcript
+records, and that record shape is also UNVERIFIED against a live transcript. A
+0 there means the benefit side was not exercised in that sample.
 
 ## Cursor transcripts
 

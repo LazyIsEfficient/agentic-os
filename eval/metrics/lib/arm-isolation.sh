@@ -204,7 +204,9 @@ iso_check_on_settings() {
   keys="$(jq -c 'keys' "$settings")"
   [ "$keys" = '["hooks"]' ] || iso_fail "ON settings.json top-level keys are $keys, expected [\"hooks\"]"
   bad="$(iso_hook_commands "$settings" | while IFS= read -r cmd; do
-      case "$cmd" in "bash $cfg/hooks/"*.sh) ;; *) echo "$cmd" ;; esac
+      # Leading "(" on each pattern: bash 3.2 cannot parse a bare `pattern)`
+      # inside $(...).
+      case "$cmd" in ("bash $cfg/hooks/"*.sh) ;; (*) echo "$cmd" ;; esac
     done | iso_join)"
   [ -z "$bad" ] || iso_fail "ON settings.json has hook commands outside $cfg/hooks: $bad"
   [ "$(iso_hook_commands "$settings")" = "$(echo "$expected" | jq -r '[.. | objects | select(has("command")) | .command] | .[]' | LC_ALL=C sort)" ] \
