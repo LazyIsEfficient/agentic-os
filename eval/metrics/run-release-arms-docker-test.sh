@@ -48,12 +48,12 @@ STUB
 chmod +x "$T/bin/claude"
 
 # ---- 1. no TTY and no --yes: refuses before building or running ---------------
-"$WRAP" --out "$T/out-gate" --claude-bin-dir "$T/bin" --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/gate.log" 2>&1
+"${BASH:-bash}" "$WRAP" --out "$T/out-gate" --claude-bin-dir "$T/bin" --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/gate.log" 2>&1
 rc=$?
 check "no TTY, no --yes -> refuses" '[ "$rc" != 0 ] && grep -q "pass --yes" "$T/gate.log"'
 
 # ---- 2. stub experiment in the container ---------------------------------------
-ANTHROPIC_API_KEY="$CANARY" "$WRAP" --out "$T/out" --claude-bin-dir "$T/bin" \
+ANTHROPIC_API_KEY="$CANARY" "${BASH:-bash}" "$WRAP" --out "$T/out" --claude-bin-dir "$T/bin" \
   --yes --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/run.log" 2>&1
 rc=$?
 check "containerised run exits 0" '[ "$rc" = 0 ]'

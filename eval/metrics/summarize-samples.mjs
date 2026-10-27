@@ -105,7 +105,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count}`);
       for (const [why, n] of Object.entries(g.incomplete.reasons)) console.log(`  incomplete: ${n} x ${why}`);
       for (const [k, v] of Object.entries(g.metrics)) console.log(`  ${k.padEnd(22)} mean ${f(v.mean).padStart(10)}  min ${f(v.min).padStart(8)}  max ${f(v.max).padStart(8)}  (n=${v.n})`);
-      if (g.exploit.not_applicable < g.samples) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
+      if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
     }
   }
 }
