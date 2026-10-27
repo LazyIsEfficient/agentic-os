@@ -37,10 +37,11 @@ RUN python3 -m venv /opt/semgrep \
 RUN npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
  && npm cache clean --force
 
-# Scoring code, proxy and scanner, staged by run-release-arms.sh from the HEAD
-# export (the build context is never the working tree). Root-owned, read-only
-# to every container user; the containers also run with a read-only root fs.
-COPY harness /opt/harness
+# The proxy is small and harmless to the model (it holds no scoring code), so
+# it ships here; the model and proxy containers run from THIS image. The
+# scoring code and exploit vectors are NOT here — they live only in the scorer
+# image (Dockerfile.scorer), so a sample container cannot read the grader.
+COPY harness/lib/api-proxy.mjs /opt/harness/lib/api-proxy.mjs
 RUN chown -R root:root /opt/harness && chmod -R a+rX,go-w /opt/harness
 
 ENV GIT_OPTIONAL_LOCKS=0

@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 // sample-row.mjs — build ONE samples.jsonl row for run-release-arms.sh. Values
-// come from the environment (never from a shell-built JSON string). Scores come
-// from SCORE_JSON, the output of score-sample.mjs; LOG is the sample's
-// (redacted) claude log. A missing or unparseable input becomes null or an
-// explicit error. The auth VALUE is never an input here.
+// come from the environment (never a shell-built JSON string). The auth VALUE
+// is never an input here.
+//
+// Trust model: the PROXY log is authoritative (the proxy is outside the
+// model's reach) for tokens, and for the proxy-derived cost estimate. The CLI
+// result record (LOG) and the transcript metrics (SCORE_JSON) are
+// MODEL-WRITABLE and advisory; a disagreement with the proxy is flagged, not
+// trusted. A stop is read from STRUCTURED fields only, never by regex over
+// free text.
+//
+//   SCORE_JSON   score-sample.mjs output (metrics, exploit, scan, transcript_*)
+//   LOG          the sample's redacted claude log
+//   PROXY_LOG    the sample's redacted proxy log (docker sandbox; absent in none)
+//   PRICE_IN_PER_MTOK / PRICE_OUT_PER_MTOK  USD per 1e6 tokens (UNVERIFIED)
 import { existsSync, readFileSync } from 'node:fs';
 
 const e = process.env;
@@ -11,46 +21,100 @@ const readJson = (p) => {
   if (!p || !existsSync(p)) return null;
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
 };
+const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 
-// One exit code per prompt that ran; the harness stops a sample at the first
-// non-zero exit, so fewer codes than prompts means the sample stopped early.
 const exitCodes = (e.EXIT_CODES || '').split(' ').filter(Boolean).map(Number);
 const firstNonzero = exitCodes.find((c) => c !== 0);
 const prompts = Number(e.PROMPTS);
 const score = readJson(e.SCORE_JSON) || {};
 const metrics = score.metrics && typeof score.metrics === 'object' ? score.metrics : null;
 
-// Stop signals: an invocation can stop on a limit and still exit 0. Any of
-// these marks the sample incomplete. The wording of the CLI's stop lines and
-// the result-record shape are UNVERIFIED against the real CLI.
-const stopSignals = [];
-let costUsd = null;
+// ── CLI result records (LOG) — advisory. Parse only lines that are a single
+// JSON object with type==="result"; a free-text answer is never a result. ──
+const cliResults = [];
 if (e.LOG && existsSync(e.LOG)) {
   for (const line of readFileSync(e.LOG, 'latin1').split('\n')) {
-    if (/Exceeded USD budget/i.test(line)) stopSignals.push('budget stop line in log');
-    if (/Reached max turns/i.test(line)) stopSignals.push('max-turns stop line in log');
-    if (!line.startsWith('{')) continue;
-    let o; try { o = JSON.parse(line); } catch { continue; }
-    if (!o || o.type !== 'result') continue;
-    if (o.is_error === true) stopSignals.push(`error result in log: ${String(o.subtype || 'error').slice(0, 80)}`);
-    if (typeof o.total_cost_usd === 'number') costUsd = (costUsd || 0) + o.total_cost_usd;
+    const s = line.trim();
+    if (!s.startsWith('{') || !s.endsWith('}')) continue;
+    let o; try { o = JSON.parse(s); } catch { continue; }
+    if (o && o.type === 'result') cliResults.push(o);
   }
 }
+let cliCost = null;
+for (const r of cliResults) { const c = num(r.total_cost_usd); if (c !== null && c >= 0) cliCost = (cliCost || 0) + c; }
+// ADVISORY stop indicators: the CLI log and the transcript are model-writable,
+// so these are recorded but NEVER drive `status` (a model could otherwise forge
+// its own dropout). Status comes only from host/proxy-authoritative signals
+// below. Read from the LAST result's structured fields only, never by regex.
+const advisorySignals = [];
+const last = cliResults[cliResults.length - 1];
+if (last) {
+  if (last.is_error === true) advisorySignals.push(`cli result is_error (${String(last.subtype || 'error').slice(0, 60)})`);
+  else if (last.subtype && last.subtype !== 'success') advisorySignals.push(`cli result subtype ${String(last.subtype).slice(0, 60)}`);
+}
 for (const s of Array.isArray(score.transcript_error_results) ? score.transcript_error_results : []) {
-  stopSignals.push(`error result in transcript: ${s}`);
+  advisorySignals.push(`transcript error result (${s})`);
 }
-const uniqueSignals = [...new Set(stopSignals)];
+// AUTHORITATIVE stop signals: host-observed exit codes (handled below),
+// interrupt, and the proxy (outside the model's reach).
+const stopSignals = [];
 
-let incompleteReason = null;
-if (firstNonzero !== undefined) {
-  incompleteReason = `prompt ${exitCodes.indexOf(firstNonzero) + 1} of ${prompts} exited ${firstNonzero}`;
-} else if (exitCodes.length !== prompts) {
-  incompleteReason = `${exitCodes.length} of ${prompts} prompts ran`;
-} else if (uniqueSignals.length) {
-  incompleteReason = `stopped: ${uniqueSignals[0]}`;
-} else if (!metrics) {
-  incompleteReason = 'no transcript metrics';
+// ── PROXY log — AUTHORITATIVE. Prefer the final {summary:true} line; else the
+// max running totals seen. 429 token/request caps are a stop. ──
+let proxy = null;
+if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
+  let inTok = 0, outTok = 0, denied429 = null, sawSummary = false, requests = 0, denials = 0;
+  for (const line of readFileSync(e.PROXY_LOG, 'latin1').split('\n')) {
+    const s = line.trim();
+    if (!s.startsWith('{')) continue;
+    let o; try { o = JSON.parse(s); } catch { continue; }
+    if (!o) continue;
+    if (o.summary === true) {
+      sawSummary = true;
+      inTok = num(o.total_input_tokens) ?? inTok;
+      outTok = num(o.total_output_tokens) ?? outTok;
+      requests = num(o.requests) ?? requests;
+      denials = num(o.denials) ?? denials;
+    } else {
+      if (num(o.total_input) !== null) inTok = Math.max(inTok, o.total_input);
+      if (num(o.total_output) !== null) outTok = Math.max(outTok, o.total_output);
+      if (o.status === 429) denied429 = String(o.denied || '429');
+    }
+  }
+  proxy = { seen: true, summary: sawSummary, input_tokens: inTok, output_tokens: outTok, requests, denials };
+  if (denied429) { proxy.denied_429 = denied429; stopSignals.push(`proxy 429: ${denied429}`); }
 }
+
+// ── Primary tokens + cost: proxy when present, else the CLI result (flagged). ──
+const priceIn = num(Number(e.PRICE_IN_PER_MTOK));
+const priceOut = num(Number(e.PRICE_OUT_PER_MTOK));
+let tokens = null, cost = null, costSource = null, costMismatch = null;
+if (proxy && proxy.seen) {
+  tokens = { input: proxy.input_tokens, output: proxy.output_tokens, source: 'proxy' };
+  if (priceIn !== null && priceOut !== null) {
+    cost = Math.round((proxy.input_tokens / 1e6 * priceIn + proxy.output_tokens / 1e6 * priceOut) * 1e6) / 1e6;
+    costSource = 'proxy-estimate';
+    if (cliCost !== null) costMismatch = Math.round((cliCost - cost) * 1e6) / 1e6;
+  } else if (cliCost !== null) {
+    cost = cliCost; costSource = 'cli-fallback';
+  }
+} else if (cliCost !== null) {
+  cost = cliCost; costSource = 'cli-only';
+}
+
+if (e.INTERRUPTED === '1') stopSignals.push('interrupted');
+// Advisory CLI/transcript indicators also mark incomplete (a limit stop the
+// operator must exclude). A model forging them can only drop its OWN sample;
+// it cannot forge "complete" (exit codes are host-observed) or forge low
+// tokens/cost (proxy-authoritative).
+const allSignals = [...new Set([...stopSignals, ...advisorySignals])];
+let incompleteReason = null;
+if (firstNonzero !== undefined) incompleteReason = `prompt ${exitCodes.indexOf(firstNonzero) + 1} of ${prompts} exited ${firstNonzero}`;
+else if (exitCodes.length !== prompts) incompleteReason = `${exitCodes.length} of ${prompts} prompts ran`;
+else if (stopSignals.includes('interrupted')) incompleteReason = 'interrupted';
+else if (allSignals.length) incompleteReason = `stopped: ${allSignals[0]}`;
+else if (!metrics) incompleteReason = 'no transcript metrics';
+const uniqueSignals = allSignals;
 
 let exploit = null, exploitDetail = null;
 if (score.exploit) {
@@ -65,7 +129,6 @@ if (score.exploit) {
   }
 }
 
-// Per scanner: finding count when it ran, else its status (unavailable / error).
 let scan = null;
 if (score.scan) {
   const s = score.scan.json;
@@ -73,9 +136,7 @@ if (score.scan) {
   if (s && Array.isArray(s.scanners)) {
     scan.gitleaks = 'unavailable';
     scan.semgrep = 'unavailable';
-    for (const sc of s.scanners) {
-      scan[sc.name] = sc.status === 'ran' || sc.status === 'findings' ? (sc.findings || []).length : sc.status;
-    }
+    for (const sc of s.scanners) scan[sc.name] = sc.status === 'ran' || sc.status === 'findings' ? (sc.findings || []).length : sc.status;
   } else {
     scan.error = 'security-scan.sh produced no JSON report';
   }
@@ -102,10 +163,17 @@ process.stdout.write(JSON.stringify({
   session_id: e.SID,
   exit_code: firstNonzero === undefined ? 0 : firstNonzero,
   exit_codes: exitCodes,
-  cost_usd: costUsd === null ? null : Math.round(costUsd * 1e6) / 1e6,
+  tokens,
+  cost_usd: cost,
+  cost_source: costSource,
+  cli_cost_usd: cliCost,
+  cost_mismatch_usd: costMismatch,
+  proxy,
   transcript_found: score.transcript_found === true,
   metrics,
+  metrics_trust: 'model-writable (advisory)',
   compact_boundaries: typeof score.compact_boundaries === 'number' ? score.compact_boundaries : null,
+  advisory_stop_signals: [...new Set(advisorySignals)],
   task_base: e.TASK_BASE || null,
   exploit,
   exploit_detail: exploitDetail,

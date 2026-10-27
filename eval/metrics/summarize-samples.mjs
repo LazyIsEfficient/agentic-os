@@ -34,6 +34,11 @@ function stats(values) {
 }
 
 // Recomputed from the raw fields, not taken from the row's `status`.
+// Strip C0 and C1 control characters (keep \t): reasons, refs and arm/scenario
+// names come from model-influenced data and reach a terminal. Printed text and
+// every string field in the summary goes through this.
+const CONTROL = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f]/g;
+const clean = (s) => String(s).replace(CONTROL, '').slice(0, 300);
 const signals = (r) => (Array.isArray(r.stop_signals) ? r.stop_signals : []);
 function isComplete(r) {
   return Array.isArray(r.exit_codes) && r.exit_codes.length === r.prompts
@@ -72,8 +77,18 @@ export function summarize(rows) {
         const why = incompleteReason(r);
         reasons[why] = (reasons[why] || 0) + 1;
       }
+      // Fold reasons after stripping control chars (two reasons that differ
+      // only by a stripped escape merge into one).
       const sortedReasons = {};
-      for (const k of Object.keys(reasons).sort(cmp)) sortedReasons[k] = reasons[k];
+      for (const k of Object.keys(reasons).sort(cmp)) { const c = clean(k); sortedReasons[c] = (sortedReasons[c] || 0) + reasons[k]; }
+      // Proxy-authoritative primary metrics (from the row, not the transcript).
+      const primary = {
+        proxy_input_tokens: stats(done.map((r) => r.tokens?.input)),
+        proxy_output_tokens: stats(done.map((r) => r.tokens?.output)),
+        cost_usd: stats(done.map((r) => r.cost_usd)),
+        cli_cost_usd: stats(done.map((r) => r.cli_cost_usd)),
+      };
+      // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
       metrics.compact_boundaries = stats(done.map((r) => r.compact_boundaries));
@@ -83,13 +98,15 @@ export function summarize(rows) {
         else exploit.not_applicable++;
       }
       return {
-        scenario: g.scenario,
-        arm: g.arm,
-        refs: [...g.refs].sort(cmp),
+        scenario: clean(g.scenario),
+        arm: clean(g.arm),
+        refs: [...g.refs].map(clean).sort(cmp),
         samples: g.rows.length,
         complete: done.length,
         incomplete: { count: g.rows.length - done.length, reasons: sortedReasons },
+        primary,
         metrics,
+        metrics_trust: 'awareness metrics are model-writable (advisory); primary tokens/cost are proxy-authoritative',
         exploit,
       };
     });
@@ -110,7 +127,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (g.complete < g.samples) {
         console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);
       }
-      for (const [why, n] of Object.entries(g.incomplete.reasons)) console.log(`  incomplete: ${n} x ${why}`);
+      for (const [why, n] of Object.entries(g.incomplete.reasons)) console.log(`  incomplete: ${n} x ${clean(why)}`);
+      console.log('  primary (proxy-authoritative):');
+      for (const [k, v] of Object.entries(g.primary)) console.log(`  ${k.padEnd(22)} mean ${f(v.mean).padStart(10)}  min ${f(v.min).padStart(8)}  max ${f(v.max).padStart(8)}  (n=${v.n})`);
+      console.log('  awareness (model-writable, advisory):');
       for (const [k, v] of Object.entries(g.metrics)) console.log(`  ${k.padEnd(22)} mean ${f(v.mean).padStart(10)}  min ${f(v.min).padStart(8)}  max ${f(v.max).padStart(8)}  (n=${v.n})`);
       if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
     }

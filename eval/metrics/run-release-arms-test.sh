@@ -57,6 +57,7 @@ for a in "\$@"; do
   [ "\$prev" = "--resume" ] && { sid="\$a"; resumed=yes; }
   prev="\$a"
 done
+[ -f "$T/stub-sleep" ] && sleep "\$(cat "$T/stub-sleep")"
 mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
 # One distinct assistant turn per invocation (message ids differ), so turns
 # from every resumed prompt must be counted.
@@ -72,8 +73,16 @@ if [ -f "$T/fail-on-call" ] && [ "\$(cat "$T/fail-on-call")" = "\$n" ]; then ech
 # A model that prints the key: every log in <out> must be redacted.
 echo "model output: key=\${ANTHROPIC_API_KEY:-}"
 case "\$(cat "$T/stub-mode" 2>/dev/null)" in
-  budget-line) echo "Error: Exceeded USD budget (5)" ;;
+  freetext)
+    # Free-text that merely CONTAINS stop words, plus a success result: must
+    # not be read as a stop (structured fields only).
+    echo "I reached max turns conceptually but finished. Exceeded USD budget is just text."
+    echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5}' ;;
   error-result) echo '{"type":"result","subtype":"error_max_turns","is_error":true,"total_cost_usd":0.25}' ;;
+  negcost)
+    # A tool child forges a fake result with negative cost into claude's stdout.
+    echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":-995.1}'
+    echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5}' ;;
   *) echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5}' ;;
 esac
 echo "stub claude ok"
@@ -318,18 +327,21 @@ check "stopped sample row: incomplete, 3 of 10 prompts run, reason names the pro
 check "stopped sample is excluded from summary metrics and counted as incomplete" \
   '[ "$(node -e "const g=require(process.argv[1]).groups[0];console.log(g.complete+\",\"+g.metrics.turns.n+\",\"+g.incomplete.count)" "$T/out-stop/summary.json")" = "0,0,1" ]'
 
-# ---- 8c. a limit stop that exits 0 still makes the sample incomplete -------------
-for mode in budget-line error-result; do
+# ---- 8c. completeness and cost from STRUCTURED result records only ---------------
+for mode in freetext error-result negcost; do
   echo "$mode" > "$T/stub-mode"
   run_case "sig-$mode" --yes --scenario seeded-path-traversal main=HEAD
 done
 rm -f "$T/stub-mode"
-check "budget stop line with exit 0 -> incomplete" \
-  '[ "$(rows "$T/out-sig-budget-line/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status+\"|\"+l[0].incomplete_reason")" = "0|incomplete|stopped: budget stop line in log" ]'
-check "error result record with exit 0 -> incomplete" \
-  '[ "$(rows "$T/out-sig-error-result/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status+\"|\"+l[0].incomplete_reason")" = "0|incomplete|stopped: error result in log: error_max_turns" ]'
-check "summary warns when an arm has incomplete samples" 'grep -q "WARNING: only 0 of 1 samples complete for main" "$T/sig-budget-line.stdout"'
-check "cost from result records is summed per sample" '[ "$(rows "$T/out-long/samples.jsonl" "l[0].cost_usd")" = 5 ]'
+check "free text containing stop words (success result) -> complete (regex not trusted)" \
+  '[ "$(rows "$T/out-sig-freetext/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status")" = "0|complete" ]'
+check "structured non-success result with exit 0 -> incomplete" \
+  '[ "$(rows "$T/out-sig-error-result/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status+\"|\"+l[0].incomplete_reason")" = "0|incomplete|stopped: cli result is_error (error_max_turns)" ]'
+check "a forged negative cost is rejected; cost comes from the valid (>=0) result" \
+  '[ "$(rows "$T/out-sig-negcost/samples.jsonl" "l[0].cli_cost_usd")" = "0.5" ]'
+check "summary warns when an arm has incomplete samples" 'grep -q "WARNING: only 0 of 1 samples complete for main" "$T/sig-error-result.stdout"'
+check "none-mode cost is cli-only (no proxy) and summed per sample" \
+  '[ "$(rows "$T/out-long/samples.jsonl" "l[0].cost_usd+\"|\"+l[0].cost_source+\"|\"+(l[0].tokens===null)")" = "5|cli-only|true" ]'
 
 # ---- 8d. output dir policy and redaction ------------------------------------------
 run_case inrepo-dummy --yes --scenario seeded-path-traversal main=HEAD
@@ -341,6 +353,32 @@ check "--out inside the repo is refused before anything runs" \
   '[ "$rc" != 0 ] && grep -q "must be outside the repo" "$T/inrepo.out" && [ ! -e "$DIR/runs/should-not-exist" ]'
 check "a stub that prints the key: the key never reaches <out>; the log shows the redaction" \
   '! grep -rqF "$CANARY" "$T"/out-* && grep -qF "key=[REDACTED:ANTHROPIC_API_KEY]" "$T/out-inrepo-dummy/claude-main-seeded-path-traversal-r1.log"'
+
+# ---- 8e. control characters are stripped from the summary ------------------------
+printf '%s\n' \
+  '{"scenario":"s\u001b[31m","arm":"a","ref":"r","repo_sha":"x","prompts":1,"exit_codes":[1],"exit_code":1,"stop_signals":["boom\u001b]0;x\u0007"],"metrics":null}' \
+  > "$T/ctrl.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/ctrl.jsonl" --json > "$T/ctrl.json"
+node "$DIR/summarize-samples.mjs" "$T/ctrl.jsonl" > "$T/ctrl.txt" 2>&1
+check "summary strips C0/C1 escapes from scenario, arm and reasons" \
+  '! LC_ALL=C grep -q "[[:cntrl:]]" "$T/ctrl.txt" && [ "$(node -e "const s=require(process.argv[1]);const j=JSON.stringify(s);console.log(/\\u001b/.test(j)||/\\u0007/.test(j))" "$T/ctrl.json")" = false ]'
+
+# ---- 8f. SIGINT stops the whole run, marks the running sample, still summarizes --
+echo 3 > "$T/stub-sleep"
+rm -rf "$T/stub-log" "$T/out-int"
+HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" \
+  "$SH" "$RUN" --sandbox none --yes --smoke --out "$T/out-int" --scenario long-session-awareness main=HEAD \
+  < /dev/null > "$T/int.stdout" 2>&1 &
+INT_PID=$!
+sleep 1
+kill -INT "$INT_PID" 2>/dev/null
+wait "$INT_PID"; INT_RC=$?
+rm -f "$T/stub-sleep"
+check "interrupted run exits 130" '[ "$INT_RC" = 130 ]'
+check "interrupted run still wrote summary.json" '[ -s "$T/out-int/summary.json" ]'
+check "the running sample is marked incomplete (interrupted)" \
+  '[ "$(rows "$T/out-int/samples.jsonl" "l.length>=1&&l[0].status===\"incomplete\"&&l[0].stop_signals.includes(\"interrupted\")")" = true ]'
+check "the run stopped early (fewer than 2 invocations completed)" '[ "$(ncalls)" -lt 2 ]'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'

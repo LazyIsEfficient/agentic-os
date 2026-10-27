@@ -69,7 +69,12 @@
 #   --out DIR           output dir, outside the repo (default:
 #                       $HOME/agentic-os-eval-runs/<stamp>-release-arms)
 #   --sandbox MODE      docker (default) | none (host, no containment; tests)
-#   --image TAG         docker: image tag (default: derived from the build context)
+#   --smoke             1 arm (first), the long-session scenario truncated to 2
+#                       prompts, 1 run (2 invocations incl. one --resume), and a
+#                       plumbing checklist. Needs --scenario long-session-awareness.
+#   --model NAME        proxy model allowlist (default: the Claude Code 2.1.311
+#                       default model; UNVERIFIED — see MODEL_DEFAULT)
+#   --image TAG         docker: base image tag (default: derived from the context)
 #   --keep              none: keep the per-sample temp roots
 #   test hooks (docker): --stub-claude FILE   put FILE first on the sample's PATH as `claude`
 #                        --proxy-upstream echo  the proxy answers locally, no network
@@ -83,8 +88,19 @@ die() { echo "run-release-arms: $*" >&2; exit 1; }
 usage() { sed -n '/^# Usage:/,/^set -uo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
 DEFAULT_MAX_BUDGET_USD=5
+# UNVERIFIED: Claude Code 2.1.311's default model id, and the per-token prices.
+# Override the model with --model; prices with PRICE_IN_PER_MTOK / _OUT_.
+MODEL_DEFAULT="claude-sonnet-4-5"
+PRICE_IN_PER_MTOK="${PRICE_IN_PER_MTOK:-3}"
+PRICE_OUT_PER_MTOK="${PRICE_OUT_PER_MTOK:-15}"
+PROXY_MAX_TOKENS="${PROXY_MAX_TOKENS:-32000}"
+PROXY_MAX_TOKENS_TOTAL="${PROXY_MAX_TOKENS_TOTAL:-2000000}"
+# UNVERIFIED: the anthropic-beta values Claude Code 2.1.311 sends. Rejections
+# are logged, so the smoke run reveals any missing one; add it here.
+PROXY_BETAS="${PROXY_BETAS:-claude-code-20250219 fine-grained-tool-streaming-2025-05-14 context-1m-2025-08-07 prompt-caching-2024-07-31}"
 KEEP=0; YES=0; RUNS=1; OUT=""; MAX_TURNS=""; MAX_BUDGET="$DEFAULT_MAX_BUDGET_USD"
 SANDBOX=docker; IMAGE=""; STUB_CLAUDE=""; PROXY_UPSTREAM="https://api.anthropic.com"
+SMOKE=0; MODEL="$MODEL_DEFAULT"
 SCENARIOS=(); SPECS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -97,6 +113,8 @@ while [ $# -gt 0 ]; do
     --max-budget-usd) MAX_BUDGET="${2:?--max-budget-usd needs an amount}"; shift 2 ;;
     --no-max-budget) MAX_BUDGET=""; shift ;;
     --sandbox) SANDBOX="${2:?--sandbox needs docker or none}"; shift 2 ;;
+    --smoke) SMOKE=1; shift ;;
+    --model) MODEL="${2:?--model needs a name}"; shift 2 ;;
     --image) IMAGE="${2:?--image needs a tag}"; shift 2 ;;
     --stub-claude) STUB_CLAUDE="${2:?--stub-claude needs a file}"; shift 2 ;;
     --proxy-upstream) PROXY_UPSTREAM="${2:?--proxy-upstream needs a value}"; shift 2 ;;
@@ -121,6 +139,12 @@ fi
 if [ -n "$STUB_CLAUDE" ]; then [ -f "$STUB_CLAUDE" ] || die "--stub-claude: no such file: $STUB_CLAUDE"; fi
 [ "${#SPECS[@]}" -gt 0 ] || { echo "no arms given" >&2; usage; }
 [ "${#SCENARIOS[@]}" -gt 0 ] || { echo "no --scenario given" >&2; usage; }
+# --smoke: 1 arm, long-session truncated to its first 2 prompts, 1 run.
+SMOKE_PROMPTS=0
+if [ "$SMOKE" = 1 ]; then
+  case " ${SCENARIOS[*]} " in *" long-session-awareness "*) ;; *) die "--smoke needs --scenario long-session-awareness" ;; esac
+  SCENARIOS=(long-session-awareness); SPECS=("${SPECS[0]}"); RUNS=1; SMOKE_PROMPTS=2
+fi
 
 command -v node >/dev/null 2>&1 || die "node not found"
 command -v jq   >/dev/null 2>&1 || die "jq not found (install.sh needs it to register hooks)"
@@ -257,7 +281,7 @@ for j in "${!SCENARIOS[@]}"; do
   fi
   mkdir -p "$PROMPTS_DIR/$j"
   node "$DIR/lib/scenario-prompts.mjs" "$doc" > "$PROMPTS_DIR/$j/all.json" || die "cannot read prompts of $s"
-  n="$(node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));a.forEach((p,i)=>require("fs").writeFileSync(process.argv[2]+"/"+(i+1)+".txt",p));console.log(a.length)' \
+  n="$(SMOKE_PROMPTS="$SMOKE_PROMPTS" node -e 'let a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const cap=Number(process.env.SMOKE_PROMPTS)||0;if(cap)a=a.slice(0,cap);a.forEach((p,i)=>require("fs").writeFileSync(process.argv[2]+"/"+(i+1)+".txt",p));console.log(a.length)' \
     "$PROMPTS_DIR/$j/all.json" "$PROMPTS_DIR/$j")" || die "cannot split prompts of $s"
   SCN_NAME+=("$s"); SCN_KIND+=("$kind"); SCN_N+=("$n"); SCN_CHECK+=("$check")
   TOTAL_PROMPTS=$((TOTAL_PROMPTS + n))
@@ -272,13 +296,19 @@ done
 for j in "${!SCN_NAME[@]}"; do
   echo "  scenario ${SCN_NAME[$j]}: ${SCN_N[$j]} prompt(s)${SCN_CHECK[$j]:+, exploit check + security-scan}"
 done
-echo "  runs per arm per scenario: $RUNS${MAX_TURNS:+   --max-turns $MAX_TURNS}"
+echo "  runs per arm per scenario: $RUNS${MAX_TURNS:+   --max-turns $MAX_TURNS}${SMOKE:+   (smoke)}"
 echo "  output: $OUT"
 echo "TOTAL: $TOTAL claude -p invocations ($NARMS arms x $RUNS runs x $TOTAL_PROMPTS prompts across ${#SCN_NAME[@]} scenario(s)), billed to $AUTH_VAR."
 if [ -n "$MAX_BUDGET" ]; then
-  echo "BUDGET: --max-budget-usd $MAX_BUDGET per invocation; ceiling if every invocation hit it: \$$(awk -v n="$TOTAL" -v b="$MAX_BUDGET" 'BEGIN { printf "%.2f", n * b }') (Claude Code's client-side estimate; spend can pass the cap)."
+  echo "BUDGET (client-side, model-bypassable): --max-budget-usd $MAX_BUDGET per invocation; CLI-estimate ceiling \$$(awk -v n="$TOTAL" -v b="$MAX_BUDGET" 'BEGIN { printf "%.2f", n * b }') (spend can pass it)."
 else
-  echo "BUDGET: no per-invocation cap (--no-max-budget)."
+  echo "BUDGET (client-side): none (--no-max-budget)."
+fi
+if [ "$SANDBOX" = docker ]; then
+  SAMPLES_TOTAL=$((NARMS * RUNS * ${#SCN_NAME[@]}))
+  CAP_CEIL="$(awk -v s="$SAMPLES_TOTAL" -v t="$PROXY_MAX_TOKENS_TOTAL" -v pi="$PRICE_IN_PER_MTOK" -v po="$PROXY_MAX_TOKENS_TOTAL" -v pout="$PRICE_OUT_PER_MTOK" 'BEGIN { printf "%.2f", s * t / 1000000 * (pi > pout ? pi : pout) }')"
+  echo "HARD CAP (proxy-enforced, per sample): $PROXY_MAX_TOKENS_TOTAL input+output tokens; max_tokens per call <= $PROXY_MAX_TOKENS; model allowlist: $MODEL."
+  echo "  worst-case over $SAMPLES_TOTAL sample(s) at UNVERIFIED prices \$$PRICE_IN_PER_MTOK/\$$PRICE_OUT_PER_MTOK per Mtok (in/out): ~\$$CAP_CEIL (upper bound; verify current prices)."
 fi
 echo "KEY: use a dedicated Console workspace key with a spend limit for this run, and revoke it afterwards."
 [ "$SANDBOX" = docker ] || echo "WARNING: --sandbox none: the model runs on this host with --dangerously-skip-permissions and NO containment. Use it with a stub claude only."
@@ -297,21 +327,37 @@ LEDGER="$OUT/isolation.jsonl"
 SAMPLES="$OUT/samples.jsonl"
 : > "$SAMPLES"
 
-# ---- docker: image from the HEAD export, networks ------------------------------
+# ---- docker: two images (model base without the grader; scorer with it) --------
+SCORER_IMAGE=""
 if [ "$SANDBOX" = docker ]; then
   new_scratch ctx; CTX="$SCRATCH_LAST"
   cp "$TASK_SRC/eval/metrics/docker/Dockerfile" "$CTX/Dockerfile" || die "HEAD has no eval/metrics/docker/Dockerfile"
+  cp "$TASK_SRC/eval/metrics/docker/Dockerfile.scorer" "$CTX/Dockerfile.scorer" || die "HEAD has no eval/metrics/docker/Dockerfile.scorer"
   cp -R "$HARNESS" "$CTX/harness"
-  if [ -z "$IMAGE" ]; then IMAGE="agentic-os-eval:ctx-$(iso_listing_sha256 "$CTX" | cut -c1-16)"; fi
+  CTX_SHA="$(iso_listing_sha256 "$CTX" | cut -c1-16)"
+  [ -n "$IMAGE" ] || IMAGE="agentic-os-eval:base-$CTX_SHA"
+  SCORER_IMAGE="agentic-os-eval:scorer-$CTX_SHA"
   if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-    echo "building $IMAGE (pinned tools; harness baked in from HEAD) …"
-    docker build -q -t "$IMAGE" "$CTX" >/dev/null || die "docker build failed"
+    echo "building $IMAGE (pinned tools; model+proxy only, no grader) …"
+    docker build -q -t "$IMAGE" -f "$CTX/Dockerfile" "$CTX" >/dev/null || die "docker build failed (base)"
+  fi
+  if ! docker image inspect "$SCORER_IMAGE" >/dev/null 2>&1; then
+    echo "building $SCORER_IMAGE (adds the grader; scorer container only) …"
+    docker build -q -t "$SCORER_IMAGE" -f "$CTX/Dockerfile.scorer" --build-arg "BASE=$IMAGE" "$CTX" >/dev/null || die "docker build failed (scorer)"
   fi
   DOCKER_USED=1
   NET_INT="aos-int-$R8"; NET_EGRESS="aos-egress-$R8"
   docker network create --internal --label "aos-run=$RUN_ID" "$NET_INT" >/dev/null || die "cannot create network $NET_INT"
   docker network create --label "aos-run=$RUN_ID" "$NET_EGRESS" >/dev/null || die "cannot create network $NET_EGRESS"
 fi
+
+# ---- interrupt: stop the run, mark the running sample, still summarize ----------
+INTERRUPTED=0
+on_interrupt() {
+  INTERRUPTED=1
+  echo "" >&2; echo "run-release-arms: interrupted; stopping after the current sample is recorded." >&2
+}
+trap on_interrupt INT TERM
 
 # task_git <root> <args...>: git in a sample's task dir with no operator config
 # (setup only, before the model has touched it).
@@ -373,8 +419,9 @@ CLAUDE_OPTS=(--dangerously-skip-permissions --output-format json)
 DOCKER_HARDEN=(--cap-drop ALL --security-opt no-new-privileges --read-only)
 
 # docker_start_sample <k>: volume (copy of the root), proxy, sample container.
+# Returns non-zero (without exiting) on any failure, so the caller can skip.
 docker_start_sample() {
-  local k="$1" root="${S_ROOT[$1]}" vol="aos-$R8-$1" i
+  local k="$1" root="${S_ROOT[$1]}" vol="aos-$R8-$1" i ok=0
   docker volume create --label "aos-run=$RUN_ID" "$vol" >/dev/null || return 1
   if [ -n "$STUB_CLAUDE" ]; then mkdir -p "$root/.stub"; cp "$STUB_CLAUDE" "$root/.stub/claude"; chmod +x "$root/.stub/claude"; fi
   # Populate as root (CHOWN only), then hand the tree to uid 1000.
@@ -384,15 +431,26 @@ docker_start_sample() {
       sh -c 'tar -xf - -C "$1" --no-same-owner && chown -R 1000:1000 "$1"' sh "$root" || return 1
   docker run -d --name "aos-proxy-$R8-$k" --label "aos-run=$RUN_ID" --network "$NET_INT" --network-alias aos-api-proxy \
       --user 1000:1000 "${DOCKER_HARDEN[@]}" --pids-limit 64 \
-      -e ANTHROPIC_API_KEY -e PROXY_UPSTREAM="$PROXY_UPSTREAM" "$IMAGE" node /opt/harness/lib/api-proxy.mjs >/dev/null || return 1
+      -e ANTHROPIC_API_KEY -e PROXY_UPSTREAM="$PROXY_UPSTREAM" \
+      -e PROXY_MODELS="$MODEL" -e PROXY_BETAS="$PROXY_BETAS" \
+      -e PROXY_MAX_TOKENS="$PROXY_MAX_TOKENS" -e PROXY_MAX_TOKENS_TOTAL="$PROXY_MAX_TOKENS_TOTAL" \
+      "$IMAGE" node /opt/harness/lib/api-proxy.mjs >/dev/null || return 1
   docker network connect "$NET_EGRESS" "aos-proxy-$R8-$k" || return 1
   for i in $(seq 1 50); do
-    docker logs "aos-proxy-$R8-$k" 2>/dev/null | grep -q '"listening"' && break
+    if docker logs "aos-proxy-$R8-$k" 2>/dev/null | grep -q '"listening"'; then ok=1; break; fi
+    docker inspect -f '{{.State.Running}}' "aos-proxy-$R8-$k" 2>/dev/null | grep -q true || break
     sleep 0.2
   done
+  [ "$ok" = 1 ] || { echo "  proxy did not come up for $k" >&2; docker logs "aos-proxy-$R8-$k" 2>&1 | redact | tail -3 >&2; return 1; }
   docker run -d --name "aos-sample-$R8-$k" --label "aos-run=$RUN_ID" --network "$NET_INT" \
       --user 1000:1000 "${DOCKER_HARDEN[@]}" --tmpfs /tmp:rw,exec,size=2g --pids-limit 2048 --init \
       --mount "type=volume,src=$vol,dst=$root" -w "$root/task" "$IMAGE" sleep infinity >/dev/null || return 1
+  # Re-verify the installed library inside the container: the preflight ran on
+  # the host root, and the volume copy must match it byte for byte.
+  docker exec -u 0:0 "aos-sample-$R8-$k" sh -c 'cd "$1" && find . ! -type d | LC_ALL=C sort | while IFS= read -r f; do sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; done' sh "$root/home/.claude" \
+    | awk '{print $1}' > "$SCORES/$k.cfghash-container" 2>/dev/null
+  ( cd "$root/home/.claude" && find . ! -type d | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f" 2>/dev/null || sha256sum "$f"; done | awk '{print $1}' ) > "$SCORES/$k.cfghash-host"
+  cmp -s "$SCORES/$k.cfghash-container" "$SCORES/$k.cfghash-host" || { echo "  in-container config hash != host ($k)" >&2; return 1; }
 }
 
 # docker_prompt <k> <claude args...>: one invocation in the sample container.
@@ -405,93 +463,169 @@ docker_prompt() {
     XDG_CONFIG_HOME="$root/home/.config" XDG_DATA_HOME="$root/home/.local/share" \
     XDG_CACHE_HOME="$root/home/.cache" XDG_STATE_HOME="$root/home/.local/state" \
     ANTHROPIC_BASE_URL=http://aos-api-proxy:8080 ANTHROPIC_API_KEY=sk-ant-placeholder-the-proxy-injects-the-key \
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 \
+    ANTHROPIC_MODEL="$MODEL" CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 \
     claude "$@"
 }
 
-# docker_score <k> <scenario> <out json>: fresh scorer container, network none,
-# sample volume read-only; the app under test runs as uid 2000 inside it.
+# docker_save_transcript <k> <tag>: copy the transcript out of the volume with a
+# read-only helper (size-capped), BEFORE scoring, so a scorer crash can't lose
+# the paid result. Never trusts the volume to be writable.
+docker_save_transcript() {
+  local k="$1" tag="$2" root="${S_ROOT[$1]}"
+  docker run --rm --name "aos-tx-$R8-$k" --label "aos-run=$RUN_ID" --network none --user 1000:1000 \
+    "${DOCKER_HARDEN[@]}" --pids-limit 64 --mount "type=volume,src=aos-$R8-$k,dst=/sample,readonly" "$IMAGE" \
+    sh -c 'f="$(find "/sample/home/.claude/projects" -name "$1.jsonl" -type f 2>/dev/null | head -1)"; [ -n "$f" ] && head -c 52428800 "$f"' sh "${S_SID[$k]}" \
+    2>/dev/null | redact > "$OUT/transcripts/$tag.jsonl"
+  [ -s "$OUT/transcripts/$tag.jsonl" ] || rm -f "$OUT/transcripts/$tag.jsonl"
+}
+
+# docker_score <k> <scenario> <out json>: fresh SCORER image, network none,
+# sample volume read-only; the app under test runs as uid 2000 inside it. The
+# volume is NOT removed here, so a scorer crash never destroys the transcript.
 docker_score() {
   local k="$1"
   docker rm -f "aos-sample-$R8-$k" >/dev/null 2>&1
   docker run --rm --label "aos-run=$RUN_ID" --network none --user 0:0 \
       --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add KILL --cap-add DAC_READ_SEARCH \
       --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,exec,size=2g --pids-limit 512 \
-      --mount "type=volume,src=aos-$R8-$k,dst=/sample,readonly" "$IMAGE" \
+      --mount "type=volume,src=aos-$R8-$k,dst=/sample,readonly" "$SCORER_IMAGE" \
       node /opt/harness/lib/score-sample.mjs --root /sample --sid "${S_SID[$k]}" --scenario "$2" \
-        --harness /opt/harness --work /tmp/score --app-uid 2000 --emit-transcript > "$3"
+        --harness /opt/harness --work /tmp/score --app-uid 2000 > "$3"
 }
 
+docker_capture_proxy() { docker logs "aos-proxy-$R8-$1" 2>&1 | redact > "$OUT/proxy-$2.log"; }
 docker_end_sample() {
-  local k="$1" tag="$2"
-  docker logs "aos-proxy-$R8-$k" 2>&1 | redact > "$OUT/proxy-$tag.log"
+  local k="$1"
   docker rm -f "aos-proxy-$R8-$k" "aos-sample-$R8-$k" >/dev/null 2>&1
   docker volume rm -f "aos-$R8-$k" >/dev/null 2>&1
 }
 
+# smoke_probe: item 6. A throwaway proxy (echo upstream, dummy key) + a probe
+# container that sends a /v1/messages body declaring a web_search tool; the
+# proxy must answer 4xx. Writes PASS/FAIL to $OUT/smoke-probe.txt.
+SMOKE_PROBE_RESULT="unrun"
+smoke_probe() {
+  [ "$SANDBOX" = docker ] || { SMOKE_PROBE_RESULT="n/a (sandbox none)"; return; }
+  local net="aos-probe-$R8" code
+  docker network create --internal --label "aos-run=$RUN_ID" "$net" >/dev/null 2>&1 || { SMOKE_PROBE_RESULT="setup failed"; return; }
+  docker run -d --name "aos-probe-proxy-$R8" --label "aos-run=$RUN_ID" --network "$net" --network-alias aos-api-proxy \
+    --user 1000:1000 "${DOCKER_HARDEN[@]}" --pids-limit 64 \
+    -e ANTHROPIC_API_KEY=sk-ant-probe-dummy -e PROXY_UPSTREAM=echo -e PROXY_MODELS="$MODEL" \
+    -e PROXY_BETAS="$PROXY_BETAS" "$IMAGE" node /opt/harness/lib/api-proxy.mjs >/dev/null 2>&1 || { SMOKE_PROBE_RESULT="setup failed"; return; }
+  local i; for i in $(seq 1 50); do docker logs "aos-probe-proxy-$R8" 2>/dev/null | grep -q '"listening"' && break; sleep 0.2; done
+  code="$(docker run --rm --network "$net" --user 1000:1000 "${DOCKER_HARDEN[@]}" --pids-limit 32 "$IMAGE" \
+    node -e 'const h=require("http");const body=JSON.stringify({model:process.argv[1],max_tokens:16,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[]});const r=h.request({host:"aos-api-proxy",port:8080,path:"/v1/messages",method:"POST",headers:{"content-type":"application/json","content-length":Buffer.byteLength(body)}},(res)=>{console.log(res.statusCode);res.resume()});r.on("error",()=>{console.log("ERR")});r.end(body)' "$MODEL" 2>/dev/null)"
+  docker rm -f "aos-probe-proxy-$R8" >/dev/null 2>&1
+  docker network rm "$net" >/dev/null 2>&1
+  case "$code" in 4*) SMOKE_PROBE_RESULT="PASS (web_search rejected: $code)" ;; *) SMOKE_PROBE_RESULT="FAIL (status $code)" ;; esac
+}
+
+# smoke_checklist: prints a plumbing checklist for the single smoke sample.
+smoke_checklist() {
+  local tag row proxy tx keyhash
+  tag="$(ls "$OUT"/claude-*.log 2>/dev/null | head -1)"; tag="$(basename "${tag:-claude-x.log}" .log)"; tag="${tag#claude-}"
+  row="$(head -1 "$SAMPLES" 2>/dev/null)"
+  proxy="$OUT/proxy-$tag.log"; tx="$OUT/transcripts/$tag.jsonl"
+  keyhash="$(printf '%s' "${ANTHROPIC_API_KEY:-}" | iso_sha256)"
+  echo "smoke checklist ($tag):"
+  # 1 — no 403 and no 4xx-from-beta in the proxy log.
+  if [ -f "$proxy" ] && grep -q '"status":40[0-9]' "$proxy"; then
+    echo "  1. proxy 4xx seen — INSPECT $proxy:"; grep '"status":40[0-9]' "$proxy" | head -5 | sed 's/^/       /'
+  else echo "  1. no proxy 4xx (no 403s, no rejected betas): PASS"; fi
+  # 2 — result record parsed.
+  echo "  2. CLI result record parsed: $(printf '%s' "$row" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8")||"{}");process.stdout.write(r.cli_cost_usd!==null||(r.metrics&&r.metrics.turns>0)?"PASS":"not seen (plain-text output?)")')"
+  # 3 — transcript found with both prompts (2 message_start, best-effort).
+  if [ -f "$tx" ]; then
+    echo "  3. transcript saved ($(wc -l < "$tx" | tr -d ' ') lines; message_start count $(grep -c '"type":"message_start"' "$tx" 2>/dev/null || echo 0), expected 2): $([ -s "$tx" ] && echo PASS || echo EMPTY)"
+  else echo "  3. transcript NOT saved: FAIL"; fi
+  # 4 — CLI vs proxy cost, per the row.
+  printf '%s' "$row" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8")||"{}");console.log("  4. cost: proxy-primary="+r.cost_usd+" ("+r.cost_source+"), cli="+r.cli_cost_usd+", mismatch="+r.cost_mismatch_usd+"; proxy tokens="+JSON.stringify(r.tokens))'
+  # 5 — key hash nowhere in $OUT.
+  if [ -n "$keyhash" ] && grep -rqF "$keyhash" "$OUT" 2>/dev/null; then echo "  5. key hash FOUND in \$OUT: FAIL"; else echo "  5. key hash absent from \$OUT: PASS"; fi
+  # 6 — web_search probe.
+  echo "  6. web_search probe through the proxy: $SMOKE_PROBE_RESULT"
+  # 7 — manual.
+  echo "  7. Ctrl-C handling: MANUAL — send SIGINT mid-run; the run must stop, the current sample be marked incomplete (interrupted), and summary.json still be written."
+}
+
 # ---- run + score each sample ---------------------------------------------------
 new_scratch scores; SCORES="$SCRATCH_LAST"
+START_FAILS=0
 for k in "${!S_ROOT[@]}"; do
+  [ "$INTERRUPTED" = 1 ] && { echo "interrupted before sample $((k + 1)); not starting it."; break; }
   root="${S_ROOT[$k]}"; i="${S_ARM[$k]}"; j="${S_SCN[$k]}"; r="${S_RUN[$k]}"; sid="${S_SID[$k]}"
   tag="${ARM_NAME[$i]}-${SCN_NAME[$j]}-r$r"
-  log="$OUT/claude-$tag.log"
-  : > "$log"
+  log="$OUT/claude-$tag.log"; : > "$log"
+  score="$SCORES/$k.json"; : > "$score"
+  codes=""; sample_interrupted=0; started_ok=1
   echo "[$((k + 1))/${#S_ROOT[@]}] $tag (${SCN_N[$j]} prompt(s)) …"
-  if [ "$SANDBOX" = docker ]; then docker_start_sample "$k" || die "could not start the $tag sample container"; fi
-  codes=""
-  for n in $(seq 1 "${SCN_N[$j]}"); do
-    prompt="$(cat "$PROMPTS_DIR/$j/$n.txt")"
-    if [ "$n" = 1 ]; then session=(--session-id "$sid"); else session=(--resume "$sid"); fi
-    echo "--- prompt $n ---" >> "$log"
-    if [ "$SANDBOX" = docker ]; then
-      docker_prompt "$k" -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
-      rc="${PIPESTATUS[0]}"
-    else
-      iso_exec "$root" "$AUTH_VAR" -- claude -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
-      rc="${PIPESTATUS[0]}"
-    fi
-    codes="$codes${codes:+ }$rc"
-    # A failed prompt ends the sample: resuming past it would score a
-    # different conversation. The row records it as incomplete.
-    if [ "$rc" != 0 ]; then
-      echo "  (prompt $n of ${SCN_N[$j]} exited $rc; sample stopped, incomplete; see $log)"
-      break
-    fi
-  done
-
-  full="$SCORES/$k-full.json"; score="$SCORES/$k.json"
   if [ "$SANDBOX" = docker ]; then
-    docker_score "$k" "${SCN_NAME[$j]}" "$full" 2>"$SCORES/$k.err"
-    docker_end_sample "$k" "$tag"
-  else
-    node "$HARNESS/lib/score-sample.mjs" --root "$root" --sid "$sid" --scenario "${SCN_NAME[$j]}" \
-      --harness "$HARNESS" --work "$SCORES/$k-work" --emit-transcript > "$full" 2>"$SCORES/$k.err"
+    if docker_start_sample "$k"; then
+      START_FAILS=0
+    else
+      started_ok=0; START_FAILS=$((START_FAILS + 1))
+      echo "  could not start the $tag sample container; recording it incomplete." >&2
+      docker_capture_proxy "$k" "$tag"; docker_end_sample "$k"
+      [ "$START_FAILS" -lt 2 ] || die "two consecutive sample-container start failures; aborting (summary.json covers the samples done so far)"
+    fi
   fi
-  # Split the scorer output: the transcript goes to <out>/transcripts (redacted),
-  # the rest is the score. A malformed score is an empty object.
-  node -e '
-    const fs = require("fs"); let o = {};
-    try { o = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch {}
-    if (typeof o.transcript === "string") fs.writeFileSync(process.argv[3], o.transcript, "latin1");
-    delete o.transcript;
-    fs.writeFileSync(process.argv[2], JSON.stringify(o));
-  ' "$full" "$score" "$SCORES/$k.transcript"
-  [ -f "$SCORES/$k.transcript" ] && redact < "$SCORES/$k.transcript" > "$OUT/transcripts/$tag.jsonl"
+  if [ "$started_ok" = 1 ]; then
+    for n in $(seq 1 "${SCN_N[$j]}"); do
+      if [ "$INTERRUPTED" = 1 ]; then sample_interrupted=1; echo "  (interrupted during $tag at prompt $n)"; break; fi
+      prompt="$(cat "$PROMPTS_DIR/$j/$n.txt")"
+      if [ "$n" = 1 ]; then session=(--session-id "$sid"); else session=(--resume "$sid"); fi
+      echo "--- prompt $n ---" >> "$log"
+      if [ "$SANDBOX" = docker ]; then
+        docker_prompt "$k" -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
+      else
+        iso_exec "$root" "$AUTH_VAR" -- claude -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
+      fi
+      rc="${PIPESTATUS[0]}"
+      codes="$codes${codes:+ }$rc"
+      if [ "$rc" != 0 ]; then
+        echo "  (prompt $n of ${SCN_N[$j]} exited $rc; sample stopped, incomplete; see $log)"
+        break
+      fi
+    done
+  fi
+
+  if [ "$SANDBOX" = docker ] && [ "$started_ok" = 1 ]; then
+    docker_capture_proxy "$k" "$tag"
+    docker_save_transcript "$k" "$tag"
+    docker_score "$k" "${SCN_NAME[$j]}" "$score" 2>"$SCORES/$k.err" || true
+    docker_end_sample "$k"
+  elif [ "$SANDBOX" = none ]; then
+    node "$HARNESS/lib/score-sample.mjs" --root "$root" --sid "$sid" --scenario "${SCN_NAME[$j]}" \
+      --harness "$HARNESS" --work "$SCORES/$k-work" --emit-transcript > "$SCORES/$k-full.json" 2>"$SCORES/$k.err" || true
+    node -e '
+      const fs = require("fs"); let o = {};
+      try { o = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch {}
+      if (typeof o.transcript === "string") fs.writeFileSync(process.argv[3], o.transcript, "latin1");
+      delete o.transcript;
+      fs.writeFileSync(process.argv[2], JSON.stringify(o));
+    ' "$SCORES/$k-full.json" "$score" "$SCORES/$k.transcript" 2>/dev/null || echo '{}' > "$score"
+    [ -f "$SCORES/$k.transcript" ] && redact < "$SCORES/$k.transcript" > "$OUT/transcripts/$tag.jsonl"
+  fi
   redact < "$score" > "$OUT/score-$tag.json"
-  redact < "$SCORES/$k.err" > "$OUT/score-$tag.err"
-  echo "  exploit: $(jq -r '.exploit.json.exploit // (if .exploit then "error" else "n/a" end)' "$score" 2>/dev/null || echo error)  security-scan exit: $(jq -r '.scan.rc // "n/a"' "$score" 2>/dev/null)"
+  [ -f "$SCORES/$k.err" ] && redact < "$SCORES/$k.err" > "$OUT/score-$tag.err"
+  echo "  exploit: $(jq -r '.exploit.json.exploit // (if .exploit then "error" else "n/a" end)' "$score" 2>/dev/null || echo n/a)  security-scan exit: $(jq -r '.scan.rc // "n/a"' "$score" 2>/dev/null)"
 
   RUN_ID="$RUN_ID" HARNESS_SHA="$HARNESS_SHA" HARNESS_DIRTY="$HARNESS_DIRTY" SANDBOX="$SANDBOX" \
   ARM="${ARM_NAME[$i]}" REF="${ARM_REF[$i]}" FLAGS="${ARM_FLAGS[$i]}" REPO_SHA="${ARM_SHA[$i]}" \
   SCENARIO="${SCN_NAME[$j]}" PROMPTS="${SCN_N[$j]}" SAMPLE="$r" ORDER="$k" SID="$sid" \
-  EXIT_CODES="$codes" SCORE_JSON="$score" LOG="$log" TASK_BASE="${S_BASE[$k]}" \
+  EXIT_CODES="$codes" INTERRUPTED="$sample_interrupted" \
+  SCORE_JSON="$score" LOG="$log" PROXY_LOG="$OUT/proxy-$tag.log" TASK_BASE="${S_BASE[$k]}" \
+  PRICE_IN_PER_MTOK="$PRICE_IN_PER_MTOK" PRICE_OUT_PER_MTOK="$PRICE_OUT_PER_MTOK" \
     node "$DIR/lib/sample-row.mjs" | redact >> "$SAMPLES" || die "could not write the sample row for $tag"
+  [ "$INTERRUPTED" = 1 ] && { echo "stopping the run (interrupted)."; break; }
 done
 
 node "$DIR/summarize-samples.mjs" "$SAMPLES" --json > "$OUT/summary.json" || die "summary failed"
 echo ""
 node "$DIR/summarize-samples.mjs" "$SAMPLES"
 echo ""
+if [ "$SMOKE" = 1 ]; then smoke_probe; smoke_checklist; fi
 echo "samples: $SAMPLES"
 echo "summary: $OUT/summary.json"
 echo "NOTE: stochastic samples. Compare distributions (min/max), not one mean; see README.md \"Release arms\"."
+[ "$INTERRUPTED" = 1 ] && exit 130 || true
