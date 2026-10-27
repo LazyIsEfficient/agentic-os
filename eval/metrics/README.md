@@ -24,6 +24,7 @@ export ANTHROPIC_API_KEY=...   # or CLAUDE_CODE_OAUTH_TOKEN; arms have no login 
 bash run-arms.sh [--keep] [--out DIR] "<scenario prompt>"
 bash session-metrics-test.sh && bash compare-test.sh   # Claude + Cursor self-tests
 bash run-arms-isolation-test.sh                        # arm isolation (stub claude, no API)
+bash run-release-arms.sh --smoke --scenario long-session-awareness main=main   # plumbing (2 calls)
 bash run-release-arms.sh [options] --scenario NAME... NAME=REF[:FLAGS]...
 node summarize-samples.mjs <samples.jsonl> [--json]
 bash run-release-arms-test.sh                          # release arms (stub claude, no API)
@@ -69,12 +70,14 @@ The model runs with `--dangerously-skip-permissions`, so it is treated as
 hostile: it may try to forge its own score, read the key, or leave things for
 the next sample. The harness runs on the host and does the following:
 
-1. Builds `docker/Dockerfile` with every tool pinned: node 22.22.0 (by
-   digest), Claude Code 2.1.311, semgrep 1.182.1, and gitleaks 8.30.1
-   (sha256-checked). The build context is staged from the HEAD export: the
-   Dockerfile plus `harness/`, which holds the scoring code, the proxy and the
-   scanner. That code is baked into the image under `/opt/harness`,
-   root-owned. The repo is never mounted into any container.
+1. Builds two pinned images: a **base** (`docker/Dockerfile`: node 22.22.0 by
+   digest, Claude Code 2.1.311, semgrep 1.182.1, gitleaks 8.30.1 sha256-checked,
+   plus only the proxy under `/opt/harness/lib`), and a **scorer**
+   (`docker/Dockerfile.scorer`, `FROM` the base, adding the full grader). The
+   model and proxy containers run from the base, which does **not** contain the
+   scoring code or the exploit vectors, so a sample cannot read the grader. Both
+   contexts are staged from the HEAD export; the repo is never mounted into any
+   container.
 2. Prepares and preflights every sample root on the host, exactly as before.
 3. For each sample, in interleaved order:
    - **Sample container.** The root is copied into a fresh docker volume and
@@ -83,37 +86,62 @@ the next sample. The harness runs on the host and does the following:
      `--cap-drop ALL`, `no-new-privileges`, a read-only root fs, tmpfs
      `/tmp`, `--init` and a pids limit. It sits on an `--internal` network.
      Each prompt is a separate `docker exec` from the host, so the model
-     cannot rewrite a later prompt.
-   - **Proxy container** (`lib/api-proxy.mjs`). This is the sample's only
-     route out. The sample's claude gets `ANTHROPIC_BASE_URL` pointing at the
-     proxy and a placeholder key. The proxy holds the real
-     `ANTHROPIC_API_KEY`: it strips any client credential and injects the
-     real one. It allows only `POST /v1/messages`,
-     `POST /v1/messages/count_tokens` and `GET /v1/models`, caps requests at
-     400 per sample, and logs every request (never headers or bodies). The
-     model never sees the key, and it can reach nothing else. The sample also
-     gets `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
-     `DISABLE_AUTOUPDATER=1`. UNVERIFIED: that Claude Code needs no other
-     endpoint in this setup. If it does, the proxy log shows `denied`.
-   - **Scorer container** (`lib/score-sample.mjs`). A fresh container with
+     cannot rewrite a later prompt. The harness re-hashes the installed
+     library inside the container and aborts the sample if it differs from the
+     preflighted host root.
+   - **Proxy container** (`lib/api-proxy.mjs`), the sample's only route out and
+     the **authoritative record** of what it spent. The sample's claude gets
+     `ANTHROPIC_BASE_URL` pointing at the proxy and a placeholder key; the
+     proxy holds the real `ANTHROPIC_API_KEY`, strips any client credential and
+     `x-forwarded-*`, and injects the real key. It fully parses each request
+     body and allows only `POST /v1/messages`,
+     `POST /v1/messages/count_tokens` and `GET /v1/models`, only the arm's
+     `model`, `max_tokens` ≤ 32000, and an `anthropic-beta` allowlist, and it
+     rejects server-side tools (`web_search`/`web_fetch`/…) and `mcp_servers`.
+     It caps requests (400) and cumulative input+output tokens per sample
+     (`PROXY_MAX_TOKENS_TOTAL`, default 2,000,000), returning 429 past either.
+     It parses usage from each response (including streaming SSE) and logs it,
+     never headers or bodies. UNVERIFIED: the exact `anthropic-beta` values and
+     endpoints Claude Code 2.1.311 needs — rejections are logged, so the smoke
+     run reveals any gap; add the value to `PROXY_BETAS` and re-run.
+   - **Scorer container** (`lib/score-sample.mjs`), from the scorer image, with
      network `none` and the sample volume mounted read-only. It reads only the
      task tree and the transcript, as data. The app under test runs as a
-     separate uid (2000), so it cannot touch the scorer. Every process of
-     that uid is killed afterwards.
-   - The host copies out only the transcript, the logs and the score, each
-     through `lib/redact.mjs` (key values replaced, size-capped). The volume
-     and the containers are then removed.
+     separate uid (2000), so it cannot touch the scorer; every process of that
+     uid is killed afterwards.
+   - The transcript is copied out of the volume first (a read-only helper,
+     size-capped), so a scorer crash can't lose the paid result. The host
+     writes out only the transcript, the logs and the score, each through
+     `lib/redact.mjs` (key values replaced, size-capped). Containers and the
+     volume are then removed; a scorer crash leaves the volume for inspection.
+
+**Trust model.** The model runs with `--dangerously-skip-permissions`, so its
+CLI log and the transcript are treated as **model-writable**: awareness metrics
+are advisory. **Tokens and cost are proxy-authoritative** (the proxy is outside
+the model's reach), and the sample row flags any disagreement with the CLI's
+own cost. Completeness is decided from host-observed exit codes, interrupts, and
+proxy caps — a model can drop its own sample but cannot forge a complete one or
+forge low spend.
 
 `run-release-arms-docker-test.sh` runs 2 samples with an adversarial stub. It
-checks that the stub cannot:
-- rewrite the exploit check, scanner or scorer;
-- see or plant into another sample;
-- see the key in its env or any `/proc/*/environ`;
-- reach the network except through the proxy and its allowlist.
+checks that the stub cannot: rewrite the exploit check, scanner or scorer; see
+or plant into another sample; see the key in its env or any `/proc/*/environ`;
+reach the network except through the proxy; or get a server-tool / oversized /
+disallowed-model / disallowed-beta request past the proxy. The vulnerable app
+it writes still scores `fail`. The proxy's `echo` test upstream means no API
+call is made. The test skips when no docker daemon is reachable.
 
-It also checks that the vulnerable app the stub writes still scores `fail`.
-The proxy's `echo` test upstream means no API call is made. The test skips
-when no docker daemon is reachable.
+`--smoke` runs one plumbing sample (1 arm, the long-session scenario truncated
+to 2 prompts, 1 run = 2 invocations incl. one `--resume`) and prints a
+checklist: proxy 4xx/beta rejections, result-record parsed, transcript holds
+both prompts, CLI vs proxy cost, key hash absent from `$OUT`, a web_search
+probe rejected, and a manual Ctrl-C note. Use it against the real API once
+before a full run to confirm the proxy allowlist and the result-record shape.
+
+`--sandbox none` runs the same pipeline on the host with **no containment**.
+It is for tests with a stub `claude` only, and it also accepts
+`CLAUDE_CODE_OAUTH_TOKEN`. The docker sandbox needs a Console API key,
+because the proxy injects it.
 
 `--sandbox none` runs the same pipeline on the host with **no containment**.
 It is for tests with a stub `claude` only, and it also accepts
@@ -152,13 +180,15 @@ because the proxy injects it.
   10 prompts. `--max-budget-usd 5` per invocation is the default; change it
   with `--max-budget-usd X`, or drop it with `--no-max-budget`. It is a cap on
   Claude Code's client-side estimate, and spend can pass it. `--max-turns N`
-  is optional. Both flags are print-mode only. UNVERIFIED: whether hitting
-  either limit exits non-zero. Every invocation gets `--output-format json`,
-  so the log ends with the CLI's result record (its `total_cost_usd` is
-  summed into `cost_usd`). A sample is marked incomplete either way, on a
-  non-zero exit, a `Reached max turns` / `Exceeded USD budget` line in the
-  log, or an `is_error: true` result record in the log or transcript. The
-  wording and the record shape are also UNVERIFIED.
+  is optional. Both flags are **client-side and model-bypassable** (a model can
+  call the proxy directly); the proxy's per-sample token cap is the real
+  ceiling. UNVERIFIED: whether hitting either limit exits non-zero. Every
+  invocation gets `--output-format json`, so the log ends with the CLI's result
+  record. A sample is marked incomplete on a non-zero exit, an interrupt, a
+  proxy 429, or a structured non-success CLI result record (`subtype !==
+  "success"` or `is_error`) — never by matching free text. The cost gate also
+  prints the proxy token cap and a worst-case dollar ceiling at UNVERIFIED
+  prices.
 - **Interleaving.** Samples run in rounds. Round *r* runs every scenario under
   every arm, with the arm order rotated by one each round. Every sample has
   its own fresh root (and, in docker, its own volume and containers).
@@ -173,11 +203,17 @@ because the proxy injects it.
     the working tree. Git runs with no system, global, hook or fsmonitor
     config.
 
-  A missing scanner is recorded as `unavailable`. Known limit: a `.gitignore`
-  written by the model still hides untracked files from the scan scope.
-- **Summary.** `summarize-samples.mjs` computes metrics and exploit counts over
-  **complete** samples only. It prints a `WARNING` for any arm with incomplete
-  samples, and counts those per arm with their reasons.
+    `scan-task.sh` first strips every `.gitignore`/`.gitattributes`, nested
+    `.git` and `.git/info/exclude`, then force-adds all files, so a model
+    cannot hide a planted file from the scan.
+
+  A missing scanner is recorded as `unavailable`.
+- **Summary.** `summarize-samples.mjs` reports per arm, over **complete**
+  samples only, the proxy-authoritative tokens and cost as the **primary**
+  block and the transcript awareness signals as an **advisory** block. It
+  strips control characters from every printed and stored string, prints a
+  `WARNING` for any arm with incomplete samples, and counts those per arm with
+  their reasons.
 
 `--out` must be outside the repo. The default is
 `$HOME/agentic-os-eval-runs/<stamp>-release-arms`. It contains:
@@ -186,8 +222,10 @@ because the proxy injects it.
 - `samples.jsonl`: one row per sample. The fields are `arm`, `ref`, `flags`,
   `repo_sha`, `sandbox`, `scenario`, `sample`, `order`, `session_id`,
   `prompts`, `prompts_run`, `status`, `incomplete_reason`, `stop_signals`,
-  `exit_code` / `exit_codes`, `cost_usd`, `metrics`, `compact_boundaries`,
-  `task_base`, `exploit` and `scan`;
+  `exit_code` / `exit_codes`, `tokens` (proxy), `cost_usd` + `cost_source` +
+  `cli_cost_usd` + `cost_mismatch_usd`, `proxy`, `metrics` (advisory),
+  `compact_boundaries`, `task_base`, `exploit` and `scan`;
+- `proxy-<tag>.log`: the authoritative per-request record for that sample;
 - `summary.json`;
 - `transcripts/<tag>.jsonl`;
 - `claude-<tag>.log`, `proxy-<tag>.log`, `install-<tag>.log`, and
