@@ -113,7 +113,7 @@ the next sample. The harness runs on the host and does the following:
      size-capped), so a scorer crash can't lose the paid result. The host
      writes out only the transcript, the logs and the score, each through
      `lib/redact.mjs` (key values replaced, size-capped). Containers and the
-     volume are then removed; a scorer crash leaves the volume for inspection.
+     volume are then removed (the transcript is already saved by then).
 
 **Trust model.** The model runs with `--dangerously-skip-permissions`, so its
 CLI log and the transcript are treated as **model-writable**: awareness metrics

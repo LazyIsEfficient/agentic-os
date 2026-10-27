@@ -42,10 +42,10 @@ if (e.LOG && existsSync(e.LOG)) {
 }
 let cliCost = null;
 for (const r of cliResults) { const c = num(r.total_cost_usd); if (c !== null && c >= 0) cliCost = (cliCost || 0) + c; }
-// ADVISORY stop indicators: the CLI log and the transcript are model-writable,
-// so these are recorded but NEVER drive `status` (a model could otherwise forge
-// its own dropout). Status comes only from host/proxy-authoritative signals
-// below. Read from the LAST result's structured fields only, never by regex.
+// ADVISORY stop indicators: the CLI log and the transcript are model-writable.
+// They DO mark a row incomplete (see below), which a model can only use to drop
+// its OWN sample; listed separately in advisory_stop_signals. Read from the
+// LAST result's structured fields only, never by regex over free text.
 const advisorySignals = [];
 const last = cliResults[cliResults.length - 1];
 if (last) {
@@ -109,9 +109,9 @@ if (e.INTERRUPTED === '1') stopSignals.push('interrupted');
 // tokens/cost (proxy-authoritative).
 const allSignals = [...new Set([...stopSignals, ...advisorySignals])];
 let incompleteReason = null;
-if (firstNonzero !== undefined) incompleteReason = `prompt ${exitCodes.indexOf(firstNonzero) + 1} of ${prompts} exited ${firstNonzero}`;
+if (stopSignals.includes('interrupted')) incompleteReason = `interrupted (${exitCodes.length} of ${prompts} prompts ran)`;
+else if (firstNonzero !== undefined) incompleteReason = `prompt ${exitCodes.indexOf(firstNonzero) + 1} of ${prompts} exited ${firstNonzero}`;
 else if (exitCodes.length !== prompts) incompleteReason = `${exitCodes.length} of ${prompts} prompts ran`;
-else if (stopSignals.includes('interrupted')) incompleteReason = 'interrupted';
 else if (allSignals.length) incompleteReason = `stopped: ${allSignals[0]}`;
 else if (!metrics) incompleteReason = 'no transcript metrics';
 const uniqueSignals = allSignals;

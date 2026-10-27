@@ -515,7 +515,7 @@ docker_end_sample() {
 
 # smoke_probe: item 6. A throwaway proxy (echo upstream, dummy key) + a probe
 # container that sends a /v1/messages body declaring a web_search tool; the
-# proxy must answer 4xx. Writes PASS/FAIL to $OUT/smoke-probe.txt.
+# proxy must answer 4xx. Sets SMOKE_PROBE_RESULT for the checklist.
 SMOKE_PROBE_RESULT="unrun"
 smoke_probe() {
   [ "$SANDBOX" = docker ] || { SMOKE_PROBE_RESULT="n/a (sandbox none)"; return; }
@@ -593,7 +593,7 @@ for k in "${!S_ROOT[@]}"; do
       else
         iso_exec "$root" "$AUTH_VAR" -- claude -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
       fi
-      rc="${PIPESTATUS[0]}"
+      rc="${PIPESTATUS[0]}"; [ "$INTERRUPTED" = 1 ] && sample_interrupted=1
       codes="$codes${codes:+ }$rc"
       if [ "$rc" != 0 ]; then
         echo "  (prompt $n of ${SCN_N[$j]} exited $rc; sample stopped, incomplete; see $log)"

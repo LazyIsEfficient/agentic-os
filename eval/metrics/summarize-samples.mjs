@@ -46,7 +46,7 @@ function isComplete(r) {
     && Boolean(r.metrics) && typeof r.metrics === 'object';
 }
 function incompleteReason(r) {
-  const codes = Array.isArray(r.exit_codes) ? r.exit_codes : [];
+  const codes = Array.isArray(r.exit_codes) ? r.exit_codes : []; if (signals(r).includes('interrupted')) return `interrupted (${codes.length} of ${r.prompts} prompts ran)`;
   const i = codes.findIndex((c) => c !== 0);
   if (i >= 0) return `prompt ${i + 1} of ${r.prompts} exited ${codes[i]}`;
   if (codes.length !== r.prompts) return `${codes.length} of ${r.prompts} prompts ran`;
