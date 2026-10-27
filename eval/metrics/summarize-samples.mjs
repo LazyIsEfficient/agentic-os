@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // summarize-samples.mjs — per (scenario, arm) mean / min / max of the token and
 // awareness metrics in a run-release-arms.sh samples.jsonl, over COMPLETE
-// samples only, plus exploit counts and incomplete samples with reasons. Deterministic (Tier 0): the output depends only on the
-// rows' values, not their order or timestamps; groups are sorted by scenario,
-// then arm (code-point order); means are rounded to 2 decimals.
+// samples only, plus exploit counts and incomplete samples with reasons.
+// Deterministic (Tier 0): the output depends only on the rows' values, not
+// their order or timestamps; groups are sorted by scenario, then arm
+// (code-point order); means are rounded to 2 decimals.
 //
 // This summarizes a distribution of stochastic samples. It is NOT a
 // significance test; with small N read min/max, not just the mean.
@@ -33,15 +34,18 @@ function stats(values) {
 }
 
 // Recomputed from the raw fields, not taken from the row's `status`.
+const signals = (r) => (Array.isArray(r.stop_signals) ? r.stop_signals : []);
 function isComplete(r) {
   return Array.isArray(r.exit_codes) && r.exit_codes.length === r.prompts
-    && r.exit_codes.every((c) => c === 0) && Boolean(r.metrics) && typeof r.metrics === 'object';
+    && r.exit_codes.every((c) => c === 0) && signals(r).length === 0
+    && Boolean(r.metrics) && typeof r.metrics === 'object';
 }
 function incompleteReason(r) {
   const codes = Array.isArray(r.exit_codes) ? r.exit_codes : [];
   const i = codes.findIndex((c) => c !== 0);
   if (i >= 0) return `prompt ${i + 1} of ${r.prompts} exited ${codes[i]}`;
   if (codes.length !== r.prompts) return `${codes.length} of ${r.prompts} prompts ran`;
+  if (signals(r).length) return `stopped: ${signals(r)[0]}`;
   return 'no transcript metrics';
 }
 
@@ -103,6 +107,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const f = (x) => (x == null ? '-' : String(x));
     for (const g of s.groups) {
       console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count}`);
+      if (g.complete < g.samples) {
+        console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);
+      }
       for (const [why, n] of Object.entries(g.incomplete.reasons)) console.log(`  incomplete: ${n} x ${why}`);
       for (const [k, v] of Object.entries(g.metrics)) console.log(`  ${k.padEnd(22)} mean ${f(v.mean).padStart(10)}  min ${f(v.min).padStart(8)}  max ${f(v.max).padStart(8)}  (n=${v.n})`);
       if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);

@@ -69,6 +69,13 @@ if [ -f app.js ] && grep -q createHandler app.js; then
   [ -d .git ] && printf '[core]\n\tfsmonitor = %s\n\thooksPath = %s\n' "$T/evil-hook.sh" "$T/evil-hooks" >> .git/config
 fi
 if [ -f "$T/fail-on-call" ] && [ "\$(cat "$T/fail-on-call")" = "\$n" ]; then echo "stub: injected failure" >&2; exit 1; fi
+# A model that prints the key: every log in <out> must be redacted.
+echo "model output: key=\${ANTHROPIC_API_KEY:-}"
+case "\$(cat "$T/stub-mode" 2>/dev/null)" in
+  budget-line) echo "Error: Exceeded USD budget (5)" ;;
+  error-result) echo '{"type":"result","subtype":"error_max_turns","is_error":true,"total_cost_usd":0.25}' ;;
+  *) echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5}' ;;
+esac
 echo "stub claude ok"
 STUB
 chmod +x "$T/bin/claude"
@@ -83,7 +90,7 @@ run_case() {
   rm -rf "$T/stub-log"
   HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" \
     ANTHROPIC_API_KEY="$CANARY" CLAUDECODE=1 CLAUDE_CODE_ENTRYPOINT=cli \
-    "$SH" "$RUN" --out "$T/out-$name" "$@" < /dev/null > "$T/$name.stdout" 2> "$T/$name.stderr"
+    "$SH" "$RUN" --sandbox none --out "$T/out-$name" "$@" < /dev/null > "$T/$name.stdout" 2> "$T/$name.stderr"
   echo $? > "$T/$name.rc"
 }
 ncalls() { find "$T/stub-log" -mindepth 1 -maxdepth 1 -name 'call-*' 2>/dev/null | wc -l | tr -d ' '; }
@@ -310,6 +317,30 @@ check "stopped sample row: incomplete, 3 of 10 prompts run, reason names the pro
   '[ "$(rows "$T/out-stop/samples.jsonl" "const r=l[0];[r.status,r.prompts_run,r.exit_code,r.incomplete_reason].join(\"|\")")" = "incomplete|3|1|prompt 3 of 10 exited 1" ]'
 check "stopped sample is excluded from summary metrics and counted as incomplete" \
   '[ "$(node -e "const g=require(process.argv[1]).groups[0];console.log(g.complete+\",\"+g.metrics.turns.n+\",\"+g.incomplete.count)" "$T/out-stop/summary.json")" = "0,0,1" ]'
+
+# ---- 8c. a limit stop that exits 0 still makes the sample incomplete -------------
+for mode in budget-line error-result; do
+  echo "$mode" > "$T/stub-mode"
+  run_case "sig-$mode" --yes --scenario seeded-path-traversal main=HEAD
+done
+rm -f "$T/stub-mode"
+check "budget stop line with exit 0 -> incomplete" \
+  '[ "$(rows "$T/out-sig-budget-line/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status+\"|\"+l[0].incomplete_reason")" = "0|incomplete|stopped: budget stop line in log" ]'
+check "error result record with exit 0 -> incomplete" \
+  '[ "$(rows "$T/out-sig-error-result/samples.jsonl" "l[0].exit_code+\"|\"+l[0].status+\"|\"+l[0].incomplete_reason")" = "0|incomplete|stopped: error result in log: error_max_turns" ]'
+check "summary warns when an arm has incomplete samples" 'grep -q "WARNING: only 0 of 1 samples complete for main" "$T/sig-budget-line.stdout"'
+check "cost from result records is summed per sample" '[ "$(rows "$T/out-long/samples.jsonl" "l[0].cost_usd")" = 5 ]'
+
+# ---- 8d. output dir policy and redaction ------------------------------------------
+run_case inrepo-dummy --yes --scenario seeded-path-traversal main=HEAD
+HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" \
+  "$SH" "$RUN" --sandbox none --yes --out "$DIR/runs/should-not-exist" --scenario seeded-path-traversal main=HEAD \
+  < /dev/null > "$T/inrepo.out" 2>&1
+rc=$?
+check "--out inside the repo is refused before anything runs" \
+  '[ "$rc" != 0 ] && grep -q "must be outside the repo" "$T/inrepo.out" && [ ! -e "$DIR/runs/should-not-exist" ]'
+check "a stub that prints the key: the key never reaches <out>; the log shows the redaction" \
+  '! grep -rqF "$CANARY" "$T"/out-* && grep -qF "key=[REDACTED:ANTHROPIC_API_KEY]" "$T/out-inrepo-dummy/claude-main-seeded-path-traversal-r1.log"'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'

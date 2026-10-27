@@ -1,6 +1,7 @@
-# Container for live run-release-arms.sh runs (see run-release-arms-docker.sh).
-# The model runs with --dangerously-skip-permissions; inside this container it
-# can reach only the container, the read-only repo mount and the output mount.
+# Image for run-release-arms.sh --sandbox docker: per-sample model containers,
+# the API proxy, and the per-sample scorer all run from it. The build context
+# is staged by run-release-arms.sh (this Dockerfile + harness/ from the HEAD
+# export); the repo itself is never mounted into any container.
 # Every tool is pinned. To bump: change the pin, and for gitleaks also its sha256
 # (from the release's checksums.txt).
 FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94
@@ -36,8 +37,11 @@ RUN python3 -m venv /opt/semgrep \
 RUN npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
  && npm cache clean --force
 
-# The repo is bind-mounted read-only at /repo and owned by the host user.
-RUN git config --system --add safe.directory '*'
+# Scoring code, proxy and scanner, staged by run-release-arms.sh from the HEAD
+# export (the build context is never the working tree). Root-owned, read-only
+# to every container user; the containers also run with a read-only root fs.
+COPY harness /opt/harness
+RUN chown -R root:root /opt/harness && chmod -R a+rX,go-w /opt/harness
 
 ENV GIT_OPTIONAL_LOCKS=0
 USER node
