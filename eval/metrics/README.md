@@ -153,7 +153,9 @@ because the proxy injects it.
   with `--max-budget-usd X`, or drop it with `--no-max-budget`. It is a cap on
   Claude Code's client-side estimate, and spend can pass it. `--max-turns N`
   is optional. Both flags are print-mode only. UNVERIFIED: whether hitting
-  either limit exits non-zero. A sample is marked incomplete either way, on a
+  either limit exits non-zero. Every invocation gets `--output-format json`,
+  so the log ends with the CLI's result record (its `total_cost_usd` is
+  summed into `cost_usd`). A sample is marked incomplete either way, on a
   non-zero exit, a `Reached max turns` / `Exceeded USD budget` line in the
   log, or an `is_error: true` result record in the log or transcript. The
   wording and the record shape are also UNVERIFIED.

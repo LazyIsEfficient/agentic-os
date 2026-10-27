@@ -365,7 +365,7 @@ done
 for d in "${ARM_SRC[@]}" "$TASK_SRC"; do [ -n "$d" ] && rm -rf "$d"; done
 echo "all ${#S_ROOT[@]} sample roots passed preflight: $LEDGER"
 
-CLAUDE_OPTS=(--dangerously-skip-permissions)
+CLAUDE_OPTS=(--dangerously-skip-permissions --output-format json)
 [ -z "$MAX_TURNS" ] || CLAUDE_OPTS+=(--max-turns "$MAX_TURNS")
 [ -z "$MAX_BUDGET" ] || CLAUDE_OPTS+=(--max-budget-usd "$MAX_BUDGET")
 
