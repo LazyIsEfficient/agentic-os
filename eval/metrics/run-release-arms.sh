@@ -493,7 +493,9 @@ docker_score() {
         --harness /opt/harness --work /tmp/score --app-uid 2000 > "$3"
 }
 
-docker_capture_proxy() { docker logs "aos-proxy-$R8-$1" 2>&1 | redact > "$OUT/proxy-$2.log"; }
+# Stop the proxy with SIGTERM first so it writes its final {summary:true} line,
+# then capture its (redacted) log.
+docker_capture_proxy() { docker stop -t 3 "aos-proxy-$R8-$1" >/dev/null 2>&1; docker logs "aos-proxy-$R8-$1" 2>&1 | redact > "$OUT/proxy-$2.log"; }
 docker_end_sample() {
   local k="$1"
   docker rm -f "aos-proxy-$R8-$k" "aos-sample-$R8-$k" >/dev/null 2>&1

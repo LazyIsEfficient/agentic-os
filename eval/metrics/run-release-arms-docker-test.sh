@@ -62,8 +62,17 @@ say repo-visible "\$(ls -d /repo /Users /out 2>/dev/null | wc -l | tr -d ' ')"
 # Egress: only the proxy, only its allowlist; the proxy injects the key.
 if curl -sS -m 5 -o /dev/null https://example.com 2>/dev/null; then say egress-direct open; else say egress-direct blocked; fi
 if curl -sS -m 5 -o /dev/null https://api.anthropic.com 2>/dev/null; then say egress-api-direct open; else say egress-api-direct blocked; fi
-say proxy-echo "\$(curl -sS -m 5 -X POST -H 'x-api-key: stolen-attempt' http://aos-api-proxy:8080/v1/messages -d '{}' 2>/dev/null)"
-say proxy-other "\$(curl -sS -m 5 -o /dev/null -w '%{http_code}' http://aos-api-proxy:8080/v1/organizations 2>/dev/null)"
+U=http://aos-api-proxy:8080
+P=\$ANTHROPIC_MODEL
+code() { curl -sS -m 5 -o /dev/null -w '%{http_code}' "\$@" 2>/dev/null; }
+# Valid request: forwarded, key injected, client creds + x-forwarded dropped.
+say proxy-echo "\$(curl -sS -m 5 -X POST -H 'content-type: application/json' -H 'x-api-key: stolen-attempt' -H 'authorization: Bearer x' -H 'x-forwarded-host: evil' "\$U/v1/messages" -d "{\"model\":\"\$P\",\"max_tokens\":16,\"messages\":[]}" 2>/dev/null)"
+say p-path "\$(code "\$U/v1/organizations")"
+say p-websearch "\$(code -X POST -H 'content-type: application/json' "\$U/v1/messages" -d "{\"model\":\"\$P\",\"max_tokens\":16,\"tools\":[{\"type\":\"web_search_20250305\",\"name\":\"web_search\"}],\"messages\":[]}")"
+say p-mcp "\$(code -X POST -H 'content-type: application/json' "\$U/v1/messages" -d "{\"model\":\"\$P\",\"max_tokens\":16,\"mcp_servers\":[{\"url\":\"http://x\"}],\"messages\":[]}")"
+say p-maxtok "\$(code -X POST -H 'content-type: application/json' "\$U/v1/messages" -d "{\"model\":\"\$P\",\"max_tokens\":999999,\"messages\":[]}")"
+say p-model "\$(code -X POST -H 'content-type: application/json' "\$U/v1/messages" -d '{"model":"evil-model","max_tokens":16,"messages":[]}')"
+say p-beta "\$(code -X POST -H 'content-type: application/json' -H 'anthropic-beta: evil-beta-2099-01-01' "\$U/v1/messages" -d "{\"model\":\"\$P\",\"max_tokens\":16,\"messages\":[]}")"
 mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
 printf '{"type":"assistant","message":{"id":"m-%s","usage":{"input_tokens":100,"output_tokens":10},"content":[]}}\n' "\$sid" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 [ -f app.js ] && echo "$VULN_B64" | base64 -d > app.js
@@ -93,10 +102,18 @@ check "sample runs as non-root" '[ "$(adv uid | sort -u)" = 1000 ]'
 check "the key is not in the sample's env or any /proc/*/environ" '[ "$(adv key-in-env | sort -u)" = 0 ] && [ "$(adv key-in-proc | sort -u)" = 0 ]'
 check "direct egress is blocked (example.com and api.anthropic.com)" \
   '[ "$(adv egress-direct | sort -u)" = blocked ] && [ "$(adv egress-api-direct | sort -u)" = blocked ]'
-check "the proxy injects the real key (sha matches) and drops the client key" \
-  '[ "$(adv proxy-echo | head -1 | node -e "const o=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(o.x_api_key_sha256)")" = "$CANARY_SHA" ]'
-check "non-allowlisted API path -> 403" '[ "$(adv proxy-other | sort -u)" = 403 ]'
-check "proxy log records the denied request" 'grep -q "\"denied\":\"not on the allowlist\"" "$T"/out/proxy-*.log'
+check "the proxy injects the real key (sha matches) and drops client + x-forwarded headers" \
+  '[ "$(adv proxy-echo | head -1 | node -e "const o=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));const h=o.forwarded_header_names||[];console.log(o.x_api_key_sha256+\"|\"+h.includes(\"x-forwarded-host\")+\"|\"+h.includes(\"authorization\"))")" = "$CANARY_SHA|false|false" ]'
+check "non-allowlisted API path -> 403" '[ "$(adv p-path | sort -u)" = 403 ]'
+check "server-side tools and mcp_servers are rejected (4xx)" \
+  '[ "$(adv p-websearch | sort -u)" = 400 ] && [ "$(adv p-mcp | sort -u)" = 400 ]'
+check "oversized max_tokens, disallowed model, disallowed beta are rejected (4xx)" \
+  '[ "$(adv p-maxtok | sort -u)" = 400 ] && [ "$(adv p-model | sort -u)" = 400 ] && [ "$(adv p-beta | sort -u)" = 400 ]'
+check "proxy log records the denied requests" 'grep -q "\"denied\":\"not on the allowlist\"" "$T"/out/proxy-*.log && grep -q "server-side tool not allowed" "$T"/out/proxy-*.log'
+check "proxy log is the authoritative token record (usage + running totals)" \
+  'grep -q "\"total_input\":" "$T"/out/proxy-*.log'
+check "rows carry proxy-authoritative tokens and a proxy-estimate cost" \
+  '[ "$(rows "l.every(r=>r.tokens&&r.tokens.source===\"proxy\"&&Number.isInteger(r.tokens.input)&&r.cost_source===\"proxy-estimate\"&&r.cost_usd>=0)")" = true ]'
 check "the key canary never appears in <out>" '! grep -rqF "$CANARY" "$T/out"'
 check "<out> holds only harness-written artifacts" \
   '[ -z "$(cd "$T/out" && find . -type f | grep -vE "^\./(isolation\.jsonl|samples\.jsonl|summary\.json|(claude|proxy|install)-[a-z0-9_-]+\.log|score-[a-z0-9_-]+\.(json|err)|transcripts/[a-z0-9_-]+\.jsonl)$")" ] && [ -z "$(find "$T/out" -type l)" ]'

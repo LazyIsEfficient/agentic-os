@@ -57,11 +57,15 @@ for a in "\$@"; do
   [ "\$prev" = "--resume" ] && { sid="\$a"; resumed=yes; }
   prev="\$a"
 done
-[ -f "$T/stub-sleep" ] && sleep "\$(cat "$T/stub-sleep")"
+n="\$(basename "\$d" | sed 's/^call-//')"
+# Test hook: on the first invocation, SIGINT the run process itself, so the
+# interrupt lands deterministically WHILE a prompt is the foreground command
+# (independent of how long install/preflight took). bash defers the trap until
+# this stub returns, so the next prompt iteration sees the interrupt.
+if [ "\$n" = 0 ] && [ -f "$T/interrupt-run" ]; then kill -INT "\$(cat "$T/interrupt-run")" 2>/dev/null; fi
 mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
 # One distinct assistant turn per invocation (message ids differ), so turns
 # from every resumed prompt must be counted.
-n="\$(basename "\$d" | sed 's/^call-//')"
 printf '{"type":"assistant","message":{"id":"m-%s","usage":{"input_tokens":100,"output_tokens":10},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/f%s"}}]}}\n' "\$n" "\$n" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 [ "\$resumed" = yes ] && echo '{"type":"system","subtype":"compact_boundary"}' >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 if [ -f app.js ] && grep -q createHandler app.js; then
@@ -205,8 +209,8 @@ check "no --yes -> non-zero exit" '[ "$(cat "$T/gate.rc")" != 0 ]'
 check "no --yes -> stub never called" '[ ! -d "$T/stub-log" ]'
 check "plan prints the total invocation count (arms x runs x prompts)" \
   'grep -qF "TOTAL: $((NA * 2 * 11)) claude -p invocations ($NA arms x 2 runs x 11 prompts" "$T/gate.stdout"'
-check "cost gate prints the default per-invocation budget and its ceiling" \
-  'grep -qF "BUDGET: --max-budget-usd 5 per invocation; ceiling if every invocation hit it: \$$((NA * 2 * 11 * 5)).00" "$T/gate.stdout"'
+check "cost gate prints the default per-invocation budget and its CLI-estimate ceiling" \
+  'grep -qF "BUDGET (client-side, model-bypassable): --max-budget-usd 5 per invocation; CLI-estimate ceiling \$$((NA * 2 * 11 * 5)).00" "$T/gate.stdout"'
 check "no --yes -> temp base empty" '[ -z "$(ls -A "$T/arms-tmp")" ]'
 
 # ---- 5. bad specs fail before anything is set up -------------------------------
@@ -364,21 +368,23 @@ check "summary strips C0/C1 escapes from scenario, arm and reasons" \
   '! LC_ALL=C grep -q "[[:cntrl:]]" "$T/ctrl.txt" && [ "$(node -e "const s=require(process.argv[1]);const j=JSON.stringify(s);console.log(/\\u001b/.test(j)||/\\u0007/.test(j))" "$T/ctrl.json")" = false ]'
 
 # ---- 8f. SIGINT stops the whole run, marks the running sample, still summarizes --
-echo 3 > "$T/stub-sleep"
+# Job control (set -m) so the backgrounded run does NOT start with SIGINT
+# ignored (the async-list rule); the stub then signals the run on prompt 1.
 rm -rf "$T/stub-log" "$T/out-int"
+set -m
 HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" \
   "$SH" "$RUN" --sandbox none --yes --smoke --out "$T/out-int" --scenario long-session-awareness main=HEAD \
   < /dev/null > "$T/int.stdout" 2>&1 &
 INT_PID=$!
-sleep 1
-kill -INT "$INT_PID" 2>/dev/null
+set +m
+echo "$INT_PID" > "$T/interrupt-run"
 wait "$INT_PID"; INT_RC=$?
-rm -f "$T/stub-sleep"
+rm -f "$T/interrupt-run"
 check "interrupted run exits 130" '[ "$INT_RC" = 130 ]'
 check "interrupted run still wrote summary.json" '[ -s "$T/out-int/summary.json" ]'
-check "the running sample is marked incomplete (interrupted)" \
-  '[ "$(rows "$T/out-int/samples.jsonl" "l.length>=1&&l[0].status===\"incomplete\"&&l[0].stop_signals.includes(\"interrupted\")")" = true ]'
-check "the run stopped early (fewer than 2 invocations completed)" '[ "$(ncalls)" -lt 2 ]'
+check "the running sample is marked incomplete, with an interrupted stop signal" \
+  '[ "$(rows "$T/out-int/samples.jsonl" "l.length===1&&l[0].status===\"incomplete\"&&l[0].stop_signals.includes(\"interrupted\")")" = true ]'
+check "the run stopped early: only the interrupted sample's prompt 1 ran" '[ "$(ncalls)" = 1 ]'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'
