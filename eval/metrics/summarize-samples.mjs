@@ -96,6 +96,11 @@ export function summarize(rows) {
       };
       // Every row (complete or not): how often the proxy refused something.
       const proxyDenials = g.rows.reduce((s, r) => s + (Number(r.proxy?.denials) || 0), 0);
+      // How cost was (or was not) derived, and which prices were missing.
+      const costSources = {};
+      for (const r of g.rows) { const k = clean(r.cost_source ?? 'none'); costSources[k] = (costSources[k] || 0) + 1; }
+      const priceMissing = [...new Set(g.rows.flatMap((r) => (Array.isArray(r.price_missing) ? r.price_missing : [])).map(clean))].sort(cmp);
+      primary.proxy_queue_wait_ms_total = stats(done.map((r) => r.proxy?.queue_wait_ms?.total));
       // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
@@ -113,13 +118,46 @@ export function summarize(rows) {
         complete: done.length,
         incomplete: { count: g.rows.length - done.length, reasons: sortedReasons },
         proxy_denials: proxyDenials,
+        cost_sources: Object.fromEntries(Object.entries(costSources).sort(([a], [b]) => cmp(a, b))),
+        price_missing: priceMissing,
+        models: [...new Set(g.rows.map((r) => clean(r.model ?? 'unknown')))].sort(cmp),
+        prompts: [...new Set(g.rows.map((r) => r.prompts))].sort((a, b) => a - b),
+        harness: [...new Set(g.rows.map((r) => clean(r.harness_sha ?? 'unknown')))].sort(cmp),
         primary,
         metrics,
         metrics_trust: 'awareness metrics are model-writable (advisory); primary tokens/cost are proxy-authoritative',
         exploit,
       };
     });
-  return { groups: out };
+  return { groups: out, comparable: comparable(out) };
+}
+
+// "Arms comparable?": one verdict for the whole run. Comparable only when
+// every group ran the same model and harness, every arm ran each scenario with
+// the same prompt count, and every (scenario, arm) has at least
+// MIN_COMPLETE complete samples. MIN_COMPLETE = 2: the least that gives a
+// min/max spread at all; with one sample there is no distribution to compare.
+export const MIN_COMPLETE = 2;
+function comparable(groups) {
+  const reasons = [];
+  const models = new Set(groups.flatMap((g) => g.models));
+  if (models.size !== 1) reasons.push(`models differ: ${[...models].sort(cmp).join(', ')}`);
+  const harness = new Set(groups.flatMap((g) => g.harness));
+  if (harness.size !== 1) reasons.push(`harness shas differ: ${[...harness].sort(cmp).join(', ')}`);
+  const byScenario = new Map();
+  for (const g of groups) {
+    const s = byScenario.get(g.scenario) || { prompts: new Set(), arms: new Set() };
+    for (const p of g.prompts) s.prompts.add(p);
+    s.arms.add(g.arm);
+    byScenario.set(g.scenario, s);
+  }
+  const allArms = new Set(groups.map((g) => g.arm));
+  for (const [sc, s] of [...byScenario.entries()].sort(([a], [b]) => cmp(a, b))) {
+    if (s.prompts.size !== 1) reasons.push(`${sc}: prompt counts differ across arms`);
+    for (const a of [...allArms].sort(cmp)) if (!s.arms.has(a)) reasons.push(`${sc}: arm ${a} has no samples`);
+  }
+  for (const g of groups) if (g.complete < MIN_COMPLETE) reasons.push(`${g.scenario}/${g.arm}: ${g.complete} complete < ${MIN_COMPLETE}`);
+  return { ok: reasons.length === 0, min_complete: MIN_COMPLETE, reasons };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -133,6 +171,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const f = (x) => (x == null ? '-' : String(x));
     for (const g of s.groups) {
       console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} proxy_denials=${g.proxy_denials}`);
+      console.log(`  cost: ${Object.entries(g.cost_sources).map(([k, n]) => `${n} x ${k}`).join('; ')}${g.price_missing.length ? `; missing ${g.price_missing.join(' ')}` : ''}`);
       if (g.complete < g.samples) {
         console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);
       }
@@ -143,5 +182,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       for (const [k, v] of Object.entries(g.metrics)) console.log(`  ${k.padEnd(22)} mean ${f(v.mean).padStart(10)}  min ${f(v.min).padStart(8)}  max ${f(v.max).padStart(8)}  (n=${v.n})`);
       if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
     }
+    const c = s.comparable;
+    console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (same model, same harness, same scenarios and prompt counts, >= ${c.min_complete} complete samples per arm per scenario)${c.ok ? '' : ': ' + c.reasons.map(clean).join('; ')}`);
   }
 }

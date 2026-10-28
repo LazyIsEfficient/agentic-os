@@ -19,6 +19,15 @@
 //     and credential headers dropped
 //   - the body FORWARDED is the re-serialized validated object, so a duplicated
 //     JSON key cannot validate one value and send another
+//   - every content block (messages, system, nested tool_result.content):
+//     type allowlist (BLOCK_TYPES; `document` is rejected) and `source.type`
+//     only `base64` or `text` — url / file sources would make the API fetch
+//     for the model
+//   - queue: at most PROXY_MAX_QUEUE waiting, each for at most
+//     PROXY_MAX_QUEUE_WAIT_MS (else 503); a client that disconnects while
+//     queued is dropped (never forwarded); one that disconnects in flight
+//     aborts the upstream request (charged its reservation only if upstream
+//     had started responding). Queue wait is logged per request.
 //
 // Spend accounting (per proxy = per sample):
 //   - ONE request at a time (later ones queue), so the cap cannot be raced.
@@ -62,8 +71,19 @@ const MAX_REQUESTS = Number(env.PROXY_MAX_REQUESTS) || 400;
 const MAX_TOKENS = Number(env.PROXY_MAX_TOKENS) || 32000;
 const MAX_UNITS = Number(env.PROXY_MAX_UNITS) || 2_000_000;
 const OVERHEAD = Number(env.PROXY_RESERVE_OVERHEAD) || 4096;
-const CR_WEIGHT = env.PROXY_CACHE_READ_WEIGHT === undefined ? 0.1 : (w => (Number.isFinite(w) && w >= 0 && w <= 1 ? w : 1))(Number(env.PROXY_CACHE_READ_WEIGHT)); // invalid -> 1 (fail closed)
+const CR_WEIGHT = env.PROXY_CACHE_READ_WEIGHT === undefined ? 0.1 : (w => (Number.isFinite(w) && w > 0 && w <= 1 ? w : 1))(Number(env.PROXY_CACHE_READ_WEIGHT)); // must be 0 < w <= 1; invalid -> 1 (fail closed)
 const DRAIN_MS = Number(env.PROXY_DRAIN_MS) || 25000;
+// Queue limits (requests wait for the single slot): longer queues / waits get 503.
+const MAX_QUEUE = Number(env.PROXY_MAX_QUEUE) || 8;
+const MAX_QUEUE_WAIT_MS = Number(env.PROXY_MAX_QUEUE_WAIT_MS) || 120000;
+// Extra reservation per inline image block: image tokens do not scale with the
+// base64 bytes (a tiny PNG can be a large image). UNVERIFIED upper bound.
+const IMAGE_RESERVE = Number(env.PROXY_IMAGE_RESERVE) || 1600;
+// Content blocks Claude Code is expected to send (UNVERIFIED; every rejection
+// is logged). `document` is NOT allowed: an inline compressed PDF can tokenize
+// to far more tokens than its bytes, which would break the reservation bound.
+const BLOCK_TYPES = new Set(['text', 'image', 'tool_use', 'tool_result', 'thinking', 'redacted_thinking']);
+const SOURCE_TYPES = new Set(['base64', 'text']);
 const MAX_BODY = 32 * 1024 * 1024;
 const MODELS = new Set((env.PROXY_MODELS || '').split(/\s+/).filter(Boolean));
 const BETAS = new Set((env.PROXY_BETAS || '').split(/\s+/).filter(Boolean));
@@ -77,16 +97,19 @@ const DROP = new Set(['host', 'x-api-key', 'authorization', 'connection', 'keep-
   'proxy-connection', 'te', 'trailer', 'upgrade', 'transfer-encoding', 'content-length', 'accept-encoding',
   'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'forwarded']);
 
-const S = { count: 0, requests: 0, denials: 0, committed: 0, unparsed: 0, unfinished: 0, by_model: {}, nextId: 1, draining: false };
+const S = { count: 0, requests: 0, denials: 0, committed: 0, unparsed: 0, unfinished: 0, by_model: {}, nextId: 1, draining: false,
+  drain_rejected: 0, dropped: 0, client_aborted: 0, queue_wait_ms_total: 0, queue_wait_ms_max: 0 };
 let inflight = null;      // { id, model, reserved }
-const queue = [];         // pending run() closures
+const queue = [];         // pending { run, t0, gone, timer }
 const log = (o) => process.stdout.write(JSON.stringify({ t: new Date().toISOString(), ...o }) + '\n');
 const safePath = (u) => { try { return new URL(u, 'http://p').pathname.slice(0, 200); } catch { return '/?'; } };
 const units = (u) => u.input + u.cache_creation + u.output + Math.ceil(u.cache_read * CR_WEIGHT);
 
-function deny(req, res, status, why) {
-  S.denials++;
-  log({ method: req.method, path: safePath(req.url), status, denied: why });
+// deny: every rejection is logged. A rejection caused by the proxy shutting
+// down (cause "drain") is not counted as a model-caused denial.
+function deny(req, res, status, why, cause) {
+  if (cause === 'drain') S.drain_rejected++; else S.denials++;
+  log({ method: req.method, path: safePath(req.url), status, denied: why, ...(cause ? { cause } : {}) });
   if (!res.headersSent) res.writeHead(status, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ type: 'error', error: { type: 'proxy_denied', message: why } }));
 }
@@ -108,6 +131,32 @@ function validate(route, buf) {
     return { ok: false, why: `max_tokens must be 1..${MAX_TOKENS}` };
   }
   if (o.mcp_servers !== undefined) return { ok: false, why: 'mcp_servers not allowed' };
+  // Every content block, recursively (messages, system, tool_result.content):
+  // type allowlist, and a `source` only inline (base64 / text) — never url or
+  // file, which would make the API fetch for the model.
+  let images = 0;
+  const walk = (content, where) => {
+    if (content === undefined || typeof content === 'string') return null;
+    if (!Array.isArray(content)) return `${where} content must be a string or an array`;
+    for (const b of content) {
+      if (!b || typeof b !== 'object') return `${where} block is not an object`;
+      if (!BLOCK_TYPES.has(String(b.type))) return `content block type not allowed: ${String(b.type).slice(0, 40)}`;
+      if (b.source !== undefined) {
+        if (!b.source || typeof b.source !== 'object' || !SOURCE_TYPES.has(String(b.source.type))) {
+          return `content source type not allowed: ${String(b.source && b.source.type).slice(0, 40)}`;
+        }
+      }
+      if (b.type === 'image') images++;
+      if (b.type === 'tool_result') { const e = walk(b.content, 'tool_result'); if (e) return e; }
+    }
+    return null;
+  };
+  if (o.messages !== undefined && !Array.isArray(o.messages)) return { ok: false, why: 'messages must be an array' };
+  for (const m of o.messages || []) {
+    if (!m || typeof m !== 'object') return { ok: false, why: 'message is not an object' };
+    const e = walk(m.content, 'message'); if (e) return { ok: false, why: e };
+  }
+  { const e = walk(o.system, 'system'); if (e) return { ok: false, why: e }; }
   if (o.tools !== undefined) {
     if (!Array.isArray(o.tools)) return { ok: false, why: 'tools must be an array' };
     for (const t of o.tools) {
@@ -118,7 +167,7 @@ function validate(route, buf) {
     }
   }
   // Forward exactly what was validated (duplicate keys collapse here).
-  return { ok: true, body: Buffer.from(JSON.stringify(o)), model: String(o.model), maxTokens: route[2] === 'messages' ? o.max_tokens : 0 };
+  return { ok: true, body: Buffer.from(JSON.stringify(o)), model: String(o.model), maxTokens: route[2] === 'messages' ? o.max_tokens : 0, images };
 }
 
 // Usage from a (possibly compressed) JSON body or SSE stream; null if absent.
@@ -164,23 +213,35 @@ function charge(model, u) {
   return n;
 }
 
-function forward(req, res, v, headers, route, done) {
+function forward(req, res, v, headers, route, done, waitMs) {
   const id = S.nextId++;
-  const reserved = route[2] === 'messages' ? v.body.length + OVERHEAD + v.maxTokens : 0;
+  const reserved = route[2] === 'messages' ? v.body.length + OVERHEAD + v.maxTokens + v.images * IMAGE_RESERVE : 0;
   if (S.committed + reserved > MAX_UNITS) { deny(req, res, 429, `token cap ${MAX_UNITS} units reached (committed ${S.committed} + reserved ${reserved})`); return done(); }
   S.requests++;
   inflight = { id, model: v.model, reserved };
-  log({ phase: 'start', id, path: safePath(req.url), model: v.model, reserved, committed: S.committed });
-  const finish = (status, u, parsed) => {
+  log({ phase: 'start', id, path: safePath(req.url), model: v.model, reserved, committed: S.committed, queue_wait_ms: waitMs });
+  let responded = false;   // upstream sent response headers
+  let upRef = null;        // the upstream request, once created
+  const finish = (status, u, parsed, note) => {
     if (!inflight || inflight.id !== id) return;
     inflight = null;
     let n = 0;
     if (route[2] !== 'messages') n = 0;
     else if (parsed) n = charge(v.model, u);
     else if (status === 0 || (status >= 200 && status < 300)) { S.unparsed++; n = charge(v.model, { input: reserved - v.maxTokens, cache_read: 0, cache_creation: 0, output: v.maxTokens }); } // 0 = network error/timeout: may have been billed, so fail closed
-    log({ phase: 'end', id, model: v.model, status, usage: parsed ? u : null, units: n, usage_parsed: Boolean(parsed), committed: S.committed });
+    log({ phase: 'end', id, model: v.model, status, usage: parsed ? u : null, units: n, usage_parsed: Boolean(parsed), committed: S.committed, ...(note ? { note } : {}) });
     done();
   };
+  // Client went away mid-request: abort upstream. Rule: if upstream had
+  // already started responding it has done (billable) work, so charge the
+  // reservation (status 0, fail closed); if not, charge nothing (status -1).
+  // UNVERIFIED whether the API bills a request aborted before its headers.
+  res.on('close', () => {
+    if (res.writableFinished || !inflight || inflight.id !== id) return;
+    S.client_aborted++;
+    finish(responded ? 0 : -1, null, false, responded ? 'client closed after upstream responded' : 'client closed before upstream responded');
+    if (upRef) upRef.destroy(new Error('client closed'));
+  });
   if (UPSTREAM === 'echo') {
     const u = { input: 7, cache_read: 0, cache_creation: 0, output: 11 };
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -194,6 +255,7 @@ function forward(req, res, v, headers, route, done) {
   const target = new URL(safePath(req.url) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''), UPSTREAM);
   const mod = target.protocol === 'http:' ? http : https;
   const up = mod.request(target, { method: req.method, headers }, (ur) => {
+    responded = true;
     const chunks = []; let bytes = 0;
     ur.on('data', (c) => { bytes += c.length; if (bytes <= MAX_BODY) chunks.push(c); });
     ur.on('end', () => {
@@ -205,6 +267,7 @@ function forward(req, res, v, headers, route, done) {
     res.writeHead(ur.statusCode || 502, ur.headers);
     ur.pipe(res);
   });
+  upRef = up;
   // A hung upstream must not hold the single slot forever.
   up.setTimeout(Number(env.PROXY_UPSTREAM_TIMEOUT_MS) || 600000, () => up.destroy(new Error('upstream timeout')));
   up.on('error', (e) => {
@@ -216,13 +279,20 @@ function forward(req, res, v, headers, route, done) {
   up.end(v.body);
 }
 
+// Run the next queued request whose client is still there.
 function pump() {
-  if (inflight || !queue.length) return;
-  queue.shift()();
+  while (!inflight && queue.length) {
+    const q = queue.shift();
+    clearTimeout(q.timer);
+    const waitMs = Date.now() - q.t0;
+    S.queue_wait_ms_total += waitMs; S.queue_wait_ms_max = Math.max(S.queue_wait_ms_max, waitMs);
+    if (q.gone) { S.dropped++; log({ dropped: 'client closed while queued', path: q.path, queue_wait_ms: waitMs }); continue; }
+    q.run(waitMs);
+  }
 }
 
 const server = http.createServer((req, res) => {
-  if (S.draining) return deny(req, res, 503, 'proxy is shutting down');
+  if (S.draining) return deny(req, res, 503, 'proxy is shutting down', 'drain');
   const route = routeFor(req);
   if (!route) return deny(req, res, 403, 'not on the allowlist');
   if (!KEY) return deny(req, res, 503, 'proxy has no ANTHROPIC_API_KEY');
@@ -243,11 +313,24 @@ const server = http.createServer((req, res) => {
     const headers = { 'content-length': String(v.body.length), 'accept-encoding': 'identity' };
     for (const [k, val] of Object.entries(req.headers)) if (!DROP.has(k.toLowerCase())) headers[k] = val;
     headers['x-api-key'] = KEY;
-    // One at a time: queue behind the in-flight request.
-    queue.push(() => {
-      if (S.draining) { deny(req, res, 503, 'proxy is shutting down'); return pump(); }
-      forward(req, res, v, headers, route, pump);
-    });
+    // One at a time: queue behind the in-flight request, bounded in length
+    // and in wait; a client that disconnects while queued is dropped.
+    if (queue.length >= MAX_QUEUE) return deny(req, res, 503, `queue full (${MAX_QUEUE})`);
+    const q = { t0: Date.now(), gone: false, path: safePath(req.url) };
+    q.run = (waitMs) => {
+      if (S.draining) { deny(req, res, 503, 'proxy is shutting down', 'drain'); return pump(); }
+      forward(req, res, v, headers, route, pump, waitMs);
+    };
+    res.on('close', () => { if (!res.writableFinished) q.gone = true; });
+    q.timer = setTimeout(() => {
+      const i = queue.indexOf(q);
+      if (i < 0) return;
+      queue.splice(i, 1);
+      const waitMs = Date.now() - q.t0;
+      S.queue_wait_ms_total += waitMs; S.queue_wait_ms_max = Math.max(S.queue_wait_ms_max, waitMs);
+      deny(req, res, 503, `queue wait over ${MAX_QUEUE_WAIT_MS} ms`);
+    }, MAX_QUEUE_WAIT_MS);
+    queue.push(q);
     pump();
   });
 });
@@ -270,8 +353,10 @@ function summary(sig) {
       if (r.reserved) charge(r.model, { input: r.reserved, cache_read: 0, cache_creation: 0, output: 0 });
       log({ phase: 'unfinished', id: r.id, model: r.model, units: r.reserved });
     }
-    while (queue.length) queue.shift()();
-    log({ summary: true, signal: sig, requests: S.requests, denials: S.denials, committed_units: S.committed,
+    while (queue.length) { const q = queue.shift(); clearTimeout(q.timer); if (q.gone) S.dropped++; else q.run(Date.now() - q.t0); }
+    log({ summary: true, signal: sig, requests: S.requests, denials: S.denials, drain_rejected: S.drain_rejected,
+      dropped: S.dropped, client_aborted: S.client_aborted, queue_wait_ms_total: S.queue_wait_ms_total,
+      queue_wait_ms_max: S.queue_wait_ms_max, committed_units: S.committed,
       unparsed: S.unparsed, unfinished: S.unfinished, by_model: S.by_model, cache_read_weight: CR_WEIGHT });
     process.exit(0);
   };

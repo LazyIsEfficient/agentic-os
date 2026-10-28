@@ -144,6 +144,9 @@ if [ -n "$MAX_BUDGET" ] && ! printf '%s' "$MAX_BUDGET" | grep -Eq '^[0-9]+(\.[0-
   die "--max-budget-usd must be a number"
 fi
 case "$SANDBOX" in docker|none) ;; *) die "--sandbox must be docker or none" ;; esac
+# The cap counts cache reads x this weight; 0 would let them go unbounded.
+awk -v w="$PROXY_CACHE_READ_WEIGHT" 'BEGIN { exit !(w ~ /^[0-9]*\.?[0-9]+$/ && w + 0 > 0 && w + 0 <= 1) }' \
+  || die "PROXY_CACHE_READ_WEIGHT must be a number with 0 < w <= 1 (got '$PROXY_CACHE_READ_WEIGHT')"
 case "$PROXY_UPSTREAM" in echo|https://api.anthropic.com) ;; *) die "--proxy-upstream must be echo (test hook)" ;; esac
 if [ "$SANDBOX" = none ] && { [ -n "$STUB_CLAUDE" ] || [ -n "$IMAGE" ] || [ "$PROXY_UPSTREAM" = echo ]; }; then
   die "--stub-claude / --image / --proxy-upstream apply to --sandbox docker only"

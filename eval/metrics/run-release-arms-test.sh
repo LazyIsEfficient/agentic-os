@@ -407,6 +407,29 @@ run_case smoke-nores --yes --smoke --scenario long-session-awareness main=HEAD
 rm -f "$T/stub-mode"
 check "smoke item 2 FAILS without a result object (metrics alone are not enough)" 'grep -q "2. CLI result record parsed: FAIL" "$T/smoke-nores.stdout"'
 
+# ---- 8h. row accounting edge cases (sample-row.mjs on fixed inputs) ------------
+SR="$DIR/lib/sample-row.mjs"
+printf '%s\n' '{"phase":"start","id":1,"model":"claude-sonnet-5-5","reserved":5000,"committed":0}' > "$T/px-unfinished.log"
+check "units charged but no usage attributed -> cost unknown with the reserved units, never \$0" \
+  '[ "$(EXIT_CODES=0 PROMPTS=1 PROXY_LOG="$T/px-unfinished.log" node "$SR" | node -e "const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(r.cost_usd+\"|\"+r.cost_source)")" = "null|unknown: 5000 cap units charged with no usage attributed" ]'
+printf '%s\n' '{"method":"POST","path":"/v1/messages","status":503,"denied":"proxy is shutting down","cause":"drain"}' > "$T/px-drain.log"
+check "a drain-time 503 is its own reason, not a model-caused denial" \
+  '[ "$(EXIT_CODES=0 PROMPTS=1 PROXY_LOG="$T/px-drain.log" node "$SR" | node -e "const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(r.proxy.denials+\"|\"+r.proxy.drain_rejected+\"|\"+r.incomplete_reason)")" = "0|1|stopped: proxy rejected 1 request(s) while shutting down (not model-caused)" ]'
+HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" PROXY_CACHE_READ_WEIGHT=0 \
+  "$SH" "$RUN" --sandbox none --yes --out "$T/out-w0" --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/w0.out" 2>&1
+rc=$?
+check "PROXY_CACHE_READ_WEIGHT=0 is refused before anything runs" '[ "$rc" != 0 ] && grep -q "0 < w <= 1" "$T/w0.out"'
+
+# ---- 8i. summary: cost sources per arm and one "arms comparable?" verdict -------
+row() { printf '{"scenario":"s","arm":"%s","ref":"r","repo_sha":"x","harness_sha":"h","model":"m","prompts":1,"exit_codes":[0],"exit_code":0,"metrics":{"turns":1},"cost_source":"price unknown","price_missing":["PRICE_M_IN_PER_MTOK"]}\n' "$1"; }
+{ row a; row a; row b; row b; } > "$T/cmp-ok.jsonl"
+{ row a; row a; row b; } > "$T/cmp-no.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/cmp-ok.jsonl" > "$T/cmp-ok.txt"
+node "$DIR/summarize-samples.mjs" "$T/cmp-no.jsonl" > "$T/cmp-no.txt"
+check "arms comparable: yes when model/harness/prompts match and each arm has >= 2 complete" 'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-ok.txt"'
+check "arms comparable: NO and names the short arm when one has only 1 complete" 'grep -q "^ARMS COMPARABLE? NO.*s/b: 1 complete < 2" "$T/cmp-no.txt"'
+check "summary shows cost_source counts and missing prices per arm" 'grep -q "cost: 2 x price unknown; missing PRICE_M_IN_PER_MTOK" "$T/cmp-ok.txt"'
+
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'
 

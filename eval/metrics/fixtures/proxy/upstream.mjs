@@ -3,7 +3,8 @@
 // <dir>/received.log. Behaviour from env:
 //   UP_IN / UP_OUT / UP_CR / UP_CC   usage numbers it reports
 //   UP_DELAY                          ms before answering
-//   UP_MODE   json | sse | gzip (gzip even if not asked) | garbage | error
+//   UP_MODE   json | sse | gzip (gzip even if not asked) | garbage | error |
+//             stall (headers + first event, the rest after UP_STALL ms)
 import http from 'node:http';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
@@ -21,6 +22,12 @@ http.createServer((req, res) => {
     fs.appendFileSync(`${dir}/received.log`, JSON.stringify({ url: req.url, ae: req.headers['accept-encoding'] || null, body }) + '\n');
     setTimeout(() => {
       const usage = { input_tokens: IN, output_tokens: OUT, cache_read_input_tokens: CR, cache_creation_input_tokens: CC };
+      if (MODE === 'stall') {
+        // Headers and the first SSE event now, the rest after UP_STALL ms.
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(`data: ${JSON.stringify({ type: 'message_start', message: { usage: { input_tokens: IN, output_tokens: 1 } } })}\n\n`);
+        return setTimeout(() => { res.write(`data: ${JSON.stringify({ type: 'message_delta', usage: { output_tokens: OUT } })}\n\n`); res.end(); }, n('UP_STALL', 3000));
+      }
       if (MODE === 'garbage') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('not json at all'); }
       if (MODE === 'error') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"type":"error","error":{"type":"invalid_request_error"}}'); }
       if (MODE === 'sse') {
