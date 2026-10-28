@@ -105,6 +105,7 @@ PROXY_MAX_TOKENS="${PROXY_MAX_TOKENS:-32000}"
 PROXY_MAX_UNITS="${PROXY_MAX_UNITS:-2000000}"
 PROXY_RESERVE_OVERHEAD="${PROXY_RESERVE_OVERHEAD:-4096}"
 PROXY_CACHE_READ_WEIGHT="${PROXY_CACHE_READ_WEIGHT:-0.1}"
+PROXY_MAX_INFLIGHT="${PROXY_MAX_INFLIGHT:-8}"
 # UNVERIFIED: the anthropic-beta values Claude Code 2.1.311 sends. Rejections
 # are logged, so the smoke run reveals any missing one; add it here.
 # No 1M-context beta: it would let one request reserve far past a sane budget.
@@ -193,6 +194,8 @@ RUN_ID="$(gen_id)"
 R8="${RUN_ID:0:8}"
 HARNESS_SHA="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 HARNESS_DIRTY="$(iso_harness_dirty "$REPO")"
+# A stable fingerprint of the beta allowlist (sorted, so order does not matter).
+BETAS_SHA256="$(printf '%s\n' $PROXY_BETAS | LC_ALL=C sort -u | iso_sha256)"
 GIT_DIR_PATH="$(dirname "$(command -v git)")"
 redact() { node "$DIR/lib/redact.mjs"; }
 
@@ -483,6 +486,7 @@ docker_start_sample() {
       -e PROXY_MODELS="$MODEL $SMALL_MODEL" -e PROXY_BETAS="$PROXY_BETAS" \
       -e PROXY_MAX_TOKENS="$PROXY_MAX_TOKENS" -e PROXY_MAX_UNITS="$PROXY_MAX_UNITS" \
       -e PROXY_RESERVE_OVERHEAD="$PROXY_RESERVE_OVERHEAD" -e PROXY_CACHE_READ_WEIGHT="$PROXY_CACHE_READ_WEIGHT" \
+      -e PROXY_MAX_INFLIGHT="$PROXY_MAX_INFLIGHT" \
       "$IMAGE" node /opt/harness/lib/api-proxy.mjs >/dev/null || return 1
   docker network connect "$NET_EGRESS" "aos-proxy-$R8-$k" || return 1
   for i in $(seq 1 50); do
@@ -687,6 +691,8 @@ for k in "${!S_ROOT[@]}"; do
   ARM="${ARM_NAME[$i]}" REF="${ARM_REF[$i]}" FLAGS="${ARM_FLAGS[$i]}" REPO_SHA="${ARM_SHA[$i]}" \
   SCENARIO="${SCN_NAME[$j]}" PROMPTS="${SCN_N[$j]}" SAMPLE="$r" ORDER="$k" SID="$sid" \
   EXIT_CODES="$codes" INTERRUPTED="$sample_interrupted" SAMPLE_ERROR="$sample_error" MODEL="$MODEL" \
+  SMALL_MODEL="$SMALL_MODEL" SET_MAX_TOKENS="$PROXY_MAX_TOKENS" SET_MAX_UNITS="$PROXY_MAX_UNITS" \
+  SET_MAX_INFLIGHT="$PROXY_MAX_INFLIGHT" SET_CACHE_READ_WEIGHT="$PROXY_CACHE_READ_WEIGHT" SET_BETAS_SHA256="$BETAS_SHA256" \
   SCORE_JSON="$score" LOG="$log" PROXY_LOG="$OUT/proxy-$tag.log" TASK_BASE="${S_BASE[$k]}" \
     node "$DIR/lib/sample-row.mjs" | redact >> "$SAMPLES" || die "could not write the sample row for $tag"
   [ "$INTERRUPTED" = 1 ] && { echo "stopping the run (interrupted)."; break; }

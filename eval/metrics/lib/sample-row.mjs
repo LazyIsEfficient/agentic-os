@@ -63,12 +63,13 @@ for (const s of Array.isArray(score.transcript_error_results) ? score.transcript
 
 // ── PROXY log — AUTHORITATIVE. The final {summary:true} line when present;
 // otherwise rebuilt from start/end lines, charging any request that started
-// but never ended its reservation (fail closed). ──
+// but never ended its reservation (fail closed) — and then the row is
+// incomplete ("no proxy summary") and its cost unknown. ──
 const stopSignals = [];
 let proxy = null;
 if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
-  const byModel = {}; const started = new Map(); let committed = 0, requests = 0, unparsed = 0, unfinished = 0;
-  const denials = []; let summary = null; let drainRejected = 0, qwTotal = 0, qwMax = 0;
+  const byModel = {}; const started = new Map(); let committed = 0, requests = 0, unparsed = 0, unfinished = 0, aborted = 0;
+  const denials = []; let summary = null; let drainRejected = 0, capRejected = 0;
   const add = (m, u) => {
     const t = byModel[m] || (byModel[m] = { input: 0, cache_read: 0, cache_creation: 0, output: 0 });
     for (const k of Object.keys(t)) t[k] += num(u[k]) || 0;
@@ -80,37 +81,40 @@ if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
     if (!o || typeof o !== 'object') continue;
     if (o.summary === true) summary = o;
     else if (o.denied !== undefined && o.cause === 'drain') drainRejected++;
+    else if (o.denied !== undefined && o.cause === 'cap') capRejected++;
     else if (o.denied !== undefined) denials.push(`${o.status} ${String(o.denied).slice(0, 100)}`);
-    else if (o.phase === 'start') {
-      requests++; started.set(o.id, o);
-      const w = num(o.queue_wait_ms); if (w !== null) { qwTotal += w; qwMax = Math.max(qwMax, w); }
-    }
+    else if (o.phase === 'start') { requests++; started.set(o.id, o); }
     else if (o.phase === 'end') {
       started.delete(o.id);
       committed = Math.max(committed, num(o.committed) || 0);
-      if (o.usage_parsed === false && o.status >= 200 && o.status < 300) unparsed++;
+      if (o.usage_parsed === false && num(o.units) > 0) unparsed++;
+      if (o.note === 'client aborted request') aborted++;
       if (o.usage && o.model) add(o.model, o.usage);
     }
   }
   if (summary) {
     proxy = { summary: true, requests: num(summary.requests) || 0, committed_units: num(summary.committed_units) || 0,
-      unparsed: num(summary.unparsed) || 0, unfinished: num(summary.unfinished) || 0, by_model: summary.by_model || {} };
+      unparsed: num(summary.unparsed) || 0, unfinished: num(summary.unfinished) || 0, by_model: summary.by_model || {},
+      client_aborted: num(summary.client_aborted) || 0, cap_rejected: num(summary.cap_rejected) ?? capRejected,
+      drain_rejected: num(summary.drain_rejected) ?? drainRejected, max_inflight_seen: num(summary.max_inflight_seen) };
   } else {
-    for (const o of started.values()) { unfinished++; committed += num(o.reserved) || 0; }
-    proxy = { summary: false, requests, committed_units: committed, unparsed, unfinished, by_model: byModel };
+    let reservedOpen = 0;
+    for (const o of started.values()) { unfinished++; reservedOpen += num(o.reserved) || 0; }
+    proxy = { summary: false, requests, committed_units: committed + reservedOpen, reserved_unfinished_units: reservedOpen,
+      unparsed, unfinished, by_model: byModel, client_aborted: aborted, cap_rejected: capRejected, drain_rejected: drainRejected, max_inflight_seen: null };
+    stopSignals.push('no proxy summary');
   }
   proxy.denials = denials.length;
-  proxy.drain_rejected = summary ? (num(summary.drain_rejected) ?? drainRejected) : drainRejected;
-  proxy.dropped = summary ? (num(summary.dropped) || 0) : 0;
-  proxy.client_aborted = summary ? (num(summary.client_aborted) || 0) : 0;
-  // Time requests spent waiting for the single slot: serialization can slow an
-  // arm that fans out parallel subagents, so it is reported, not hidden.
-  proxy.queue_wait_ms = { total: summary ? (num(summary.queue_wait_ms_total) ?? qwTotal) : qwTotal, max: summary ? (num(summary.queue_wait_ms_max) ?? qwMax) : qwMax };
   if (denials.length) { proxy.denied = denials.slice(0, 5); stopSignals.push(`proxy denied: ${denials[0]}`); }
+  // The client (the CLI in the sample) dropped a request it had sent: work was
+  // cut off and may have been billed.
+  if (proxy.client_aborted) stopSignals.push('client aborted request');
   // Not model-caused: the sample was still sending when the harness shut the
   // proxy down. Its own reason, still incomplete (work was cut off).
   if (proxy.drain_rejected) stopSignals.push(`proxy rejected ${proxy.drain_rejected} request(s) while shutting down (not model-caused)`);
   if (proxy.unparsed || proxy.unfinished) stopSignals.push(`proxy charged worst case (unparsed ${proxy.unparsed}, unfinished ${proxy.unfinished})`);
+  // cap/concurrency 429s are the harness's own limit: counted, reported per
+  // arm, but neither a denial nor on their own a stop (the CLI retries).
 }
 
 // ── Tokens (proxy) and cost (derived estimate; prices must be supplied) ──
@@ -133,7 +137,12 @@ if (proxy) {
     }
   }
   priceMissing = [...new Set(priceMissing)];
-  if (!Object.keys(proxy.by_model).length) {
+  if (!proxy.summary) {
+    // Without the proxy's own summary, open reservations are not attributed to
+    // usage: the cost cannot be stated.
+    costSource = `unknown: no proxy summary (${proxy.committed_units} cap units, ${proxy.reserved_unfinished_units} reserved for unfinished requests)`;
+  }
+  else if (!Object.keys(proxy.by_model).length) {
     // $0 only when nothing at all was charged; units reserved but never
     // attributed to a model (an unfinished request, no summary) are unknown.
     if (proxy.committed_units > 0) { costSource = `unknown: ${proxy.committed_units} cap units charged with no usage attributed`; }
@@ -197,6 +206,13 @@ process.stdout.write(JSON.stringify({
   flags: (e.FLAGS || '').split(',').filter(Boolean),
   repo_sha: e.REPO_SHA,
   model: e.MODEL || null,
+  // Per-run settings: every row of a run carries the same values, and the
+  // summary refuses to compare arms whose settings differ.
+  settings: {
+    model: e.MODEL || null, small_model: e.SMALL_MODEL || null, max_tokens_cap: num(Number(e.SET_MAX_TOKENS)),
+    unit_cap: num(Number(e.SET_MAX_UNITS)), max_inflight: num(Number(e.SET_MAX_INFLIGHT)),
+    cache_read_weight: num(Number(e.SET_CACHE_READ_WEIGHT)), betas_sha256: e.SET_BETAS_SHA256 || null,
+  },
   scenario: e.SCENARIO,
   prompts,
   prompts_run: exitCodes.length,

@@ -100,7 +100,8 @@ export function summarize(rows) {
       const costSources = {};
       for (const r of g.rows) { const k = clean(r.cost_source ?? 'none'); costSources[k] = (costSources[k] || 0) + 1; }
       const priceMissing = [...new Set(g.rows.flatMap((r) => (Array.isArray(r.price_missing) ? r.price_missing : [])).map(clean))].sort(cmp);
-      primary.proxy_queue_wait_ms_total = stats(done.map((r) => r.proxy?.queue_wait_ms?.total));
+      // The harness's own cap/concurrency 429s (not model denials), every row.
+      const proxyCapRejected = g.rows.reduce((s, r) => s + (Number(r.proxy?.cap_rejected) || 0), 0);
       // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
@@ -118,6 +119,11 @@ export function summarize(rows) {
         complete: done.length,
         incomplete: { count: g.rows.length - done.length, reasons: sortedReasons },
         proxy_denials: proxyDenials,
+        proxy_cap_rejected: proxyCapRejected,
+        completion_rate: g.rows.length ? Math.round((done.length / g.rows.length) * 1000) / 1000 : 0,
+        run_ids: [...new Set(g.rows.map((r) => clean(r.run_id ?? 'unknown')))].sort(cmp),
+        sandboxes: [...new Set(g.rows.map((r) => clean(r.sandbox ?? 'unknown')))].sort(cmp),
+        settings: [...new Set(g.rows.map((r) => JSON.stringify(r.settings ?? null)))].sort(cmp),
         cost_sources: Object.fromEntries(Object.entries(costSources).sort(([a], [b]) => cmp(a, b))),
         price_missing: priceMissing,
         models: [...new Set(g.rows.map((r) => clean(r.model ?? 'unknown')))].sort(cmp),
@@ -132,32 +138,49 @@ export function summarize(rows) {
   return { groups: out, comparable: comparable(out) };
 }
 
-// "Arms comparable?": one verdict for the whole run. Comparable only when
-// every group ran the same model and harness, every arm ran each scenario with
-// the same prompt count, and every (scenario, arm) has at least
-// MIN_COMPLETE complete samples. MIN_COMPLETE = 2: the least that gives a
-// min/max spread at all; with one sample there is no distribution to compare.
+// "Arms comparable?": one verdict for the whole run, with every reason it is
+// NO. Comparable only when:
+//   - every row comes from ONE run (same run_id) in ONE sandbox mode, with the
+//     same model, harness and per-run settings (max_tokens cap, unit cap,
+//     in-flight limit, cache-read weight, beta allowlist hash, models);
+//   - every arm ran each scenario with the same prompt count;
+//   - every (scenario, arm) has >= MIN_COMPLETE complete samples (2: the least
+//     that gives any min/max spread), a completion rate >= MIN_RATE (0.8), and
+//     the arms' completion rates for a scenario lie within RATE_TOLERANCE
+//     (0.2) of each other. Incomplete samples are excluded from the metrics, so
+//     arms that lose very different fractions of their runs are compared on
+//     differently selected subsets; 0.2 is one sample in five.
+// With the default --runs 1 every (scenario, arm) has at most 1 complete
+// sample, so the verdict is always NO; the reason says so.
 export const MIN_COMPLETE = 2;
+export const MIN_RATE = 0.8;
+export const RATE_TOLERANCE = 0.2;
 function comparable(groups) {
   const reasons = [];
-  const models = new Set(groups.flatMap((g) => g.models));
-  if (models.size !== 1) reasons.push(`models differ: ${[...models].sort(cmp).join(', ')}`);
-  const harness = new Set(groups.flatMap((g) => g.harness));
-  if (harness.size !== 1) reasons.push(`harness shas differ: ${[...harness].sort(cmp).join(', ')}`);
+  const all = (k) => new Set(groups.flatMap((g) => g[k]));
+  for (const [k, label] of [['run_ids', 'run ids'], ['sandboxes', 'sandbox modes'], ['models', 'models'], ['harness', 'harness shas'], ['settings', 'per-run settings']]) {
+    const v = all(k);
+    if (v.size !== 1) reasons.push(`${label} differ (${v.size})`);
+  }
   const byScenario = new Map();
   for (const g of groups) {
-    const s = byScenario.get(g.scenario) || { prompts: new Set(), arms: new Set() };
+    const s = byScenario.get(g.scenario) || { prompts: new Set(), arms: new Set(), rates: [] };
     for (const p of g.prompts) s.prompts.add(p);
-    s.arms.add(g.arm);
+    s.arms.add(g.arm); s.rates.push(g.completion_rate);
     byScenario.set(g.scenario, s);
   }
   const allArms = new Set(groups.map((g) => g.arm));
   for (const [sc, s] of [...byScenario.entries()].sort(([a], [b]) => cmp(a, b))) {
     if (s.prompts.size !== 1) reasons.push(`${sc}: prompt counts differ across arms`);
     for (const a of [...allArms].sort(cmp)) if (!s.arms.has(a)) reasons.push(`${sc}: arm ${a} has no samples`);
+    const spread = Math.max(...s.rates) - Math.min(...s.rates);
+    if (spread > RATE_TOLERANCE + 1e-9) reasons.push(`${sc}: completion rates differ by ${Math.round(spread * 100)}% (> ${RATE_TOLERANCE * 100}%)`);
   }
-  for (const g of groups) if (g.complete < MIN_COMPLETE) reasons.push(`${g.scenario}/${g.arm}: ${g.complete} complete < ${MIN_COMPLETE}`);
-  return { ok: reasons.length === 0, min_complete: MIN_COMPLETE, reasons };
+  for (const g of groups) {
+    if (g.complete < MIN_COMPLETE) reasons.push(`${g.scenario}/${g.arm}: ${g.complete} complete < ${MIN_COMPLETE}${g.samples < MIN_COMPLETE ? ` (only ${g.samples} sample(s); with --runs 1 this is always NO)` : ''}`);
+    if (g.completion_rate < MIN_RATE) reasons.push(`${g.scenario}/${g.arm}: completion rate ${Math.round(g.completion_rate * 100)}% < ${MIN_RATE * 100}%`);
+  }
+  return { ok: reasons.length === 0, min_complete: MIN_COMPLETE, min_rate: MIN_RATE, rate_tolerance: RATE_TOLERANCE, reasons };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -183,6 +206,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
     }
     const c = s.comparable;
-    console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (same model, same harness, same scenarios and prompt counts, >= ${c.min_complete} complete samples per arm per scenario)${c.ok ? '' : ': ' + c.reasons.map(clean).join('; ')}`);
+    console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (one run and sandbox, same model/harness/settings, same prompt counts, >= ${c.min_complete} complete and >= ${c.min_rate * 100}% completion per arm, completion rates within ${c.rate_tolerance * 100}%)`);
+    for (const r of c.reasons) console.log(`  NO because: ${clean(r)}`);
   }
 }

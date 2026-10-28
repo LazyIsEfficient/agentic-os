@@ -409,25 +409,44 @@ check "smoke item 2 FAILS without a result object (metrics alone are not enough)
 
 # ---- 8h. row accounting edge cases (sample-row.mjs on fixed inputs) ------------
 SR="$DIR/lib/sample-row.mjs"
+srow() { EXIT_CODES=0 PROMPTS=1 PROXY_LOG="$1" node "$SR" | node -e "const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(eval(process.argv[1]))" "$2"; }
+SUM='{"summary":true,"requests":1,"denials":0,"cap_rejected":0,"drain_rejected":0,"client_aborted":0,"committed_units":0,"unparsed":0,"unfinished":0,"by_model":{}}'
 printf '%s\n' '{"phase":"start","id":1,"model":"claude-sonnet-5-5","reserved":5000,"committed":0}' > "$T/px-unfinished.log"
-check "units charged but no usage attributed -> cost unknown with the reserved units, never \$0" \
-  '[ "$(EXIT_CODES=0 PROMPTS=1 PROXY_LOG="$T/px-unfinished.log" node "$SR" | node -e "const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(r.cost_usd+\"|\"+r.cost_source)")" = "null|unknown: 5000 cap units charged with no usage attributed" ]'
-printf '%s\n' '{"method":"POST","path":"/v1/messages","status":503,"denied":"proxy is shutting down","cause":"drain"}' > "$T/px-drain.log"
+check "no proxy summary: cost unknown with the reserved units (never \$0), and the row is incomplete" \
+  '[ "$(srow "$T/px-unfinished.log" "r.cost_usd+\"|\"+r.cost_source+\"|\"+r.incomplete_reason")" = "null|unknown: no proxy summary (5000 cap units, 5000 reserved for unfinished requests)|stopped: no proxy summary" ]'
+{ printf '%s\n' '{"method":"POST","path":"/v1/messages","status":503,"denied":"proxy is shutting down","cause":"drain"}'; printf '%s\n' "$SUM" | sed 's/"drain_rejected":0/"drain_rejected":1/'; } > "$T/px-drain.log"
 check "a drain-time 503 is its own reason, not a model-caused denial" \
-  '[ "$(EXIT_CODES=0 PROMPTS=1 PROXY_LOG="$T/px-drain.log" node "$SR" | node -e "const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));console.log(r.proxy.denials+\"|\"+r.proxy.drain_rejected+\"|\"+r.incomplete_reason)")" = "0|1|stopped: proxy rejected 1 request(s) while shutting down (not model-caused)" ]'
+  '[ "$(srow "$T/px-drain.log" "r.proxy.denials+\"|\"+r.proxy.drain_rejected+\"|\"+r.incomplete_reason")" = "0|1|stopped: proxy rejected 1 request(s) while shutting down (not model-caused)" ]'
+{ printf '%s\n' '{"phase":"start","id":1,"model":"claude-sonnet-5-5","reserved":900,"committed":0}' '{"phase":"end","id":1,"model":"claude-sonnet-5-5","status":0,"usage":null,"units":900,"usage_parsed":false,"committed":900,"note":"client aborted request"}'
+  printf '%s\n' "$SUM" | sed 's/"client_aborted":0/"client_aborted":1/; s/"committed_units":0/"committed_units":900/; s/"unparsed":0/"unparsed":1/; s/"by_model":{}/"by_model":{"claude-sonnet-5-5":{"input":800,"cache_read":0,"cache_creation":0,"output":100}}/'; } > "$T/px-abort.log"
+check "a client abort makes the sample incomplete (reason: client aborted request)" \
+  '[ "$(srow "$T/px-abort.log" "r.status+\"|\"+r.incomplete_reason+\"|\"+r.tokens.cap_units")" = "incomplete|stopped: client aborted request|900" ]'
+printf '%s\n' '{"method":"POST","path":"/v1/messages","status":429,"denied":"proxy cap/concurrency: 8 requests already in flight","cause":"cap"}' "$(printf '%s' "$SUM" | sed 's/"cap_rejected":0/"cap_rejected":1/')" > "$T/px-cap.log"
+check "a cap/concurrency 429 is counted apart and is not a denial or a stop" \
+  '[ "$(srow "$T/px-cap.log" "r.proxy.denials+\"|\"+r.proxy.cap_rejected+\"|\"+(r.stop_signals.length)")" = "0|1|0" ]'
+check "every row records the per-run settings" \
+  '[ "$(rows "$T/out-long/samples.jsonl" "const x=l[0].settings;[x.model,x.small_model,x.max_tokens_cap,x.unit_cap,x.max_inflight,x.cache_read_weight,typeof x.betas_sha256].join(\"|\")")" = "claude-sonnet-5-5|claude-haiku-5-5|32000|2000000|8|0.1|string" ]'
 HOME="$T/sentinel-home" PATH="$T/bin:$PATH" TMPDIR="$T/arms-tmp" ANTHROPIC_API_KEY="$CANARY" PROXY_CACHE_READ_WEIGHT=0 \
   "$SH" "$RUN" --sandbox none --yes --out "$T/out-w0" --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/w0.out" 2>&1
 rc=$?
 check "PROXY_CACHE_READ_WEIGHT=0 is refused before anything runs" '[ "$rc" != 0 ] && grep -q "0 < w <= 1" "$T/w0.out"'
 
 # ---- 8i. summary: cost sources per arm and one "arms comparable?" verdict -------
-row() { printf '{"scenario":"s","arm":"%s","ref":"r","repo_sha":"x","harness_sha":"h","model":"m","prompts":1,"exit_codes":[0],"exit_code":0,"metrics":{"turns":1},"cost_source":"price unknown","price_missing":["PRICE_M_IN_PER_MTOK"]}\n' "$1"; }
+row() { printf '{"run_id":"%s","sandbox":"%s","scenario":"s","arm":"%s","ref":"r","repo_sha":"x","harness_sha":"h","model":"m","settings":{"unit_cap":%s},"prompts":1,"exit_codes":[%s],"exit_code":%s,"metrics":{"turns":1},"cost_source":"price unknown","price_missing":["PRICE_M_IN_PER_MTOK"]}\n' "${2:-r1}" "${3:-docker}" "$1" "${4:-100}" "${5:-0}" "${5:-0}"; }
 { row a; row a; row b; row b; } > "$T/cmp-ok.jsonl"
 { row a; row a; row b; } > "$T/cmp-no.jsonl"
-node "$DIR/summarize-samples.mjs" "$T/cmp-ok.jsonl" > "$T/cmp-ok.txt"
-node "$DIR/summarize-samples.mjs" "$T/cmp-no.jsonl" > "$T/cmp-no.txt"
-check "arms comparable: yes when model/harness/prompts match and each arm has >= 2 complete" 'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-ok.txt"'
-check "arms comparable: NO and names the short arm when one has only 1 complete" 'grep -q "^ARMS COMPARABLE? NO.*s/b: 1 complete < 2" "$T/cmp-no.txt"'
+{ row a; row a; row b r2 none; row b r2 none; } > "$T/cmp-mixed.jsonl"
+{ row a; row a; row b r1 docker 999; row b r1 docker 999; } > "$T/cmp-settings.jsonl"
+{ for i in 1 2 3 4 5 6 7 8 9 10; do row a; done; row b; row b; for i in 1 2 3 4 5 6 7 8; do row b r1 docker 100 1; done; } > "$T/cmp-rate.jsonl"
+for c in ok no mixed settings rate; do node "$DIR/summarize-samples.mjs" "$T/cmp-$c.jsonl" > "$T/cmp-$c.txt"; done
+check "arms comparable: yes for one run, one sandbox, same settings, >= 2 complete and full completion" 'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-ok.txt"'
+check "arms comparable: NO, says why, and notes --runs 1 is always NO" \
+  'grep -q "^ARMS COMPARABLE? NO" "$T/cmp-no.txt" && grep -q "NO because: s/b: 1 complete < 2 (only 1 sample(s); with --runs 1 this is always NO)" "$T/cmp-no.txt"'
+check "arms comparable: NO across different run ids and sandbox modes" \
+  'grep -q "NO because: run ids differ" "$T/cmp-mixed.txt" && grep -q "NO because: sandbox modes differ" "$T/cmp-mixed.txt"'
+check "arms comparable: NO when per-run settings differ" 'grep -q "NO because: per-run settings differ" "$T/cmp-settings.txt"'
+check "arms comparable: NO for 2/10 vs 10/10 complete (rate below 80%, rates 80 points apart)" \
+  'grep -q "NO because: s/b: completion rate 20% < 80%" "$T/cmp-rate.txt" && grep -q "NO because: s: completion rates differ by 80%" "$T/cmp-rate.txt"'
 check "summary shows cost_source counts and missing prices per arm" 'grep -q "cost: 2 x price unknown; missing PRICE_M_IN_PER_MTOK" "$T/cmp-ok.txt"'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
