@@ -1,0 +1,13 @@
+# Scorer image for run-release-arms.sh --sandbox docker. FROM the model base
+# image (same pinned tools), plus the full scoring harness. Only the scorer
+# container runs from this image; the model/sample containers run from the base,
+# which does NOT contain the scoring code or the exploit vectors, so a sample
+# cannot read the grader. The build context is staged by run-release-arms.sh
+# (this Dockerfile + harness/ from the HEAD export).
+ARG BASE
+FROM ${BASE}
+
+USER root
+COPY harness /opt/harness
+RUN chown -R root:root /opt/harness && chmod -R a+rX,go-w /opt/harness
+USER node

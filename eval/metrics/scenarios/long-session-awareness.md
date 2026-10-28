@@ -47,6 +47,11 @@ use `/state`; let the model discover facts in prompts 1–2 only.
 Paste **one prompt at a time**. Wait for the agent to finish each step before sending
 the next. Do not paraphrase — wording is part of the control.
 
+`run-release-arms.sh` reads the bare ```` ``` ```` fences in this section as the
+prompts (`lib/scenario-prompts.mjs`; keep other fences here tagged) and sends them
+headlessly, one `claude -p` per prompt, prompts 2-10 with `--resume`. It does not do
+the ON-only `/state` pre-step above, and it compares library versions, not ON vs OFF.
+
 ### Phase A — establish + fill context (prompts 1–6)
 
 **1 — Survey**
