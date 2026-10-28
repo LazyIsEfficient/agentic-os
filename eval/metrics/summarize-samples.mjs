@@ -193,7 +193,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else {
     const f = (x) => (x == null ? '-' : String(x));
     for (const g of s.groups) {
-      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} proxy_denials=${g.proxy_denials}`);
+      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} completion=${Math.round(g.completion_rate * 100)}% proxy_denials=${g.proxy_denials} proxy_cap_429s=${g.proxy_cap_rejected}`);
       console.log(`  cost: ${Object.entries(g.cost_sources).map(([k, n]) => `${n} x ${k}`).join('; ')}${g.price_missing.length ? `; missing ${g.price_missing.join(' ')}` : ''}`);
       if (g.complete < g.samples) {
         console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);

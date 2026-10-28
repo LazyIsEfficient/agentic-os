@@ -246,7 +246,7 @@ because the proxy injects it.
   ceiling. UNVERIFIED: whether hitting either limit exits non-zero. Every
   invocation gets `--output-format json`, so the log ends with the CLI's result
   record. A sample is marked incomplete on a non-zero exit, an interrupt, a
-  any proxy denial (including a 429), or a structured non-success CLI result record (`subtype !==
+  any proxy denial (not the proxy's own cap/concurrency 429s), or a structured non-success CLI result record (`subtype !==
   "success"` or `is_error`) — never by matching free text. The cost gate also
   prints the per-sample cap and its bound (it holds while upstream usage ≤ the reservation, which byte-level tokenization implies — UNVERIFIED): samples × (cap +
   `max_tokens` + reserve overhead) units, and a dollar ceiling only when every

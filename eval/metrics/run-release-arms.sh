@@ -325,12 +325,12 @@ else
   echo "BUDGET (client-side): none (--no-max-budget)."
 fi
 if [ "$SANDBOX" = docker ]; then
-  # Upper bound: the proxy admits one request at a time and only if committed +
-  # its reservation fits the cap, so a sample ends at most one maximal request
-  # past it. Units = input + cache_creation + output + cache_read x weight.
+  # Upper bound: the proxy admits a request only if committed + all in-flight
+  # reservations + its own fit the cap (margin: one more maximal request).
+  # Units = input + cache_creation + output + cache_read x weight.
   SAMPLES_TOTAL=$((NARMS * RUNS * ${#SCN_NAME[@]}))
   UNITS_PER_SAMPLE=$((PROXY_MAX_UNITS + PROXY_MAX_TOKENS + PROXY_RESERVE_OVERHEAD))
-  echo "HARD CAP (proxy-enforced, per sample): $PROXY_MAX_UNITS cap units (input + cache writes + output + cache reads x $PROXY_CACHE_READ_WEIGHT); max_tokens per call <= $PROXY_MAX_TOKENS; one request at a time."
+  echo "HARD CAP (proxy-enforced, per sample): $PROXY_MAX_UNITS cap units (input + cache writes + output + cache reads x $PROXY_CACHE_READ_WEIGHT); max_tokens per call <= $PROXY_MAX_TOKENS; at most $PROXY_MAX_INFLIGHT in flight, excess gets an immediate 429."
   echo "  worst case: $SAMPLES_TOTAL sample(s) x $UNITS_PER_SAMPLE units = $((SAMPLES_TOTAL * UNITS_PER_SAMPLE)) units."
   # Dollars only if every price is supplied (none are built in; all UNVERIFIED).
   PER_UNIT=""; MISSING=""
