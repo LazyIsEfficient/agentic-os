@@ -62,7 +62,9 @@ n="\$(basename "\$d" | sed 's/^call-//')"
 # interrupt lands deterministically WHILE a prompt is the foreground command
 # (independent of how long install/preflight took). bash defers the trap until
 # this stub returns, so the next prompt iteration sees the interrupt.
-if [ "\$n" = 0 ] && [ -f "$T/interrupt-run" ]; then kill -INT "\$(cat "$T/interrupt-run")" 2>/dev/null; fi
+# SIGINT goes to the run's whole process group, as a terminal Ctrl-C does (this
+# stub is in that group too, so it dies with the signal mid-prompt).
+if [ "\$n" = 0 ] && [ -f "$T/interrupt-run" ]; then kill -INT -- "-\$(cat "$T/interrupt-run")" 2>/dev/null; sleep 5; fi
 mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
 # One distinct assistant turn per invocation (message ids differ), so turns
 # from every resumed prompt must be counted.

@@ -640,10 +640,17 @@ for k in "${!S_ROOT[@]}"; do
       echo "--- prompt $n ---" >> "$log"
       if [ "$SANDBOX" = docker ]; then
         docker_prompt "$k" -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
+        ps_codes=("${PIPESTATUS[@]}")
       else
         iso_exec "$root" "$AUTH_VAR" -- claude -p "$prompt" "${session[@]}" "${CLAUDE_OPTS[@]}" 2>&1 | redact >> "$log"
+        ps_codes=("${PIPESTATUS[@]}")
       fi
-      rc="${PIPESTATUS[0]}"; [ "$INTERRUPTED" = 1 ] && sample_interrupted=1
+      rc="${ps_codes[0]}"
+      # Interrupted if the trap already fired, or if the harness's OWN pipeline
+      # member (redact, which the model cannot control) died by a signal: bash
+      # defers the trap when the CLI swallows SIGINT and exits 0. The CLI's own
+      # exit code is not used for this (a model could fake it).
+      if [ "$INTERRUPTED" = 1 ] || [ "${ps_codes[1]:-0}" -ge 128 ]; then sample_interrupted=1; INTERRUPTED=1; fi
       codes="$codes${codes:+ }$rc"
       if [ "$rc" != 0 ]; then
         echo "  (prompt $n of ${SCN_N[$j]} exited $rc; sample stopped, incomplete; see $log)"

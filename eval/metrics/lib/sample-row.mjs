@@ -120,7 +120,8 @@ if (proxy) {
     }
   }
   priceMissing = [...new Set(priceMissing)];
-  if (priceMissing.length) { costSource = 'price unknown'; }
+  if (!Object.keys(proxy.by_model).length) { cost = 0; costSource = 'proxy: no billable requests'; }
+  else if (priceMissing.length) { costSource = 'price unknown'; }
   else { cost = round6(total); costSource = 'proxy tokens x supplied prices (estimate)'; if (cliCost !== null) costMismatch = round6(cliCost - cost); }
 } else if (cliCost !== null) {
   cost = cliCost; costSource = 'cli-only (model-writable)';
