@@ -83,6 +83,24 @@ the sample incomplete. UNVERIFIED: that this pinning covers every call the CLI
 makes; the smoke run's proxy-denial item shows any miss. Override with
 `--model` / `--small-model`.
 
+### Operator procedure (live run)
+
+1. Create a **dedicated Console API key** in its own workspace with a spend
+   limit that covers the cost gate's ceiling. Use it for nothing else.
+2. Run everything **in your own terminal**, not through an agent's `!` shell:
+   that would put the key (and the run) into an agent transcript.
+   `export ANTHROPIC_API_KEY=...` there; optionally export the `PRICE_*`
+   variables for a dollar estimate.
+3. `bash eval/metrics/run-release-arms.sh --smoke --scenario long-session-awareness main=main`
+   — 2 calls. Read the checklist: item 1 must show no proxy denials (a rejected
+   beta, field, tool or block type shows up here — add it to the allowlist
+   only if it is safe, then re-run the smoke), items 2, 3 and 5 must PASS, and
+   item 4 shows CLI vs proxy cost.
+4. The full run (above): 3 arms × 3 runs, 99 calls. Answer `y` at the cost
+   gate only if the printed ceiling fits the key's spend limit. Read
+   `ARMS COMPARABLE?` and the `DELTAS` block.
+5. **Revoke the key** in the Console when the run ends (or if you abort it).
+
 ### Sandbox (`--sandbox docker`, the default)
 
 The model runs with `--dangerously-skip-permissions`, so it is treated as
@@ -144,13 +162,17 @@ the next sample. The harness runs on the host and does the following:
      upper bound) cap units — and is admitted only if committed + every
      in-flight reservation + its own ≤ `PROXY_MAX_UNITS` (default 2,000,000) and
      fewer than 8 are in flight. Otherwise it gets an **immediate 429** —
-     there is no queue and no waiting — with one of two causes. `inflight`: the
-     concurrency limit is full; transient, counted per arm (`inflight_429s`), not
-     a model denial and not a reason to drop the sample (UNVERIFIED that the CLI
-     retries it transparently; the summary warns when arms' rates are far
-     apart). `budget`: the unit cap would be exceeded; the sample's budget is
-     spent, so the sample is **incomplete** (`unit budget exhausted`) even if
-     the CLI exits 0. A request counts against the request cap
+     there is no queue and no waiting — with one of two causes, checked in
+     this order. `budget`: what is already spent plus this request's own
+     reservation exceeds the cap (other in-flight requests are NOT counted
+     here), so the sample's budget really is spent and the sample is
+     **incomplete** (`unit budget exhausted`) even if the CLI exits 0.
+     `inflight`: 8 requests are already in flight, or the request fits on what
+     is spent but not together with the other in-flight reservations — a
+     transient spike; counted per arm (`inflight_429s`), not a model denial and
+     not a reason to drop the sample (UNVERIFIED that the CLI retries it
+     transparently; the summary warns when arms' rates are far apart). So a
+     fan-out arm is never marked over budget by its own parallelism. A request counts against the request cap
      (`PROXY_MAX_REQUESTS`) only once admitted, so 429 retries do not use it
      up. The reservation is replaced by the parsed usage; an SSE stream that
      never sends `message_delta` has no final usage and is charged its
@@ -255,7 +277,7 @@ because the proxy injects it.
   call the proxy directly); the proxy's per-sample token cap is the real
   ceiling. UNVERIFIED: whether hitting either limit exits non-zero. Every
   invocation gets `--output-format json`, so the log ends with the CLI's result
-  record. A sample is marked incomplete on a non-zero exit, an interrupt, a
+  record. A sample is marked incomplete on a non-zero exit, an interrupt,
   any proxy denial, a spent unit budget (not a transient inflight 429), or a structured non-success CLI result record (`subtype !==
   "success"` or `is_error`) — never by matching free text. The cost gate also
   prints the per-sample cap and its bound (it holds while upstream usage ≤ the reservation, which byte-level tokenization implies — UNVERIFIED): samples × (cap +
@@ -327,6 +349,31 @@ may cross a compaction boundary, but whether it does is UNVERIFIED for headless
 runs. `compact_boundaries` counts `"subtype":"compact_boundary"` transcript
 records, and that record shape is also UNVERIFIED. A 0 there means the benefit
 side was not exercised in that sample.
+
+### UNVERIFIED (all in one place)
+
+None of these were checked against the real CLI or API; the smoke run is the
+first place most of them show.
+
+- Claude Code 2.1.311: the `anthropic-beta` values, top-level request fields,
+  tool shapes and content-block types it sends; that the model pinning
+  (`--model`, `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+  `CLAUDE_CODE_SUBAGENT_MODEL`) covers every call; that it never sends a
+  `document` block; that it accepts a placeholder key with `ANTHROPIC_BASE_URL`.
+- The model ids `claude-sonnet-5-5` / `claude-haiku-5-5` and all prices
+  (none are built in), including the cache read/write multipliers and the 0.1
+  cache-read weight used by the cap.
+- The CLI's `--output-format json` result-record shape, whether
+  `total_cost_usd` is per call or a running total on `--resume`, whether
+  `--max-turns` / `--max-budget-usd` exits non-zero, and that it retries the
+  proxy's transient `inflight` 429s.
+- That 1600 units bounds one image; that a token never covers less than one
+  byte of the request (the reservation bound).
+- Billing of requests aborted after their body was sent, of upstream 4xx/5xx
+  error bodies (charged 0), and of `count_tokens` calls (charged 0).
+- Proxy forwarding to the real API (tests use a fake upstream or `echo`).
+- The `compact_boundary` transcript record shape, and whether a headless
+  `--resume` sequence ever compacts.
 
 ## Cursor transcripts
 

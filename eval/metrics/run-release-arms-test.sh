@@ -460,6 +460,11 @@ check "arms comparable: NO for 2/10 vs 10/10 complete" \
 node "$DIR/summarize-samples.mjs" "$T/cmp-warn.jsonl" > "$T/cmp-warn.txt"
 check "inflight 429s per sample far apart (200 vs 0) -> WARNING, but still comparable" \
   'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-warn.txt" && grep -q "WARNING: s: inflight 429s per sample far apart (a=200, b=0)" "$T/cmp-warn.txt"'
+{ for i in 1 2 3; do row v301; done; for i in 1 2 3; do row main | sed 's/"turns":1/"turns":4/'; done; } > "$T/cmp-delta.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/cmp-delta.jsonl" > "$T/cmp-delta.txt"
+check "comparable run: prints main - v301 deltas (advisory turns +3, range, n=3/3) and the compaction caveat" \
+  'grep -q "^  s: main - v301" "$T/cmp-delta.txt" && grep -qE "advisory turns +3  \[3, 3\]  n=3/3" "$T/cmp-delta.txt" && grep -q "compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED" "$T/cmp-delta.txt"'
+check "non-comparable run: no deltas, says why" 'grep -q "^DELTAS: not comparable: " "$T/cmp-twofail.txt"'
 check "summary shows cost_source counts and missing prices per arm" 'grep -q "cost: 2 x price unknown; missing PRICE_M_IN_PER_MTOK" "$T/cmp-ok.txt"'
 
 # ---- 9. operator HOME untouched --------------------------------------------------

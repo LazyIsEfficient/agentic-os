@@ -249,4 +249,32 @@ stop
 check "SSE without message_delta: charged its reservation (not just message_start usage) and flagged" \
   '[ "$(sj nodelta "o.committed_units+\"|\"+o.unparsed")" = "$R1|1" ]'
 
+# ---- 17. a transient in-flight spike is not "budget" (both round-8 repros) ----
+# rv300-r8/budget.sh: 2 parallel requests, cap 6000, each reserving ~4200 —
+# the 2nd fits on committed alone, so it is `inflight` (transient), not budget.
+B='{"model":"claude-sonnet-5-5","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}'
+start spike UP_DELAY=800 UP_IN=10 UP_OUT=10 -- PROXY_MAX_UNITS=6000
+send 2 "$B" > /dev/null
+send 1 "$B" > "$T/spike/after.out"
+stop
+check "parallel spike within budget -> inflight 429, never budget; later requests 200" \
+  '[ "$(sj spike "o.budget_rejected+\"|\"+(o.inflight_rejected>=1)")" = "0|true" ] && grep -q "\"200\"" "$T/spike/after.out"'
+# sec300r8 s8.sh fanout: a healthy fan-out at a small fraction of the budget
+# must never be labelled budget.
+start fanout UP_DELAY=500 UP_IN=10 UP_OUT=10 -- PROXY_MAX_UNITS=60000 PROXY_RESERVE_OVERHEAD=4096
+send 30 "$(body $SONNET 4000)" > /dev/null
+stop
+check "fan-out at ~1% spend: only inflight 429s, no budget 429 (sample would stay complete)" \
+  '[ "$(sj fanout "o.budget_rejected")" = 0 ] && [ "$(sj fanout "o.committed_units")" -lt 6000 ]'
+# Over budget on committed alone, even while in flight is full -> budget, not inflight.
+start over UP_DELAY=600 UP_IN=10 UP_OUT=10 -- PROXY_MAX_UNITS=5000 PROXY_RESERVE_OVERHEAD=100 PROXY_MAX_INFLIGHT=1
+send 1 "$(body $SONNET 1000)" > /dev/null &
+CPID=$!
+sleep 0.2
+send 1 "$(body $SONNET 9000)" > /dev/null    # its reservation alone exceeds the cap
+wait "$CPID" 2>/dev/null
+stop
+check "an over-budget request is budget even when the in-flight slot is full (checked first)" \
+  '[ "$(sj over "o.budget_rejected+\"|\"+o.inflight_rejected")" = "1|0" ]'
+
 [ "$FAIL" = 0 ] && echo "api-proxy-test: OK" || { echo "api-proxy-test: FAILED"; exit 1; }

@@ -100,11 +100,11 @@ export function summarize(rows) {
       const costSources = {};
       for (const r of g.rows) { const k = clean(r.cost_source ?? 'none'); costSources[k] = (costSources[k] || 0) + 1; }
       const priceMissing = [...new Set(g.rows.flatMap((r) => (Array.isArray(r.price_missing) ? r.price_missing : [])).map(clean))].sort(cmp);
-      // The harness's own cap/concurrency 429s (not model denials), every row.
-      const sumOf = (k) => g.rows.reduce((s, r) => s + (Number(r.proxy?.[k]) || 0), 0);
-      // inflight: transient concurrency 429s (older rows: cap_rejected); budget: unit cap spent.
+      // The proxy's own 429s (not model denials), over every row: `inflight`
+      // = transient concurrency / in-flight spike (older rows: cap_rejected);
+      // `budget` = the unit cap was spent.
       const proxyInflight = g.rows.reduce((s, r) => s + (Number(r.proxy?.inflight_rejected ?? r.proxy?.cap_rejected) || 0), 0);
-      const proxyBudget = sumOf('budget_rejected');
+      const proxyBudget = g.rows.reduce((s, r) => s + (Number(r.proxy?.budget_rejected) || 0), 0);
       // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
@@ -140,7 +140,35 @@ export function summarize(rows) {
         exploit,
       };
     });
-  return { groups: out, comparable: comparable(out) };
+  const c = comparable(out);
+  return { groups: out, comparable: c, deltas: c.ok ? deltas(out) : null };
+}
+
+// Arm-vs-baseline deltas, per scenario and metric: mean(arm) - mean(baseline),
+// with the range of possible per-sample differences [min-max, max-min] and n
+// on each side. The baseline is the arm named v301 when present (the release
+// under comparison), else the first arm by name. Only computed when the arms
+// are comparable. Proxy metrics are primary; transcript metrics advisory.
+export const BASELINE_ARM = 'v301';
+function deltas(groups) {
+  const out = [];
+  const scen = [...new Set(groups.map((g) => g.scenario))].sort(cmp);
+  for (const sc of scen) {
+    const gs = groups.filter((g) => g.scenario === sc);
+    const base = gs.find((g) => g.arm === BASELINE_ARM) || [...gs].sort((a, b) => cmp(a.arm, b.arm))[0];
+    for (const g of gs.filter((x) => x !== base).sort((a, b) => cmp(a.arm, b.arm))) {
+      const rows = [];
+      for (const [kind, block] of [['primary', 'primary'], ['advisory', 'metrics']]) {
+        for (const [name, a] of Object.entries(g[block])) {
+          const b = base[block][name];
+          if (!b || a.mean === null || b.mean === null) continue;
+          rows.push({ kind, metric: name, delta_mean: round2(a.mean - b.mean), range: [round2(a.min - b.max), round2(a.max - b.min)], n: [a.n, b.n] });
+        }
+      }
+      out.push({ scenario: sc, arm: g.arm, baseline: base.arm, rows });
+    }
+  }
+  return out;
 }
 
 // "Arms comparable?": one verdict for the whole run, with every reason it is
@@ -219,5 +247,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (one run and sandbox, same model/harness/settings, same prompt counts; ${c.rule}; runs=${c.runs}, required=${c.required_complete})`);
     for (const r of c.reasons) console.log(`  NO because: ${clean(r)}`);
     for (const w of c.warnings) console.log(`  WARNING: ${clean(w)}`);
+    if (!s.deltas) {
+      console.log(`DELTAS: not comparable: ${c.reasons.map(clean).join('; ')}`);
+    } else {
+      console.log('DELTAS (arm - baseline; mean, [range of per-sample differences], n arm/baseline):');
+      for (const d of s.deltas) {
+        console.log(`  ${clean(d.scenario)}: ${clean(d.arm)} - ${clean(d.baseline)}`);
+        for (const r of d.rows) console.log(`    ${r.kind === 'primary' ? 'primary ' : 'advisory'} ${r.metric.padEnd(28)} ${String(r.delta_mean).padStart(12)}  [${r.range[0]}, ${r.range[1]}]  n=${r.n[0]}/${r.n[1]}`);
+      }
+      console.log('  primary = proxy-authoritative; advisory = model-writable transcript. compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED.');
+    }
   }
 }

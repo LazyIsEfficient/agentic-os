@@ -22,7 +22,7 @@ const row = json(lines(samples)[0] || '') || {};
 
 say(`smoke checklist (${TAG}):`);
 
-// 1 — no proxy denial (403 path, 400 beta/model/tool, 429 cap).
+// 1 — no proxy denial (403 path, 400 beta/model/tool/field) and no spent unit budget (429 budget).
 const denied = lines(proxyLog).map(json).filter((o) => o && o.denied !== undefined && (!o.cause || o.cause === 'budget')); // model denials and a spent unit budget fail; drain 503s and transient inflight 429s do not
 if (!existsSync(proxyLog)) say('  1. proxy log: n/a (sandbox none)');
 else if (denied.length) { say(`  1. proxy denials: ${denied.length} — FAIL; add any missing beta/endpoint and re-run:`); for (const o of denied.slice(0, 5)) say(`       ${o.status} ${o.denied}`); }

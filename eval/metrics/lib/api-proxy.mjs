@@ -219,9 +219,15 @@ function charge(model, u) {
 
 function forward(req, res, v, headers, route) {
   const reserved = route[2] === 'messages' ? v.body.length + OVERHEAD + v.maxTokens + v.images * IMAGE_RESERVE : 0;
+  // Budget first: only what is already SPENT plus this request can exhaust it
+  // (a stop). Fitting on committed alone but not with the other in-flight
+  // reservations is a transient spike: `inflight`, not a stop.
+  if (S.committed + reserved > MAX_UNITS) {
+    return deny(req, res, 429, `unit budget exhausted: cap ${MAX_UNITS} units (committed ${S.committed} + this ${reserved})`, 'budget');
+  }
   if (inflight.size >= MAX_INFLIGHT) return deny(req, res, 429, `proxy concurrency: ${MAX_INFLIGHT} requests already in flight`, 'inflight');
   if (S.committed + reservedInFlight() + reserved > MAX_UNITS) {
-    return deny(req, res, 429, `unit budget exhausted: cap ${MAX_UNITS} units (committed ${S.committed} + in flight ${reservedInFlight()} + this ${reserved})`, 'budget');
+    return deny(req, res, 429, `proxy concurrency: in-flight reservations (${reservedInFlight()}) + committed (${S.committed}) + this (${reserved}) exceed cap ${MAX_UNITS} for now`, 'inflight');
   }
   // Counted against the request cap only once admitted (cap-429 retries must
   // not use it up).
