@@ -16,4 +16,7 @@ const one = (abortMs) => new Promise((resolve) => {
   r.end(body);
   if (abortMs) setTimeout(() => r.destroy(), abortMs);
 });
+// A hung response (the bug class this client tests for) must fail, not hang.
+const t = setTimeout(() => { process.stdout.write('["HUNG"]\n'); process.exit(3); }, 8000);
 process.stdout.write(JSON.stringify(await Promise.all(aborts.map(one))) + '\n');
+clearTimeout(t);

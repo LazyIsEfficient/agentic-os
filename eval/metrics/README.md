@@ -65,6 +65,8 @@ git fetch origin --tags        # every REF must resolve locally
 #   export PRICE_CLAUDE_HAIKU_5_5_IN_PER_MTOK=...  PRICE_CLAUDE_HAIKU_5_5_OUT_PER_MTOK=...
 #   export PRICE_CACHE_READ_MULT=... PRICE_CACHE_WRITE_MULT=...
 bash eval/metrics/run-release-arms.sh --smoke --scenario long-session-awareness main=main   # first
+# 3 arms x 3 runs x (10 + 1) prompts = 99 claude -p calls. Comparable if each
+# arm x scenario has >= 2 of 3 complete and the arms' complete counts differ <= 1.
 bash eval/metrics/run-release-arms.sh --runs 3 \
   --scenario long-session-awareness --scenario seeded-path-traversal \
   v301=v3.0.1 main=main mainall=main:--with-marketing,--with-games
@@ -141,11 +143,19 @@ the next sample. The harness runs on the host and does the following:
      `max_tokens` + 1600 per inline image (`PROXY_IMAGE_RESERVE`; UNVERIFIED
      upper bound) cap units — and is admitted only if committed + every
      in-flight reservation + its own ≤ `PROXY_MAX_UNITS` (default 2,000,000) and
-     fewer than 8 are in flight. Otherwise it gets an **immediate 429**
-     (`proxy cap/concurrency`) — there is no queue and no waiting. These 429s
-     are the harness's own limit: they are counted per arm
-     (`proxy_cap_rejected`) and are neither a model denial nor, on their own, a
-     reason to drop a sample. The reservation is replaced by the parsed usage.
+     fewer than 8 are in flight. Otherwise it gets an **immediate 429** —
+     there is no queue and no waiting — with one of two causes. `inflight`: the
+     concurrency limit is full; transient, counted per arm (`inflight_429s`), not
+     a model denial and not a reason to drop the sample (UNVERIFIED that the CLI
+     retries it transparently; the summary warns when arms' rates are far
+     apart). `budget`: the unit cap would be exceeded; the sample's budget is
+     spent, so the sample is **incomplete** (`unit budget exhausted`) even if
+     the CLI exits 0. A request counts against the request cap
+     (`PROXY_MAX_REQUESTS`) only once admitted, so 429 retries do not use it
+     up. The reservation is replaced by the parsed usage; an SSE stream that
+     never sends `message_delta` has no final usage and is charged its
+     reservation (flagged). A mid-stream upstream failure also ends the
+     client's response, so the CLI is never left waiting.
      Cap units = uncached input + cache writes + output + cache reads × 0.1
      (`PROXY_CACHE_READ_WEIGHT`, 0 < w ≤ 1): cache reads are billed far below
      input (UNVERIFIED multiplier) and a large cached context would otherwise
@@ -246,7 +256,7 @@ because the proxy injects it.
   ceiling. UNVERIFIED: whether hitting either limit exits non-zero. Every
   invocation gets `--output-format json`, so the log ends with the CLI's result
   record. A sample is marked incomplete on a non-zero exit, an interrupt, a
-  any proxy denial (not the proxy's own cap/concurrency 429s), or a structured non-success CLI result record (`subtype !==
+  any proxy denial, a spent unit budget (not a transient inflight 429), or a structured non-success CLI result record (`subtype !==
   "success"` or `is_error`) — never by matching free text. The cost gate also
   prints the per-sample cap and its bound (it holds while upstream usage ≤ the reservation, which byte-level tokenization implies — UNVERIFIED): samples × (cap +
   `max_tokens` + reserve overhead) units, and a dollar ceiling only when every
@@ -275,7 +285,7 @@ because the proxy injects it.
   block and the transcript awareness signals as an **advisory** block. It
   strips control characters from every printed and stored string, prints a
   `WARNING` for any arm with incomplete samples, and counts those per arm with
-  their reasons. Per arm it also shows proxy denials, proxy cap/concurrency
+  their reasons. Per arm it also shows proxy denials, inflight and budget
   429s, the completion rate, how cost was derived (`cost_source` counts) and
   which prices are missing. Cost is never shown as $0 when units were charged
   but not attributed to usage; that is reported as unknown with the units. It
@@ -284,13 +294,15 @@ because the proxy injects it.
   `run_id`) in one sandbox mode, with the same model, harness and per-run
   settings (recorded in every row: `max_tokens` cap, unit cap, in-flight limit,
   cache-read weight, beta-allowlist hash, both models); every arm ran each
-  scenario with the same prompt count; and every (scenario, arm) has at least
-  **2** complete samples (the fewest that give any spread), a completion rate
-  of at least **80%**, and completion rates within **20 points** of the other
-  arms. Incomplete samples are left out of the metrics, so arms that lose
-  very different fractions of their runs would be compared on differently
-  selected subsets; 20 points is one sample in five. With the default
-  `--runs 1` it is always NO, and says so.
+  scenario with the same prompt count; and, the **count rule** (maintainer
+  decision): every (scenario, arm) has at least **max(2, runs − 1)** complete
+  samples — one failure per arm per scenario is tolerated, and 2 is the fewest
+  that give any spread — and for each scenario the arms' complete counts differ
+  by **at most 1**. The `NO because:` lines show the rule and the counts. With
+  `--runs 3` that is at least 2 of 3 per arm per scenario. With the default
+  `--runs 1` it is always NO, and says so. A `WARNING:` line (not a NO) appears
+  when the arms' inflight-429 rates per sample are more than 3× apart and above
+  10 per sample.
 
 `--out` must be outside the repo. The default is
 `$HOME/agentic-os-eval-runs/<stamp>-release-arms`. It contains:
