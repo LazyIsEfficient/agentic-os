@@ -193,16 +193,20 @@ start blocks --
 msg() { printf '{"model":"%s","max_tokens":10,"messages":[{"role":"user","content":%s}]}' "$SONNET" "$1"; }
 blk() { send 1 "$(msg "$1")" | node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync(0,'utf8')))[0])"; }
 IMG64='{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}}'
+# Bodies in variables: bash 3.2 mis-parses escaped quotes nested in $( ).
+V_URLIMG='[{"type":"image","source":{"type":"url","url":"http://e/x.png"}}]'
+V_FILE='[{"type":"image","source":{"type":"file","file_id":"f1"}}]'
+V_NESTED='[{"type":"tool_result","tool_use_id":"t","content":[{"type":"image","source":{"type":"url","url":"http://e"}}]}]'
+V_DOC='[{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"JVBERi0="}}]'
+V_UNKNOWN='[{"type":"server_tool_use","id":"x","name":"web_search","input":{}}]'
+V_OK='[{"type":"text","text":"hi"},{"type":"tool_result","tool_use_id":"t","content":[{"type":"text","text":"ok"}]}]'
 check "a base64 image block is allowed" '[ "$(blk "[$IMG64]")" = 200 ]'
-check "an image with a url source is rejected" '[ "$(blk "[{\"type\":\"image\",\"source\":{\"type\":\"url\",\"url\":\"http://e/x.png\"}}]")" = 400 ]'
-check "a file source is rejected" '[ "$(blk "[{\"type\":\"image\",\"source\":{\"type\":\"file\",\"file_id\":\"f1\"}}]")" = 400 ]'
-check "a url image nested in tool_result.content is rejected" \
-  '[ "$(blk "[{\"type\":\"tool_result\",\"tool_use_id\":\"t\",\"content\":[{\"type\":\"image\",\"source\":{\"type\":\"url\",\"url\":\"http://e\"}}]}]")" = 400 ]'
-check "a document block is rejected (even base64: compressed PDFs break the byte bound)" \
-  '[ "$(blk "[{\"type\":\"document\",\"source\":{\"type\":\"base64\",\"media_type\":\"application/pdf\",\"data\":\"JVBERi0=\"}}]")" = 400 ]'
-check "an unknown block type is rejected" '[ "$(blk "[{\"type\":\"server_tool_use\",\"id\":\"x\",\"name\":\"web_search\",\"input\":{}}]")" = 400 ]'
-check "text, tool_use and tool_result blocks are allowed" \
-  '[ "$(blk "[{\"type\":\"text\",\"text\":\"hi\"},{\"type\":\"tool_result\",\"tool_use_id\":\"t\",\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}]")" = 200 ]'
+check "an image with a url source is rejected" '[ "$(blk "$V_URLIMG")" = 400 ]'
+check "a file source is rejected" '[ "$(blk "$V_FILE")" = 400 ]'
+check "a url image nested in tool_result.content is rejected" '[ "$(blk "$V_NESTED")" = 400 ]'
+check "a document block is rejected (even base64: compressed PDFs break the byte bound)" '[ "$(blk "$V_DOC")" = 400 ]'
+check "an unknown block type is rejected" '[ "$(blk "$V_UNKNOWN")" = 400 ]'
+check "text, tool_use and tool_result blocks are allowed" '[ "$(blk "$V_OK")" = 200 ]'
 check "service_tier priority and a container field are rejected" \
   '[ "$(code "$(body $SONNET 10 ",\"service_tier\":\"priority\"")")" = 400 ] && [ "$(code "$(body $SONNET 10 ",\"container\":\"c1\"")")" = 400 ]'
 check "a tool whose input_schema is an array is rejected" '[ "$(code "$(body $SONNET 10 ",\"tools\":[{\"name\":\"x\",\"input_schema\":[]}]")")" = 400 ]'

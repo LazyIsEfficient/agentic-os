@@ -120,6 +120,16 @@ the next sample. The harness runs on the host and does the following:
      allowlist (no 1M-context beta); and only plain client-side tools
      (`name`/`description`/`input_schema`/`cache_control`, no `type` other than `custom`), so
      server tools and `mcp_servers` are rejected.
+     **Content blocks** are walked recursively (messages, `system`, nested
+     `tool_result.content`): only `text`, `image`, `tool_use`, `tool_result`,
+     `thinking` and `redacted_thinking` are allowed, and a `source` must be
+     `base64` or `text` — a `url` or `file` source (which would make the API
+     fetch for the model) is rejected. **`document` blocks are rejected**, not
+     reserved for: an inline compressed PDF can tokenize to far more tokens than
+     its bytes, which would break the reservation bound, and the scenarios here
+     need no PDFs (UNVERIFIED that Claude Code never sends one; it would show as
+     a denial). `container` and a `service_tier` other than `auto` /
+     `standard_only` are rejected too.
      **Spend cap.** One request at a time per sample. Before forwarding, each
      request reserves its worst case — body bytes + 4096 + `max_tokens` cap
      units (a token covers at least a byte of the request) — and is admitted
@@ -133,7 +143,19 @@ the next sample. The harness runs on the host and does the following:
      usage cannot be parsed is charged its full reservation and flagged (fail
      closed). On shutdown the sample container is stopped first, then the proxy
      drains its in-flight request (or charges its reservation) before writing
-     its summary. Every request logs a start and an end line; every rejection is
+     its summary. Each inline image adds 1600 units to its request's
+     reservation (`PROXY_IMAGE_RESERVE`; image tokens do not scale with base64
+     bytes; UNVERIFIED upper bound). **Queue:** at most 8 requests wait
+     (`PROXY_MAX_QUEUE`), each at most 120 s (`PROXY_MAX_QUEUE_WAIT_MS`); past
+     either, 503. A request whose client disconnects while queued is dropped
+     and never forwarded; one whose client disconnects in flight aborts the
+     upstream call and is charged its reservation only if upstream had already
+     started responding (UNVERIFIED whether an aborted-before-headers request is
+     billed). Each request's queue wait is logged and reported per arm, so any
+     slowdown serialization adds to an arm that fans out parallel subagents is
+     visible. A 503 during the proxy's own shutdown is not a model-caused
+     denial; it gets its own incomplete reason.
+     Every request logs a start and an end line; every rejection is
      logged. UNVERIFIED: the exact `anthropic-beta` values, tool shapes and
      endpoints Claude Code 2.1.311 needs — the smoke run's proxy-denial item
      reveals any gap; add it to `PROXY_BETAS` and re-run.
@@ -247,7 +269,13 @@ because the proxy injects it.
   block and the transcript awareness signals as an **advisory** block. It
   strips control characters from every printed and stored string, prints a
   `WARNING` for any arm with incomplete samples, and counts those per arm with
-  their reasons.
+  their reasons. Per arm it also shows proxy denials, queue wait, how cost was
+  derived (`cost_source` counts) and which prices are missing. Cost is never
+  shown as $0 when units were charged but not attributed to usage; that is
+  reported as unknown with the units. It ends with one **ARMS COMPARABLE?**
+  line: yes only if every row used the same model and harness, every arm ran
+  each scenario with the same prompt count, and every (scenario, arm) has at
+  least **2** complete samples (the fewest that give any spread to compare).
 
 `--out` must be outside the repo. The default is
 `$HOME/agentic-os-eval-runs/<stamp>-release-arms`. It contains:
