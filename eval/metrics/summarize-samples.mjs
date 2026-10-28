@@ -27,9 +27,9 @@ const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const round2 = (x) => Math.round(x * 100) / 100;
 
 function stats(values) {
-  const v = values.filter((x) => typeof x === 'number');
+  const v = values.filter((x) => typeof x === 'number'), raw = v.reduce((s, x) => s + x, 0) / v.length; // rawMean: non-enumerable (not in summary.json), for deltas
   return v.length
-    ? { n: v.length, mean: round2(v.reduce((s, x) => s + x, 0) / v.length), min: Math.min(...v), max: Math.max(...v) }
+    ? Object.defineProperty({ n: v.length, mean: round2(raw), min: Math.min(...v), max: Math.max(...v) }, 'rawMean', { value: raw })
     : { n: 0, mean: null, min: null, max: null };
 }
 
@@ -162,7 +162,7 @@ function deltas(groups) {
         for (const [name, a] of Object.entries(g[block])) {
           const b = base[block][name];
           if (!b || a.mean === null || b.mean === null) continue;
-          rows.push({ kind, metric: name, delta_mean: round2(a.mean - b.mean), range: [round2(a.min - b.max), round2(a.max - b.min)], n: [a.n, b.n] });
+          rows.push({ kind, metric: name, delta_mean: round2(a.rawMean - b.rawMean), range: [round2(a.min - b.max), round2(a.max - b.min)], n: [a.n, b.n] });
         }
       }
       out.push({ scenario: sc, arm: g.arm, baseline: base.arm, rows });
@@ -255,7 +255,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         console.log(`  ${clean(d.scenario)}: ${clean(d.arm)} - ${clean(d.baseline)}`);
         for (const r of d.rows) console.log(`    ${r.kind === 'primary' ? 'primary ' : 'advisory'} ${r.metric.padEnd(28)} ${String(r.delta_mean).padStart(12)}  [${r.range[0]}, ${r.range[1]}]  n=${r.n[0]}/${r.n[1]}`);
       }
-      console.log('  primary = proxy-authoritative; advisory = model-writable transcript. compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED.');
+      console.log(`  primary = proxy-authoritative; advisory = model-writable transcript.${s.deltas.some((d) => d.rows.some((r) => r.metric === 'compact_boundaries')) ? ' compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED.' : ''}`);
     }
   }
 }

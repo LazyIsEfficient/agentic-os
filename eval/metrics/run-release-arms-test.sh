@@ -462,8 +462,12 @@ check "inflight 429s per sample far apart (200 vs 0) -> WARNING, but still compa
   'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-warn.txt" && grep -q "WARNING: s: inflight 429s per sample far apart (a=200, b=0)" "$T/cmp-warn.txt"'
 { for i in 1 2 3; do row v301; done; for i in 1 2 3; do row main | sed 's/"turns":1/"turns":4/'; done; } > "$T/cmp-delta.jsonl"
 node "$DIR/summarize-samples.mjs" "$T/cmp-delta.jsonl" > "$T/cmp-delta.txt"
-check "comparable run: prints main - v301 deltas (advisory turns +3, range, n=3/3) and the compaction caveat" \
-  'grep -q "^  s: main - v301" "$T/cmp-delta.txt" && grep -qE "advisory turns +3  \[3, 3\]  n=3/3" "$T/cmp-delta.txt" && grep -q "compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED" "$T/cmp-delta.txt"'
+check "comparable run: prints main - v301 deltas (advisory turns +3, range, n=3/3); no compaction caveat without a compact_boundaries delta" \
+  'grep -q "^  s: main - v301" "$T/cmp-delta.txt" && grep -qE "advisory turns +3  \[3, 3\]  n=3/3" "$T/cmp-delta.txt" && grep -q "^  primary = proxy-authoritative; advisory = model-writable transcript.$" "$T/cmp-delta.txt" && ! grep -q "compact_boundaries: the record shape" "$T/cmp-delta.txt"'
+{ for c in 1 0 0; do row v301 | sed "s/\"prompts\"/\"compact_boundaries\":$c,\"prompts\"/"; done; for c in 1 1 0; do row main | sed "s/\"prompts\"/\"compact_boundaries\":$c,\"prompts\"/"; done; } > "$T/cmp-cb.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/cmp-cb.jsonl" > "$T/cmp-cb.txt"
+check "deltas use unrounded means (2/3 - 1/3 = 0.33, not 0.67 - 0.33 = 0.34); caveat printed with a compact_boundaries delta" \
+  'grep -qE "advisory compact_boundaries +0.33  \[-1, 1\]  n=3/3" "$T/cmp-cb.txt" && grep -q "^  primary = proxy-authoritative; advisory = model-writable transcript. compact_boundaries: the record shape and whether headless --resume compacts are UNVERIFIED.$" "$T/cmp-cb.txt"'
 check "non-comparable run: no deltas, says why" 'grep -q "^DELTAS: not comparable: " "$T/cmp-twofail.txt"'
 check "summary shows cost_source counts and missing prices per arm" 'grep -q "cost: 2 x price unknown; missing PRICE_M_IN_PER_MTOK" "$T/cmp-ok.txt"'
 

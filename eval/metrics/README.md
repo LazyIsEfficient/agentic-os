@@ -94,11 +94,19 @@ makes; the smoke run's proxy-denial item shows any miss. Override with
 3. `bash eval/metrics/run-release-arms.sh --smoke --scenario long-session-awareness main=main`
    — 2 calls. Read the checklist: item 1 must show no proxy denials (a rejected
    beta, field, tool or block type shows up here — add it to the allowlist
-   only if it is safe, then re-run the smoke), items 2, 3 and 5 must PASS, and
-   item 4 shows CLI vs proxy cost.
+   only if it is safe, then re-run the smoke), items 2, 3 and 5 must PASS,
+   item 4 shows CLI vs proxy cost, and item 6 (the web_search probe) must
+   PASS — it shows the proxy rejects server tools. If item 6 reads FAIL,
+   `setup failed` or `unrun`, do not start the full run; find out why the
+   proxy did not reject the probe first. Item 7 is MANUAL: re-run the smoke and
+   press Ctrl-C mid-run in your terminal. The run must stop with exit 130, the
+   running sample's row must be incomplete with reason
+   `interrupted (K of M prompts ran)`, and `summary.json` must still be written.
 4. The full run (above): 3 arms × 3 runs, 99 calls. Answer `y` at the cost
    gate only if the printed ceiling fits the key's spend limit. Read
-   `ARMS COMPARABLE?` and the `DELTAS` block.
+   `ARMS COMPARABLE?` and the `DELTAS` block. Deltas are `arm - baseline`; the
+   baseline is the arm named `v301`, or, if no arm has that name, the first arm
+   by code-point order of its name.
 5. **Revoke the key** in the Console when the run ends (or if you abort it).
 
 ### Sandbox (`--sandbox docker`, the default)
