@@ -29,6 +29,7 @@ bash run-release-arms.sh [options] --scenario NAME... NAME=REF[:FLAGS]...
 node summarize-samples.mjs <samples.jsonl> [--json]
 bash run-release-arms-test.sh                          # release arms (stub claude, no API)
 bash run-release-arms-docker-test.sh                   # docker sandbox vs an adversarial stub (skips without docker)
+bash api-proxy-test.sh                                 # proxy accounting + allowlists (fake upstream, no network)
 ```
 
 ## The two arms (`run-arms.sh`)
@@ -59,10 +60,26 @@ default `--sandbox docker`.
 # A dedicated Console workspace API key with a spend limit; revoke it afterwards.
 export ANTHROPIC_API_KEY=...
 git fetch origin --tags        # every REF must resolve locally
+# Optional, UNVERIFIED prices (none are built in; without them cost = "price unknown"):
+#   export PRICE_CLAUDE_SONNET_5_5_IN_PER_MTOK=... PRICE_CLAUDE_SONNET_5_5_OUT_PER_MTOK=...
+#   export PRICE_CLAUDE_HAIKU_5_5_IN_PER_MTOK=...  PRICE_CLAUDE_HAIKU_5_5_OUT_PER_MTOK=...
+#   export PRICE_CACHE_READ_MULT=... PRICE_CACHE_WRITE_MULT=...
+bash eval/metrics/run-release-arms.sh --smoke --scenario long-session-awareness main=main   # first
 bash eval/metrics/run-release-arms.sh --runs 3 \
   --scenario long-session-awareness --scenario seeded-path-traversal \
   v301=v3.0.1 main=main mainall=main:--with-marketing,--with-games
 ```
+
+**Models** (maintainer decision): the eval model is `claude-sonnet-5-5`, and
+Claude Code's background work uses `claude-haiku-5-5`. Both are pinned on every
+invocation: `--model` on the CLI plus, in docker, `ANTHROPIC_MODEL`,
+`ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL` (the
+documented background-model variable; `ANTHROPIC_SMALL_FAST_MODEL` is
+deprecated) and `CLAUDE_CODE_SUBAGENT_MODEL`. These two models are the proxy's
+whole allowlist, so any other model the CLI tries is denied, logged, and marks
+the sample incomplete. UNVERIFIED: that this pinning covers every call the CLI
+makes; the smoke run's proxy-denial item shows any miss. Override with
+`--model` / `--small-model`.
 
 ### Sandbox (`--sandbox docker`, the default)
 
@@ -86,24 +103,40 @@ the next sample. The harness runs on the host and does the following:
      `--cap-drop ALL`, `no-new-privileges`, a read-only root fs, tmpfs
      `/tmp`, `--init` and a pids limit. It sits on an `--internal` network.
      Each prompt is a separate `docker exec` from the host, so the model
-     cannot rewrite a later prompt. The harness re-hashes the installed
-     library inside the container and aborts the sample if it differs from the
-     preflighted host root.
+     cannot rewrite a later prompt. The harness hashes the installed library
+     (content + file names) inside the container at start and before every
+     later prompt, and stops the sample (incomplete) if it differs from the
+     preflighted host root. Files Claude Code creates itself are not in that
+     list, so they are allowed.
    - **Proxy container** (`lib/api-proxy.mjs`), the sample's only route out and
      the **authoritative record** of what it spent. The sample's claude gets
      `ANTHROPIC_BASE_URL` pointing at the proxy and a placeholder key; the
      proxy holds the real `ANTHROPIC_API_KEY`, strips any client credential and
      `x-forwarded-*`, and injects the real key. It fully parses each request
-     body and allows only `POST /v1/messages`,
-     `POST /v1/messages/count_tokens` and `GET /v1/models`, only the arm's
-     `model`, `max_tokens` ≤ 32000, and an `anthropic-beta` allowlist, and it
-     rejects server-side tools (`web_search`/`web_fetch`/…) and `mcp_servers`.
-     It caps requests (400) and cumulative input+output tokens per sample
-     (`PROXY_MAX_TOKENS_TOTAL`, default 2,000,000), returning 429 past either.
-     It parses usage from each response (including streaming SSE) and logs it,
-     never headers or bodies. UNVERIFIED: the exact `anthropic-beta` values and
-     endpoints Claude Code 2.1.311 needs — rejections are logged, so the smoke
-     run reveals any gap; add the value to `PROXY_BETAS` and re-run.
+     body and forwards the **re-serialized validated object** (so a duplicated
+     JSON key cannot pass one value and send another). It allows only
+     `POST /v1/messages`, `POST /v1/messages/count_tokens` and `GET /v1/models`;
+     only the two pinned models; `max_tokens` ≤ 32000; an `anthropic-beta`
+     allowlist (no 1M-context beta); and only plain client-side tools
+     (`name`/`description`/`input_schema`, no `type` other than `custom`), so
+     server tools and `mcp_servers` are rejected.
+     **Spend cap.** One request at a time per sample. Before forwarding, each
+     request reserves its worst case — body bytes + 4096 + `max_tokens` cap
+     units (a token covers at least a byte of the request) — and is admitted
+     only if committed + reservation ≤ `PROXY_MAX_UNITS` (default 2,000,000);
+     otherwise 429. The reservation is replaced by the parsed usage. Cap units =
+     uncached input + cache writes + output + cache reads × 0.1
+     (`PROXY_CACHE_READ_WEIGHT`): cache reads are billed far below input
+     (UNVERIFIED multiplier) and a large cached context would otherwise trip the
+     cap early, yet they stay bounded. Upstream is asked for identity encoding;
+     a compressed reply is decompressed for parsing anyway; a 2xx reply whose
+     usage cannot be parsed is charged its full reservation and flagged (fail
+     closed). On shutdown the sample container is stopped first, then the proxy
+     drains its in-flight request (or charges its reservation) before writing
+     its summary. Every request logs a start and an end line; every rejection is
+     logged. UNVERIFIED: the exact `anthropic-beta` values, tool shapes and
+     endpoints Claude Code 2.1.311 needs — the smoke run's proxy-denial item
+     reveals any gap; add it to `PROXY_BETAS` and re-run.
    - **Scorer container** (`lib/score-sample.mjs`), from the scorer image, with
      network `none` and the sample volume mounted read-only. It reads only the
      task tree and the transcript, as data. The app under test runs as a
@@ -117,11 +150,16 @@ the next sample. The harness runs on the host and does the following:
 
 **Trust model.** The model runs with `--dangerously-skip-permissions`, so its
 CLI log and the transcript are treated as **model-writable**: awareness metrics
-are advisory. **Tokens and cost are proxy-authoritative** (the proxy is outside
-the model's reach), and the sample row flags any disagreement with the CLI's
-own cost. Completeness is decided from host-observed exit codes, interrupts, and
-proxy caps — a model can drop its own sample but cannot forge a complete one or
-forge low spend.
+are advisory. **Tokens are proxy-authoritative** (the proxy is outside the
+model's reach), recorded per model as input, cache read, cache write and output.
+Cost is a **derived, labelled estimate**: proxy tokens × the prices you supply
+(`PRICE_<MODEL>_IN/OUT_PER_MTOK`, `PRICE_CACHE_READ_MULT`,
+`PRICE_CACHE_WRITE_MULT`); with any price missing it is `price unknown` and
+only tokens are reported. The row flags any disagreement with the CLI's own
+cost. A sample is incomplete on a non-zero exit, an interrupt, **any proxy
+denial**, a worst-case charge, a changed installed library between prompts,
+or a structured non-success CLI result — a model can drop its own sample but
+cannot forge a complete one or forge low spend.
 
 `run-release-arms-docker-test.sh` runs 2 samples with an adversarial stub. It
 checks that the stub cannot: rewrite the exploit check, scanner or scorer; see
@@ -182,8 +220,9 @@ because the proxy injects it.
   record. A sample is marked incomplete on a non-zero exit, an interrupt, a
   proxy 429, or a structured non-success CLI result record (`subtype !==
   "success"` or `is_error`) — never by matching free text. The cost gate also
-  prints the proxy token cap and a worst-case dollar ceiling at UNVERIFIED
-  prices.
+  prints the per-sample cap and a true upper bound: samples × (cap +
+  `max_tokens` + reserve overhead) units, and a dollar ceiling only when every
+  price is supplied (otherwise `price unknown`).
 - **Interleaving.** Samples run in rounds. Round *r* runs every scenario under
   every arm, with the arm order rotated by one each round. Every sample has
   its own fresh root (and, in docker, its own volume and containers).
