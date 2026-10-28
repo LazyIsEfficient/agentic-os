@@ -119,42 +119,48 @@ the next sample. The harness runs on the host and does the following:
      only the two pinned models; `max_tokens` ≤ 32000; an `anthropic-beta`
      allowlist (no 1M-context beta); and only plain client-side tools
      (`name`/`description`/`input_schema`/`cache_control`, no `type` other than `custom`), so
-     server tools and `mcp_servers` are rejected.
+     server tools are rejected. Top-level request fields are an **allowlist**:
+     `model`, `messages`, `system`, `max_tokens`, `tools`, `tool_choice`,
+     `stream`, `temperature`, `thinking`, `metadata`, `stop_sequences`, `top_p`,
+     `top_k` (UNVERIFIED that Claude Code needs nothing else; every rejection is
+     logged, so the smoke run shows any gap). Any validator error is a 400,
+     never a crash.
      **Content blocks** are walked recursively (messages, `system`, nested
-     `tool_result.content`): only `text`, `image`, `tool_use`, `tool_result`,
-     `thinking` and `redacted_thinking` are allowed, and a `source` must be
-     `base64` or `text` — a `url` or `file` source (which would make the API
-     fetch for the model) is rejected. **`document` blocks are rejected**, not
-     reserved for: an inline compressed PDF can tokenize to far more tokens than
-     its bytes, which would break the reservation bound, and the scenarios here
-     need no PDFs (UNVERIFIED that Claude Code never sends one; it would show as
-     a denial). `container` and a `service_tier` other than `auto` /
-     `standard_only` are rejected too.
-     **Spend cap.** One request at a time per sample. Before forwarding, each
-     request reserves its worst case — body bytes + 4096 + `max_tokens` cap
-     units (a token covers at least a byte of the request) — and is admitted
-     only if committed + reservation ≤ `PROXY_MAX_UNITS` (default 2,000,000);
-     otherwise 429. The reservation is replaced by the parsed usage. Cap units =
-     uncached input + cache writes + output + cache reads × 0.1
-     (`PROXY_CACHE_READ_WEIGHT`): cache reads are billed far below input
-     (UNVERIFIED multiplier) and a large cached context would otherwise trip the
-     cap early, yet they stay bounded. Upstream is asked for identity encoding;
-     a compressed reply is decompressed for parsing anyway; a 2xx reply whose
-     usage cannot be parsed is charged its full reservation and flagged (fail
-     closed). On shutdown the sample container is stopped first, then the proxy
-     drains its in-flight request (or charges its reservation) before writing
-     its summary. Each inline image adds 1600 units to its request's
-     reservation (`PROXY_IMAGE_RESERVE`; image tokens do not scale with base64
-     bytes; UNVERIFIED upper bound). **Queue:** at most 8 requests wait
-     (`PROXY_MAX_QUEUE`), each at most 120 s (`PROXY_MAX_QUEUE_WAIT_MS`); past
-     either, 503. A request whose client disconnects while queued is dropped
-     and never forwarded; one whose client disconnects in flight aborts the
-     upstream call and is charged its reservation only if upstream had already
-     started responding (UNVERIFIED whether an aborted-before-headers request is
-     billed). Each request's queue wait is logged and reported per arm, so any
-     slowdown serialization adds to an arm that fans out parallel subagents is
-     visible. A 503 during the proxy's own shutdown is not a model-caused
-     denial; it gets its own incomplete reason.
+     `tool_result.content`), at most 32 deep: only `text`, `image`, `tool_use`,
+     `tool_result`, `thinking` and `redacted_thinking` are allowed, and a
+     `source` must be `base64` — a `url` or `file` source (which would make the
+     API fetch for the model) is rejected. **`document` blocks are rejected**,
+     not reserved for: an inline compressed PDF can tokenize to far more tokens
+     than its bytes, which would break the reservation bound, and the scenarios
+     here need no PDFs (UNVERIFIED that Claude Code never sends one; it would
+     show as a denial).
+     **Spend cap.** Requests run concurrently, at most 8 in flight
+     (`PROXY_MAX_INFLIGHT`: the main loop plus a handful of parallel subagents
+     or background calls, without letting one sample open a flood of paid
+     calls). Each request reserves its worst case — body bytes + 4096 +
+     `max_tokens` + 1600 per inline image (`PROXY_IMAGE_RESERVE`; UNVERIFIED
+     upper bound) cap units — and is admitted only if committed + every
+     in-flight reservation + its own ≤ `PROXY_MAX_UNITS` (default 2,000,000) and
+     fewer than 8 are in flight. Otherwise it gets an **immediate 429**
+     (`proxy cap/concurrency`) — there is no queue and no waiting. These 429s
+     are the harness's own limit: they are counted per arm
+     (`proxy_cap_rejected`) and are neither a model denial nor, on their own, a
+     reason to drop a sample. The reservation is replaced by the parsed usage.
+     Cap units = uncached input + cache writes + output + cache reads × 0.1
+     (`PROXY_CACHE_READ_WEIGHT`, 0 < w ≤ 1): cache reads are billed far below
+     input (UNVERIFIED multiplier) and a large cached context would otherwise
+     trip the cap early, yet they stay bounded. Upstream is asked for identity
+     encoding; a compressed reply is decompressed anyway. **Fail closed:** once
+     the request body has been written upstream it may be billed, so an
+     unparseable 2xx reply, a network error, a timeout or a **client abort** is
+     charged its full reservation and flagged; before the body is written such a
+     failure costs 0. A client abort also makes the sample incomplete
+     (`client aborted request`). On shutdown the sample container is stopped
+     first, then the proxy lets its in-flight requests finish (or charges their
+     reservations) before writing its summary; a request that arrives during
+     that shutdown gets a 503 with its own reason, not counted as a denial. A
+     sample whose proxy wrote no summary is incomplete (`no proxy summary`) and
+     its cost is unknown.
      Every request logs a start and an end line; every rejection is
      logged. UNVERIFIED: the exact `anthropic-beta` values, tool shapes and
      endpoints Claude Code 2.1.311 needs — the smoke run's proxy-denial item
@@ -269,13 +275,22 @@ because the proxy injects it.
   block and the transcript awareness signals as an **advisory** block. It
   strips control characters from every printed and stored string, prints a
   `WARNING` for any arm with incomplete samples, and counts those per arm with
-  their reasons. Per arm it also shows proxy denials, queue wait, how cost was
-  derived (`cost_source` counts) and which prices are missing. Cost is never
-  shown as $0 when units were charged but not attributed to usage; that is
-  reported as unknown with the units. It ends with one **ARMS COMPARABLE?**
-  line: yes only if every row used the same model and harness, every arm ran
-  each scenario with the same prompt count, and every (scenario, arm) has at
-  least **2** complete samples (the fewest that give any spread to compare).
+  their reasons. Per arm it also shows proxy denials, proxy cap/concurrency
+  429s, the completion rate, how cost was derived (`cost_source` counts) and
+  which prices are missing. Cost is never shown as $0 when units were charged
+  but not attributed to usage; that is reported as unknown with the units. It
+  ends with one **ARMS COMPARABLE?** line, followed by a `NO because:` line for
+  every reason. It is yes only if: every row comes from one run (same
+  `run_id`) in one sandbox mode, with the same model, harness and per-run
+  settings (recorded in every row: `max_tokens` cap, unit cap, in-flight limit,
+  cache-read weight, beta-allowlist hash, both models); every arm ran each
+  scenario with the same prompt count; and every (scenario, arm) has at least
+  **2** complete samples (the fewest that give any spread), a completion rate
+  of at least **80%**, and completion rates within **20 points** of the other
+  arms. Incomplete samples are left out of the metrics, so arms that lose
+  very different fractions of their runs would be compared on differently
+  selected subsets; 20 points is one sample in five. With the default
+  `--runs 1` it is always NO, and says so.
 
 `--out` must be outside the repo. The default is
 `$HOME/agentic-os-eval-runs/<stamp>-release-arms`. It contains:
