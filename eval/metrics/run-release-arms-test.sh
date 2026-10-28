@@ -456,6 +456,10 @@ check "arms comparable: NO across different run ids and sandbox modes" \
 check "arms comparable: NO when per-run settings differ" 'grep -q "NO because: per-run settings differ" "$T/cmp-settings.txt"'
 check "arms comparable: NO for 2/10 vs 10/10 complete" \
   'grep -q "NO because: s/b: 2 of 10 complete < 9 required" "$T/cmp-rate.txt" && grep -q "NO because: s: complete counts differ by 8" "$T/cmp-rate.txt"'
+{ for i in 1 2 3; do row a | sed 's/"cost_source"/"proxy":{"inflight_rejected":200},"cost_source"/'; done; for i in 1 2 3; do row b; done; } > "$T/cmp-warn.jsonl"
+node "$DIR/summarize-samples.mjs" "$T/cmp-warn.jsonl" > "$T/cmp-warn.txt"
+check "inflight 429s per sample far apart (200 vs 0) -> WARNING, but still comparable" \
+  'grep -q "^ARMS COMPARABLE? yes" "$T/cmp-warn.txt" && grep -q "WARNING: s: inflight 429s per sample far apart (a=200, b=0)" "$T/cmp-warn.txt"'
 check "summary shows cost_source counts and missing prices per arm" 'grep -q "cost: 2 x price unknown; missing PRICE_M_IN_PER_MTOK" "$T/cmp-ok.txt"'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
