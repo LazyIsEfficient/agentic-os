@@ -203,6 +203,9 @@ check "a document block is rejected (even base64: compressed PDFs break the byte
 check "an unknown block type is rejected" '[ "$(blk "[{\"type\":\"server_tool_use\",\"id\":\"x\",\"name\":\"web_search\",\"input\":{}}]")" = 400 ]'
 check "text, tool_use and tool_result blocks are allowed" \
   '[ "$(blk "[{\"type\":\"text\",\"text\":\"hi\"},{\"type\":\"tool_result\",\"tool_use_id\":\"t\",\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}]")" = 200 ]'
+check "service_tier priority and a container field are rejected" \
+  '[ "$(code "$(body $SONNET 10 ",\"service_tier\":\"priority\"")")" = 400 ] && [ "$(code "$(body $SONNET 10 ",\"container\":\"c1\"")")" = 400 ]'
+check "a tool whose input_schema is an array is rejected" '[ "$(code "$(body $SONNET 10 ",\"tools\":[{\"name\":\"x\",\"input_schema\":[]}]")")" = 400 ]'
 stop
 check "each content-block rejection is logged" '[ "$(grep -c "content block type not allowed\|content source type not allowed" "$T/blocks/proxy.log")" -ge 5 ]'
 start imgres -- PROXY_RESERVE_OVERHEAD=100 PROXY_IMAGE_RESERVE=1600

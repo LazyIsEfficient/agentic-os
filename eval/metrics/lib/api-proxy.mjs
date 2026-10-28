@@ -131,6 +131,9 @@ function validate(route, buf) {
     return { ok: false, why: `max_tokens must be 1..${MAX_TOKENS}` };
   }
   if (o.mcp_servers !== undefined) return { ok: false, why: 'mcp_servers not allowed' };
+  // A server-tool sandbox, and a higher-billed service tier, are not needed.
+  if (o.container !== undefined) return { ok: false, why: 'container not allowed' };
+  if (o.service_tier !== undefined && !['auto', 'standard_only'].includes(o.service_tier)) return { ok: false, why: `service_tier not allowed: ${String(o.service_tier).slice(0, 40)}` };
   // Every content block, recursively (messages, system, tool_result.content):
   // type allowlist, and a `source` only inline (base64 / text) — never url or
   // file, which would make the API fetch for the model.
@@ -163,7 +166,7 @@ function validate(route, buf) {
       if (!t || typeof t !== 'object') return { ok: false, why: 'tool is not an object' };
       if (t.type !== undefined && t.type !== 'custom') return { ok: false, why: `tool type not allowed: ${String(t.type).slice(0, 60)}` };
       for (const k of Object.keys(t)) if (!TOOL_KEYS.has(k)) return { ok: false, why: `tool key not allowed: ${k.slice(0, 40)}` };
-      if (typeof t.name !== 'string' || !t.input_schema || typeof t.input_schema !== 'object') return { ok: false, why: 'tool needs name and input_schema' };
+      if (typeof t.name !== 'string' || !t.input_schema || typeof t.input_schema !== 'object' || Array.isArray(t.input_schema)) return { ok: false, why: 'tool needs name and an object input_schema' };
     }
   }
   // Forward exactly what was validated (duplicate keys collapse here).
