@@ -29,7 +29,11 @@
 // request). It is admitted only if
 //     committed + (reservations in flight) + its reservation <= PROXY_MAX_UNITS
 // and fewer than PROXY_MAX_INFLIGHT are in flight; otherwise it gets an
-// immediate 429 (`cause:"cap"`) — no queue, no waiting. Those 429s are the
+// immediate 429 — no queue, no waiting: `cause:"inflight"` when the concurrency
+// limit is full (transient; the harness's own limit, not a denial, not a
+// stop), `cause:"budget"` when the unit cap would be exceeded (the sample's
+// budget is spent: a stop signal downstream). Neither is a model denial. A
+// request counts against PROXY_MAX_REQUESTS only once it is admitted. Those 429s are the
 // harness's own limit, not a model-caused denial; they are counted apart.
 //   - On the response the reservation is replaced by the parsed usage. Cap
 //     units = input + cache_creation + output + cache_read x
@@ -47,8 +51,8 @@
 //   {phase:"start", id, path, model, reserved, committed, inflight}
 //   {phase:"end", id, model, status, usage, units, usage_parsed, committed, note?}
 //   {phase:"error", id, error}   {phase:"unfinished", id, model, units}
-//   {method, path, status, denied, cause?}   cause: "cap" | "drain" (not denials)
-//   {summary:true, requests, denials, cap_rejected, drain_rejected, client_aborted,
+//   {method, path, status, denied, cause?}   cause: "inflight" | "budget" | "drain" (not denials)
+//   {summary:true, requests, denials, inflight_rejected, budget_rejected, drain_rejected, client_aborted,
 //    max_inflight_seen, committed_units, unparsed, unfinished, by_model, cache_read_weight}
 // On SIGTERM it stops accepting, lets in-flight requests finish (up to
 // PROXY_DRAIN_MS), charges any still unfinished at its reservation, then
@@ -94,7 +98,7 @@ const DROP = new Set(['host', 'x-api-key', 'authorization', 'connection', 'keep-
   'proxy-connection', 'te', 'trailer', 'upgrade', 'transfer-encoding', 'content-length', 'accept-encoding',
   'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'forwarded']);
 
-const S = { count: 0, requests: 0, denials: 0, cap_rejected: 0, drain_rejected: 0, client_aborted: 0,
+const S = { count: 0, requests: 0, denials: 0, inflight_rejected: 0, budget_rejected: 0, drain_rejected: 0, client_aborted: 0,
   committed: 0, unparsed: 0, unfinished: 0, max_inflight_seen: 0, by_model: {}, nextId: 1, draining: false };
 const inflight = new Map();   // id -> { model, reserved }
 const log = (o) => process.stdout.write(JSON.stringify({ t: new Date().toISOString(), ...o }) + '\n');
@@ -102,10 +106,11 @@ const safePath = (u) => { try { return new URL(u, 'http://p').pathname.slice(0, 
 const units = (u) => u.input + u.cache_creation + u.output + Math.ceil(u.cache_read * CR_WEIGHT);
 const reservedInFlight = () => { let n = 0; for (const r of inflight.values()) n += r.reserved; return n; };
 
-// Every rejection is logged. cause "cap" (our cap / concurrency limit) and
+// Every rejection is logged. causes "inflight" / "budget" (our limits) and
 // "drain" (shutting down) are the harness's own limits, not model denials.
 function deny(req, res, status, why, cause) {
-  if (cause === 'cap') S.cap_rejected++;
+  if (cause === 'inflight') S.inflight_rejected++;
+  else if (cause === 'budget') S.budget_rejected++;
   else if (cause === 'drain') S.drain_rejected++;
   else S.denials++;
   log({ method: req.method, path: safePath(req.url), status, denied: why, ...(cause ? { cause } : {}) });
@@ -177,7 +182,7 @@ function parseUsage(raw, headers) {
   } catch { return null; }
   const text = buf.toString('utf8');
   const u = { input: 0, cache_read: 0, cache_creation: 0, output: 0 };
-  let seen = false;
+  let seen = false, delta = false;
   const take = (x) => {
     if (!x || typeof x !== 'object') return;
     const f = (k) => (Number.isFinite(x[k]) && x[k] >= 0 ? x[k] : null);
@@ -192,8 +197,11 @@ function parseUsage(raw, headers) {
       if (!line.startsWith('data:')) continue;
       let o; try { o = JSON.parse(line.slice(5).trim()); } catch { continue; }
       if (o && o.type === 'message_start' && o.message) take(o.message.usage);
-      if (o && o.type === 'message_delta') take(o.usage);
+      if (o && o.type === 'message_delta') { take(o.usage); delta = true; }
     }
+    // A stream that never sent message_delta has no final output count:
+    // treat as unparsed (charged the reservation) rather than the start usage.
+    if (!delta) return null;
   } else {
     let o; try { o = JSON.parse(text); } catch { o = null; }
     if (o) take(o.usage);
@@ -211,10 +219,13 @@ function charge(model, u) {
 
 function forward(req, res, v, headers, route) {
   const reserved = route[2] === 'messages' ? v.body.length + OVERHEAD + v.maxTokens + v.images * IMAGE_RESERVE : 0;
-  if (inflight.size >= MAX_INFLIGHT) return deny(req, res, 429, `proxy cap/concurrency: ${MAX_INFLIGHT} requests already in flight`, 'cap');
+  if (inflight.size >= MAX_INFLIGHT) return deny(req, res, 429, `proxy concurrency: ${MAX_INFLIGHT} requests already in flight`, 'inflight');
   if (S.committed + reservedInFlight() + reserved > MAX_UNITS) {
-    return deny(req, res, 429, `proxy cap/concurrency: token cap ${MAX_UNITS} units (committed ${S.committed} + in flight ${reservedInFlight()} + this ${reserved})`, 'cap');
+    return deny(req, res, 429, `unit budget exhausted: cap ${MAX_UNITS} units (committed ${S.committed} + in flight ${reservedInFlight()} + this ${reserved})`, 'budget');
   }
+  // Counted against the request cap only once admitted (cap-429 retries must
+  // not use it up).
+  if (++S.count > MAX_REQUESTS) return deny(req, res, 429, `request cap ${MAX_REQUESTS} reached`);
   const id = S.nextId++;
   S.requests++;
   inflight.set(id, { model: v.model, reserved });
@@ -258,7 +269,9 @@ function forward(req, res, v, headers, route) {
     const chunks = []; let bytes = 0;
     ur.on('data', (c) => { bytes += c.length; if (bytes <= MAX_BODY) chunks.push(c); });
     ur.on('end', () => finish(ur.statusCode || 0, parseUsage(Buffer.concat(chunks), ur.headers)));
-    ur.on('error', () => finish(0, null, 'upstream response error', true));
+    // Mid-pipe upstream failure: charge (fail closed) and end the client's
+    // response too, or it would hang waiting for the rest.
+    ur.on('error', () => { finish(0, null, 'upstream response error', true); res.destroy(); });
     res.writeHead(ur.statusCode || 502, ur.headers);
     ur.pipe(res);
   });
@@ -278,7 +291,6 @@ const server = http.createServer((req, res) => {
   const route = routeFor(req);
   if (!route) return deny(req, res, 403, 'not on the allowlist');
   if (!KEY) return deny(req, res, 503, 'proxy has no ANTHROPIC_API_KEY');
-  if (++S.count > MAX_REQUESTS) return deny(req, res, 429, `request cap ${MAX_REQUESTS} reached`);
   const bad = [];
   for (const [k, v] of Object.entries(req.headers)) {
     if (k.toLowerCase() !== 'anthropic-beta') continue;
@@ -319,7 +331,7 @@ function summary(sig) {
       log({ phase: 'unfinished', id, model: r.model, units: r.reserved });
     }
     inflight.clear();
-    log({ summary: true, signal: sig, requests: S.requests, denials: S.denials, cap_rejected: S.cap_rejected,
+    log({ summary: true, signal: sig, requests: S.requests, denials: S.denials, inflight_rejected: S.inflight_rejected, budget_rejected: S.budget_rejected,
       drain_rejected: S.drain_rejected, client_aborted: S.client_aborted, max_inflight_seen: S.max_inflight_seen,
       committed_units: S.committed, unparsed: S.unparsed, unfinished: S.unfinished, by_model: S.by_model, cache_read_weight: CR_WEIGHT });
     process.exit(0);

@@ -61,8 +61,8 @@ stop
 check "parallel: committed units never exceed the cap" '[ "$(sj par "o.committed_units")" -le 400000 ]'
 check "parallel: requests run concurrently, never more than 8 in flight" \
   '[ "$(sj par "o.max_inflight_seen")" -gt 1 ] && [ "$(sj par "o.max_inflight_seen")" -le 8 ]'
-check "parallel: the excess gets an immediate 429 (cause cap), not a model denial" \
-  'grep -q "\"429\"" "$T/par/client.out" && [ "$(sj par "o.denials")" = 0 ] && [ "$(sj par "o.cap_rejected")" -gt 0 ] && grep -q "\"cause\":\"cap\"" "$T/par/proxy.log"'
+check "parallel: the excess gets an immediate 429 (cause inflight or budget), not a model denial" \
+  'grep -q "\"429\"" "$T/par/client.out" && [ "$(sj par "o.denials")" = 0 ] && [ "$(sj par "o.inflight_rejected+o.budget_rejected")" -gt 0 ] && grep -qE "\"cause\":\"(inflight|budget)\"" "$T/par/proxy.log"'
 check "parallel: no queue — nothing waits (no queue or dropped fields remain)" '! grep -q "queue_wait\|\"dropped\"" "$T/par/proxy.log"'
 
 # ---- 2. honest upstream: reservation keeps the total under the cap exactly ----
@@ -180,8 +180,8 @@ check "abort after upstream started responding: charged its reservation" '[ "$(s
 start conc UP_DELAY=800 -- PROXY_MAX_INFLIGHT=2
 send 5 "$(body $SONNET 50)" > "$T/conc/client.out"
 stop
-check "with 2 in flight allowed: 2 forwarded, 3 get an immediate 429 counted as cap_rejected (denials 0)" \
-  '[ "$(received conc)" = 2 ] && [ "$(node -e "console.log(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))[\"429\"])" "$T/conc/client.out")" = 3 ] && [ "$(sj conc "o.cap_rejected+\"|\"+o.denials")" = "3|0" ]'
+check "with 2 in flight allowed: 2 forwarded, 3 get an immediate 429 (cause inflight, denials 0)" \
+  '[ "$(received conc)" = 2 ] && [ "$(node -e "console.log(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))[\"429\"])" "$T/conc/client.out")" = 3 ] && [ "$(sj conc "o.inflight_rejected+\"|\"+o.budget_rejected+\"|\"+o.denials")" = "3|0|0" ]'
 
 # ---- 12. content blocks: inline base64 only, block-type allowlist, depth limit --
 start blocks --
@@ -214,5 +214,39 @@ start imgres -- PROXY_RESERVE_OVERHEAD=100 PROXY_IMAGE_RESERVE=1600
 B="$(msg "[$IMG64,$IMG64]")"; send 1 "$B" > /dev/null; stop
 check "an image block adds its own reservation (bytes + overhead + max_tokens + 2 x 1600)" \
   'grep -q "\"reserved\":$(( $(printf "%s" "$B" | wc -c | tr -d " ") + 100 + 10 + 3200 ))," "$T/imgres/proxy.log"'
+
+# ---- 13. 429 retries do not use up the request cap (PoC retry.sh) -----------
+start retry UP_DELAY=400 -- PROXY_MAX_INFLIGHT=1 PROXY_MAX_REQUESTS=3
+send 6 "$(body $SONNET 50)" > /dev/null      # 1 admitted, 5 get inflight 429s
+sleep 0.6
+send 1 "$(body $SONNET 50)" > /dev/null; sleep 0.6
+send 1 "$(body $SONNET 50)" > "$T/retry/last.out"
+stop
+check "inflight 429s are not counted against PROXY_MAX_REQUESTS: the 2nd and 3rd admitted requests still pass" \
+  '[ "$(received retry)" = 3 ] && grep -q "\"200\"" "$T/retry/last.out" && ! grep -q "request cap" "$T/retry/proxy.log"'
+
+# ---- 14. budget exhaustion is its own cause ---------------------------------
+start budget UP_IN=10 UP_OUT=10 -- PROXY_MAX_UNITS=300 PROXY_RESERVE_OVERHEAD=100
+send 1 "$(body $SONNET 400)" > /dev/null
+stop
+check "a request that would exceed the unit cap gets 429 cause budget (not inflight, not a denial)" \
+  '[ "$(sj budget "o.budget_rejected+\"|\"+o.inflight_rejected+\"|\"+o.denials")" = "1|0|0" ] && grep -q "unit budget exhausted" "$T/budget/proxy.log"'
+
+# ---- 15. a mid-pipe upstream failure ends the client response -----------------
+start midfail UP_MODE=midfail -- PROXY_RESERVE_OVERHEAD=100
+B="$(body $SONNET 100)"; R1=$(( $(printf "%s" "$B" | wc -c | tr -d " ") + 100 + 100 ))
+t0=$(date +%s)
+node "$AC" "$PXPORT" "$B" 0 > "$T/midfail/client.out"
+t1=$(date +%s)
+stop
+check "mid-pipe upstream error: the client is not left hanging (PoC: CLIENT-HUNG-3s)" '[ $((t1 - t0)) -le 2 ] && grep -q "aborted" "$T/midfail/client.out"'
+check "mid-pipe upstream error: charged its reservation and flagged" '[ "$(sj midfail "o.committed_units+\"|\"+o.unparsed")" = "$R1|1" ]'
+
+# ---- 16. an SSE stream with no message_delta is charged the reservation -------
+start nodelta UP_MODE=nodelta UP_IN=10 -- PROXY_RESERVE_OVERHEAD=100
+send 1 "$B" > /dev/null
+stop
+check "SSE without message_delta: charged its reservation (not just message_start usage) and flagged" \
+  '[ "$(sj nodelta "o.committed_units+\"|\"+o.unparsed")" = "$R1|1" ]'
 
 [ "$FAIL" = 0 ] && echo "api-proxy-test: OK" || { echo "api-proxy-test: FAILED"; exit 1; }

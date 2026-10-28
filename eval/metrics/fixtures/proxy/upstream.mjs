@@ -4,7 +4,9 @@
 //   UP_IN / UP_OUT / UP_CR / UP_CC   usage numbers it reports
 //   UP_DELAY                          ms before answering
 //   UP_MODE   json | sse | gzip (gzip even if not asked) | garbage | error |
-//             stall (headers + first event, the rest after UP_STALL ms)
+//             stall (headers + first event, the rest after UP_STALL ms) |
+//             midfail (headers + first event, then the socket dies) |
+//             nodelta (an SSE stream with no message_delta)
 import http from 'node:http';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
@@ -27,6 +29,18 @@ http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'text/event-stream' });
         res.write(`data: ${JSON.stringify({ type: 'message_start', message: { usage: { input_tokens: IN, output_tokens: 1 } } })}\n\n`);
         return setTimeout(() => { res.write(`data: ${JSON.stringify({ type: 'message_delta', usage: { output_tokens: OUT } })}\n\n`); res.end(); }, n('UP_STALL', 3000));
+      }
+      if (MODE === 'midfail') {
+        // Headers and the first event, then the connection dies mid-body.
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(`data: ${JSON.stringify({ type: 'message_start', message: { usage: { input_tokens: IN, output_tokens: 1 } } })}\n\n`);
+        return setTimeout(() => res.socket.destroy(), 200);
+      }
+      if (MODE === 'nodelta') {
+        // A complete SSE stream that never sends message_delta.
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(`data: ${JSON.stringify({ type: 'message_start', message: { usage: { input_tokens: IN, output_tokens: 1 } } })}\n\n`);
+        return res.end();
       }
       if (MODE === 'garbage') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('not json at all'); }
       if (MODE === 'error') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"type":"error","error":{"type":"invalid_request_error"}}'); }

@@ -101,7 +101,10 @@ export function summarize(rows) {
       for (const r of g.rows) { const k = clean(r.cost_source ?? 'none'); costSources[k] = (costSources[k] || 0) + 1; }
       const priceMissing = [...new Set(g.rows.flatMap((r) => (Array.isArray(r.price_missing) ? r.price_missing : [])).map(clean))].sort(cmp);
       // The harness's own cap/concurrency 429s (not model denials), every row.
-      const proxyCapRejected = g.rows.reduce((s, r) => s + (Number(r.proxy?.cap_rejected) || 0), 0);
+      const sumOf = (k) => g.rows.reduce((s, r) => s + (Number(r.proxy?.[k]) || 0), 0);
+      // inflight: transient concurrency 429s (older rows: cap_rejected); budget: unit cap spent.
+      const proxyInflight = g.rows.reduce((s, r) => s + (Number(r.proxy?.inflight_rejected ?? r.proxy?.cap_rejected) || 0), 0);
+      const proxyBudget = sumOf('budget_rejected');
       // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
@@ -119,7 +122,9 @@ export function summarize(rows) {
         complete: done.length,
         incomplete: { count: g.rows.length - done.length, reasons: sortedReasons },
         proxy_denials: proxyDenials,
-        proxy_cap_rejected: proxyCapRejected,
+        proxy_inflight_429s: proxyInflight,
+        proxy_inflight_429s_per_sample: g.rows.length ? Math.round((proxyInflight / g.rows.length) * 100) / 100 : 0,
+        proxy_budget_429s: proxyBudget,
         completion_rate: g.rows.length ? Math.round((done.length / g.rows.length) * 1000) / 1000 : 0,
         run_ids: [...new Set(g.rows.map((r) => clean(r.run_id ?? 'unknown')))].sort(cmp),
         sandboxes: [...new Set(g.rows.map((r) => clean(r.sandbox ?? 'unknown')))].sort(cmp),
@@ -144,43 +149,48 @@ export function summarize(rows) {
 //     same model, harness and per-run settings (max_tokens cap, unit cap,
 //     in-flight limit, cache-read weight, beta allowlist hash, models);
 //   - every arm ran each scenario with the same prompt count;
-//   - every (scenario, arm) has >= MIN_COMPLETE complete samples (2: the least
-//     that gives any min/max spread), a completion rate >= MIN_RATE (0.8), and
-//     the arms' completion rates for a scenario lie within RATE_TOLERANCE
-//     (0.2) of each other. Incomplete samples are excluded from the metrics, so
-//     arms that lose very different fractions of their runs are compared on
-//     differently selected subsets; 0.2 is one sample in five.
-// With the default --runs 1 every (scenario, arm) has at most 1 complete
-// sample, so the verdict is always NO; the reason says so.
+//   - COUNT RULE (maintainer decision): with R = the most samples any
+//     (scenario, arm) has (= --runs), every (scenario, arm) has at least
+//     max(2, R - 1) complete samples — one failure per arm per scenario is
+//     tolerated, and 2 is the fewest that give any spread — and for each
+//     scenario the arms' complete counts differ by at most 1.
+// With --runs 1 no arm can reach 2 complete samples, so it is always NO.
+// A WARNING (not a NO) is printed when the arms' inflight-429 rates per
+// sample are far apart: whether the CLI retries those transparently is
+// UNVERIFIED, so a fan-out arm may have been slowed.
 export const MIN_COMPLETE = 2;
-export const MIN_RATE = 0.8;
-export const RATE_TOLERANCE = 0.2;
 function comparable(groups) {
   const reasons = [];
+  const warnings = [];
   const all = (k) => new Set(groups.flatMap((g) => g[k]));
   for (const [k, label] of [['run_ids', 'run ids'], ['sandboxes', 'sandbox modes'], ['models', 'models'], ['harness', 'harness shas'], ['settings', 'per-run settings']]) {
     const v = all(k);
     if (v.size !== 1) reasons.push(`${label} differ (${v.size})`);
   }
+  const runs = groups.reduce((m, g) => Math.max(m, g.samples), 0);
+  const need = Math.max(MIN_COMPLETE, runs - 1);
   const byScenario = new Map();
   for (const g of groups) {
-    const s = byScenario.get(g.scenario) || { prompts: new Set(), arms: new Set(), rates: [] };
+    const s = byScenario.get(g.scenario) || { prompts: new Set(), arms: new Map(), inflight: [] };
     for (const p of g.prompts) s.prompts.add(p);
-    s.arms.add(g.arm); s.rates.push(g.completion_rate);
+    s.arms.set(g.arm, g.complete); s.inflight.push([g.arm, g.proxy_inflight_429s_per_sample]);
     byScenario.set(g.scenario, s);
   }
   const allArms = new Set(groups.map((g) => g.arm));
   for (const [sc, s] of [...byScenario.entries()].sort(([a], [b]) => cmp(a, b))) {
     if (s.prompts.size !== 1) reasons.push(`${sc}: prompt counts differ across arms`);
     for (const a of [...allArms].sort(cmp)) if (!s.arms.has(a)) reasons.push(`${sc}: arm ${a} has no samples`);
-    const spread = Math.max(...s.rates) - Math.min(...s.rates);
-    if (spread > RATE_TOLERANCE + 1e-9) reasons.push(`${sc}: completion rates differ by ${Math.round(spread * 100)}% (> ${RATE_TOLERANCE * 100}%)`);
+    const counts = [...s.arms.entries()].sort(([a], [b]) => cmp(a, b));
+    const lo = Math.min(...counts.map(([, c]) => c)), hi = Math.max(...counts.map(([, c]) => c));
+    if (hi - lo > 1) reasons.push(`${sc}: complete counts differ by ${hi - lo} (> 1): ${counts.map(([a, c]) => `${a}=${c}`).join(', ')}`);
+    const rates = s.inflight.map(([, r]) => r);
+    const rlo = Math.min(...rates), rhi = Math.max(...rates);
+    if (rhi > 10 && rhi > 3 * rlo) warnings.push(`${sc}: inflight 429s per sample far apart (${s.inflight.map(([a, r]) => `${a}=${r}`).join(', ')}); a fan-out arm may have been throttled (UNVERIFIED whether the CLI retries transparently)`);
   }
   for (const g of groups) {
-    if (g.complete < MIN_COMPLETE) reasons.push(`${g.scenario}/${g.arm}: ${g.complete} complete < ${MIN_COMPLETE}${g.samples < MIN_COMPLETE ? ` (only ${g.samples} sample(s); with --runs 1 this is always NO)` : ''}`);
-    if (g.completion_rate < MIN_RATE) reasons.push(`${g.scenario}/${g.arm}: completion rate ${Math.round(g.completion_rate * 100)}% < ${MIN_RATE * 100}%`);
+    if (g.complete < need) reasons.push(`${g.scenario}/${g.arm}: ${g.complete} of ${g.samples} complete < ${need} required (rule: max(2, runs-1) with runs=${runs})${runs < MIN_COMPLETE ? '; with --runs 1 this is always NO' : ''}`);
   }
-  return { ok: reasons.length === 0, min_complete: MIN_COMPLETE, min_rate: MIN_RATE, rate_tolerance: RATE_TOLERANCE, reasons };
+  return { ok: reasons.length === 0, rule: `each (scenario, arm) >= max(2, runs-1) complete; complete counts per scenario differ by <= 1`, runs, required_complete: need, reasons, warnings };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -193,7 +203,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else {
     const f = (x) => (x == null ? '-' : String(x));
     for (const g of s.groups) {
-      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} completion=${Math.round(g.completion_rate * 100)}% proxy_denials=${g.proxy_denials} proxy_cap_429s=${g.proxy_cap_rejected}`);
+      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} completion=${Math.round(g.completion_rate * 100)}% proxy_denials=${g.proxy_denials} inflight_429s=${g.proxy_inflight_429s} budget_429s=${g.proxy_budget_429s}`);
       console.log(`  cost: ${Object.entries(g.cost_sources).map(([k, n]) => `${n} x ${k}`).join('; ')}${g.price_missing.length ? `; missing ${g.price_missing.join(' ')}` : ''}`);
       if (g.complete < g.samples) {
         console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);
@@ -206,7 +216,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (g.exploit.not_applicable < g.complete) console.log(`  exploit                pass ${g.exploit.pass}  fail ${g.exploit.fail}  error ${g.exploit.error}`);
     }
     const c = s.comparable;
-    console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (one run and sandbox, same model/harness/settings, same prompt counts, >= ${c.min_complete} complete and >= ${c.min_rate * 100}% completion per arm, completion rates within ${c.rate_tolerance * 100}%)`);
+    console.log(`ARMS COMPARABLE? ${c.ok ? 'yes' : 'NO'} (one run and sandbox, same model/harness/settings, same prompt counts; ${c.rule}; runs=${c.runs}, required=${c.required_complete})`);
     for (const r of c.reasons) console.log(`  NO because: ${clean(r)}`);
+    for (const w of c.warnings) console.log(`  WARNING: ${clean(w)}`);
   }
 }

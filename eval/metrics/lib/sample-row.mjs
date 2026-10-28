@@ -69,7 +69,7 @@ const stopSignals = [];
 let proxy = null;
 if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
   const byModel = {}; const started = new Map(); let committed = 0, requests = 0, unparsed = 0, unfinished = 0, aborted = 0;
-  const denials = []; let summary = null; let drainRejected = 0, capRejected = 0;
+  const denials = []; let summary = null; let drainRejected = 0, inflightRejected = 0, budgetRejected = 0;
   const add = (m, u) => {
     const t = byModel[m] || (byModel[m] = { input: 0, cache_read: 0, cache_creation: 0, output: 0 });
     for (const k of Object.keys(t)) t[k] += num(u[k]) || 0;
@@ -81,7 +81,8 @@ if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
     if (!o || typeof o !== 'object') continue;
     if (o.summary === true) summary = o;
     else if (o.denied !== undefined && o.cause === 'drain') drainRejected++;
-    else if (o.denied !== undefined && o.cause === 'cap') capRejected++;
+    else if (o.denied !== undefined && o.cause === 'inflight') inflightRejected++;
+    else if (o.denied !== undefined && o.cause === 'budget') budgetRejected++;
     else if (o.denied !== undefined) denials.push(`${o.status} ${String(o.denied).slice(0, 100)}`);
     else if (o.phase === 'start') { requests++; started.set(o.id, o); }
     else if (o.phase === 'end') {
@@ -95,13 +96,14 @@ if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
   if (summary) {
     proxy = { summary: true, requests: num(summary.requests) || 0, committed_units: num(summary.committed_units) || 0,
       unparsed: num(summary.unparsed) || 0, unfinished: num(summary.unfinished) || 0, by_model: summary.by_model || {},
-      client_aborted: num(summary.client_aborted) || 0, cap_rejected: num(summary.cap_rejected) ?? capRejected,
+      client_aborted: num(summary.client_aborted) || 0, inflight_rejected: num(summary.inflight_rejected) ?? inflightRejected,
+      budget_rejected: num(summary.budget_rejected) ?? budgetRejected,
       drain_rejected: num(summary.drain_rejected) ?? drainRejected, max_inflight_seen: num(summary.max_inflight_seen) };
   } else {
     let reservedOpen = 0;
     for (const o of started.values()) { unfinished++; reservedOpen += num(o.reserved) || 0; }
     proxy = { summary: false, requests, committed_units: committed + reservedOpen, reserved_unfinished_units: reservedOpen,
-      unparsed, unfinished, by_model: byModel, client_aborted: aborted, cap_rejected: capRejected, drain_rejected: drainRejected, max_inflight_seen: null };
+      unparsed, unfinished, by_model: byModel, client_aborted: aborted, inflight_rejected: inflightRejected, budget_rejected: budgetRejected, drain_rejected: drainRejected, max_inflight_seen: null };
     stopSignals.push('no proxy summary');
   }
   proxy.denials = denials.length;
@@ -113,8 +115,12 @@ if (e.PROXY_LOG && existsSync(e.PROXY_LOG)) {
   // proxy down. Its own reason, still incomplete (work was cut off).
   if (proxy.drain_rejected) stopSignals.push(`proxy rejected ${proxy.drain_rejected} request(s) while shutting down (not model-caused)`);
   if (proxy.unparsed || proxy.unfinished) stopSignals.push(`proxy charged worst case (unparsed ${proxy.unparsed}, unfinished ${proxy.unfinished})`);
-  // cap/concurrency 429s are the harness's own limit: counted, reported per
-  // arm, but neither a denial nor on their own a stop (the CLI retries).
+  // The unit budget ran out: later work was refused, so the sample is cut
+  // short even if the CLI exited 0.
+  if (proxy.budget_rejected) stopSignals.push('unit budget exhausted');
+  // Concurrency ("inflight") 429s are the harness's own transient limit:
+  // counted and reported per arm, but neither a denial nor on their own a
+  // stop. UNVERIFIED that the CLI retries them transparently.
 }
 
 // ── Tokens (proxy) and cost (derived estimate; prices must be supplied) ──
