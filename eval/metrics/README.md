@@ -118,7 +118,7 @@ the next sample. The harness runs on the host and does the following:
      `POST /v1/messages`, `POST /v1/messages/count_tokens` and `GET /v1/models`;
      only the two pinned models; `max_tokens` ≤ 32000; an `anthropic-beta`
      allowlist (no 1M-context beta); and only plain client-side tools
-     (`name`/`description`/`input_schema`, no `type` other than `custom`), so
+     (`name`/`description`/`input_schema`/`cache_control`, no `type` other than `custom`), so
      server tools and `mcp_servers` are rejected.
      **Spend cap.** One request at a time per sample. Before forwarding, each
      request reserves its worst case — body bytes + 4096 + `max_tokens` cap
@@ -218,9 +218,9 @@ because the proxy injects it.
   ceiling. UNVERIFIED: whether hitting either limit exits non-zero. Every
   invocation gets `--output-format json`, so the log ends with the CLI's result
   record. A sample is marked incomplete on a non-zero exit, an interrupt, a
-  proxy 429, or a structured non-success CLI result record (`subtype !==
+  any proxy denial (including a 429), or a structured non-success CLI result record (`subtype !==
   "success"` or `is_error`) — never by matching free text. The cost gate also
-  prints the per-sample cap and a true upper bound: samples × (cap +
+  prints the per-sample cap and its bound (it holds while upstream usage ≤ the reservation, which byte-level tokenization implies — UNVERIFIED): samples × (cap +
   `max_tokens` + reserve overhead) units, and a dollar ceiling only when every
   price is supplied (otherwise `price unknown`).
 - **Interleaving.** Samples run in rounds. Round *r* runs every scenario under

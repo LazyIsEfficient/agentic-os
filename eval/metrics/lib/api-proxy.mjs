@@ -62,7 +62,7 @@ const MAX_REQUESTS = Number(env.PROXY_MAX_REQUESTS) || 400;
 const MAX_TOKENS = Number(env.PROXY_MAX_TOKENS) || 32000;
 const MAX_UNITS = Number(env.PROXY_MAX_UNITS) || 2_000_000;
 const OVERHEAD = Number(env.PROXY_RESERVE_OVERHEAD) || 4096;
-const CR_WEIGHT = env.PROXY_CACHE_READ_WEIGHT !== undefined ? Number(env.PROXY_CACHE_READ_WEIGHT) : 0.1;
+const CR_WEIGHT = env.PROXY_CACHE_READ_WEIGHT === undefined ? 0.1 : (w => (Number.isFinite(w) && w >= 0 && w <= 1 ? w : 1))(Number(env.PROXY_CACHE_READ_WEIGHT)); // invalid -> 1 (fail closed)
 const DRAIN_MS = Number(env.PROXY_DRAIN_MS) || 25000;
 const MAX_BODY = 32 * 1024 * 1024;
 const MODELS = new Set((env.PROXY_MODELS || '').split(/\s+/).filter(Boolean));
@@ -177,7 +177,7 @@ function forward(req, res, v, headers, route, done) {
     let n = 0;
     if (route[2] !== 'messages') n = 0;
     else if (parsed) n = charge(v.model, u);
-    else if (status >= 200 && status < 300) { S.unparsed++; n = charge(v.model, { input: reserved - v.maxTokens, cache_read: 0, cache_creation: 0, output: v.maxTokens }); }
+    else if (status === 0 || (status >= 200 && status < 300)) { S.unparsed++; n = charge(v.model, { input: reserved - v.maxTokens, cache_read: 0, cache_creation: 0, output: v.maxTokens }); } // 0 = network error/timeout: may have been billed, so fail closed
     log({ phase: 'end', id, model: v.model, status, usage: parsed ? u : null, units: n, usage_parsed: Boolean(parsed), committed: S.committed });
     done();
   };
@@ -201,7 +201,7 @@ function forward(req, res, v, headers, route, done) {
       const u = parseUsage(Buffer.concat(chunks), ur.headers);
       finish(status, u || { input: 0, cache_read: 0, cache_creation: 0, output: 0 }, Boolean(u));
     });
-    ur.on('error', () => finish(ur.statusCode || 502, null, false));
+    ur.on('error', () => finish(0, null, false));
     res.writeHead(ur.statusCode || 502, ur.headers);
     ur.pipe(res);
   });
@@ -211,7 +211,7 @@ function forward(req, res, v, headers, route, done) {
     log({ phase: 'error', id, error: e.code || e.message || 'upstream error' });
     if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json' });
     res.end();
-    finish(502, null, false);
+    finish(0, null, false);
   });
   up.end(v.body);
 }

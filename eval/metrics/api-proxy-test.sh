@@ -139,4 +139,16 @@ check "cache tokens are recorded separately per model" \
 check "cap units = input + cache_creation + output + cache_read*0.1 (6312)" '[ "$(sj cache "o.committed_units")" = 6312 ]'
 check "the key canary never appears in the proxy log" '! grep -rqF "$CANARY" "$T"/*/proxy.log'
 
+# ---- 9. fail closed on a bad weight and on network errors ----------------------
+start nanw UP_MODE=sse UP_IN=12 UP_CC=1000 UP_CR=50000 UP_OUT=300 -- PROXY_CACHE_READ_WEIGHT=abc
+send 1 "$(body $SONNET 400)" > /dev/null
+stop
+check "an invalid cache-read weight counts cache reads in full (51312 units, not NaN)" '[ "$(sj nanw "o.committed_units")" = 51312 ]'
+start neterr -- PROXY_RESERVE_OVERHEAD=100
+kill "$UPPID" 2>/dev/null; wait "$UPPID" 2>/dev/null
+B="$(body $SONNET 200)"; send 1 "$B" > /dev/null
+stop
+check "a network error to upstream is charged its reservation and flagged (fail closed)" \
+  '[ "$(sj neterr "o.committed_units+\"|\"+o.unparsed")" = "$(( $(printf "%s" "$B" | wc -c | tr -d " ") + 100 + 200 ))|1" ]'
+
 [ "$FAIL" = 0 ] && echo "api-proxy-test: OK" || { echo "api-proxy-test: FAILED"; exit 1; }
