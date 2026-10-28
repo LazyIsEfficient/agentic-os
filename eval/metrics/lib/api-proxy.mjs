@@ -26,13 +26,13 @@
 // PROXY_MAX_INFLIGHT at once. Each /v1/messages request reserves its worst
 // case — body bytes + PROXY_RESERVE_OVERHEAD + max_tokens + images x
 // PROXY_IMAGE_RESERVE cap units (a token covers at least a byte of the
-// request). It is admitted only if
-//     committed + (reservations in flight) + its reservation <= PROXY_MAX_UNITS
-// and fewer than PROXY_MAX_INFLIGHT are in flight; otherwise it gets an
-// immediate 429 — no queue, no waiting: `cause:"inflight"` when the concurrency
-// limit is full (transient; the harness's own limit, not a denial, not a
-// stop), `cause:"budget"` when the unit cap would be exceeded (the sample's
-// budget is spent: a stop signal downstream). Neither is a model denial. A
+// request). Otherwise an immediate 429 — no queue, no waiting — checked in
+// order: `cause:"budget"` when committed + ITS reservation > PROXY_MAX_UNITS
+// (the budget really is spent: a stop signal downstream); then
+// `cause:"inflight"` when PROXY_MAX_INFLIGHT are in flight, or when committed
+// + the other in-flight reservations + its own > the cap (a transient spike;
+// the harness's own limit, not a denial, not a stop). So parallelism alone
+// never reads as an exhausted budget. Neither is a model denial. A
 // request counts against PROXY_MAX_REQUESTS only once it is admitted. Those 429s are the
 // harness's own limit, not a model-caused denial; they are counted apart.
 //   - On the response the reservation is replaced by the parsed usage. Cap
