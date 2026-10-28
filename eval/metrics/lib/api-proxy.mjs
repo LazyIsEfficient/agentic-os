@@ -331,7 +331,7 @@ const server = http.createServer((req, res) => {
       queue.splice(i, 1);
       const waitMs = Date.now() - q.t0;
       S.queue_wait_ms_total += waitMs; S.queue_wait_ms_max = Math.max(S.queue_wait_ms_max, waitMs);
-      deny(req, res, 503, `queue wait over ${MAX_QUEUE_WAIT_MS} ms`);
+      if (q.gone) { S.dropped++; log({ dropped: 'client closed while queued', path: q.path, queue_wait_ms: waitMs }); } else deny(req, res, 503, `queue wait over ${MAX_QUEUE_WAIT_MS} ms`);
     }, MAX_QUEUE_WAIT_MS);
     queue.push(q);
     pump();
@@ -356,7 +356,7 @@ function summary(sig) {
       if (r.reserved) charge(r.model, { input: r.reserved, cache_read: 0, cache_creation: 0, output: 0 });
       log({ phase: 'unfinished', id: r.id, model: r.model, units: r.reserved });
     }
-    while (queue.length) { const q = queue.shift(); clearTimeout(q.timer); if (q.gone) S.dropped++; else q.run(Date.now() - q.t0); }
+    while (queue.length) { const q = queue.shift(); clearTimeout(q.timer); if (q.gone) { S.dropped++; log({ dropped: 'client closed while queued', path: q.path, queue_wait_ms: Date.now() - q.t0 }); } else q.run(Date.now() - q.t0); }
     log({ summary: true, signal: sig, requests: S.requests, denials: S.denials, drain_rejected: S.drain_rejected,
       dropped: S.dropped, client_aborted: S.client_aborted, queue_wait_ms_total: S.queue_wait_ms_total,
       queue_wait_ms_max: S.queue_wait_ms_max, committed_units: S.committed,

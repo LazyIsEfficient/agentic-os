@@ -23,7 +23,7 @@ const row = json(lines(samples)[0] || '') || {};
 say(`smoke checklist (${TAG}):`);
 
 // 1 — no proxy denial (403 path, 400 beta/model/tool, 429 cap).
-const denied = lines(proxyLog).map(json).filter((o) => o && o.denied !== undefined);
+const denied = lines(proxyLog).map(json).filter((o) => o && o.denied !== undefined && o.cause !== 'drain'); // drain 503s are not model-caused
 if (!existsSync(proxyLog)) say('  1. proxy log: n/a (sandbox none)');
 else if (denied.length) { say(`  1. proxy denials: ${denied.length} — FAIL; add any missing beta/endpoint and re-run:`); for (const o of denied.slice(0, 5)) say(`       ${o.status} ${o.denied}`); }
 else say('  1. no proxy denials (no 403, no rejected beta/model/tool): PASS');
