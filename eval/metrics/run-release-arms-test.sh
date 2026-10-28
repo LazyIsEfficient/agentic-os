@@ -67,6 +67,9 @@ mkdir -p "\$CLAUDE_CONFIG_DIR/projects/stub"
 # One distinct assistant turn per invocation (message ids differ), so turns
 # from every resumed prompt must be counted.
 printf '{"type":"assistant","message":{"id":"m-%s","usage":{"input_tokens":100,"output_tokens":10},"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/f%s"}}]}}\n' "\$n" "\$n" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
+# The user turn for this prompt (what the real CLI records), for smoke item 3.
+pr=""; prev=""; for a in "\$@"; do [ "\$prev" = "-p" ] && pr="\$a"; prev="\$a"; done
+node -e 'process.stdout.write(JSON.stringify({type:"user",message:{role:"user",content:process.argv[1]}})+"\n")' "\$pr" >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 [ "\$resumed" = yes ] && echo '{"type":"system","subtype":"compact_boundary"}' >> "\$CLAUDE_CONFIG_DIR/projects/stub/\$sid.jsonl"
 if [ -f app.js ] && grep -q createHandler app.js; then
   if [ -f "\$CLAUDE_CONFIG_DIR/.agentic-os-manifest.json" ]; then cp "$FX/safe-app.js" app.js; else cp "$FX/vulnerable-app.js" app.js; fi
@@ -83,6 +86,7 @@ case "\$(cat "$T/stub-mode" 2>/dev/null)" in
     echo "I reached max turns conceptually but finished. Exceeded USD budget is just text."
     echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5}' ;;
   error-result) echo '{"type":"result","subtype":"error_max_turns","is_error":true,"total_cost_usd":0.25}' ;;
+  noresult) echo "plain text, no result object" ;;
   negcost)
     # A tool child forges a fake result with negative cost into claude's stdout.
     echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":-995.1}'
@@ -212,6 +216,8 @@ check "plan prints the total invocation count (arms x runs x prompts)" \
 check "cost gate prints the default per-invocation budget and its CLI-estimate ceiling" \
   'grep -qF "BUDGET (client-side, model-bypassable): --max-budget-usd 5 per invocation; CLI-estimate ceiling \$$((NA * 2 * 11 * 5)).00" "$T/gate.stdout"'
 check "no --yes -> temp base empty" '[ -z "$(ls -A "$T/arms-tmp")" ]'
+check "a non-smoke plan does not say (smoke)" '! grep -q "(smoke)" "$T/gate.stdout"'
+check "the plan names the pinned eval and background models" 'grep -qF "models: claude-sonnet-5-5 (eval), claude-haiku-5-5 (background)" "$T/gate.stdout"'
 
 # ---- 5. bad specs fail before anything is set up -------------------------------
 run_case badflag --yes --scenario seeded-path-traversal main=HEAD:--force
@@ -345,7 +351,7 @@ check "a forged negative cost is rejected; cost comes from the valid (>=0) resul
   '[ "$(rows "$T/out-sig-negcost/samples.jsonl" "l[0].cli_cost_usd")" = "0.5" ]'
 check "summary warns when an arm has incomplete samples" 'grep -q "WARNING: only 0 of 1 samples complete for main" "$T/sig-error-result.stdout"'
 check "none-mode cost is cli-only (no proxy) and summed per sample" \
-  '[ "$(rows "$T/out-long/samples.jsonl" "l[0].cost_usd+\"|\"+l[0].cost_source+\"|\"+(l[0].tokens===null)")" = "5|cli-only|true" ]'
+  '[ "$(rows "$T/out-long/samples.jsonl" "l[0].cost_usd+\"|\"+l[0].cost_source+\"|\"+(l[0].tokens===null)")" = "5|cli-only (model-writable)|true" ]'
 
 # ---- 8d. output dir policy and redaction ------------------------------------------
 run_case inrepo-dummy --yes --scenario seeded-path-traversal main=HEAD
@@ -385,6 +391,19 @@ check "interrupted run still wrote summary.json" '[ -s "$T/out-int/summary.json"
 check "the running sample is marked incomplete, with an interrupted stop signal" \
   '[ "$(rows "$T/out-int/samples.jsonl" "l.length===1&&l[0].status===\"incomplete\"&&l[0].stop_signals.includes(\"interrupted\")")" = true ]'
 check "the run stopped early: only the interrupted sample's prompt 1 ran" '[ "$(ncalls)" = 1 ]'
+
+# ---- 8g. smoke checklist: structured result required; both user turns found ----
+run_case smoke-ok --yes --smoke --scenario long-session-awareness main=HEAD
+check "smoke: the plan says (smoke)" 'grep -q "(smoke)" "$T/smoke-ok.stdout"'
+check "smoke item 2 passes with a parsed result object" 'grep -q "2. CLI result record parsed: PASS" "$T/smoke-ok.stdout"'
+check "smoke item 3 finds a user turn for both prompts" 'grep -q "3. transcript holds a user turn for each prompt (2/2): PASS" "$T/smoke-ok.stdout"'
+check "smoke item 5: neither the raw key nor its hash is in OUT" 'grep -q "5. raw key and its sha256 absent from OUT: PASS" "$T/smoke-ok.stdout"'
+check "the model is pinned on every invocation (--model claude-sonnet-5-5)" \
+  '[ "$(grep -lx -- "claude-sonnet-5-5" "$T"/stub-log/call-*/argv | wc -l | tr -d " ")" = 2 ]'
+echo noresult > "$T/stub-mode"
+run_case smoke-nores --yes --smoke --scenario long-session-awareness main=HEAD
+rm -f "$T/stub-mode"
+check "smoke item 2 FAILS without a result object (metrics alone are not enough)" 'grep -q "2. CLI result record parsed: FAIL" "$T/smoke-nores.stdout"'
 
 # ---- 9. operator HOME untouched --------------------------------------------------
 check "sentinel HOME unchanged" '[ "$(iso_listing_sha256 "$T/sentinel-home")" = "$SENTINEL_BEFORE" ]'

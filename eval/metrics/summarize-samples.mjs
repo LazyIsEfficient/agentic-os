@@ -45,7 +45,10 @@ function isComplete(r) {
     && r.exit_codes.every((c) => c === 0) && signals(r).length === 0
     && Boolean(r.metrics) && typeof r.metrics === 'object';
 }
+// The harness-written row's own reason when it has one (rows are written by the
+// host, not the model); otherwise recomputed the same way.
 function incompleteReason(r) {
+  if (typeof r.incomplete_reason === 'string' && r.incomplete_reason) return r.incomplete_reason;
   const codes = Array.isArray(r.exit_codes) ? r.exit_codes : []; if (signals(r).includes('interrupted')) return `interrupted (${codes.length} of ${r.prompts} prompts ran)`;
   const i = codes.findIndex((c) => c !== 0);
   if (i >= 0) return `prompt ${i + 1} of ${r.prompts} exited ${codes[i]}`;
@@ -84,10 +87,15 @@ export function summarize(rows) {
       // Proxy-authoritative primary metrics (from the row, not the transcript).
       const primary = {
         proxy_input_tokens: stats(done.map((r) => r.tokens?.input)),
+        proxy_cache_read_tokens: stats(done.map((r) => r.tokens?.cache_read)),
+        proxy_cache_creation_tokens: stats(done.map((r) => r.tokens?.cache_creation)),
         proxy_output_tokens: stats(done.map((r) => r.tokens?.output)),
-        cost_usd: stats(done.map((r) => r.cost_usd)),
+        proxy_cap_units: stats(done.map((r) => r.tokens?.cap_units)),
+        cost_usd_estimate: stats(done.map((r) => r.cost_usd)),
         cli_cost_usd: stats(done.map((r) => r.cli_cost_usd)),
       };
+      // Every row (complete or not): how often the proxy refused something.
+      const proxyDenials = g.rows.reduce((s, r) => s + (Number(r.proxy?.denials) || 0), 0);
       // Transcript-derived awareness metrics — MODEL-WRITABLE, advisory.
       const metrics = {};
       for (const [name, get] of METRICS) metrics[name] = stats(done.map((r) => get(r.metrics)));
@@ -104,6 +112,7 @@ export function summarize(rows) {
         samples: g.rows.length,
         complete: done.length,
         incomplete: { count: g.rows.length - done.length, reasons: sortedReasons },
+        proxy_denials: proxyDenials,
         primary,
         metrics,
         metrics_trust: 'awareness metrics are model-writable (advisory); primary tokens/cost are proxy-authoritative',
@@ -123,7 +132,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else {
     const f = (x) => (x == null ? '-' : String(x));
     for (const g of s.groups) {
-      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count}`);
+      console.log(`${g.scenario} / ${g.arm}  (${g.refs.join(', ')})  samples=${g.samples} complete=${g.complete} incomplete=${g.incomplete.count} proxy_denials=${g.proxy_denials}`);
       if (g.complete < g.samples) {
         console.log(`  WARNING: only ${g.complete} of ${g.samples} samples complete for ${g.arm}; the metrics below cover those only`);
       }

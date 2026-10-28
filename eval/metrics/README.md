@@ -143,11 +143,6 @@ It is for tests with a stub `claude` only, and it also accepts
 `CLAUDE_CODE_OAUTH_TOKEN`. The docker sandbox needs a Console API key,
 because the proxy injects it.
 
-`--sandbox none` runs the same pipeline on the host with **no containment**.
-It is for tests with a stub `claude` only, and it also accepts
-`CLAUDE_CODE_OAUTH_TOKEN`. The docker sandbox needs a Console API key,
-because the proxy injects it.
-
 ### What the harness does
 
 - **Per-ref install.** Each arm is a `git archive <REF>` export, installed by

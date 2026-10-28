@@ -89,7 +89,10 @@ check "docker-sandboxed run exits 0" '[ "$rc" = 0 ]'
 [ "$rc" = 0 ] || tail -30 "$T/run.log"
 S="$T/out/samples.jsonl"
 rows() { node -e 'const l=require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").filter(Boolean).map(JSON.parse);console.log(eval(process.argv[2]))' "$S" "$1"; }
-check "2 sample rows, both complete, sandbox docker" '[ "$(rows "l.length===2&&l.every(r=>r.status===\"complete\"&&r.sandbox===\"docker\")")" = true ]'
+check "2 sample rows; the stub's denied probes make both incomplete (proxy denied)" \
+  '[ "$(rows "l.length===2&&l.every(r=>r.sandbox===\"docker\"&&r.status===\"incomplete\"&&/^stopped: proxy denied: /.test(r.incomplete_reason)&&r.proxy.denials>=6)")" = true ]'
+check "the summary shows the proxy denials per arm" \
+  '[ "$(node -e "const s=require(process.argv[1]);console.log(s.groups[0].proxy_denials>=12)" "$T/out/summary.json")" = true ]'
 check "the vulnerable app still scores fail despite the forgery attempts" \
   '[ "$(rows "l.every(r=>r.exploit===\"fail\"&&r.exploit_detail.leaked.length>0)")" = true ]'
 check "scanners ran in the scorer (gitleaks / semgrep counted)" '[ "$(rows "l.every(r=>Number.isInteger(r.scan.gitleaks)&&Number.isInteger(r.scan.semgrep))")" = true ]'
@@ -109,16 +112,26 @@ check "server-side tools and mcp_servers are rejected (4xx)" \
   '[ "$(adv p-websearch | sort -u)" = 400 ] && [ "$(adv p-mcp | sort -u)" = 400 ]'
 check "oversized max_tokens, disallowed model, disallowed beta are rejected (4xx)" \
   '[ "$(adv p-maxtok | sort -u)" = 400 ] && [ "$(adv p-model | sort -u)" = 400 ] && [ "$(adv p-beta | sort -u)" = 400 ]'
-check "proxy log records the denied requests" 'grep -q "\"denied\":\"not on the allowlist\"" "$T"/out/proxy-*.log && grep -q "server-side tool not allowed" "$T"/out/proxy-*.log'
-check "proxy log is the authoritative token record (usage + running totals)" \
-  'grep -q "\"total_input\":" "$T"/out/proxy-*.log'
-check "rows carry proxy-authoritative tokens and a proxy-estimate cost" \
-  '[ "$(rows "l.every(r=>r.tokens&&r.tokens.source===\"proxy\"&&Number.isInteger(r.tokens.input)&&r.cost_source===\"proxy-estimate\"&&r.cost_usd>=0)")" = true ]'
+check "proxy log records the denied requests" 'grep -q "\"denied\":\"not on the allowlist\"" "$T"/out/proxy-*.log && grep -q "tool type not allowed: web_search" "$T"/out/proxy-*.log'
+check "proxy log is the authoritative record (start/end lines, final summary)" \
+  'grep -q "\"phase\":\"start\"" "$T"/out/proxy-*.log && grep -q "\"phase\":\"end\"" "$T"/out/proxy-*.log && [ "$(grep -l "\"summary\":true" "$T"/out/proxy-*.log | wc -l | tr -d " ")" = 2 ]'
+check "rows carry proxy tokens (cache split, cap units); no prices given -> price unknown, no invented cost" \
+  '[ "$(rows "l.every(r=>r.tokens&&r.tokens.source===\"proxy\"&&r.tokens.input>0&&\"cache_read\" in r.tokens&&r.tokens.cap_units>0&&r.cost_usd===null&&r.cost_source===\"price unknown\")")" = true ]'
+check "cost gate: units ceiling printed; dollar ceiling is price unknown without PRICE_*" \
+  'grep -q "worst case: 2 sample(s) x" "$T/run.log" && grep -q "dollar ceiling: price unknown" "$T/run.log"'
 check "the key canary never appears in <out>" '! grep -rqF "$CANARY" "$T/out"'
 check "<out> holds only harness-written artifacts" \
   '[ -z "$(cd "$T/out" && find . -type f | grep -vE "^\./(isolation\.jsonl|samples\.jsonl|summary\.json|(claude|proxy|install)-[a-z0-9_-]+\.log|score-[a-z0-9_-]+\.(json|err)|transcripts/[a-z0-9_-]+\.jsonl)$")" ] && [ -z "$(find "$T/out" -type l)" ]'
 check "no docker object of the run is left" \
   '[ -z "$(docker ps -aq --filter label=aos-run)" ] && [ -z "$(docker volume ls -q --filter label=aos-run)" ] && [ -z "$(docker network ls -q --filter label=aos-run)" ]'
 check "repo untouched" '[ -z "$(git -C "$REPO" status --porcelain)" ]'
+
+# ---- two consecutive start failures: rows + summary are still written ----------
+HOME="$T/home" TMPDIR="$T/tmp" ANTHROPIC_API_KEY="$CANARY" AOS_TEST_FAIL_START=1 \
+  "$SH" "$RUN" --sandbox docker --stub-claude "$T/claude" --proxy-upstream echo --yes \
+  --out "$T/out-fail" --runs 3 --scenario seeded-path-traversal main=HEAD < /dev/null > "$T/fail.log" 2>&1
+rc=$?
+check "2 consecutive start failures -> exit 1, both rows and summary.json written, sample 3 not started" \
+  '[ "$rc" = 1 ] && [ "$(wc -l < "$T/out-fail/samples.jsonl" | tr -d " ")" = 2 ] && [ -s "$T/out-fail/summary.json" ] && grep -q "could not start the sample container" "$T/out-fail/samples.jsonl"'
 
 [ "$FAIL" = 0 ] && echo "run-release-arms-docker-test: OK" || { echo "run-release-arms-docker-test: FAILED"; exit 1; }

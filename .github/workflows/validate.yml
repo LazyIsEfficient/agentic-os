@@ -37,6 +37,7 @@ jobs:
       - run: bash eval/metrics/compare-test.sh
       - run: bash eval/metrics/run-arms-isolation-test.sh
       - run: bash eval/metrics/run-release-arms-test.sh
+      - run: bash eval/metrics/api-proxy-test.sh
   ship-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
